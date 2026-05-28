@@ -117,31 +117,7 @@
         </div>
         <div class="content">
           <div class="sec-label">My Groups</div>
-          <div class="card" onclick="go('s-gdetail')">
-            <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
-              <div class="group-emoji">🎓</div>
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:600;color:#2C2C2A">College Friends</div>
-                <div style="font-size:10px;color:#5F5E5A;margin-top:1px">6 members · 3 lists compared</div>
-              </div>
-              <span class="pill pill-coral">73% avg</span>
-            </div>
-            <div style="display:flex;gap:6px">
-              <span class="pill pill-green">Movies 84%</span>
-              <span class="pill pill-blue">Candy 71%</span>
-              <span class="pill pill-teal">Travel 65%</span>
-            </div>
-          </div>
-          <div class="card" onclick="go('s-gdetail')">
-            <div style="display:flex;align-items:center;gap:9px">
-              <div class="group-emoji">💼</div>
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:600;color:#2C2C2A">Work Team</div>
-                <div style="font-size:10px;color:#5F5E5A;margin-top:1px">4 members · 1 list compared</div>
-              </div>
-              <span class="pill pill-amber">2 pending</span>
-            </div>
-          </div>
+          <div id="groups-list"></div>
           <div class="card" onclick="go('s-cg1')" style="border-style:dashed;text-align:center;padding:14px">
             <span style="font-size:12px;color:#888780">+ Create a new group</span>
           </div>
@@ -404,8 +380,8 @@
               <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
             </div>
           </div>
-          <button class="btn-primary" onclick="go('s-gdetail')">Send to group &amp; finish</button>
-          <button class="btn-secondary" onclick="go('s-gdetail')">Skip for now</button>
+          <button class="btn-primary" onclick="finishGroup()">Send to group &amp; finish</button>
+          <button class="btn-secondary" onclick="finishGroup()">Skip for now</button>
         </div>
       </div>
 
@@ -925,6 +901,10 @@ var MY_LISTS = [
   {n:'Top 10 Vacation Spots',m:'Ranked · 6 items'}
 ];
 var EMOJIS = ['🎓','💼','👨‍👩‍👧‍👦','🏡','⚽','🎮','🎵','🍕','🏖️','✈️','🎉','📚'];
+var MY_GROUPS = [
+  {n:'College Friends', emoji:'🎓', meta:'6 members · 3 lists compared', pill:'73% avg', pillClass:'pill-coral'},
+  {n:'Work Team', emoji:'💼', meta:'4 members · 1 list compared', pill:'2 pending', pillClass:'pill-amber'}
+];
 
 var selCat = 'Movies';
 var items = [];
@@ -941,6 +921,7 @@ function go(id) {
   document.querySelectorAll('.nav-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.screen === id);
   });
+  if (id === 's-home') renderHome();
   if (id === 's-create1') { selCat = 'Movies'; items = []; renderCatGrid(); renderItems(); updateProg(); }
   if (id === 's-create2') { document.getElementById('create2-title').textContent = 'Top 10 ' + selCat; renderItems(); updateProg(); }
   if (id === 's-cg1') renderEmojiGrid();
@@ -1055,6 +1036,8 @@ function removeItem(idx) {
   setTimeout(function(){document.getElementById('item-inp').focus();}, 50);
 }
 
+var dragSrcIdx = null;
+
 function renderItems() {
   isRanked = document.getElementById('ranked-tog') ? document.getElementById('ranked-tog').checked : true;
   var list = document.getElementById('items-list');
@@ -1063,10 +1046,35 @@ function renderItems() {
   items.forEach(function(item, i) {
     var div = document.createElement('div');
     div.className = 'rank-item';
+    div.draggable = true;
+    div.dataset.idx = i;
     var badge = isRanked
       ? '<div class="rank-badge">' + (i+1) + '</div>'
       : '<div class="rank-dot"></div>';
-    div.innerHTML = badge + '<span style="flex:1;font-size:12px;color:#2C2C2A">' + item + '</span><button onclick="removeItem(' + i + ')" style="background:none;border:none;color:#888780;cursor:pointer;font-size:16px;line-height:1;padding:0 2px">×</button>';
+    div.innerHTML = badge + '<span style="flex:1;font-size:12px;color:#2C2C2A">' + item + '</span><span style="font-size:14px;color:#C8C6BE;cursor:grab;padding:0 4px">⠿</span><button onclick="removeItem(' + i + ')" style="background:none;border:none;color:#888780;cursor:pointer;font-size:16px;line-height:1;padding:0 2px">×</button>';
+    div.addEventListener('dragstart', function(e) {
+      dragSrcIdx = parseInt(this.dataset.idx);
+      this.style.opacity = '0.5';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    div.addEventListener('dragend', function() { this.style.opacity = ''; });
+    div.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      this.style.borderColor = '#D85A30';
+    });
+    div.addEventListener('dragleave', function() { this.style.borderColor = ''; });
+    div.addEventListener('drop', function(e) {
+      e.preventDefault();
+      this.style.borderColor = '';
+      var destIdx = parseInt(this.dataset.idx);
+      if (dragSrcIdx === null || dragSrcIdx === destIdx) return;
+      var moved = items.splice(dragSrcIdx, 1)[0];
+      items.splice(destIdx, 0, moved);
+      dragSrcIdx = null;
+      renderItems();
+      updateProg();
+    });
     list.appendChild(div);
   });
 }
@@ -1149,6 +1157,34 @@ function renderListPicker() {
   });
 }
 
+function renderHome() {
+  var container = document.getElementById('groups-list');
+  if (!container) return;
+  container.innerHTML = '';
+  MY_GROUPS.forEach(function(g) {
+    var card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = '<div style="display:flex;align-items:center;gap:9px"><div class="group-emoji">' + g.emoji + '</div><div style="flex:1"><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + g.n + '</div><div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + g.meta + '</div></div><span class="pill ' + g.pillClass + '">' + g.pill + '</span></div>';
+    card.onclick = function() { go('s-gdetail'); };
+    container.appendChild(card);
+  });
+}
+
+function finishGroup() {
+  var nameEl = document.getElementById('group-name');
+  var groupName = nameEl ? nameEl.value.trim() : 'New Group';
+  if (!groupName) groupName = 'New Group';
+  var memberCount = addedFriends.size + 1;
+  MY_GROUPS.push({
+    n: groupName,
+    emoji: EMOJIS[selEmoji] || '🎉',
+    meta: memberCount + ' member' + (memberCount !== 1 ? 's' : '') + ' · 0 lists compared',
+    pill: 'New',
+    pillClass: 'pill-blue'
+  });
+  go('s-gdetail');
+}
+
 function goToCreateStep2() {
   var inp = document.getElementById('cat-inp');
   if (inp && inp.value.trim()) selCat = inp.value.trim();
@@ -1183,6 +1219,7 @@ document.addEventListener('click', function(e) {
   }
 });
 
+renderHome();
 renderCatGrid();
 renderEmojiGrid();
 renderFriendsList();
