@@ -869,9 +869,9 @@ var FRIENDS = [
   {n:'Casey M.',i:'CM',bg:'#EAF3DE',c:'#3B6D11',m:'70% match'}
 ];
 var MY_LISTS = [
-  {n:'Top 10 Movies',m:'Ranked · 10 items'},
-  {n:'Top 10 Candy Bars',m:'Unranked · 8 items'},
-  {n:'Top 10 Vacation Spots',m:'Ranked · 6 items'}
+  {n:'Top 10 Movies',m:'Ranked · 10 items',ranked:true,items:['The Godfather','Inception','Interstellar','The Dark Knight','Parasite','Forrest Gump','The Shawshank Redemption','Pulp Fiction','Goodfellas','The Matrix']},
+  {n:'Top 10 Candy Bars',m:'Unranked · 8 items',ranked:false,items:['Reese\'s Peanut Butter Cups','Kit Kat','Snickers','Twix','100 Grand','Milky Way','Butterfinger','Almond Joy']},
+  {n:'Top 10 Vacation Spots',m:'Ranked · 6 items',ranked:true,items:['Costa Rica','Italy','Japan','New Zealand','Portugal','Iceland']}
 ];
 var EMOJIS = ['🎓','💼','👨‍👩‍👧‍👦','🏡','⚽','🎮','🎵','🍕','🏖️','✈️','🎉','📚'];
 var MY_GROUPS = [
@@ -1226,9 +1226,9 @@ var DEFAULT_GROUPS = [
   {n:'Work Team', emoji:'💼', meta:'4 members · 1 list compared', pill:'2 pending', pillClass:'pill-amber', memberIdxs:[0,2,3]}
 ];
 var DEFAULT_LISTS = [
-  {n:'Top 10 Movies',m:'Ranked · 10 items'},
-  {n:'Top 10 Candy Bars',m:'Unranked · 8 items'},
-  {n:'Top 10 Vacation Spots',m:'Ranked · 6 items'}
+  {n:'Top 10 Movies',m:'Ranked · 10 items',ranked:true,items:['The Godfather','Inception','Interstellar','The Dark Knight','Parasite','Forrest Gump','The Shawshank Redemption','Pulp Fiction','Goodfellas','The Matrix']},
+  {n:'Top 10 Candy Bars',m:'Unranked · 8 items',ranked:false,items:['Reese\'s Peanut Butter Cups','Kit Kat','Snickers','Twix','100 Grand','Milky Way','Butterfinger','Almond Joy']},
+  {n:'Top 10 Vacation Spots',m:'Ranked · 6 items',ranked:true,items:['Costa Rica','Italy','Japan','New Zealand','Portugal','Iceland']}
 ];
 
 function initSupabase() {
@@ -1287,7 +1287,7 @@ function saveList() {
   var listName = 'Top 10 ' + selCat;
   var itemCount = items.filter(function(i) { return i.trim(); }).length;
   var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
-  MY_LISTS.push({n: listName, m: meta});
+  MY_LISTS.push({n: listName, m: meta, items: items.slice(), ranked: isRanked});
   var dest = listOrigin;
   listOrigin = 's-home';
   if (dest === 's-cg3') selList = MY_LISTS.length - 1;
