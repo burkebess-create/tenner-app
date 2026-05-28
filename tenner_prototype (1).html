@@ -401,52 +401,7 @@
           </div>
 
           <!-- Overview tab -->
-          <div id="gtab-0">
-            <div class="stat-grid">
-              <div class="stat-card"><div class="stat-num">6</div><div class="stat-lbl">members</div></div>
-              <div class="stat-card"><div class="stat-num">73%</div><div class="stat-lbl">avg group match</div></div>
-              <div class="stat-card"><div class="stat-num">3</div><div class="stat-lbl">lists compared</div></div>
-              <div class="stat-card"><div class="stat-num">2</div><div class="stat-lbl">pending fills</div></div>
-            </div>
-            <div class="sec-label">Most alike in this group</div>
-            <div class="leader-row">
-              <span style="font-size:18px">🥇</span>
-              <div class="avatar" style="background:#E6F1FB;color:#185FA5">SK</div>
-              <div style="flex:1">
-                <div style="font-size:12px;font-weight:600;color:#2C2C2A">You &amp; Sarah K.</div>
-                <div style="font-size:10px;color:#5F5E5A">80% avg across all lists</div>
-              </div>
-            </div>
-            <div class="leader-row">
-              <span style="font-size:18px">🥈</span>
-              <div class="avatar" style="background:#E1F5EE;color:#0F6E56">JR</div>
-              <div style="flex:1">
-                <div style="font-size:12px;font-weight:600;color:#2C2C2A">You &amp; Jamie R.</div>
-                <div style="font-size:10px;color:#5F5E5A">72% avg across all lists</div>
-              </div>
-            </div>
-            <div class="leader-row">
-              <span style="font-size:18px">🥉</span>
-              <div class="avatar" style="background:#FBEAF0;color:#993356">MK</div>
-              <div style="flex:1">
-                <div style="font-size:12px;font-weight:600;color:#2C2C2A">Sarah K. &amp; Mike K.</div>
-                <div style="font-size:10px;color:#5F5E5A">68% avg across all lists</div>
-              </div>
-            </div>
-            <div class="sec-label">Members</div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-              <div style="text-align:center"><div class="avatar" style="background:#FAECE7;color:#993C1D">YO</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">You</div></div>
-              <div style="text-align:center"><div class="avatar" style="background:#E6F1FB;color:#185FA5">SK</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">Sarah</div></div>
-              <div style="text-align:center"><div class="avatar" style="background:#E1F5EE;color:#0F6E56">JR</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">Jamie</div></div>
-              <div style="text-align:center"><div class="avatar" style="background:#FBEAF0;color:#993356">MK</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">Mike</div></div>
-              <div style="text-align:center"><div class="avatar" style="background:#FAEEDA;color:#854F0B">AT</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">Alex</div></div>
-              <div style="text-align:center"><div class="avatar" style="background:#EAF3DE;color:#3B6D11">CM</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">Casey</div></div>
-            </div>
-            <div style="display:flex;gap:8px">
-              <button class="btn-primary" style="flex:1;margin-bottom:0;padding:10px;font-size:12px" onclick="go('s-cg3')">Send a list</button>
-              <button class="btn-secondary" style="flex:1;margin-bottom:0;padding:10px;font-size:12px" onclick="go('s-gsettings')">Invite more</button>
-            </div>
-          </div>
+          <div id="gtab-0"><div id="gtab-0-content"></div></div>
 
           <!-- New group empty state (shown for newly created groups) -->
           <div id="gdetail-new" style="display:none;text-align:center;padding:30px 16px">
@@ -910,8 +865,8 @@ var MY_LISTS = [
 ];
 var EMOJIS = ['🎓','💼','👨‍👩‍👧‍👦','🏡','⚽','🎮','🎵','🍕','🏖️','✈️','🎉','📚'];
 var MY_GROUPS = [
-  {n:'College Friends', emoji:'🎓', meta:'6 members · 3 lists compared', pill:'73% avg', pillClass:'pill-coral'},
-  {n:'Work Team', emoji:'💼', meta:'4 members · 1 list compared', pill:'2 pending', pillClass:'pill-amber'}
+  {n:'College Friends', emoji:'🎓', meta:'6 members · 3 lists compared', pill:'73% avg', pillClass:'pill-coral', memberIdxs:[0,1,2,3,4]},
+  {n:'Work Team', emoji:'💼', meta:'4 members · 1 list compared', pill:'2 pending', pillClass:'pill-amber', memberIdxs:[0,2,3]}
 ];
 
 var selCat = 'Movies';
@@ -1200,7 +1155,36 @@ function renderGroupDetail() {
       if (nn) nn.textContent = g.n;
     }
   }
+  if (!isNew) renderGroupOverview(g);
   setGroupTab(0);
+}
+
+function renderGroupOverview(g) {
+  var el = document.getElementById('gtab-0-content');
+  if (!el) return;
+  var members = (g.memberIdxs || []).map(function(i) { return FRIENDS[i]; }).filter(Boolean);
+  var memberCount = members.length + 1;
+  var membersHtml = '<div style="text-align:center"><div class="avatar" style="background:#FAECE7;color:#993C1D">You</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">You</div></div>';
+  members.forEach(function(f) {
+    membersHtml += '<div style="text-align:center"><div class="avatar" style="background:' + f.bg + ';color:' + f.c + '">' + f.i + '</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">' + f.n.split(' ')[0] + '</div></div>';
+  });
+  var listsCompared = parseInt((g.meta.match(/(\d+) lists/) || [0,0])[1]) || 0;
+  var statsHtml = '<div class="stat-grid">'
+    + '<div class="stat-card"><div class="stat-num">' + memberCount + '</div><div class="stat-lbl">members</div></div>'
+    + (listsCompared > 0 ? '<div class="stat-card"><div class="stat-num">' + g.pill.replace(' avg','') + '</div><div class="stat-lbl">avg group match</div></div>' : '<div class="stat-card"><div class="stat-num">—</div><div class="stat-lbl">avg group match</div></div>')
+    + '<div class="stat-card"><div class="stat-num">' + listsCompared + '</div><div class="stat-lbl">lists compared</div></div>'
+    + '<div class="stat-card"><div class="stat-num">' + (listsCompared > 0 ? '2' : '0') + '</div><div class="stat-lbl">pending fills</div></div>'
+    + '</div>';
+  var leadersHtml = '';
+  if (listsCompared > 0 && members.length >= 2) {
+    leadersHtml = '<div class="sec-label">Most alike in this group</div>'
+      + '<div class="leader-row"><span style="font-size:18px">🥇</span><div class="avatar" style="background:' + members[0].bg + ';color:' + members[0].c + '">' + members[0].i + '</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">You &amp; ' + members[0].n + '</div><div style="font-size:10px;color:#5F5E5A">' + members[0].m + ' across all lists</div></div></div>'
+      + (members[1] ? '<div class="leader-row"><span style="font-size:18px">🥈</span><div class="avatar" style="background:' + members[1].bg + ';color:' + members[1].c + '">' + members[1].i + '</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">You &amp; ' + members[1].n + '</div><div style="font-size:10px;color:#5F5E5A">' + members[1].m + ' across all lists</div></div></div>' : '');
+  }
+  el.innerHTML = statsHtml + leadersHtml
+    + '<div class="sec-label">Members</div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">' + membersHtml + '</div>'
+    + '<div style="display:flex;gap:8px"><button class="btn-primary" style="flex:1;margin-bottom:0;padding:10px;font-size:12px" onclick="go(\'s-cg3\')">Send a list</button><button class="btn-secondary" style="flex:1;margin-bottom:0;padding:10px;font-size:12px" onclick="go(\'s-gsettings\')">Invite more</button></div>';
 }
 
 function finishGroup() {
@@ -1214,10 +1198,28 @@ function finishGroup() {
     meta: memberCount + ' member' + (memberCount !== 1 ? 's' : '') + ' · 0 lists compared',
     pill: 'New',
     pillClass: 'pill-blue',
+    memberIdxs: Array.from(addedFriends),
     isNew: true
   });
   selGroupIdx = MY_GROUPS.length - 1;
+  saveState();
   go('s-gdetail');
+}
+
+function saveState() {
+  try {
+    localStorage.setItem('tenner_groups', JSON.stringify(MY_GROUPS));
+    localStorage.setItem('tenner_lists', JSON.stringify(MY_LISTS));
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    var g = localStorage.getItem('tenner_groups');
+    var l = localStorage.getItem('tenner_lists');
+    if (g) MY_GROUPS = JSON.parse(g);
+    if (l) MY_LISTS = JSON.parse(l);
+  } catch(e) {}
 }
 
 function goToCreateStep2() {
@@ -1233,9 +1235,8 @@ function saveList() {
   MY_LISTS.push({n: listName, m: meta});
   var dest = listOrigin;
   listOrigin = 's-home';
-  if (dest === 's-cg3') {
-    selList = MY_LISTS.length - 1;
-  }
+  if (dest === 's-cg3') selList = MY_LISTS.length - 1;
+  saveState();
   go(dest);
 }
 
@@ -1254,6 +1255,7 @@ document.addEventListener('click', function(e) {
   }
 });
 
+loadState();
 renderHome();
 renderCatGrid();
 renderEmojiGrid();
