@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tenner — Prototype</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F1EFE8; display: flex; justify-content: center; padding: 20px; min-height: 100vh; }
@@ -757,6 +758,15 @@
               <div style="text-align:center"><div style="font-size:16px;font-weight:700;color:#D85A30">72%</div><div style="font-size:9px;color:#5F5E5A">Avg match</div></div>
             </div>
           </div>
+          <div class="sec-label">Sync</div>
+          <div class="card no-hover" style="margin-bottom:12px">
+            <div style="font-size:11px;color:#5F5E5A;margin-bottom:6px">Use this ID to access your data on another device. Open the app on the other device and enter this ID.</div>
+            <div style="font-size:10px;color:#888780;margin-bottom:4px">Your sync ID</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div id="sync-id-val" style="flex:1;font-size:10px;color:#2C2C2A;background:#F1EFE8;padding:6px 8px;border-radius:6px;word-break:break-all;font-family:monospace"></div>
+              <button class="shop-btn" onclick="navigator.clipboard.writeText(document.getElementById('sync-id-val').textContent).then(function(){alert('Copied!')})">Copy</button>
+            </div>
+          </div>
           <div class="sec-label">Profile Info</div>
           <div class="card no-hover">
             <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F1EFE8"><span style="font-size:11px;color:#5F5E5A">First name</span><span style="font-size:11px;color:#2C2C2A">Your</span></div>
@@ -1206,20 +1216,65 @@ function finishGroup() {
   go('s-gdetail');
 }
 
-function saveState() {
+var SUPABASE_URL = 'https://bbjpvlmkhvggtwyvpzrq.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_ZsplSnnKJ0L3ojze0UDJtw_ULMofAE6';
+var sbClient = null;
+var userId = null;
+
+var DEFAULT_GROUPS = [
+  {n:'College Friends', emoji:'🎓', meta:'6 members · 3 lists compared', pill:'73% avg', pillClass:'pill-coral', memberIdxs:[0,1,2,3,4]},
+  {n:'Work Team', emoji:'💼', meta:'4 members · 1 list compared', pill:'2 pending', pillClass:'pill-amber', memberIdxs:[0,2,3]}
+];
+var DEFAULT_LISTS = [
+  {n:'Top 10 Movies',m:'Ranked · 10 items'},
+  {n:'Top 10 Candy Bars',m:'Unranked · 8 items'},
+  {n:'Top 10 Vacation Spots',m:'Ranked · 6 items'}
+];
+
+function initSupabase() {
   try {
-    localStorage.setItem('tenner_groups', JSON.stringify(MY_GROUPS));
-    localStorage.setItem('tenner_lists', JSON.stringify(MY_LISTS));
-  } catch(e) {}
+    sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    var params = new URLSearchParams(window.location.search);
+    var paramId = params.get('uid');
+    if (paramId) { userId = paramId; localStorage.setItem('tenner_uid', paramId); }
+    else { userId = localStorage.getItem('tenner_uid'); }
+    if (!userId) {
+      userId = 'u_' + Math.random().toString(36).substr(2,9) + Math.random().toString(36).substr(2,9);
+      localStorage.setItem('tenner_uid', userId);
+    }
+  } catch(e) { console.warn('Supabase init failed', e); }
 }
 
-function loadState() {
-  try {
-    var g = localStorage.getItem('tenner_groups');
-    var l = localStorage.getItem('tenner_lists');
-    if (g) MY_GROUPS = JSON.parse(g);
-    if (l) MY_LISTS = JSON.parse(l);
-  } catch(e) {}
+async function saveState() {
+  localStorage.setItem('tenner_groups', JSON.stringify(MY_GROUPS));
+  localStorage.setItem('tenner_lists', JSON.stringify(MY_LISTS));
+  if (sbClient && userId) {
+    try {
+      await sbClient.from('tenner_state').upsert({
+        user_id: userId,
+        groups: MY_GROUPS,
+        lists: MY_LISTS,
+        updated_at: new Date().toISOString()
+      });
+    } catch(e) { console.warn('Supabase save failed', e); }
+  }
+}
+
+async function loadState() {
+  if (sbClient && userId) {
+    try {
+      var res = await sbClient.from('tenner_state').select('*').eq('user_id', userId).maybeSingle();
+      if (res.data) {
+        MY_GROUPS = res.data.groups || DEFAULT_GROUPS;
+        MY_LISTS = res.data.lists || DEFAULT_LISTS;
+        return;
+      }
+    } catch(e) { console.warn('Supabase load failed', e); }
+  }
+  var g = localStorage.getItem('tenner_groups');
+  var l = localStorage.getItem('tenner_lists');
+  if (g) MY_GROUPS = JSON.parse(g);
+  if (l) MY_LISTS = JSON.parse(l);
 }
 
 function goToCreateStep2() {
@@ -1255,15 +1310,20 @@ document.addEventListener('click', function(e) {
   }
 });
 
-loadState();
-renderHome();
-renderCatGrid();
-renderEmojiGrid();
-renderFriendsList();
-renderAddedChips();
-renderListPicker();
-renderItems();
-updateProg();
+(async function init() {
+  initSupabase();
+  await loadState();
+  renderHome();
+  renderCatGrid();
+  renderEmojiGrid();
+  renderFriendsList();
+  renderAddedChips();
+  renderListPicker();
+  renderItems();
+  updateProg();
+  var syncEl = document.getElementById('sync-id-val');
+  if (syncEl && userId) syncEl.textContent = userId;
+})();
 </script>
 </body>
 </html>
