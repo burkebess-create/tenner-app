@@ -319,7 +319,7 @@
             <button class="btn-secondary" style="flex:1;margin-bottom:0" onclick="alert('Link copied to clipboard!')">Copy link</button>
             <button class="btn-secondary" style="flex:1;margin-bottom:0" onclick="alert('Opens share sheet!')">Send to...</button>
           </div>
-          <button class="btn-primary" onclick="go('s-home')">Save & finish</button>
+          <button class="btn-primary" onclick="saveList()">Save & finish</button>
         </div>
       </div>
 
@@ -392,7 +392,7 @@
           <div style="font-size:11px;color:#5F5E5A;margin-bottom:12px">Choose a list to share with the group. Everyone fills their own version — then you compare.</div>
           <div class="sec-label">My lists</div>
           <div id="list-picker"></div>
-          <div class="card" style="border-style:dashed;text-align:center;padding:12px" onclick="go('s-create1')">
+          <div class="card" style="border-style:dashed;text-align:center;padding:12px" onclick="listOrigin='s-cg3';go('s-create1')">
             <span style="font-size:11px;color:#888780">+ Create a new list for this group</span>
           </div>
           <div class="card no-hover">
@@ -933,6 +933,7 @@ var selEmoji = 0;
 var addedFriends = new Set([0,1,2]);
 var selList = -1;
 var fuzzyItemSug = '';
+var listOrigin = 's-home';
 
 function go(id) {
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
@@ -1146,6 +1147,19 @@ function renderListPicker() {
     card.onclick = function() { selList = i; renderListPicker(); };
     picker.appendChild(card);
   });
+}
+
+function saveList() {
+  var listName = 'Top 10 ' + selCat;
+  var itemCount = items.filter(function(i) { return i.trim(); }).length;
+  var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
+  MY_LISTS.push({n: listName, m: meta});
+  var dest = listOrigin;
+  listOrigin = 's-home';
+  if (dest === 's-cg3') {
+    selList = MY_LISTS.length - 1;
+  }
+  go(dest);
 }
 
 function setGroupTab(n) {
