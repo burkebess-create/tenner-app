@@ -389,7 +389,7 @@
       <div class="screen" id="s-gdetail">
         <div class="topbar">
           <button class="back-btn" onclick="go('s-home')">← Back</button>
-          <span style="font-size:13px;font-weight:600;color:#2C2C2A">🎓 College Friends</span>
+          <span id="gdetail-title" style="font-size:13px;font-weight:600;color:#2C2C2A">🎓 College Friends</span>
           <button class="back-btn" onclick="go('s-gsettings')">⚙</button>
         </div>
         <div class="content">
@@ -446,6 +446,14 @@
               <button class="btn-primary" style="flex:1;margin-bottom:0;padding:10px;font-size:12px" onclick="go('s-cg3')">Send a list</button>
               <button class="btn-secondary" style="flex:1;margin-bottom:0;padding:10px;font-size:12px" onclick="go('s-gsettings')">Invite more</button>
             </div>
+          </div>
+
+          <!-- New group empty state (shown for newly created groups) -->
+          <div id="gdetail-new" style="display:none;text-align:center;padding:30px 16px">
+            <div style="font-size:40px;margin-bottom:12px" id="gdetail-new-emoji">🎉</div>
+            <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px" id="gdetail-new-name">New Group</div>
+            <div style="font-size:11px;color:#5F5E5A;margin-bottom:20px">Your group is created! Send a list to get started comparing with your members.</div>
+            <button class="btn-primary" onclick="go('s-cg3')">Send a list to this group</button>
           </div>
 
           <!-- Movies tab -->
@@ -914,6 +922,7 @@ var addedFriends = new Set([0,1,2]);
 var selList = -1;
 var fuzzyItemSug = '';
 var listOrigin = 's-home';
+var selGroupIdx = 0;
 
 function go(id) {
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
@@ -922,6 +931,7 @@ function go(id) {
     b.classList.toggle('active', b.dataset.screen === id);
   });
   if (id === 's-home') renderHome();
+  if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-create1') { selCat = 'Movies'; items = []; renderCatGrid(); renderItems(); updateProg(); }
   if (id === 's-create2') { document.getElementById('create2-title').textContent = 'Top 10 ' + selCat; renderItems(); updateProg(); }
   if (id === 's-cg1') renderEmojiGrid();
@@ -1161,13 +1171,36 @@ function renderHome() {
   var container = document.getElementById('groups-list');
   if (!container) return;
   container.innerHTML = '';
-  MY_GROUPS.forEach(function(g) {
+  MY_GROUPS.forEach(function(g, i) {
     var card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = '<div style="display:flex;align-items:center;gap:9px"><div class="group-emoji">' + g.emoji + '</div><div style="flex:1"><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + g.n + '</div><div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + g.meta + '</div></div><span class="pill ' + g.pillClass + '">' + g.pill + '</span></div>';
-    card.onclick = function() { go('s-gdetail'); };
+    card.onclick = (function(idx) { return function() { selGroupIdx = idx; go('s-gdetail'); }; })(i);
     container.appendChild(card);
   });
+}
+
+function renderGroupDetail() {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g) return;
+  var title = document.getElementById('gdetail-title');
+  if (title) title.textContent = g.emoji + ' ' + g.n;
+  var isNew = !!g.isNew;
+  var tabRow = document.querySelector('#s-gdetail .tab-row');
+  var gtab0 = document.getElementById('gtab-0');
+  var newPanel = document.getElementById('gdetail-new');
+  if (tabRow) tabRow.style.display = isNew ? 'none' : '';
+  if (gtab0) gtab0.style.display = isNew ? 'none' : 'block';
+  if (newPanel) {
+    newPanel.style.display = isNew ? 'block' : 'none';
+    if (isNew) {
+      var ne = document.getElementById('gdetail-new-emoji');
+      var nn = document.getElementById('gdetail-new-name');
+      if (ne) ne.textContent = g.emoji;
+      if (nn) nn.textContent = g.n;
+    }
+  }
+  setGroupTab(0);
 }
 
 function finishGroup() {
@@ -1180,8 +1213,10 @@ function finishGroup() {
     emoji: EMOJIS[selEmoji] || '🎉',
     meta: memberCount + ' member' + (memberCount !== 1 ? 's' : '') + ' · 0 lists compared',
     pill: 'New',
-    pillClass: 'pill-blue'
+    pillClass: 'pill-blue',
+    isNew: true
   });
+  selGroupIdx = MY_GROUPS.length - 1;
   go('s-gdetail');
 }
 
