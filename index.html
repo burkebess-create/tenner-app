@@ -121,11 +121,13 @@
           <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid #D3D1C7;border-radius:10px;overflow:hidden">
             <button id="tab-login" onclick="authTab('login')" style="flex:1;padding:10px;border:none;background:#FAECE7;color:#993C1D;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">Log in</button>
             <button id="tab-signup" onclick="authTab('signup')" style="flex:1;padding:10px;border:none;background:#fff;color:#5F5E5A;font-size:13px;cursor:pointer;font-family:inherit">Sign up</button>
+            <button id="tab-magic" onclick="authTab('magic')" style="flex:1;padding:10px;border:none;background:#fff;color:#5F5E5A;font-size:13px;cursor:pointer;font-family:inherit">Magic link</button>
           </div>
           <div id="auth-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:10px;border:1px solid #F0997B"></div>
           <input type="email" id="auth-email" placeholder="Email address" style="margin-bottom:8px">
           <input type="password" id="auth-password" placeholder="Password" style="margin-bottom:4px">
           <div id="auth-password-hint" style="display:none;font-size:10px;color:#888780;margin-bottom:8px">At least 6 characters</div>
+          <div id="auth-magic-hint" style="display:none;font-size:10px;color:#888780;margin-bottom:8px">We'll email you a link — no password needed.</div>
           <button class="btn-primary" id="auth-submit" onclick="submitAuth()" style="margin-top:12px">Log in</button>
           <div style="display:flex;align-items:center;gap:8px;margin:12px 0">
             <div style="flex:1;height:1px;background:#D3D1C7"></div>
@@ -1270,14 +1272,18 @@ function initSupabase() {
 
 function authTab(tab) {
   currentAuthTab = tab;
-  document.getElementById('tab-login').style.background = tab === 'login' ? '#FAECE7' : '#fff';
-  document.getElementById('tab-login').style.color = tab === 'login' ? '#993C1D' : '#5F5E5A';
-  document.getElementById('tab-login').style.fontWeight = tab === 'login' ? '600' : 'normal';
-  document.getElementById('tab-signup').style.background = tab === 'signup' ? '#FAECE7' : '#fff';
-  document.getElementById('tab-signup').style.color = tab === 'signup' ? '#993C1D' : '#5F5E5A';
-  document.getElementById('tab-signup').style.fontWeight = tab === 'signup' ? '600' : 'normal';
-  document.getElementById('auth-submit').textContent = tab === 'login' ? 'Log in' : 'Create account';
+  ['login','signup','magic'].forEach(function(t) {
+    var el = document.getElementById('tab-' + t);
+    if (!el) return;
+    el.style.background = tab === t ? '#FAECE7' : '#fff';
+    el.style.color = tab === t ? '#993C1D' : '#5F5E5A';
+    el.style.fontWeight = tab === t ? '600' : 'normal';
+  });
+  var labels = {login: 'Log in', signup: 'Create account', magic: 'Send magic link'};
+  document.getElementById('auth-submit').textContent = labels[tab];
+  document.getElementById('auth-password').style.display = tab === 'magic' ? 'none' : 'block';
   document.getElementById('auth-password-hint').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('auth-magic-hint').style.display = tab === 'magic' ? 'block' : 'none';
   document.getElementById('auth-error').style.display = 'none';
   document.getElementById('auth-success').style.display = 'none';
 }
@@ -1295,17 +1301,30 @@ async function submitAuth() {
   btn.disabled = true;
   try {
     var res;
-    if (currentAuthTab === 'login') {
+    if (currentAuthTab === 'magic') {
+      res = await sbClient.auth.signInWithOtp({
+        email: email,
+        options: { emailRedirectTo: 'https://burkebess-create.github.io/tenner-app/' }
+      });
+      if (res.error) {
+        errEl.textContent = res.error.message;
+        errEl.style.display = 'block';
+      } else {
+        successEl.textContent = '✓ Magic link sent! Check your email and click the link to sign in.';
+        successEl.style.display = 'block';
+      }
+    } else if (currentAuthTab === 'login') {
       res = await sbClient.auth.signInWithPassword({email: email, password: password});
+      if (res.error) { errEl.textContent = res.error.message; errEl.style.display = 'block'; }
     } else {
       res = await sbClient.auth.signUp({email: email, password: password});
-    }
-    if (res.error) {
-      errEl.textContent = res.error.message;
-      errEl.style.display = 'block';
-    } else if (currentAuthTab === 'signup' && !res.data.session) {
-      successEl.textContent = 'Check your email for a confirmation link, then come back and log in.';
-      successEl.style.display = 'block';
+      if (res.error) {
+        errEl.textContent = res.error.message;
+        errEl.style.display = 'block';
+      } else if (!res.data.session) {
+        successEl.textContent = 'Check your email for a confirmation link, then come back and log in.';
+        successEl.style.display = 'block';
+      }
     }
   } catch(e) {
     errEl.textContent = 'Something went wrong. Please try again.';
