@@ -111,8 +111,28 @@
   <div class="phone">
     <div class="frame">
 
+      <!-- ═══ AUTH ═══ -->
+      <div class="screen active" id="s-auth">
+        <div class="content" style="justify-content:center;display:flex;flex-direction:column;padding:30px 20px">
+          <div style="text-align:center;margin-bottom:32px">
+            <div style="font-size:36px;font-weight:700;color:#D85A30;font-family:Georgia,serif;margin-bottom:6px">Tenner</div>
+            <div style="font-size:12px;color:#5F5E5A">Rank what you love. Compare with people you know.</div>
+          </div>
+          <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid #D3D1C7;border-radius:10px;overflow:hidden">
+            <button id="tab-login" onclick="authTab('login')" style="flex:1;padding:10px;border:none;background:#FAECE7;color:#993C1D;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">Log in</button>
+            <button id="tab-signup" onclick="authTab('signup')" style="flex:1;padding:10px;border:none;background:#fff;color:#5F5E5A;font-size:13px;cursor:pointer;font-family:inherit">Sign up</button>
+          </div>
+          <div id="auth-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:10px;border:1px solid #F0997B"></div>
+          <input type="email" id="auth-email" placeholder="Email address" style="margin-bottom:8px">
+          <input type="password" id="auth-password" placeholder="Password" style="margin-bottom:4px">
+          <div id="auth-password-hint" style="display:none;font-size:10px;color:#888780;margin-bottom:8px">At least 6 characters</div>
+          <button class="btn-primary" id="auth-submit" onclick="submitAuth()" style="margin-top:12px">Log in</button>
+          <div id="auth-success" style="display:none;text-align:center;background:#EAF3DE;color:#27500A;font-size:11px;padding:10px;border-radius:8px;margin-top:10px;border:1px solid #97C459"></div>
+        </div>
+      </div>
+
       <!-- ═══ HOME ═══ -->
-      <div class="screen active" id="s-home">
+      <div class="screen" id="s-home">
         <div class="topbar">
           <span class="logo">Tenner</span>
           <span style="font-size:11px;color:#D85A30;font-weight:600">✦ New: Groups</span>
@@ -744,13 +764,14 @@
               <div style="text-align:center"><div style="font-size:16px;font-weight:700;color:#D85A30">72%</div><div style="font-size:9px;color:#5F5E5A">Avg match</div></div>
             </div>
           </div>
-          <div class="sec-label">Sync</div>
+          <div class="sec-label">Account</div>
           <div class="card no-hover" style="margin-bottom:12px">
-            <div style="font-size:11px;color:#5F5E5A;margin-bottom:6px">Use this ID to access your data on another device. Open the app on the other device and enter this ID.</div>
-            <div style="font-size:10px;color:#888780;margin-bottom:4px">Your sync ID</div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <div id="sync-id-val" style="flex:1;font-size:10px;color:#2C2C2A;background:#F1EFE8;padding:6px 8px;border-radius:6px;word-break:break-all;font-family:monospace"></div>
-              <button class="shop-btn" onclick="navigator.clipboard.writeText(document.getElementById('sync-id-val').textContent).then(function(){alert('Copied!')})">Copy</button>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-size:11px;font-weight:600;color:#2C2C2A" id="profile-email">—</div>
+                <div style="font-size:10px;color:#5F5E5A;margin-top:2px">Signed in</div>
+              </div>
+              <button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="signOut()">Sign out</button>
             </div>
           </div>
           <div class="sec-label">Profile Info</div>
@@ -778,9 +799,6 @@
               <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
             </div>
           </div>
-          <div class="sec-label">Sign In</div>
-          <button class="btn-secondary" style="margin-bottom:8px">&#63743; Sign in with Apple</button>
-          <button class="btn-secondary">G&nbsp;&nbsp;Sign in with Google</button>
         </div>
         <div class="bnav">
           <div class="ni" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home</div>
@@ -1223,6 +1241,7 @@ var SUPABASE_URL = (window.TENNER_CONFIG || {}).SUPABASE_URL || '';
 var SUPABASE_KEY = (window.TENNER_CONFIG || {}).SUPABASE_KEY || '';
 var sbClient = null;
 var userId = null;
+var currentAuthTab = 'login';
 
 var DEFAULT_GROUPS = [
   {n:'College Friends', emoji:'🎓', meta:'6 members · 3 lists compared', pill:'73% avg', pillClass:'pill-coral', memberIdxs:[0,1,2,3,4]},
@@ -1237,15 +1256,68 @@ var DEFAULT_LISTS = [
 function initSupabase() {
   try {
     sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    var params = new URLSearchParams(window.location.search);
-    var paramId = params.get('uid');
-    if (paramId) { userId = paramId; localStorage.setItem('tenner_uid', paramId); }
-    else { userId = localStorage.getItem('tenner_uid'); }
-    if (!userId) {
-      userId = 'u_' + Math.random().toString(36).substr(2,9) + Math.random().toString(36).substr(2,9);
-      localStorage.setItem('tenner_uid', userId);
-    }
   } catch(e) { console.warn('Supabase init failed', e); }
+}
+
+function authTab(tab) {
+  currentAuthTab = tab;
+  document.getElementById('tab-login').style.background = tab === 'login' ? '#FAECE7' : '#fff';
+  document.getElementById('tab-login').style.color = tab === 'login' ? '#993C1D' : '#5F5E5A';
+  document.getElementById('tab-login').style.fontWeight = tab === 'login' ? '600' : 'normal';
+  document.getElementById('tab-signup').style.background = tab === 'signup' ? '#FAECE7' : '#fff';
+  document.getElementById('tab-signup').style.color = tab === 'signup' ? '#993C1D' : '#5F5E5A';
+  document.getElementById('tab-signup').style.fontWeight = tab === 'signup' ? '600' : 'normal';
+  document.getElementById('auth-submit').textContent = tab === 'login' ? 'Log in' : 'Create account';
+  document.getElementById('auth-password-hint').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('auth-error').style.display = 'none';
+  document.getElementById('auth-success').style.display = 'none';
+}
+
+async function submitAuth() {
+  var email = document.getElementById('auth-email').value.trim();
+  var password = document.getElementById('auth-password').value;
+  var errEl = document.getElementById('auth-error');
+  var successEl = document.getElementById('auth-success');
+  var btn = document.getElementById('auth-submit');
+  errEl.style.display = 'none';
+  successEl.style.display = 'none';
+  if (!email || !password) { errEl.textContent = 'Please enter your email and password.'; errEl.style.display = 'block'; return; }
+  btn.textContent = '...';
+  btn.disabled = true;
+  try {
+    var res;
+    if (currentAuthTab === 'login') {
+      res = await sbClient.auth.signInWithPassword({email: email, password: password});
+    } else {
+      res = await sbClient.auth.signUp({email: email, password: password});
+    }
+    if (res.error) {
+      errEl.textContent = res.error.message;
+      errEl.style.display = 'block';
+    } else if (currentAuthTab === 'signup' && !res.data.session) {
+      successEl.textContent = 'Check your email for a confirmation link, then come back and log in.';
+      successEl.style.display = 'block';
+    }
+  } catch(e) {
+    errEl.textContent = 'Something went wrong. Please try again.';
+    errEl.style.display = 'block';
+  }
+  btn.textContent = currentAuthTab === 'login' ? 'Log in' : 'Create account';
+  btn.disabled = false;
+}
+
+async function signOut() {
+  if (sbClient) await sbClient.auth.signOut();
+  userId = null;
+  MY_GROUPS = DEFAULT_GROUPS.slice();
+  MY_LISTS = DEFAULT_LISTS.slice();
+  go('s-auth');
+}
+
+function onSignedIn(session) {
+  userId = session.user.id;
+  var emailEl = document.getElementById('profile-email');
+  if (emailEl) emailEl.textContent = session.user.email;
 }
 
 async function saveState() {
@@ -1315,17 +1387,39 @@ document.addEventListener('click', function(e) {
 
 (async function init() {
   initSupabase();
-  await loadState();
-  renderHome();
   renderCatGrid();
   renderEmojiGrid();
   renderFriendsList();
   renderAddedChips();
-  renderListPicker();
   renderItems();
   updateProg();
-  var syncEl = document.getElementById('sync-id-val');
-  if (syncEl && userId) syncEl.textContent = userId;
+
+  if (!sbClient) { go('s-home'); renderHome(); renderListPicker(); return; }
+
+  // Listen for auth state changes (handles login, logout, and magic link redirects)
+  sbClient.auth.onAuthStateChange(async function(event, session) {
+    if (session) {
+      onSignedIn(session);
+      await loadState();
+      renderHome();
+      renderListPicker();
+      go('s-home');
+    } else {
+      go('s-auth');
+    }
+  });
+
+  // Check if already logged in
+  var { data: { session } } = await sbClient.auth.getSession();
+  if (session) {
+    onSignedIn(session);
+    await loadState();
+    renderHome();
+    renderListPicker();
+    go('s-home');
+  } else {
+    go('s-auth');
+  }
 })();
 </script>
 </body>
