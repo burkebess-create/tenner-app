@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tenner — Prototype</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F1EFE8; display: flex; justify-content: center; padding: 20px; min-height: 100vh; }
@@ -1218,8 +1219,8 @@ function finishGroup() {
   go('s-gdetail');
 }
 
-var SUPABASE_URL = 'https://bbjpvlmkhvggtwyvpzrq.supabase.co';
-var SUPABASE_KEY = 'sb_publishable_ZsplSnnKJ0L3ojze0UDJtw_ULMofAE6';
+var SUPABASE_URL = (window.TENNER_CONFIG || {}).SUPABASE_URL || '';
+var SUPABASE_KEY = (window.TENNER_CONFIG || {}).SUPABASE_KEY || '';
 var sbClient = null;
 var userId = null;
 
