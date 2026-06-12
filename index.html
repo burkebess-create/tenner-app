@@ -760,7 +760,7 @@ var selCat = 'Movies';
 var items = [];
 var isRanked = true;
 var selEmoji = 0;
-var addedFriends = new Set([0,1,2]);
+var addedFriends = new Set();
 var selList = -1;
 var fuzzyItemSug = '';
 var listOrigin = 's-home';
@@ -1067,6 +1067,7 @@ function renderAddedChips() {
   chips.innerHTML = '';
   addedFriends.forEach(function(i) {
     var f = FRIENDS[i];
+    if (!f) return;
     var chip = document.createElement('div');
     chip.style.cssText = 'display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:99px;background:' + f.bg + ';border:1px solid ' + f.c + ';cursor:pointer';
     chip.innerHTML = '<span style="font-size:10px;font-weight:600;color:' + f.c + '">' + f.n.split(' ')[0] + '</span><span style="color:' + f.c + ';font-size:14px" onclick="(function(){addedFriends.delete(' + i + ');renderFriendsList();renderAddedChips();})()" >×</span>';
