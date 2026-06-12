@@ -183,23 +183,6 @@
             <div style="margin-top:10px;font-size:11px;color:#D85A30;cursor:pointer;font-weight:600" onclick="go('s-gift')">See all gift ideas for Burke →</div>
           </div>
         </div>
-        <div class="bnav">
-          <div class="ni active" onclick="go('s-home')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home
-          </div>
-          <div class="ni" onclick="go('s-create1')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Create
-          </div>
-          <div class="ni" onclick="go('s-gdetail')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Groups
-          </div>
-          <div class="ni" onclick="go('s-match')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match
-          </div>
-          <div class="ni" onclick="go('s-profile')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile
-          </div>
-        </div>
       </div>
 
       <!-- ═══ LIST DETAIL ═══ -->
@@ -271,7 +254,7 @@
               Similar item exists: <strong id="item-warn-name"></strong> — use that instead?
             </div>
           </div>
-          <button class="btn-primary" onclick="go('s-create3')" style="margin-top:8px">Continue →</button>
+          <button class="btn-primary" onclick="checkListComplete()" style="margin-top:8px">Continue →</button>
         </div>
       </div>
 
@@ -517,41 +500,32 @@
           <div id="gtab-3" style="display:none">
             <div style="font-size:13px;font-weight:600;color:#2C2C2A;margin-bottom:2px">Side-by-side · Movies</div>
             <div style="font-size:10px;color:#5F5E5A;margin-bottom:10px">Green = everyone picked it · numbers = each person's rank</div>
-            <div style="overflow-x:auto;margin-bottom:14px">
-              <div style="min-width:270px">
-                <div style="display:grid;grid-template-columns:20px repeat(4,1fr);gap:4px;margin-bottom:4px">
-                  <div></div>
-                  <div style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center">You</div>
-                  <div style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center">Sarah</div>
-                  <div style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center">Jamie</div>
-                  <div style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center">Mike</div>
-                </div>
-                <div style="display:grid;grid-template-columns:20px repeat(4,1fr);gap:4px;margin-bottom:4px">
-                  <div style="font-size:9px;color:#888780;display:flex;align-items:center;justify-content:center">1</div>
-                  <div class="compare-cell match">1</div><div class="compare-cell match">2</div><div class="compare-cell match">1</div><div class="compare-cell match">3</div>
-                </div>
-                <div style="font-size:9px;color:#5F5E5A;text-align:center;margin-bottom:4px;font-style:italic">The Godfather — all 4 picked it</div>
-                <div style="display:grid;grid-template-columns:20px repeat(4,1fr);gap:4px;margin-bottom:4px">
-                  <div style="font-size:9px;color:#888780;display:flex;align-items:center;justify-content:center">2</div>
-                  <div class="compare-cell match">2</div><div class="compare-cell match">1</div><div class="compare-cell match">3</div><div class="compare-cell match">2</div>
-                </div>
-                <div style="font-size:9px;color:#5F5E5A;text-align:center;margin-bottom:4px;font-style:italic">Inception — all 4 picked it</div>
-                <div style="display:grid;grid-template-columns:20px repeat(4,1fr);gap:4px;margin-bottom:4px">
-                  <div style="font-size:9px;color:#888780;display:flex;align-items:center;justify-content:center">3</div>
-                  <div class="compare-cell match">3</div><div class="compare-cell match">4</div><div class="compare-cell match">2</div><div class="compare-cell" style="opacity:0.4">—</div>
-                </div>
-                <div style="font-size:9px;color:#5F5E5A;text-align:center;margin-bottom:4px;font-style:italic">Interstellar — 3 of 4 picked it</div>
-                <div style="display:grid;grid-template-columns:20px repeat(4,1fr);gap:4px;margin-bottom:4px">
-                  <div style="font-size:9px;color:#888780;display:flex;align-items:center;justify-content:center">4</div>
-                  <div class="compare-cell">4</div><div class="compare-cell">3</div><div class="compare-cell" style="opacity:0.4">—</div><div class="compare-cell">1</div>
-                </div>
-                <div style="font-size:9px;color:#5F5E5A;text-align:center;margin-bottom:4px;font-style:italic">The Dark Knight — 3 of 4 picked it</div>
-                <div style="display:grid;grid-template-columns:20px repeat(4,1fr);gap:4px;margin-bottom:4px">
-                  <div style="font-size:9px;color:#888780;display:flex;align-items:center;justify-content:center">5</div>
-                  <div class="compare-cell">5</div><div class="compare-cell" style="opacity:0.4">—</div><div class="compare-cell">4</div><div class="compare-cell">5</div>
-                </div>
-                <div style="font-size:9px;color:#5F5E5A;text-align:center;margin-bottom:4px;font-style:italic">Pulp Fiction — 3 of 4 picked it</div>
-              </div>
+            <div style="overflow-x:auto;margin-bottom:14px;-webkit-overflow-scrolling:touch">
+              <table style="border-collapse:separate;border-spacing:3px;min-width:320px">
+                <thead>
+                  <tr>
+                    <th style="position:sticky;left:0;background:#fff;z-index:2;font-size:10px;font-weight:600;color:#5F5E5A;text-align:left;padding:2px 6px 4px;min-width:100px">Movie</th>
+                    <th style="position:sticky;left:112px;background:#FAECE7;z-index:2;font-size:10px;font-weight:600;color:#993C1D;text-align:center;padding:2px 4px 4px;min-width:36px;border-radius:4px">You</th>
+                    <th style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center;padding:2px 4px 4px;min-width:36px">Sarah</th>
+                    <th style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center;padding:2px 4px 4px;min-width:36px">Jamie</th>
+                    <th style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center;padding:2px 4px 4px;min-width:36px">Mike</th>
+                    <th style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center;padding:2px 4px 4px;min-width:36px">Alex</th>
+                    <th style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center;padding:2px 4px 4px;min-width:36px">Casey</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">1. The Godfather</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell match" style="background:#FAECE7">1</div></td><td><div class="compare-cell match">2</div></td><td><div class="compare-cell match">1</div></td><td><div class="compare-cell match">3</div></td><td><div class="compare-cell match">2</div></td><td><div class="compare-cell match">1</div></td></tr>
+                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">2. Inception</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell match" style="background:#FAECE7">2</div></td><td><div class="compare-cell match">1</div></td><td><div class="compare-cell match">3</div></td><td><div class="compare-cell match">2</div></td><td><div class="compare-cell match">4</div></td><td><div class="compare-cell match">2</div></td></tr>
+                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">3. Interstellar</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell match" style="background:#FAECE7">3</div></td><td><div class="compare-cell match">4</div></td><td><div class="compare-cell match">2</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">3</div></td><td><div class="compare-cell match">4</div></td></tr>
+                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">4. The Dark Knight</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">4</div></td><td><div class="compare-cell">3</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">1</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">3</div></td></tr>
+                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">5. Parasite</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">5</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">4</div></td><td><div class="compare-cell">5</div></td><td><div class="compare-cell">5</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td></tr>
+                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">6. Forrest Gump</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">6</div></td><td><div class="compare-cell">5</div></td><td><div class="compare-cell">5</div></td><td><div class="compare-cell">4</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">5</div></td></tr>
+                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">7. Shawshank Redemption</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">7</div></td><td><div class="compare-cell">6</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">6</div></td><td><div class="compare-cell">6</div></td><td><div class="compare-cell">6</div></td></tr>
+                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">8. Pulp Fiction</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">8</div></td><td><div class="compare-cell">7</div></td><td><div class="compare-cell">6</div></td><td><div class="compare-cell">7</div></td><td><div class="compare-cell">7</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td></tr>
+                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">9. Goodfellas</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">9</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">7</div></td><td><div class="compare-cell">8</div></td><td><div class="compare-cell">8</div></td><td><div class="compare-cell">7</div></td></tr>
+                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">10. The Matrix</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">10</div></td><td><div class="compare-cell">8</div></td><td><div class="compare-cell">8</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">9</div></td><td><div class="compare-cell">8</div></td></tr>
+                </tbody>
+              </table>
             </div>
             <div class="sec-label">Pair match scores</div>
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -609,17 +583,17 @@
           <div class="member-row">
             <div class="avatar" style="background:#E6F1FB;color:#185FA5">SK</div>
             <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Sarah K.</div><div style="font-size:10px;color:#5F5E5A">Member</div></div>
-            <button class="back-btn" onclick="alert('Remove Sarah from group?')" style="font-size:10px;padding:3px 7px">Remove</button>
+            <button class="back-btn" onclick="showConfirm('Remove Sarah K.?','They will lose access to this group and all shared lists.','Remove','danger',function(){})" style="font-size:10px;padding:3px 7px">Remove</button>
           </div>
           <div class="member-row">
             <div class="avatar" style="background:#E1F5EE;color:#0F6E56">JR</div>
             <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Jamie R.</div><div style="font-size:10px;color:#5F5E5A">Member</div></div>
-            <button class="back-btn" onclick="alert('Remove Jamie from group?')" style="font-size:10px;padding:3px 7px">Remove</button>
+            <button class="back-btn" onclick="showConfirm('Remove Jamie R.?','They will lose access to this group and all shared lists.','Remove','danger',function(){})" style="font-size:10px;padding:3px 7px">Remove</button>
           </div>
           <div class="member-row">
             <div class="avatar" style="background:#FBEAF0;color:#993356">MK</div>
             <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Mike K.</div><div style="font-size:10px;color:#5F5E5A">Member</div></div>
-            <button class="back-btn" onclick="alert('Remove Mike from group?')" style="font-size:10px;padding:3px 7px">Remove</button>
+            <button class="back-btn" onclick="showConfirm('Remove Mike K.?','They will lose access to this group and all shared lists.','Remove','danger',function(){})" style="font-size:10px;padding:3px 7px">Remove</button>
           </div>
           <div class="member-row">
             <div class="avatar" style="background:#FAEEDA;color:#854F0B">AT</div>
@@ -629,10 +603,10 @@
           <div class="member-row">
             <div class="avatar" style="background:#EAF3DE;color:#3B6D11">CM</div>
             <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Casey M.</div><div style="font-size:10px;color:#5F5E5A">Member</div></div>
-            <button class="back-btn" onclick="alert('Remove Casey from group?')" style="font-size:10px;padding:3px 7px">Remove</button>
+            <button class="back-btn" onclick="showConfirm('Remove Casey M.?','They will lose access to this group and all shared lists.','Remove','danger',function(){})" style="font-size:10px;padding:3px 7px">Remove</button>
           </div>
           <div style="display:flex;gap:8px;margin-top:14px">
-            <button class="btn-secondary" style="flex:1;margin-bottom:0;color:#A32D2D;border-color:#F09595" onclick="alert('Leave group?')">Leave group</button>
+            <button class="btn-secondary" style="flex:1;margin-bottom:0;color:#A32D2D;border-color:#F09595" onclick="showConfirm('Leave this group?','You will lose access to all shared lists in this group.','Leave','danger',function(){go('s-home')})">Leave group</button>
             <button class="btn-primary" style="flex:1;margin-bottom:0" onclick="go('s-gdetail')">Save changes</button>
           </div>
         </div>
@@ -702,13 +676,6 @@
             <span class="pill pill-green">Inception</span>
             <span class="pill pill-green">Interstellar</span>
           </div>
-        </div>
-        <div class="bnav">
-          <div class="ni" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home</div>
-          <div class="ni" onclick="go('s-create1')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Create</div>
-          <div class="ni" onclick="go('s-gdetail')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Groups</div>
-          <div class="ni active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
-          <div class="ni" onclick="go('s-profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</div>
         </div>
       </div>
 
@@ -824,12 +791,24 @@
             </div>
           </div>
         </div>
-        <div class="bnav">
-          <div class="ni" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home</div>
-          <div class="ni" onclick="go('s-create1')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Create</div>
-          <div class="ni" onclick="go('s-gdetail')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Groups</div>
-          <div class="ni" onclick="go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
-          <div class="ni active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</div>
+      </div>
+
+      <!-- GLOBAL BOTTOM NAV -->
+      <div class="bnav" id="global-bnav">
+        <div class="ni" id="nav-home" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home</div>
+        <div class="ni" id="nav-create" onclick="go('s-create1')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Create</div>
+        <div class="ni" id="nav-groups" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Groups</div>
+        <div class="ni" id="nav-match" onclick="go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
+        <div class="ni" id="nav-profile" onclick="go('s-profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</div>
+      </div>
+
+      <!-- CONFIRM MODAL -->
+      <div id="confirm-modal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end">
+        <div style="background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%">
+          <div id="confirm-title" style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:5px"></div>
+          <div id="confirm-message" style="font-size:11px;color:#5F5E5A;margin-bottom:16px"></div>
+          <button id="confirm-ok" class="btn-primary" style="margin-bottom:8px"></button>
+          <button class="btn-secondary" style="margin-bottom:0" onclick="closeConfirm()">Cancel</button>
         </div>
       </div>
 
@@ -924,6 +903,22 @@ function go(id) {
   document.querySelectorAll('.nav-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.screen === id);
   });
+  var bnav = document.getElementById('global-bnav');
+  if (bnav) {
+    bnav.style.display = (id === 's-auth') ? 'none' : 'flex';
+    ['nav-home','nav-create','nav-groups','nav-match','nav-profile'].forEach(function(nid) {
+      document.getElementById(nid) && document.getElementById(nid).classList.remove('active');
+    });
+    var activeNav = {
+      's-home': 'nav-home', 's-list-detail': 'nav-home',
+      's-create1': 'nav-create', 's-create2': 'nav-create', 's-create3': 'nav-create',
+      's-cg1': 'nav-groups', 's-cg2': 'nav-groups', 's-cg3': 'nav-groups',
+      's-gdetail': 'nav-groups', 's-groups': 'nav-groups',
+      's-match': 'nav-match',
+      's-profile': 'nav-profile'
+    }[id];
+    if (activeNav) document.getElementById(activeNav) && document.getElementById(activeNav).classList.add('active');
+  }
   if (id === 's-home') renderHome();
   if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-create1') { selCat = 'Movies'; items = []; renderCatGrid(); renderItems(); updateProg(); }
@@ -931,6 +926,43 @@ function go(id) {
   if (id === 's-cg1') { creatingNewGroup = true; selEmoji = 0; addedFriends = new Set([0,1,2]); renderEmojiGrid(); }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
   if (id === 's-cg3') renderListPicker();
+}
+
+function showConfirm(title, message, okLabel, style, onOk) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-message').textContent = message;
+  var okBtn = document.getElementById('confirm-ok');
+  okBtn.textContent = okLabel;
+  if (style === 'danger') {
+    okBtn.style.cssText = 'width:100%;padding:14px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px;color:#A32D2D;background:#fff;border:1px solid #F09595;';
+  } else {
+    okBtn.style.cssText = 'width:100%;padding:14px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px;color:#fff;background:#D85A30;border:none;';
+  }
+  okBtn.onclick = function() { closeConfirm(); onOk(); };
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-modal').style.display = 'none';
+}
+
+function checkListComplete() {
+  if (items.length < 10) {
+    var n = items.length;
+    var remaining = 10 - n;
+    var modal = document.getElementById('confirm-modal');
+    document.getElementById('confirm-title').textContent = 'Your list has ' + n + ' of 10 items';
+    document.getElementById('confirm-message').textContent = 'You can add ' + remaining + ' more item' + (remaining === 1 ? '' : 's') + '. Continue anyway or go back to add more?';
+    var okBtn = document.getElementById('confirm-ok');
+    okBtn.textContent = 'Continue anyway';
+    okBtn.style.cssText = 'width:100%;padding:14px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px;color:#fff;background:#D85A30;border:none;';
+    okBtn.onclick = function() { closeConfirm(); go('s-create3'); };
+    var cancelBtn = modal.querySelector('button.btn-secondary');
+    if (cancelBtn) cancelBtn.textContent = 'Add more items';
+    modal.style.display = 'flex';
+  } else {
+    go('s-create3');
+  }
 }
 
 function renderCatGrid() {
