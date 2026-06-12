@@ -1465,7 +1465,7 @@ async function loadProfile() {
     var res = await sbClient.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (res.data) myProfile = res.data;
   } catch(e) { console.warn('Profile load failed', e); }
-  renderProfileHeader();
+  try { renderProfileHeader(); } catch(e) { console.warn(e); }
 }
 
 async function saveProfile() {
@@ -1503,17 +1503,23 @@ function renderProfileHeader() {
 async function loadFriends() {
   if (!sbClient || !userId) return;
   try {
-    var res = await sbClient.from('friendships').select('*, profiles!friendships_addressee_id_fkey(*), requester:profiles!friendships_requester_id_fkey(*)').or('requester_id.eq.' + userId + ',addressee_id.eq.' + userId);
-    if (res.data) {
+    var res = await sbClient.from('friendships').select('*').or('requester_id.eq.' + userId + ',addressee_id.eq.' + userId);
+    if (res.data && res.data.length > 0) {
+      var friendIds = res.data.map(function(f) { return f.requester_id === userId ? f.addressee_id : f.requester_id; });
+      var profileMap = {};
+      try {
+        var pRes = await sbClient.from('profiles').select('*').in('id', friendIds);
+        if (pRes.data) pRes.data.forEach(function(p) { profileMap[p.id] = p; });
+      } catch(pe) { console.warn('Profile fetch failed', pe); }
       myFriends = res.data.map(function(f) {
         var isRequester = f.requester_id === userId;
-        var friendProfile = isRequester ? f.profiles : f.requester;
-        return { id: f.id, status: f.status, isRequester: isRequester, friendId: isRequester ? f.addressee_id : f.requester_id, profile: friendProfile || {} };
+        var friendId = isRequester ? f.addressee_id : f.requester_id;
+        return { id: f.id, status: f.status, isRequester: isRequester, friendId: friendId, profile: profileMap[friendId] || {} };
       });
     }
   } catch(e) { console.warn('Friends load failed', e); }
-  renderFriendsSection();
-  renderGiftReminders();
+  try { renderFriendsSection(); } catch(e) { console.warn(e); }
+  try { renderGiftReminders(); } catch(e) { console.warn(e); }
 }
 
 async function searchFriend() {
@@ -1852,10 +1858,12 @@ document.addEventListener('click', function(e) {
   // Listen for auth state changes (handles login, logout, and magic link redirects)
   sbClient.auth.onAuthStateChange(async function(event, session) {
     if (session) {
-      onSignedIn(session);
-      await loadState();
-      await loadProfile();
-      await loadFriends();
+      try {
+        onSignedIn(session);
+        await loadState();
+        await loadProfile();
+        await loadFriends();
+      } catch(e) { console.warn('Post-signin load error', e); }
       renderHome();
       renderListPicker();
       go('s-home');
@@ -1867,10 +1875,12 @@ document.addEventListener('click', function(e) {
   // Check if already logged in
   var { data: { session } } = await sbClient.auth.getSession();
   if (session) {
-    onSignedIn(session);
-    await loadState();
-    await loadProfile();
-    await loadFriends();
+    try {
+      onSignedIn(session);
+      await loadState();
+      await loadProfile();
+      await loadFriends();
+    } catch(e) { console.warn('Post-signin load error', e); }
     renderHome();
     renderListPicker();
     go('s-home');
