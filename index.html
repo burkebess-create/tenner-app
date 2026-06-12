@@ -797,7 +797,8 @@ function go(id) {
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
   if (id === 's-cg3') renderListPicker();
   if (id === 's-gsettings') renderGroupSettings();
-  if (id === 's-match') { var activeBtn = document.querySelector('#s-match .list-sel-btn.active'); if (activeBtn) selectMatchList(activeBtn, activeBtn.textContent === 'Movies' ? 'movies' : activeBtn.textContent === 'Candy Bars' ? 'candy' : 'travel'); }
+  if (id === 's-match') renderMatch();
+  if (id === 's-profile') { renderProfileHeader(); renderFriendsSection(); renderGiftReminders(); }
 }
 
 function showConfirm(title, message, okLabel, style, onOk) {
@@ -1343,6 +1344,9 @@ var SUPABASE_URL = (window.TENNER_CONFIG && window.TENNER_CONFIG.SUPABASE_URL) |
 var SUPABASE_KEY = (window.TENNER_CONFIG && window.TENNER_CONFIG.SUPABASE_KEY) || 'sb_publishable_jeeTdNoqIJXBtx_1W1TscQ_cnRAcwHx';
 var sbClient = null;
 var userId = null;
+var currentUserEmail = '';
+var myProfile = null;
+var myFriends = [];
 var currentAuthTab = 'login';
 
 var DEFAULT_GROUPS = [
@@ -1437,15 +1441,206 @@ async function signInWithGoogle() {
 async function signOut() {
   if (sbClient) await sbClient.auth.signOut();
   userId = null;
-  MY_GROUPS = DEFAULT_GROUPS.slice();
-  MY_LISTS = DEFAULT_LISTS.slice();
+  myProfile = null;
+  myFriends = [];
+  MY_GROUPS = [];
+  MY_LISTS = [];
+  localStorage.removeItem('tenner_groups');
+  localStorage.removeItem('tenner_lists');
   go('s-auth');
 }
 
 function onSignedIn(session) {
   userId = session.user.id;
+  currentUserEmail = session.user.email;
   var emailEl = document.getElementById('profile-email');
-  if (emailEl) emailEl.textContent = session.user.email;
+  if (emailEl) emailEl.textContent = currentUserEmail;
+  var emailInfo = document.getElementById('profile-email-info');
+  if (emailInfo) emailInfo.textContent = currentUserEmail;
+}
+
+async function loadProfile() {
+  if (!sbClient || !userId) return;
+  try {
+    var res = await sbClient.from('profiles').select('*').eq('id', userId).maybeSingle();
+    if (res.data) myProfile = res.data;
+  } catch(e) { console.warn('Profile load failed', e); }
+  renderProfileHeader();
+}
+
+async function saveProfile() {
+  var name = (document.getElementById('profile-name-input') || {}).value || '';
+  var handle = (document.getElementById('profile-handle-input') || {}).value || '';
+  var birthday = (document.getElementById('profile-birthday-input') || {}).value || null;
+  handle = handle.replace(/^@/, '').toLowerCase().trim();
+  myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, updated_at: new Date().toISOString() };
+  if (sbClient && userId) {
+    try {
+      await sbClient.from('profiles').upsert(myProfile);
+    } catch(e) { console.warn('Profile save failed', e); }
+  }
+  renderProfileHeader();
+  var msg = document.getElementById('profile-save-msg');
+  if (msg) { msg.style.display = 'block'; setTimeout(function() { msg.style.display = 'none'; }, 2000); }
+}
+
+function renderProfileHeader() {
+  var p = myProfile || {};
+  var name = p.display_name || currentUserEmail || '—';
+  var handle = p.handle ? '@' + p.handle : '@—';
+  var initials = name.split(' ').map(function(w) { return w[0]; }).join('').toUpperCase().slice(0, 2) || '?';
+  var av = document.getElementById('profile-avatar'); if (av) av.textContent = initials;
+  var dn = document.getElementById('profile-display-name'); if (dn) dn.textContent = name;
+  var hd = document.getElementById('profile-handle-display'); if (hd) hd.textContent = handle;
+  var ni = document.getElementById('profile-name-input'); if (ni && !ni.value) ni.value = p.display_name || '';
+  var hi = document.getElementById('profile-handle-input'); if (hi && !hi.value) hi.value = p.handle || '';
+  var bi = document.getElementById('profile-birthday-input'); if (bi && !bi.value) bi.value = p.birthday || '';
+  var sl = document.getElementById('profile-stat-lists'); if (sl) sl.textContent = MY_LISTS.length;
+  var sf = document.getElementById('profile-stat-friends'); if (sf) sf.textContent = myFriends.filter(function(f) { return f.status === 'accepted'; }).length;
+  var sc = document.getElementById('profile-stat-circles'); if (sc) sc.textContent = MY_GROUPS.length;
+}
+
+async function loadFriends() {
+  if (!sbClient || !userId) return;
+  try {
+    var res = await sbClient.from('friendships').select('*, profiles!friendships_addressee_id_fkey(*), requester:profiles!friendships_requester_id_fkey(*)').or('requester_id.eq.' + userId + ',addressee_id.eq.' + userId);
+    if (res.data) {
+      myFriends = res.data.map(function(f) {
+        var isRequester = f.requester_id === userId;
+        var friendProfile = isRequester ? f.profiles : f.requester;
+        return { id: f.id, status: f.status, isRequester: isRequester, friendId: isRequester ? f.addressee_id : f.requester_id, profile: friendProfile || {} };
+      });
+    }
+  } catch(e) { console.warn('Friends load failed', e); }
+  renderFriendsSection();
+  renderGiftReminders();
+}
+
+async function searchFriend() {
+  var input = document.getElementById('friend-search-input');
+  if (!input || !input.value.trim()) return;
+  var handle = input.value.trim().replace(/^@/, '').toLowerCase();
+  var resultEl = document.getElementById('friend-search-result');
+  if (!sbClient) { resultEl.innerHTML = '<div style="font-size:11px;color:#888780">Not connected.</div>'; return; }
+  if (!myProfile || !myProfile.handle) {
+    resultEl.innerHTML = '<div style="font-size:11px;color:#A32D2D;background:#FAECE7;padding:8px;border-radius:8px">Set your own handle first so friends can find you too.</div>';
+    return;
+  }
+  resultEl.innerHTML = '<div style="font-size:11px;color:#888780">Searching…</div>';
+  try {
+    var res = await sbClient.from('profiles').select('*').eq('handle', handle).neq('id', userId).maybeSingle();
+    if (!res.data) {
+      resultEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No user found with @' + handle + '</div>';
+      return;
+    }
+    var alreadyFriend = myFriends.some(function(f) { return f.friendId === res.data.id; });
+    var name = res.data.display_name || ('@' + handle);
+    if (alreadyFriend) {
+      resultEl.innerHTML = '<div class="member-row"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">@' + handle + '</div></div><span class="pill pill-green">Already friends</span></div>';
+    } else {
+      resultEl.innerHTML = '<div class="member-row"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">@' + handle + '</div></div><button class="add-btn" onclick="sendFriendRequest(\'' + res.data.id + '\')">+ Add</button></div>';
+    }
+  } catch(e) { resultEl.innerHTML = '<div style="font-size:11px;color:#A32D2D">Search failed.</div>'; }
+}
+
+async function sendFriendRequest(addresseeId) {
+  if (!sbClient || !userId) return;
+  try {
+    await sbClient.from('friendships').insert({ requester_id: userId, addressee_id: addresseeId, status: 'pending' });
+    document.getElementById('friend-search-result').innerHTML = '<div style="font-size:11px;color:#27500A;background:#EAF3DE;padding:8px;border-radius:8px">Friend request sent!</div>';
+    await loadFriends();
+  } catch(e) { document.getElementById('friend-search-result').innerHTML = '<div style="font-size:11px;color:#A32D2D">Could not send request.</div>'; }
+}
+
+async function respondToFriendRequest(friendshipId, accept) {
+  if (!sbClient) return;
+  try {
+    if (accept) {
+      await sbClient.from('friendships').update({ status: 'accepted' }).eq('id', friendshipId);
+    } else {
+      await sbClient.from('friendships').delete().eq('id', friendshipId);
+    }
+    await loadFriends();
+    if (accept) await renderMatch();
+  } catch(e) { console.warn('Friend request response failed', e); }
+}
+
+function renderFriendsSection() {
+  var pending = myFriends.filter(function(f) { return f.status === 'pending' && !f.isRequester; });
+  var accepted = myFriends.filter(function(f) { return f.status === 'accepted'; });
+  var sent = myFriends.filter(function(f) { return f.status === 'pending' && f.isRequester; });
+  var reqEl = document.getElementById('friend-requests-section');
+  if (reqEl) {
+    if (pending.length > 0) {
+      reqEl.innerHTML = '<div class="sec-label" style="margin-top:8px">Pending requests (' + pending.length + ')</div>'
+        + pending.map(function(f) {
+          var name = f.profile.display_name || f.profile.handle || 'Unknown';
+          var handle = f.profile.handle ? '@' + f.profile.handle : '';
+          return '<div class="member-row"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>'
+            + '<button class="add-btn" onclick="respondToFriendRequest(\'' + f.id + '\',true)" style="margin-right:4px">Accept</button>'
+            + '<button class="back-btn" onclick="respondToFriendRequest(\'' + f.id + '\',false)" style="font-size:10px;padding:3px 7px">Decline</button></div>';
+        }).join('');
+    } else { reqEl.innerHTML = ''; }
+  }
+  var listEl = document.getElementById('friends-list-section');
+  if (listEl) {
+    var html = '';
+    if (accepted.length > 0) {
+      html = '<div class="sec-label" style="margin-top:8px">Friends (' + accepted.length + ')</div>'
+        + accepted.map(function(f) {
+          var name = f.profile.display_name || f.profile.handle || 'Unknown';
+          var handle = f.profile.handle ? '@' + f.profile.handle : '';
+          return '<div class="member-row"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div></div>';
+        }).join('');
+    } else if (sent.length > 0) {
+      html = '<div style="font-size:11px;color:#888780;padding:6px 0">' + sent.length + ' request' + (sent.length>1?'s':'') + ' sent — waiting for them to accept.</div>';
+    } else {
+      html = '<div style="font-size:11px;color:#888780;padding:6px 0">Search by @handle above to add friends.</div>';
+    }
+    listEl.innerHTML = html;
+  }
+}
+
+async function renderGiftReminders() {
+  var el = document.getElementById('gift-reminders-section');
+  if (!el) return;
+  var accepted = myFriends.filter(function(f) { return f.status === 'accepted' && f.profile && f.profile.birthday; });
+  if (accepted.length === 0) {
+    el.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">Add friends with birthdays to see gift reminders.</div>';
+    return;
+  }
+  var today = new Date();
+  var upcoming = accepted.filter(function(f) {
+    var bd = new Date(f.profile.birthday);
+    var next = new Date(today.getFullYear(), bd.getMonth(), bd.getDate());
+    if (next < today) next.setFullYear(today.getFullYear() + 1);
+    var days = Math.round((next - today) / 86400000);
+    f._daysUntilBirthday = days;
+    return days <= 30;
+  }).sort(function(a, b) { return a._daysUntilBirthday - b._daysUntilBirthday; });
+  if (upcoming.length === 0) {
+    el.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No birthdays in the next 30 days.</div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < upcoming.length; i++) {
+    var f = upcoming[i];
+    var name = f.profile.display_name || f.profile.handle || 'Friend';
+    var days = f._daysUntilBirthday;
+    var when = days === 0 ? 'Today! 🎉' : days === 1 ? 'Tomorrow' : 'In ' + days + ' days';
+    var friendLists = f.lists || [];
+    var topItem = '';
+    if (friendLists.length > 0 && friendLists[0].items && friendLists[0].items.length > 0) {
+      topItem = ' · Their #1 pick: ' + friendLists[0].items[0];
+    }
+    html += '<div class="gift-card" style="margin-bottom:8px"><div style="font-size:12px;font-weight:700;color:#993C1D;margin-bottom:2px">' + name + '\'s birthday — ' + when + '</div><div style="font-size:11px;color:#D85A30">' + (friendLists.length > 0 ? 'Based on their lists' + topItem : 'No lists filled yet') + '</div></div>';
+  }
+  el.innerHTML = html;
+  var homeGift = document.querySelector('#s-home .gift-card');
+  var homeGiftLabel = document.querySelector('#s-home .sec-label[data-gift]');
+  if (upcoming.length > 0) {
+    if (homeGift) { homeGift.style.display = ''; homeGift.parentElement.previousElementSibling && (homeGift.parentElement.previousElementSibling.style.display = ''); }
+  }
 }
 
 async function saveState() {
@@ -1454,30 +1649,157 @@ async function saveState() {
   if (sbClient && userId) {
     try {
       await sbClient.from('tenner_state').upsert({
-        user_id: userId,
-        groups: MY_GROUPS,
-        lists: MY_LISTS,
+        user_id: userId, groups: MY_GROUPS, lists: MY_LISTS,
         updated_at: new Date().toISOString()
       });
     } catch(e) { console.warn('Supabase save failed', e); }
   }
 }
 
+async function saveListToDb(listObj) {
+  if (!sbClient || !userId) return;
+  try {
+    await sbClient.from('lists').upsert({
+      user_id: userId,
+      name: listObj.n,
+      category: listObj.category || listObj.n.replace('Top 10 ', ''),
+      items: listObj.items,
+      is_ranked: listObj.ranked !== false,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,category' });
+  } catch(e) { console.warn('List save to DB failed', e); }
+}
+
 async function loadState() {
   if (sbClient && userId) {
     try {
-      var res = await sbClient.from('tenner_state').select('*').eq('user_id', userId).maybeSingle();
-      if (res.data) {
-        MY_GROUPS = res.data.groups || [];
-        MY_LISTS = res.data.lists || [];
-        return;
+      var listsRes = await sbClient.from('lists').select('*').eq('user_id', userId);
+      if (listsRes.data && listsRes.data.length > 0) {
+        MY_LISTS = listsRes.data.map(function(l) {
+          return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category };
+        });
       }
+      var stateRes = await sbClient.from('tenner_state').select('groups').eq('user_id', userId).maybeSingle();
+      if (stateRes.data) MY_GROUPS = stateRes.data.groups || [];
+      if (listsRes.data && listsRes.data.length > 0) return;
     } catch(e) { console.warn('Supabase load failed', e); }
   }
   var g = localStorage.getItem('tenner_groups');
   var l = localStorage.getItem('tenner_lists');
   if (g) MY_GROUPS = JSON.parse(g);
   if (l) MY_LISTS = JSON.parse(l);
+}
+
+async function renderMatch() {
+  var el = document.getElementById('match-screen-content');
+  if (!el) return;
+  var accepted = myFriends.filter(function(f) { return f.status === 'accepted'; });
+  if (accepted.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📊</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No friends yet</div><div style="font-size:12px;line-height:1.5">Add friends from your Profile to start seeing match scores here.</div></div>';
+    return;
+  }
+  if (MY_LISTS.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📋</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">Create some lists first</div><div style="font-size:12px;line-height:1.5">Make your top 10 lists and your friends\' comparisons will appear here.</div></div>';
+    return;
+  }
+  el.innerHTML = '<div style="font-size:11px;color:#888780;text-align:center;padding:20px">Loading comparisons…</div>';
+  try {
+    var friendIds = accepted.map(function(f) { return f.friendId; });
+    var res = await sbClient.from('lists').select('*, profiles(display_name, handle)').in('user_id', friendIds);
+    var friendLists = res.data || [];
+    accepted.forEach(function(f) {
+      f.lists = friendLists.filter(function(l) { return l.user_id === f.friendId; });
+    });
+    var myCategories = MY_LISTS.map(function(l) { return l.category || l.n.replace('Top 10 ', ''); });
+    var comparisons = [];
+    accepted.forEach(function(f) {
+      f.lists.forEach(function(fl) {
+        var cat = fl.category || fl.name.replace('Top 10 ', '');
+        var myList = MY_LISTS.find(function(ml) { return (ml.category || ml.n.replace('Top 10 ', '')) === cat; });
+        if (myList) {
+          var score = computeMatch(myList.items, fl.items, myList.ranked && fl.is_ranked);
+          comparisons.push({ friend: f, friendList: fl, myList: myList, category: cat, score: score });
+        }
+      });
+    });
+    if (comparisons.length === 0) {
+      el.innerHTML = '<div style="text-align:center;padding:30px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">🔍</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No overlapping lists yet</div><div style="font-size:12px;line-height:1.5">You and your friends need lists in the same category to compare. Your lists: ' + myCategories.join(', ') + '.</div></div>';
+      return;
+    }
+    var byCategory = {};
+    comparisons.forEach(function(c) {
+      if (!byCategory[c.category]) byCategory[c.category] = [];
+      byCategory[c.category].push(c);
+    });
+    var cats = Object.keys(byCategory);
+    var tabsHtml = '<div class="list-selector" style="margin-bottom:12px">' + cats.map(function(cat, i) { return '<button class="list-sel-btn' + (i===0?' active':'') + '" onclick="showMatchTab(this,\'' + cat.replace(/'/g,"\\'") + '\')">' + cat + '</button>'; }).join('') + '</div>';
+    var panelsHtml = cats.map(function(cat, i) {
+      var comps = byCategory[cat];
+      var scoresHtml = comps.map(function(c) {
+        var fname = (c.friend.profile && c.friend.profile.display_name) || (c.friend.profile && c.friend.profile.handle ? '@'+c.friend.profile.handle : 'Friend');
+        var initials = fname.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+        var myItems = c.myList.items.map(function(x){return x.toLowerCase().trim();});
+        var theirItems = c.friendList.items.map(function(x){return x.toLowerCase().trim();});
+        var shared = myItems.filter(function(x){return theirItems.indexOf(x)!==-1;});
+        var detail = shared.length + '/' + Math.max(myItems.length, theirItems.length) + ' same picks';
+        return '<div class="card no-hover"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px"><div class="avatar" style="background:#E6F1FB;color:#185FA5">' + initials + '</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div><div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div><div style="font-size:18px;font-weight:700;color:#D85A30">' + c.score + '%</div></div><div class="bar-bg"><div class="bar-fill" style="width:' + c.score + '%"></div></div></div>';
+      }).join('');
+      var topComp = comps[0];
+      var myI = topComp.myList.items.map(function(x){return x.toLowerCase().trim();});
+      var theirI = topComp.friendList.items.map(function(x){return x.toLowerCase().trim();});
+      var shared = topComp.myList.items.filter(function(x){return theirI.indexOf(x.toLowerCase().trim())!==-1;});
+      var fname = (topComp.friend.profile && topComp.friend.profile.display_name) || 'Friend';
+      var rowsHtml = topComp.myList.items.slice(0,5).map(function(item, idx) {
+        var match = theirI.indexOf(item.toLowerCase().trim()) !== -1;
+        var theirItem = topComp.friendList.items[idx] || '—';
+        var bg = match ? '#EAF3DE' : '#F1EFE8'; var col = match ? '#3B6D11' : '#2C2C2A';
+        return '<div style="display:flex;gap:5px;margin-bottom:4px"><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + item + '</div><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + theirItem + '</div></div>';
+      }).join('');
+      var agreePills = shared.map(function(a){return '<span class="pill pill-green">'+a+'</span>';}).join('');
+      return '<div id="match-panel-' + i + '" style="display:' + (i===0?'block':'none') + '">'
+        + '<div style="font-size:10px;color:#5F5E5A;margin-bottom:12px">Top 10 ' + cat + ' · ' + comps.length + ' friend' + (comps.length>1?'s':'') + ' compared</div>'
+        + '<div class="sec-label">Match Scores</div>' + scoresHtml
+        + (comps.length>0 ? '<div class="sec-label">Side-by-side: You vs ' + fname + '</div>'
+          + '<div style="display:flex;gap:5px;margin-bottom:3px"><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">' + fname + '</div></div>' + rowsHtml : '')
+        + (shared.length>0 ? '<div class="sec-label">Everyone agrees on…</div><div style="display:flex;flex-wrap:wrap;gap:6px">' + agreePills + '</div>' : '')
+        + '</div>';
+    }).join('');
+    el.innerHTML = tabsHtml + panelsHtml;
+    window._matchCats = cats;
+  } catch(e) {
+    el.innerHTML = '<div style="text-align:center;padding:30px;font-size:12px;color:#A32D2D">Could not load comparisons. Try again.</div>';
+    console.warn('Match load failed', e);
+  }
+}
+
+function showMatchTab(btn, cat) {
+  document.querySelectorAll('#match-screen-content .list-sel-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  var cats = window._matchCats || [];
+  cats.forEach(function(c, i) {
+    var panel = document.getElementById('match-panel-' + i);
+    if (panel) panel.style.display = c === cat ? 'block' : 'none';
+  });
+}
+
+function computeMatch(myItems, theirItems, ranked) {
+  var my = myItems.map(function(x){return x.toLowerCase().trim();});
+  var their = theirItems.map(function(x){return x.toLowerCase().trim();});
+  var intersection = my.filter(function(x){return their.indexOf(x)!==-1;});
+  var union = my.concat(their.filter(function(x){return my.indexOf(x)===-1;}));
+  var overlapScore = union.length > 0 ? intersection.length / union.length : 0;
+  if (ranked && intersection.length > 1) {
+    var n = intersection.length;
+    var d2 = 0;
+    intersection.forEach(function(item) {
+      var r1 = my.indexOf(item); var r2 = their.indexOf(item);
+      d2 += (r1 - r2) * (r1 - r2);
+    });
+    var spearman = 1 - (6 * d2) / (n * (n * n - 1));
+    var rankScore = (spearman + 1) / 2;
+    return Math.round((overlapScore * 0.6 + rankScore * 0.4) * 100);
+  }
+  return Math.round(overlapScore * 100);
 }
 
 function goToCreateStep2() {
@@ -1490,11 +1812,14 @@ function saveList() {
   var listName = 'Top 10 ' + selCat;
   var itemCount = items.filter(function(i) { return i.trim(); }).length;
   var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
-  MY_LISTS.push({n: listName, m: meta, items: items.slice(), ranked: isRanked});
+  var existing = MY_LISTS.findIndex(function(l) { return (l.category || l.n.replace('Top 10 ', '')) === selCat; });
+  var listObj = { n: listName, m: meta, items: items.slice(), ranked: isRanked, category: selCat };
+  if (existing >= 0) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
   var dest = listOrigin;
   listOrigin = 's-home';
-  if (dest === 's-cg3') selList = MY_LISTS.length - 1;
+  if (dest === 's-cg3') selList = existing >= 0 ? existing : MY_LISTS.length - 1;
   saveState();
+  saveListToDb(listObj);
   go(dest);
 }
 
@@ -1529,6 +1854,8 @@ document.addEventListener('click', function(e) {
     if (session) {
       onSignedIn(session);
       await loadState();
+      await loadProfile();
+      await loadFriends();
       renderHome();
       renderListPicker();
       go('s-home');
@@ -1542,6 +1869,8 @@ document.addEventListener('click', function(e) {
   if (session) {
     onSignedIn(session);
     await loadState();
+    await loadProfile();
+    await loadFriends();
     renderHome();
     renderListPicker();
     go('s-home');
