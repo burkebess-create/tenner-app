@@ -1858,15 +1858,13 @@ document.addEventListener('click', function(e) {
   // Listen for auth state changes (handles login, logout, and magic link redirects)
   sbClient.auth.onAuthStateChange(async function(event, session) {
     if (session) {
-      try {
-        onSignedIn(session);
-        await loadState();
-        await loadProfile();
-        await loadFriends();
-      } catch(e) { console.warn('Post-signin load error', e); }
+      onSignedIn(session);
+      await loadState();
       renderHome();
       renderListPicker();
       go('s-home');
+      loadProfile().catch(console.warn);
+      loadFriends().catch(console.warn);
     } else {
       go('s-auth');
     }
@@ -1875,15 +1873,13 @@ document.addEventListener('click', function(e) {
   // Check if already logged in
   var { data: { session } } = await sbClient.auth.getSession();
   if (session) {
-    try {
-      onSignedIn(session);
-      await loadState();
-      await loadProfile();
-      await loadFriends();
-    } catch(e) { console.warn('Post-signin load error', e); }
+    onSignedIn(session);
+    await loadState();
     renderHome();
     renderListPicker();
     go('s-home');
+    loadProfile().catch(console.warn);
+    loadFriends().catch(console.warn);
   } else {
     go('s-auth');
   }
