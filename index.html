@@ -588,61 +588,11 @@
         </div>
         <div class="content">
           <div class="list-selector">
-            <button class="list-sel-btn active">Movies</button>
-            <button class="list-sel-btn">Candy Bars</button>
-            <button class="list-sel-btn">Travel</button>
+            <button class="list-sel-btn active" onclick="selectMatchList(this,'movies')">Movies</button>
+            <button class="list-sel-btn" onclick="selectMatchList(this,'candy')">Candy Bars</button>
+            <button class="list-sel-btn" onclick="selectMatchList(this,'travel')">Travel</button>
           </div>
-          <div style="font-size:10px;color:#5F5E5A;margin-bottom:12px">Top 10 Movies · Ranked · 3 friends compared</div>
-          <div class="sec-label">Match Scores</div>
-          <div class="card no-hover">
-            <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
-              <div class="avatar" style="background:#E6F1FB;color:#185FA5">SK</div>
-              <div style="flex:1">
-                <div style="font-size:12px;font-weight:600;color:#2C2C2A">Sarah K.</div>
-                <div style="font-size:10px;color:#5F5E5A;margin-top:1px">8/10 same picks · 5 ranked similarly</div>
-              </div>
-              <div style="font-size:18px;font-weight:700;color:#D85A30">80%</div>
-            </div>
-            <div class="bar-bg"><div class="bar-fill" style="width:80%"></div></div>
-          </div>
-          <div class="card no-hover">
-            <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
-              <div class="avatar" style="background:#E1F5EE;color:#0F6E56">BM</div>
-              <div style="flex:1">
-                <div style="font-size:12px;font-weight:600;color:#2C2C2A">Burke M.</div>
-                <div style="font-size:10px;color:#5F5E5A;margin-top:1px">7/10 same picks · 3 ranked similarly</div>
-              </div>
-              <div style="font-size:18px;font-weight:700;color:#D85A30">70%</div>
-            </div>
-            <div class="bar-bg"><div class="bar-fill" style="width:70%"></div></div>
-          </div>
-          <div class="card no-hover">
-            <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
-              <div class="avatar" style="background:#FBEAF0;color:#993356">JR</div>
-              <div style="flex:1">
-                <div style="font-size:12px;font-weight:600;color:#2C2C2A">Jamie R.</div>
-                <div style="font-size:10px;color:#5F5E5A;margin-top:1px">5/10 same picks · 2 ranked similarly</div>
-              </div>
-              <div style="font-size:18px;font-weight:700;color:#D85A30">60%</div>
-            </div>
-            <div class="bar-bg"><div class="bar-fill" style="width:60%"></div></div>
-          </div>
-          <div class="sec-label">Side-by-side: You vs Sarah K.</div>
-          <div style="display:flex;gap:5px;margin-bottom:3px">
-            <div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div>
-            <div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">Sarah K.</div>
-          </div>
-          <div style="display:flex;gap:5px;margin-bottom:4px"><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:#EAF3DE;color:#3B6D11">The Godfather</div><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:#EAF3DE;color:#3B6D11">The Godfather</div></div>
-          <div style="display:flex;gap:5px;margin-bottom:4px"><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:#EAF3DE;color:#3B6D11">Inception</div><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:#EAF3DE;color:#3B6D11">Inception</div></div>
-          <div style="display:flex;gap:5px;margin-bottom:4px"><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:#EAF3DE;color:#3B6D11">Interstellar</div><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:#EAF3DE;color:#3B6D11">Interstellar</div></div>
-          <div style="display:flex;gap:5px;margin-bottom:4px"><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:#F1EFE8;color:#2C2C2A">The Dark Knight</div><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:#F1EFE8;color:#2C2C2A">Avengers</div></div>
-          <div style="display:flex;gap:5px;margin-bottom:4px"><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:#EAF3DE;color:#3B6D11">Pulp Fiction</div><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:#EAF3DE;color:#3B6D11">Pulp Fiction</div></div>
-          <div class="sec-label">Everyone agrees on...</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px">
-            <span class="pill pill-green">The Godfather</span>
-            <span class="pill pill-green">Inception</span>
-            <span class="pill pill-green">Interstellar</span>
-          </div>
+          <div id="match-content"></div>
         </div>
       </div>
 
@@ -894,6 +844,7 @@ function go(id) {
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
   if (id === 's-cg3') renderListPicker();
   if (id === 's-gsettings') renderGroupSettings();
+  if (id === 's-match') { var activeBtn = document.querySelector('#s-match .list-sel-btn.active'); if (activeBtn) selectMatchList(activeBtn, activeBtn.textContent === 'Movies' ? 'movies' : activeBtn.textContent === 'Candy Bars' ? 'candy' : 'travel'); }
 }
 
 function showConfirm(title, message, okLabel, style, onOk) {
@@ -1303,6 +1254,80 @@ function finishGroup() {
     saveState();
   }
   go('s-gdetail');
+}
+
+var MATCH_DATA = {
+  movies: {
+    title: 'Top 10 Movies · Ranked · 3 friends compared',
+    scores: [
+      {init:'SK',bg:'#E6F1FB',c:'#185FA5',name:'Sarah K.',detail:'8/10 same picks · 5 ranked similarly',pct:80},
+      {init:'BM',bg:'#E1F5EE',c:'#0F6E56',name:'Burke M.',detail:'7/10 same picks · 3 ranked similarly',pct:70},
+      {init:'JR',bg:'#FBEAF0',c:'#993356',name:'Jamie R.',detail:'5/10 same picks · 2 ranked similarly',pct:60}
+    ],
+    vsLabel:'You vs Sarah K.',
+    rows:[
+      ['The Godfather','The Godfather',true],['Inception','Inception',true],['Interstellar','Interstellar',true],
+      ['The Dark Knight','Avengers',false],['Pulp Fiction','Pulp Fiction',true]
+    ],
+    agrees:['The Godfather','Inception','Interstellar']
+  },
+  candy: {
+    title: 'Top 10 Candy Bars · Unranked · 2 friends compared',
+    scores: [
+      {init:'SK',bg:'#E6F1FB',c:'#185FA5',name:'Sarah K.',detail:'6/10 same picks',pct:60},
+      {init:'BM',bg:'#E1F5EE',c:'#0F6E56',name:'Burke M.',detail:'5/10 same picks',pct:50}
+    ],
+    vsLabel:'You vs Sarah K.',
+    rows:[
+      ["Reese's",'Reese\'s',true],['Snickers','Snickers',true],['Kit Kat','Twix',false],
+      ['Twix','Kit Kat',false],['100 Grand','Butterfinger',false]
+    ],
+    agrees:["Reese's",'Snickers']
+  },
+  travel: {
+    title: 'Top 10 Travel · Ranked · 3 friends compared',
+    scores: [
+      {init:'JR',bg:'#FBEAF0',c:'#993356',name:'Jamie R.',detail:'7/10 same picks · 4 ranked similarly',pct:75},
+      {init:'SK',bg:'#E6F1FB',c:'#185FA5',name:'Sarah K.',detail:'6/10 same picks · 2 ranked similarly',pct:65},
+      {init:'BM',bg:'#E1F5EE',c:'#0F6E56',name:'Burke M.',detail:'4/10 same picks · 1 ranked similarly',pct:45}
+    ],
+    vsLabel:'You vs Jamie R.',
+    rows:[
+      ['Costa Rica','Costa Rica',true],['Italy','Japan',false],['Japan','Italy',false],
+      ['New Zealand','New Zealand',true],['Portugal','Iceland',false]
+    ],
+    agrees:['Costa Rica','New Zealand']
+  }
+};
+
+function selectMatchList(btn, key) {
+  document.querySelectorAll('#s-match .list-sel-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  var d = MATCH_DATA[key];
+  if (!d) return;
+  var scoresHtml = d.scores.map(function(s) {
+    return '<div class="card no-hover"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
+      + '<div class="avatar" style="background:' + s.bg + ';color:' + s.c + '">' + s.init + '</div>'
+      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + s.name + '</div>'
+      + '<div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + s.detail + '</div></div>'
+      + '<div style="font-size:18px;font-weight:700;color:#D85A30">' + s.pct + '%</div></div>'
+      + '<div class="bar-bg"><div class="bar-fill" style="width:' + s.pct + '%"></div></div></div>';
+  }).join('');
+  var rowsHtml = d.rows.map(function(r) {
+    var match = r[2]; var bg = match ? '#EAF3DE' : '#F1EFE8'; var col = match ? '#3B6D11' : '#2C2C2A';
+    return '<div style="display:flex;gap:5px;margin-bottom:4px">'
+      + '<div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + r[0] + '</div>'
+      + '<div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + r[1] + '</div></div>';
+  }).join('');
+  var agreesHtml = d.agrees.map(function(a) { return '<span class="pill pill-green">' + a + '</span>'; }).join('');
+  document.getElementById('match-content').innerHTML =
+    '<div style="font-size:10px;color:#5F5E5A;margin-bottom:12px">' + d.title + '</div>'
+    + '<div class="sec-label">Match Scores</div>' + scoresHtml
+    + '<div class="sec-label">Side-by-side: ' + d.vsLabel + '</div>'
+    + '<div style="display:flex;gap:5px;margin-bottom:3px"><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">' + d.scores[0].name + '</div></div>'
+    + rowsHtml
+    + '<div class="sec-label">Everyone agrees on...</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + agreesHtml + '</div>';
 }
 
 function copyInviteLink() {
