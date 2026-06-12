@@ -161,8 +161,8 @@
             <span style="font-size:12px;color:#888780">+ Create a new list</span>
           </div>
 
-          <div class="sec-label">Gift Reminders</div>
-          <div class="gift-card">
+          <div class="sec-label" style="display:none">Gift Reminders</div>
+          <div class="gift-card" style="display:none">
             <div style="font-size:12px;font-weight:600;color:#993C1D;margin-bottom:10px">Burke's birthday is in 7 days!</div>
             <div class="gift-row">
               <span class="gift-icon">🍫</span>
@@ -587,12 +587,11 @@
           <span style="width:52px"></span>
         </div>
         <div class="content">
-          <div class="list-selector">
-            <button class="list-sel-btn active" onclick="selectMatchList(this,'movies')">Movies</button>
-            <button class="list-sel-btn" onclick="selectMatchList(this,'candy')">Candy Bars</button>
-            <button class="list-sel-btn" onclick="selectMatchList(this,'travel')">Travel</button>
+          <div style="text-align:center;padding:40px 20px;color:#888780">
+            <div style="font-size:36px;margin-bottom:12px">📊</div>
+            <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No comparisons yet</div>
+            <div style="font-size:12px;line-height:1.5">Create a list and share it with a Circle to start seeing match scores here.</div>
           </div>
-          <div id="match-content"></div>
         </div>
       </div>
 
@@ -600,56 +599,14 @@
       <div class="screen" id="s-gift">
         <div class="topbar">
           <button class="back-btn" onclick="go('s-home')">← Back</button>
-          <span style="font-size:13px;font-weight:600;color:#2C2C2A">Gift Ideas · Burke</span>
+          <span style="font-size:13px;font-weight:600;color:#2C2C2A">Gift Ideas</span>
           <span style="width:52px"></span>
         </div>
         <div class="content">
-          <div class="gift-card" style="margin-bottom:14px">
-            <div style="font-size:13px;font-weight:700;color:#993C1D;margin-bottom:3px">Burke's birthday is in 7 days</div>
-            <div style="font-size:11px;color:#D85A30">Here's what they love across all their lists</div>
-          </div>
-          <div class="card no-hover">
-            <div class="gift-row" style="margin-bottom:0">
-              <span class="gift-icon">🍫</span>
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:600;color:#2C2C2A">Butterfinger</div>
-                <div style="font-size:10px;color:#5F5E5A">from Favorite Candy Bars · #1 pick</div>
-              </div>
-              <button class="shop-btn" onclick="alert('Opens Amazon with affiliate tracking for Butterfinger!')">Shop</button>
-            </div>
-          </div>
-          <div class="card no-hover">
-            <div class="gift-row" style="margin-bottom:0">
-              <span class="gift-icon">🥤</span>
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:600;color:#2C2C2A">Root Beer</div>
-                <div style="font-size:10px;color:#5F5E5A">from Favorite Sodas · #2 pick</div>
-              </div>
-              <button class="shop-btn" onclick="alert('Opens Amazon with affiliate tracking for Root Beer!')">Shop</button>
-            </div>
-          </div>
-          <div class="card no-hover">
-            <div class="gift-row" style="margin-bottom:0">
-              <span class="gift-icon">🍽</span>
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:600;color:#2C2C2A">Texas Roadhouse</div>
-                <div style="font-size:10px;color:#5F5E5A">from Favorite Restaurants · #1 pick</div>
-              </div>
-              <button class="shop-btn" onclick="alert('Opens Amazon for Texas Roadhouse gift card!')">Shop</button>
-            </div>
-          </div>
-          <div class="card no-hover">
-            <div class="gift-row" style="margin-bottom:0">
-              <span class="gift-icon">🎳</span>
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:600;color:#2C2C2A">Bowling</div>
-                <div style="font-size:10px;color:#5F5E5A">from Favorite Pastimes · #3 pick</div>
-              </div>
-              <button class="shop-btn" onclick="alert('Opens Amazon for bowling gift ideas!')">Shop</button>
-            </div>
-          </div>
-          <div style="text-align:center;margin-top:10px">
-            <span style="font-size:12px;color:#D85A30;cursor:pointer;font-weight:600" onclick="alert('Shows all of Burke\'s lists for more gift ideas!')">See more from Burke's lists →</span>
+          <div style="text-align:center;padding:40px 20px;color:#888780">
+            <div style="font-size:36px;margin-bottom:12px">🎁</div>
+            <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">Coming soon</div>
+            <div style="font-size:12px;line-height:1.5">Gift ideas based on your friends' lists will appear here once they've filled out their top 10s.</div>
           </div>
         </div>
       </div>
@@ -785,13 +742,7 @@ var ITEMS = {
 };
 var FUZZY_CATS = {'moveis':'Movies','movie':'Movies','films':'Movies','film':'Movies','tv show':'TV Shows','television':'TV Shows','shows':'TV Shows','candy bar':'Candy Bars','chocolate':'Candy Bars','vacation':'Travel','travel spot':'Travel','soda':'Sodas','pop':'Sodas','book':'Books'};
 var FUZZY_ITEMS = {'mars':'Mars Bar','snicker':'Snickers','reeses':'Reese\'s Peanut Butter Cups','reese':'Reese\'s Peanut Butter Cups','kitkat':'Kit Kat','kit-kat':'Kit Kat','godfather':'The Godfather','dark knight':'The Dark Knight','matrix':'The Matrix'};
-var FRIENDS = [
-  {n:'Sarah K.',i:'SK',bg:'#E6F1FB',c:'#185FA5',m:'80% match'},
-  {n:'Jamie R.',i:'JR',bg:'#E1F5EE',c:'#0F6E56',m:'72% match'},
-  {n:'Mike K.',i:'MK',bg:'#FBEAF0',c:'#993356',m:'65% match'},
-  {n:'Alex T.',i:'AT',bg:'#FAEEDA',c:'#854F0B',m:'58% match'},
-  {n:'Casey M.',i:'CM',bg:'#EAF3DE',c:'#3B6D11',m:'70% match'}
-];
+var FRIENDS = [];
 var MY_LISTS = [];
 var MY_GROUPS = [];
 var EMOJIS = ['🎓','💼','👨‍👩‍👧‍👦','🏡','⚽','🎮','🎵','🍕','🏖️','✈️','🎉','📚'];
