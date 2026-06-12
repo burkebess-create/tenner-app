@@ -564,47 +564,14 @@
           <span style="width:52px"></span>
         </div>
         <div class="content">
-          <div style="text-align:center;padding:14px 0 18px">
-            <div class="group-emoji" style="margin:0 auto 10px;width:52px;height:52px;font-size:28px">🎓</div>
-            <div style="font-size:15px;font-weight:700;color:#2C2C2A">College Friends</div>
-            <div style="font-size:11px;color:#5F5E5A;margin-top:2px">6 members</div>
-          </div>
+          <div id="gsettings-header" style="text-align:center;padding:14px 0 18px"></div>
           <div class="sec-label">Group name</div>
-          <input type="text" value="College Friends">
+          <input type="text" id="gsettings-name" placeholder="Group name">
           <div class="sec-label">Invite more members</div>
           <input type="text" placeholder="Search by name or @handle...">
-          <button class="btn-secondary" style="font-size:11px;padding:9px;margin-bottom:14px" onclick="alert('Invite link copied! Share with anyone.')">Copy invite link for non-users</button>
-          <div class="sec-label">Members (6)</div>
-          <div class="member-row">
-            <div class="avatar" style="background:#FAECE7;color:#993C1D">YO</div>
-            <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">You</div><div style="font-size:10px;color:#5F5E5A">Admin</div></div>
-            <span class="pill pill-coral">You</span>
-          </div>
-          <div class="member-row">
-            <div class="avatar" style="background:#E6F1FB;color:#185FA5">SK</div>
-            <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Sarah K.</div><div style="font-size:10px;color:#5F5E5A">Member</div></div>
-            <button class="back-btn" onclick="showConfirm('Remove Sarah K.?','They will lose access to this group and all shared lists.','Remove','danger',function(){})" style="font-size:10px;padding:3px 7px">Remove</button>
-          </div>
-          <div class="member-row">
-            <div class="avatar" style="background:#E1F5EE;color:#0F6E56">JR</div>
-            <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Jamie R.</div><div style="font-size:10px;color:#5F5E5A">Member</div></div>
-            <button class="back-btn" onclick="showConfirm('Remove Jamie R.?','They will lose access to this group and all shared lists.','Remove','danger',function(){})" style="font-size:10px;padding:3px 7px">Remove</button>
-          </div>
-          <div class="member-row">
-            <div class="avatar" style="background:#FBEAF0;color:#993356">MK</div>
-            <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Mike K.</div><div style="font-size:10px;color:#5F5E5A">Member</div></div>
-            <button class="back-btn" onclick="showConfirm('Remove Mike K.?','They will lose access to this group and all shared lists.','Remove','danger',function(){})" style="font-size:10px;padding:3px 7px">Remove</button>
-          </div>
-          <div class="member-row">
-            <div class="avatar" style="background:#FAEEDA;color:#854F0B">AT</div>
-            <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Alex T.</div><div style="font-size:10px;color:#5F5E5A">Pending</div></div>
-            <span class="pill pill-amber">Pending</span>
-          </div>
-          <div class="member-row">
-            <div class="avatar" style="background:#EAF3DE;color:#3B6D11">CM</div>
-            <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Casey M.</div><div style="font-size:10px;color:#5F5E5A">Member</div></div>
-            <button class="back-btn" onclick="showConfirm('Remove Casey M.?','They will lose access to this group and all shared lists.','Remove','danger',function(){})" style="font-size:10px;padding:3px 7px">Remove</button>
-          </div>
+          <button class="btn-secondary" style="font-size:11px;padding:9px;margin-bottom:14px" onclick="copyInviteLink()">Copy invite link for non-users</button>
+          <div class="sec-label">Members</div>
+          <div id="gsettings-members"></div>
           <div style="display:flex;gap:8px;margin-top:14px">
             <button class="btn-secondary" style="flex:1;margin-bottom:0;color:#A32D2D;border-color:#F09595" onclick="showConfirm('Leave this group?','You will lose access to all shared lists in this group.','Leave','danger',function(){go('s-home')})">Leave group</button>
             <button class="btn-primary" style="flex:1;margin-bottom:0" onclick="go('s-gdetail')">Save changes</button>
@@ -797,7 +764,7 @@
       <div class="bnav" id="global-bnav">
         <div class="ni" id="nav-home" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home</div>
         <div class="ni" id="nav-create" onclick="go('s-create1')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Create</div>
-        <div class="ni" id="nav-groups" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Groups</div>
+        <div class="ni" id="nav-circle" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Circle</div>
         <div class="ni" id="nav-match" onclick="go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
         <div class="ni" id="nav-profile" onclick="go('s-profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</div>
       </div>
@@ -906,14 +873,14 @@ function go(id) {
   var bnav = document.getElementById('global-bnav');
   if (bnav) {
     bnav.style.display = (id === 's-auth') ? 'none' : 'flex';
-    ['nav-home','nav-create','nav-groups','nav-match','nav-profile'].forEach(function(nid) {
+    ['nav-home','nav-create','nav-circle','nav-match','nav-profile'].forEach(function(nid) {
       document.getElementById(nid) && document.getElementById(nid).classList.remove('active');
     });
     var activeNav = {
       's-home': 'nav-home', 's-list-detail': 'nav-home',
       's-create1': 'nav-create', 's-create2': 'nav-create', 's-create3': 'nav-create',
-      's-cg1': 'nav-groups', 's-cg2': 'nav-groups', 's-cg3': 'nav-groups',
-      's-gdetail': 'nav-groups', 's-groups': 'nav-groups',
+      's-cg1': 'nav-circle', 's-cg2': 'nav-circle', 's-cg3': 'nav-circle',
+      's-gdetail': 'nav-circle', 's-groups': 'nav-circle', 's-gsettings': 'nav-circle',
       's-match': 'nav-match',
       's-profile': 'nav-profile'
     }[id];
@@ -926,6 +893,7 @@ function go(id) {
   if (id === 's-cg1') { creatingNewGroup = true; selEmoji = 0; addedFriends = new Set([0,1,2]); renderEmojiGrid(); }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
   if (id === 's-cg3') renderListPicker();
+  if (id === 's-gsettings') renderGroupSettings();
 }
 
 function showConfirm(title, message, okLabel, style, onOk) {
@@ -1337,6 +1305,54 @@ function finishGroup() {
   go('s-gdetail');
 }
 
+function copyInviteLink() {
+  var url = 'https://burkebess-create.github.io/tenner-app/';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(function() {
+      showConfirm('Link copied!', 'Share this link with anyone: ' + url, 'Done', 'primary', function(){});
+    }).catch(function() {
+      showConfirm('Invite link', url, 'Done', 'primary', function(){});
+    });
+  } else {
+    showConfirm('Invite link', url, 'Done', 'primary', function(){});
+  }
+}
+
+function removeMember(memberIdx) {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g) return;
+  g.memberIdxs = (g.memberIdxs || []).filter(function(i) { return i !== memberIdx; });
+  var memberCount = g.memberIdxs.length + 1;
+  g.meta = memberCount + ' member' + (memberCount !== 1 ? 's' : '') + g.meta.replace(/^\d+ members?/, '').replace(/^\d+ member/, '');
+  saveState();
+  renderGroupSettings();
+}
+
+function renderGroupSettings() {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g) return;
+  var members = (g.memberIdxs || []).map(function(i) { return {idx: i, f: FRIENDS[i]}; }).filter(function(x) { return !!x.f; });
+  var memberCount = members.length + 1;
+  var headerEl = document.getElementById('gsettings-header');
+  var membersEl = document.getElementById('gsettings-members');
+  if (headerEl) {
+    headerEl.innerHTML = '<div class="group-emoji" style="margin:0 auto 10px;width:52px;height:52px;font-size:28px">' + g.emoji + '</div>'
+      + '<div style="font-size:15px;font-weight:700;color:#2C2C2A">' + g.n + '</div>'
+      + '<div style="font-size:11px;color:#5F5E5A;margin-top:2px">' + memberCount + ' member' + (memberCount !== 1 ? 's' : '') + '</div>';
+  }
+  var nameInput = document.getElementById('gsettings-name');
+  if (nameInput) nameInput.value = g.n;
+  if (!membersEl) return;
+  var html = '<div class="member-row"><div class="avatar" style="background:#FAECE7;color:#993C1D">YO</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">You</div><div style="font-size:10px;color:#5F5E5A">Admin</div></div><span class="pill pill-coral">You</span></div>';
+  members.forEach(function(item) {
+    var f = item.f; var idx = item.idx;
+    html += '<div class="member-row"><div class="avatar" style="background:' + f.bg + ';color:' + f.c + '">' + f.i + '</div>'
+      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + f.n + '</div><div style="font-size:10px;color:#5F5E5A">Member</div></div>'
+      + '<button class="back-btn" onclick="showConfirm(\'Remove ' + f.n + '?\',\'They will lose access to this group and all shared lists.\',\'Remove\',\'danger\',function(){removeMember(' + idx + ')})" style="font-size:10px;padding:3px 7px">Remove</button></div>';
+  });
+  membersEl.innerHTML = html;
+}
+
 var SUPABASE_URL = (window.TENNER_CONFIG && window.TENNER_CONFIG.SUPABASE_URL) || 'https://bbjpvlmkhvggtwyvpzrq.supabase.co';
 var SUPABASE_KEY = (window.TENNER_CONFIG && window.TENNER_CONFIG.SUPABASE_KEY) || 'sb_publishable_jeeTdNoqIJXBtx_1W1TscQ_cnRAcwHx';
 var sbClient = null;
@@ -1412,7 +1428,7 @@ async function submitAuth() {
         errEl.textContent = res.error.message;
         errEl.style.display = 'block';
       } else if (!res.data.session) {
-        successEl.textContent = 'Check your email for a confirmation link, then come back and log in.';
+        successEl.textContent = 'Account created! Log in below with your email and password.';
         successEl.style.display = 'block';
       }
     }
