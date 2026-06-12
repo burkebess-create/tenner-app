@@ -792,16 +792,9 @@ var FRIENDS = [
   {n:'Alex T.',i:'AT',bg:'#FAEEDA',c:'#854F0B',m:'58% match'},
   {n:'Casey M.',i:'CM',bg:'#EAF3DE',c:'#3B6D11',m:'70% match'}
 ];
-var MY_LISTS = [
-  {n:'Top 10 Movies',m:'Ranked · 10 items',ranked:true,items:['The Godfather','Inception','Interstellar','The Dark Knight','Parasite','Forrest Gump','The Shawshank Redemption','Pulp Fiction','Goodfellas','The Matrix']},
-  {n:'Top 10 Candy Bars',m:'Unranked · 8 items',ranked:false,items:['Reese\'s Peanut Butter Cups','Kit Kat','Snickers','Twix','100 Grand','Milky Way','Butterfinger','Almond Joy']},
-  {n:'Top 10 Vacation Spots',m:'Ranked · 6 items',ranked:true,items:['Costa Rica','Italy','Japan','New Zealand','Portugal','Iceland']}
-];
+var MY_LISTS = [];
+var MY_GROUPS = [];
 var EMOJIS = ['🎓','💼','👨‍👩‍👧‍👦','🏡','⚽','🎮','🎵','🍕','🏖️','✈️','🎉','📚'];
-var MY_GROUPS = [
-  {n:'College Friends', emoji:'🎓', meta:'6 members · 3 lists compared', pill:'73% avg', pillClass:'pill-coral', memberIdxs:[0,1,2,3,4]},
-  {n:'Work Team', emoji:'💼', meta:'4 members · 1 list compared', pill:'2 pending', pillClass:'pill-amber', memberIdxs:[0,2,3]}
-];
 
 var selCat = 'Movies';
 var items = [];
@@ -1138,6 +1131,10 @@ function renderLists() {
   var container = document.getElementById('lists-list');
   if (!container) return;
   container.innerHTML = '';
+  if (MY_LISTS.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:16px 0;color:#888780;font-size:12px">No lists yet. Tap <strong>Create</strong> to make your first top 10!</div>';
+    return;
+  }
   MY_LISTS.forEach(function(l, i) {
     var card = document.createElement('div');
     card.className = 'card';
@@ -1173,6 +1170,10 @@ function renderHome() {
   if (!container) return;
   container.innerHTML = '';
   renderLists();
+  if (MY_GROUPS.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:16px 0;color:#888780;font-size:12px">No circles yet. Tap <strong>Circle</strong> below to create one!</div>';
+    return;
+  }
   MY_GROUPS.forEach(function(g, i) {
     var card = document.createElement('div');
     card.className = 'card';
@@ -1507,8 +1508,8 @@ async function loadState() {
     try {
       var res = await sbClient.from('tenner_state').select('*').eq('user_id', userId).maybeSingle();
       if (res.data) {
-        MY_GROUPS = res.data.groups || DEFAULT_GROUPS;
-        MY_LISTS = res.data.lists || DEFAULT_LISTS;
+        MY_GROUPS = res.data.groups || [];
+        MY_LISTS = res.data.lists || [];
         return;
       }
     } catch(e) { console.warn('Supabase load failed', e); }
