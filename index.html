@@ -202,6 +202,19 @@
         </div>
       </div>
 
+      <!-- ═══ LIST DETAIL ═══ -->
+      <div class="screen" id="s-list-detail">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-home')">← Back</button>
+          <span id="list-detail-title" style="font-size:13px;font-weight:600;color:#2C2C2A"></span>
+          <span style="width:52px"></span>
+        </div>
+        <div class="content">
+          <div id="list-detail-meta" style="font-size:11px;color:#5F5E5A;margin-bottom:14px"></div>
+          <div id="list-detail-items"></div>
+        </div>
+      </div>
+
       <!-- ═══ CREATE LIST S1 ═══ -->
       <div class="screen" id="s-create1">
         <div class="topbar">
@@ -1043,6 +1056,7 @@ function renderItems() {
       ? '<div class="rank-badge">' + (i+1) + '</div>'
       : '<div class="rank-dot"></div>';
     div.innerHTML = badge + '<span style="flex:1;font-size:12px;color:#2C2C2A">' + item + '</span><span style="font-size:14px;color:#C8C6BE;cursor:grab;padding:0 4px">⠿</span><button onclick="removeItem(' + i + ')" style="background:none;border:none;color:#888780;cursor:pointer;font-size:16px;line-height:1;padding:0 2px">×</button>';
+    // Desktop drag
     div.addEventListener('dragstart', function(e) {
       dragSrcIdx = parseInt(this.dataset.idx);
       this.style.opacity = '0.5';
@@ -1066,6 +1080,27 @@ function renderItems() {
       renderItems();
       updateProg();
     });
+    // Touch drag
+    div.addEventListener('touchstart', function(e) {
+      dragSrcIdx = parseInt(this.dataset.idx);
+      this.style.opacity = '0.5';
+    }, {passive: true});
+    div.addEventListener('touchend', function(e) {
+      this.style.opacity = '';
+      var touch = e.changedTouches[0];
+      var target = document.elementFromPoint(touch.clientX, touch.clientY);
+      var destEl = target ? target.closest('.rank-item') : null;
+      if (destEl && dragSrcIdx !== null) {
+        var destIdx = parseInt(destEl.dataset.idx);
+        if (destIdx !== dragSrcIdx) {
+          var moved = items.splice(dragSrcIdx, 1)[0];
+          items.splice(destIdx, 0, moved);
+          renderItems();
+          updateProg();
+        }
+      }
+      dragSrcIdx = null;
+    }, {passive: true});
     list.appendChild(div);
   });
 }
@@ -1152,12 +1187,34 @@ function renderLists() {
   var container = document.getElementById('lists-list');
   if (!container) return;
   container.innerHTML = '';
-  MY_LISTS.forEach(function(l) {
+  MY_LISTS.forEach(function(l, i) {
     var card = document.createElement('div');
     card.className = 'card';
-    card.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + l.n + '</div><div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + l.m + '</div></div></div>';
+    card.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + l.n + '</div><div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + l.m + '</div></div><span style="font-size:18px;color:#D3D1C7">›</span></div>';
+    card.onclick = (function(list) { return function() { showListDetail(list); }; })(l);
     container.appendChild(card);
   });
+}
+
+function showListDetail(l) {
+  var listItems = (l.items || []);
+  var screen = document.getElementById('s-list-detail');
+  document.getElementById('list-detail-title').textContent = l.n;
+  document.getElementById('list-detail-meta').textContent = l.m;
+  var el = document.getElementById('list-detail-items');
+  el.innerHTML = '';
+  if (listItems.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:#888780;text-align:center;padding:20px">No items yet.</div>';
+  } else {
+    listItems.forEach(function(item, i) {
+      var row = document.createElement('div');
+      row.className = 'rank-item';
+      row.style.marginBottom = '6px';
+      row.innerHTML = (l.ranked ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>') + '<span style="flex:1;font-size:12px;color:#2C2C2A">' + item + '</span>';
+      el.appendChild(row);
+    });
+  }
+  go('s-list-detail');
 }
 
 function renderHome() {
@@ -1248,8 +1305,8 @@ function finishGroup() {
   go('s-gdetail');
 }
 
-var SUPABASE_URL = (window.TENNER_CONFIG || {}).SUPABASE_URL || '';
-var SUPABASE_KEY = (window.TENNER_CONFIG || {}).SUPABASE_KEY || '';
+var SUPABASE_URL = (window.TENNER_CONFIG && window.TENNER_CONFIG.SUPABASE_URL) || 'https://bbjpvlmkhvggtwyvpzrq.supabase.co';
+var SUPABASE_KEY = (window.TENNER_CONFIG && window.TENNER_CONFIG.SUPABASE_KEY) || 'sb_publishable_jeeTdNoqIJXBtx_1W1TscQ_cnRAcwHx';
 var sbClient = null;
 var userId = null;
 var currentAuthTab = 'login';
@@ -1296,7 +1353,8 @@ async function submitAuth() {
   var btn = document.getElementById('auth-submit');
   errEl.style.display = 'none';
   successEl.style.display = 'none';
-  if (!email || !password) { errEl.textContent = 'Please enter your email and password.'; errEl.style.display = 'block'; return; }
+  if (!email) { errEl.textContent = 'Please enter your email address.'; errEl.style.display = 'block'; return; }
+  if (currentAuthTab !== 'magic' && !password) { errEl.textContent = 'Please enter your password.'; errEl.style.display = 'block'; return; }
   btn.textContent = '...';
   btn.disabled = true;
   try {
@@ -1330,7 +1388,8 @@ async function submitAuth() {
     errEl.textContent = 'Something went wrong. Please try again.';
     errEl.style.display = 'block';
   }
-  btn.textContent = currentAuthTab === 'login' ? 'Log in' : 'Create account';
+  var labels = {login: 'Log in', signup: 'Create account', magic: 'Send magic link'};
+  btn.textContent = labels[currentAuthTab] || 'Log in';
   btn.disabled = false;
 }
 
