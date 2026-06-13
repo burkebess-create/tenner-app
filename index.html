@@ -309,8 +309,18 @@
           </div>
           <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:3px">Name your group</div>
           <div style="font-size:11px;color:#5F5E5A;margin-bottom:12px">Pick an emoji and give it a name</div>
-          <div class="sec-label">Choose an emoji</div>
+          <div class="sec-label">Choose a group avatar</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div id="cg1-avatar-preview" style="width:48px;height:48px;border-radius:12px;background:#F1EFE8;display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden;flex-shrink:0">🎉</div>
+            <label style="display:inline-block;padding:6px 12px;border:1px solid #D3D1C7;border-radius:8px;font-size:11px;color:#5F5E5A;cursor:pointer;background:#fff">
+              Upload a photo instead
+              <input type="file" accept="image/*" onchange="onGroupPhotoUploadCreate(this)" style="display:none">
+            </label>
+          </div>
           <div class="emoji-grid" id="emoji-grid"></div>
+          <div style="display:flex;gap:8px;margin-bottom:6px">
+            <input type="text" id="cg1-custom-emoji" placeholder="Or type / paste any emoji 😊" oninput="onCreateCustomEmojiInput(this.value)" style="margin-bottom:0;flex:1;font-size:16px">
+          </div>
           <input type="text" id="emoji-search" placeholder="Search emoji (e.g. sports, food, heart…)" oninput="searchEmoji(this.value)" style="margin-bottom:6px;font-size:12px">
           <div class="emoji-grid" id="emoji-search-results" style="display:none;margin-bottom:4px"></div>
           <div class="sec-label">Group name</div>
@@ -400,8 +410,21 @@
           <span style="width:52px"></span>
         </div>
         <div class="content">
-          <div class="sec-label">Group emoji</div>
-          <div class="emoji-grid" id="gsettings-emoji-grid" style="margin-bottom:14px"></div>
+          <div class="sec-label">Group avatar</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <div id="gsettings-avatar-preview" style="width:56px;height:56px;border-radius:14px;background:#F1EFE8;display:flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:11px;font-weight:600;color:#2C2C2A;margin-bottom:4px">Upload a photo</div>
+              <label style="display:inline-block;padding:6px 12px;border:1px solid #D3D1C7;border-radius:8px;font-size:11px;color:#5F5E5A;cursor:pointer;background:#fff">
+                Choose photo
+                <input type="file" accept="image/*" onchange="onGroupPhotoUpload(this)" style="display:none">
+              </label>
+            </div>
+          </div>
+          <div class="emoji-grid" id="gsettings-emoji-grid" style="margin-bottom:6px"></div>
+          <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center">
+            <input type="text" id="gsettings-custom-emoji" placeholder="Or type / paste any emoji 😊" oninput="onCustomEmojiInput(this.value)" style="margin-bottom:0;flex:1;font-size:16px">
+          </div>
           <div class="sec-label">Group name</div>
           <input type="text" id="gsettings-name" placeholder="Group name">
           <button class="btn-primary" onclick="saveGroupSettings()">Save changes</button>
@@ -724,7 +747,7 @@ function go(id) {
   if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; items = []; renderCatGrid(); renderItems(); updateProg(); }
   if (id === 's-create2') { renderItems(); updateProg(); }
-  if (id === 's-cg1') { creatingNewGroup = true; selEmoji = 0; selEmojiChar = EMOJIS[0]; addedFriends = new Set(); clearEmojiSearch(); renderEmojiGrid(); }
+  if (id === 's-cg1') { creatingNewGroup = true; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
   if (id === 's-cg3') renderListPicker();
   if (id === 's-create2') {
@@ -1032,6 +1055,75 @@ function updateProg() {
 }
 
 var selEmojiChar = '🎉'; // store the actual emoji char instead of index
+var groupPhotoData = null; // base64 photo for new group being created
+
+function groupAvatarHtml(g, size) {
+  size = size || 42;
+  var radius = Math.round(size * 0.28);
+  if (g && g.photo) {
+    return '<img src="' + g.photo + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + 'px;object-fit:cover;flex-shrink:0">';
+  }
+  return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + 'px;background:#F1EFE8;display:flex;align-items:center;justify-content:center;font-size:' + Math.round(size*0.55) + 'px;flex-shrink:0">' + ((g && g.emoji) || '👥') + '</div>';
+}
+
+function onGroupPhotoUpload(input) {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!input.files || !input.files[0] || !g) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    g.photo = e.target.result;
+    g.emoji = '';
+    updateSettingsAvatarPreview(g);
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function onGroupPhotoUploadCreate(input) {
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    groupPhotoData = e.target.result;
+    selEmojiChar = '';
+    var preview = document.getElementById('cg1-avatar-preview');
+    if (preview) preview.innerHTML = '<img src="' + groupPhotoData + '" style="width:48px;height:48px;border-radius:12px;object-fit:cover">';
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function onCustomEmojiInput(val) {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g) return;
+  var chars = Array.from(val.trim());
+  if (chars.length > 0) {
+    g.emoji = chars[0];
+    g.photo = null;
+    updateSettingsAvatarPreview(g);
+    renderGroupSettings();
+  }
+}
+
+function onCreateCustomEmojiInput(val) {
+  var chars = Array.from(val.trim());
+  if (chars.length > 0) {
+    selEmojiChar = chars[0];
+    groupPhotoData = null;
+    renderEmojiGrid();
+    var preview = document.getElementById('cg1-avatar-preview');
+    if (preview) { preview.innerHTML = ''; preview.style.fontSize = '24px'; preview.textContent = selEmojiChar; }
+  }
+}
+
+function updateSettingsAvatarPreview(g) {
+  var preview = document.getElementById('gsettings-avatar-preview');
+  if (!preview) return;
+  if (g.photo) {
+    preview.innerHTML = '<img src="' + g.photo + '" style="width:56px;height:56px;border-radius:14px;object-fit:cover">';
+  } else {
+    preview.innerHTML = '';
+    preview.style.fontSize = '28px';
+    preview.textContent = g.emoji || '👥';
+  }
+}
 
 function renderEmojiGrid() {
   var grid = document.getElementById('emoji-grid');
@@ -1041,7 +1133,12 @@ function renderEmojiGrid() {
     var div = document.createElement('div');
     div.className = 'emoji-opt' + (e === selEmojiChar ? ' selected' : '');
     div.textContent = e;
-    div.onclick = function() { selEmojiChar = e; selEmoji = i; renderEmojiGrid(); clearEmojiSearch(); };
+    div.onclick = function() {
+      selEmojiChar = e; selEmoji = i; groupPhotoData = null;
+      renderEmojiGrid(); clearEmojiSearch();
+      var prev = document.getElementById('cg1-avatar-preview');
+      if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = e; }
+    };
     grid.appendChild(div);
   });
 }
@@ -1065,7 +1162,12 @@ function searchEmoji(val) {
     var div = document.createElement('div');
     div.className = 'emoji-opt' + (e === selEmojiChar ? ' selected' : '');
     div.textContent = e;
-    div.onclick = function() { selEmojiChar = e; selEmoji = -1; renderEmojiGrid(); renderSearchResults(q); };
+    div.onclick = function() {
+      selEmojiChar = e; selEmoji = -1; groupPhotoData = null;
+      renderEmojiGrid(); renderSearchResults(q);
+      var prev = document.getElementById('cg1-avatar-preview');
+      if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = e; }
+    };
     resultsEl.appendChild(div);
   });
   resultsEl.style.display = 'grid';
@@ -1089,7 +1191,7 @@ function searchEmojiSettings(val) {
     var btn = document.createElement('div');
     btn.className = 'emoji-opt' + (g && e === g.emoji ? ' selected' : '');
     btn.textContent = e;
-    btn.onclick = function() { if (g) { g.emoji = e; renderGroupSettings(); } };
+    btn.onclick = function() { if (g) { g.emoji = e; g.photo = null; renderGroupSettings(); } };
     resultsEl.appendChild(btn);
   });
   resultsEl.style.display = matches.length ? 'grid' : 'none';
@@ -1312,7 +1414,13 @@ function renderGroupDetail() {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
   var title = document.getElementById('gdetail-title');
-  if (title) title.textContent = g.emoji + ' ' + g.n;
+  if (title) {
+    if (g.photo) {
+      title.innerHTML = '<img src="' + g.photo + '" style="width:22px;height:22px;border-radius:5px;object-fit:cover;vertical-align:middle;margin-right:4px"> ' + g.n;
+    } else {
+      title.textContent = (g.emoji || '👥') + ' ' + g.n;
+    }
+  }
 
   var memberIds = g.memberIds || [];
   var members = memberIds.map(function(fid) {
@@ -1450,6 +1558,7 @@ function finishGroup() {
     MY_GROUPS.push({
       n: groupName,
       emoji: selEmojiChar || EMOJIS[selEmoji] || '🎉',
+      photo: groupPhotoData || null,
       meta: memberCount + ' member' + (memberCount !== 1 ? 's' : '') + ' · 0 lists compared',
       pill: 'New',
       pillClass: 'pill-blue',
@@ -1663,7 +1772,7 @@ function renderGroupSettings() {
     var btn = document.createElement('div');
     btn.className = 'emoji-opt' + (emoji === g.emoji ? ' selected' : '');
     btn.textContent = emoji;
-    btn.onclick = function() { g.emoji = emoji; renderGroupSettings(); };
+    btn.onclick = function() { g.emoji = emoji; g.photo = null; renderGroupSettings(); };
     grid.appendChild(btn);
   });
   // Search
@@ -1671,6 +1780,7 @@ function renderGroupSettings() {
   searchWrap.style.cssText = 'grid-column:1/-1;margin-top:4px';
   searchWrap.innerHTML = '<input type="text" placeholder="Search more emoji…" oninput="searchEmojiSettings(this.value)" style="font-size:12px;margin-bottom:6px"><div class="emoji-grid" id="gsettings-emoji-search" style="display:none"></div>';
   grid.appendChild(searchWrap);
+  updateSettingsAvatarPreview(g);
 }
 
 function saveGroupSettings() {
@@ -2010,7 +2120,7 @@ function renderCircleGroups() {
   }
   el.innerHTML = MY_GROUPS.map(function(g, i) {
     return '<div class="card" style="display:flex;align-items:center;gap:10px">'
-      + '<div style="font-size:22px">' + (g.emoji || '👥') + '</div>'
+      + groupAvatarHtml(g, 42)
       + '<div style="flex:1" onclick="selGroupIdx='+i+';go(\'s-gdetail\')">'
       + '<div style="font-size:13px;font-weight:600;color:#2C2C2A">' + g.n + '</div>'
       + '<div style="font-size:11px;color:#5F5E5A">' + (g.meta || '') + '</div></div>'
