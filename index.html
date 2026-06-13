@@ -1997,7 +1997,7 @@ async function loadFriends() {
       myFriends = rows.map(function(f) {
         var isRequester = f.requester_id === userId;
         var friendId = isRequester ? f.addressee_id : f.requester_id;
-        return { id: f.id, status: f.status, isRequester: isRequester, friendId: friendId, profile: profileMap[friendId] || {} };
+        return { id: f.id, status: f.status, isRequester: isRequester, friendId: friendId, message: f.message || '', profile: profileMap[friendId] || {} };
       });
     } else {
       myFriends = [];
@@ -2030,15 +2030,33 @@ async function searchFriend() {
     if (alreadyFriend) {
       resultEl.innerHTML = '<div class="member-row"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">@' + handle + '</div></div><span class="pill pill-green">Already friends</span></div>';
     } else {
-      resultEl.innerHTML = '<div class="member-row"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">@' + handle + '</div></div><button class="add-btn" onclick="sendFriendRequest(\'' + res.data.id + '\')">+ Add</button></div>';
+      resultEl.innerHTML = '<div class="card no-hover" style="margin-bottom:0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">@' + handle + '</div></div></div>'
+        + '<input type="text" id="req-note" maxlength="140" placeholder="Add a note so they know who you are (optional)" style="margin-bottom:8px;font-size:12px;padding:7px 9px">'
+        + '<button class="btn-primary" style="margin-bottom:0;font-size:12px;padding:8px" onclick="sendFriendRequest(\'' + res.data.id + '\')">Send friend request</button></div>';
     }
   } catch(e) { resultEl.innerHTML = '<div style="font-size:11px;color:#A32D2D">Search failed.</div>'; }
 }
 
+// Insert a friendship, gracefully falling back if the optional `message`
+// column hasn't been added to the DB yet.
+async function insertFriendship(addresseeId, status, note) {
+  var payload = { requester_id: userId, addressee_id: addresseeId, status: status };
+  if (note) payload.message = note;
+  var res = await sbClient.from('friendships').insert(payload);
+  if (res.error && note && /message|column/i.test(res.error.message || '')) {
+    delete payload.message;
+    res = await sbClient.from('friendships').insert(payload);
+  }
+  return res;
+}
+
 async function sendFriendRequest(addresseeId) {
   if (!sbClient || !userId) return;
+  var noteEl = document.getElementById('req-note');
+  var note = noteEl ? noteEl.value.trim().slice(0, 140) : '';
   try {
-    await sbClient.from('friendships').insert({ requester_id: userId, addressee_id: addresseeId, status: 'pending' });
+    var ires = await insertFriendship(addresseeId, 'pending', note);
+    if (ires.error) throw ires.error;
     document.getElementById('friend-search-result').innerHTML = '<div style="font-size:11px;color:#27500A;background:#EAF3DE;padding:8px;border-radius:8px">Friend request sent!</div>';
     await loadFriends();
   } catch(e) { document.getElementById('friend-search-result').innerHTML = '<div style="font-size:11px;color:#A32D2D">Could not send request.</div>'; }
@@ -2053,6 +2071,7 @@ async function respondToFriendRequest(friendshipId, accept) {
       await sbClient.from('friendships').delete().eq('id', friendshipId);
     }
     await loadFriends();
+    if (document.getElementById('s-fdetail').classList.contains('active')) { go('s-circle'); return; }
     if (accept) await renderMatch();
   } catch(e) { console.warn('Friend request response failed', e); }
 }
@@ -2109,12 +2128,25 @@ function renderCircleFriends() {
     if (pending.length > 0) {
       reqEl.innerHTML = '<div class="sec-label">Pending requests (' + pending.length + ')</div>'
         + pending.map(function(f) {
-          var name = f.profile.display_name || f.profile.handle || 'Unknown';
-          var handle = f.profile.handle ? '@' + f.profile.handle : '';
-          return '<div class="member-row"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>'
-            + '<button class="add-btn" onclick="respondToFriendRequest(\'' + f.id + '\',true)" style="margin-right:4px">Accept</button>'
-            + '<button class="back-btn" onclick="respondToFriendRequest(\'' + f.id + '\',false)" style="font-size:10px;padding:3px 7px">Decline</button></div>';
+          var p = f.profile || {};
+          var name = p.display_name || p.handle || 'Unknown';
+          var handle = p.handle ? '@' + p.handle : '';
+          var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
+          var since = timeOnTenner(p);
+          var newBadge = isNewAccount(p) ? '<span class="pill pill-amber" style="margin-left:6px;font-size:9px">New account</span>' : '';
+          var metaLine = (handle ? escapeHtml(handle) : '') + (since ? (handle ? ' · ' : '') + since : '');
+          var noteHtml = f.message ? '<div style="font-size:10px;color:#5F5E5A;font-style:italic;background:#F1EFE8;border-radius:6px;padding:5px 8px;margin-top:6px">“' + escapeHtml(f.message) + '”</div>' : '';
+          var mutualHtml = '<div id="mutual-' + f.id + '" style="font-size:10px;color:#3B6D11;margin-top:5px;display:none"></div>';
+          return '<div class="card no-hover" style="margin-bottom:8px;cursor:pointer" onclick="openFriendDetail(\'' + f.friendId + '\')">'
+            + '<div style="display:flex;align-items:center;gap:9px">'
+            + '<div class="avatar" style="background:#E6F1FB;color:#185FA5;flex-shrink:0">' + initials + '</div>'
+            + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + newBadge + '</div>'
+            + '<div style="font-size:10px;color:#5F5E5A">' + metaLine + '</div></div>'
+            + '<button class="add-btn" onclick="event.stopPropagation();respondToFriendRequest(\'' + f.id + '\',true)" style="margin-right:4px">Accept</button>'
+            + '<button class="back-btn" onclick="event.stopPropagation();respondToFriendRequest(\'' + f.id + '\',false)" style="font-size:10px;padding:3px 7px">Decline</button>'
+            + '</div>' + mutualHtml + noteHtml + '</div>';
         }).join('');
+      loadMutualForPending(pending);
     } else { reqEl.innerHTML = ''; }
   }
 
@@ -2144,6 +2176,53 @@ var selFriendId = null;
 function openFriendDetail(friendId) {
   selFriendId = friendId;
   go('s-fdetail');
+}
+
+function loadMutualForPending(pending) {
+  pending.forEach(function(f) {
+    getMutualFriends(f.friendId).then(function(names) {
+      var el = document.getElementById('mutual-' + f.id);
+      if (!el) return;
+      var summary = mutualSummary(names);
+      if (summary) { el.textContent = '🤝 ' + summary; el.style.display = 'block'; }
+    });
+  });
+}
+
+function isNewAccount(p) {
+  var since = p && p.created_at;
+  if (!since) return false;
+  var start = new Date(since);
+  if (isNaN(start.getTime())) return false;
+  return (Date.now() - start.getTime()) < 2 * 86400000; // < 2 days
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+// Fetch mutual-friend names shared with `otherId`. Returns array of names.
+async function getMutualFriends(otherId) {
+  if (!sbClient) return [];
+  try {
+    var res = await sbClient.rpc('mutual_friends', { other_id: otherId });
+    if (res.error || !res.data) return [];
+    var ids = res.data.map(function(r) { return r.friend_id || r; });
+    return ids.map(function(id) {
+      var mf = myFriends.find(function(x) { return x.friendId === id; });
+      var p = mf && mf.profile;
+      return (p && (p.display_name || p.handle)) || null;
+    }).filter(Boolean);
+  } catch(e) { return []; }
+}
+
+function mutualSummary(names) {
+  if (!names || names.length === 0) return '';
+  if (names.length === 1) return 'You both know ' + names[0];
+  if (names.length === 2) return 'You both know ' + names[0] + ' and ' + names[1];
+  return 'You both know ' + names[0] + ', ' + names[1] + ' + ' + (names.length - 2) + ' other' + (names.length - 2 !== 1 ? 's' : '');
 }
 
 function timeOnTenner(p) {
@@ -2179,12 +2258,24 @@ async function renderFriendDetail() {
   var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
   if (titleEl) titleEl.textContent = name;
 
+  var isPendingInbound = f.status === 'pending' && !f.isRequester;
+  var isSentOutbound = f.status === 'pending' && f.isRequester;
+  var isAccepted = f.status === 'accepted';
+  var newBadge = isNewAccount(p) ? '<span class="pill pill-amber" style="margin-left:6px;font-size:10px;vertical-align:middle">New account</span>' : '';
+
   // Header
   var headerHtml = '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:16px">'
     + '<div style="width:88px;height:88px;border-radius:50%;background:#E6F1FB;color:#185FA5;font-size:32px;font-weight:700;display:flex;align-items:center;justify-content:center">' + initials + '</div>'
-    + '<div style="font-size:18px;font-weight:700;color:#2C2C2A;margin-top:10px">' + name + '</div>'
-    + (handle ? '<div style="font-size:12px;color:#5F5E5A;margin-top:2px">' + handle + '</div>' : '')
+    + '<div style="font-size:18px;font-weight:700;color:#2C2C2A;margin-top:10px">' + escapeHtml(name) + newBadge + '</div>'
+    + (handle ? '<div style="font-size:12px;color:#5F5E5A;margin-top:2px">' + escapeHtml(handle) + '</div>' : '')
+    + (isPendingInbound ? '<div style="font-size:11px;color:#854F0B;margin-top:6px">wants to connect with you</div>' : '')
     + '</div>';
+
+  // Intro note (pending inbound)
+  var noteHtml = (isPendingInbound && f.message) ? '<div class="card no-hover" style="margin-bottom:12px;background:#FFF8F6;border-color:#F4C9B8"><div style="font-size:10px;font-weight:600;color:#888780;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Their note</div><div style="font-size:12px;color:#2C2C2A;font-style:italic">“' + escapeHtml(f.message) + '”</div></div>' : '';
+
+  // Mutual friends (async fill)
+  var mutualHtml = '<div id="fdetail-mutual" style="display:none;margin-bottom:12px"></div>';
 
   // Info chips (birthday, member since)
   var bday = formatBirthday(p.birthday);
@@ -2199,21 +2290,43 @@ async function renderFriendDetail() {
       }).join('')
     + '</div>' : '';
 
-  // Match link
-  var matchHtml = '<div class="card" onclick="matchGroupCtx=-1;openMatch(\'s-fdetail\')" style="cursor:pointer;margin-bottom:12px;background:#FFF8F6;border-color:#F4C9B8">'
+  // Match link (only when connected)
+  var matchHtml = isAccepted ? '<div class="card" onclick="matchGroupCtx=-1;openMatch(\'s-fdetail\')" style="cursor:pointer;margin-bottom:12px;background:#FFF8F6;border-color:#F4C9B8">'
     + '<div style="display:flex;align-items:center;gap:10px">'
     + '<div style="font-size:22px">📊</div>'
     + '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#993C1D">View match scores</div>'
     + '<div style="font-size:10px;color:#5F5E5A;margin-top:2px">See how your top 10s compare</div></div>'
-    + '<span style="font-size:16px;color:#D85A30">›</span></div></div>';
+    + '<span style="font-size:16px;color:#D85A30">›</span></div></div>' : '';
 
   // Shared lists (loaded async)
-  var listsHtml = '<div class="sec-label">Shared lists</div><div id="fdetail-lists"><div style="font-size:11px;color:#888780;padding:8px 0">Loading…</div></div>';
+  var listsHtml = '<div class="sec-label">' + (isAccepted ? 'Shared lists' : 'Their lists') + '</div><div id="fdetail-lists"><div style="font-size:11px;color:#888780;padding:8px 0">Loading…</div></div>';
 
-  // Remove
-  var removeHtml = '<button class="btn-secondary" style="margin-top:12px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmUnfriend(\'' + f.id + '\',\'' + name.replace(/'/g,"\\'") + '\')">Remove friend</button>';
+  // Bottom action depends on relationship status
+  var actionHtml;
+  if (isPendingInbound) {
+    actionHtml = '<div style="display:flex;gap:8px;margin-top:14px">'
+      + '<button class="btn-primary" style="margin-bottom:0" onclick="respondToFriendRequest(\'' + f.id + '\',true)">Accept</button>'
+      + '<button class="btn-secondary" style="margin-bottom:0;color:#A32D2D;border-color:#F09595" onclick="respondToFriendRequest(\'' + f.id + '\',false)">Decline</button>'
+      + '</div>';
+  } else if (isSentOutbound) {
+    actionHtml = '<div style="font-size:11px;color:#888780;text-align:center;margin-top:14px;padding:10px;background:#F1EFE8;border-radius:8px">Request sent — waiting for them to accept.</div>';
+  } else {
+    actionHtml = '<button class="btn-secondary" style="margin-top:12px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmUnfriend(\'' + f.id + '\',\'' + name.replace(/'/g,"\\'") + '\')">Remove friend</button>';
+  }
 
-  el.innerHTML = headerHtml + infoHtml + matchHtml + listsHtml + removeHtml;
+  el.innerHTML = headerHtml + noteHtml + mutualHtml + infoHtml + matchHtml + listsHtml + actionHtml;
+
+  // Fill mutual friends asynchronously
+  getMutualFriends(f.friendId).then(function(names) {
+    if (selFriendId !== f.friendId) return;
+    var mEl = document.getElementById('fdetail-mutual');
+    if (!mEl) return;
+    var summary = mutualSummary(names);
+    if (summary) {
+      mEl.innerHTML = '<div class="card no-hover" style="background:#EAF3DE;border-color:#97C459"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:18px">🤝</span><div><div style="font-size:12px;font-weight:600;color:#3B6D11">' + names.length + ' mutual friend' + (names.length !== 1 ? 's' : '') + '</div><div style="font-size:10px;color:#5F5E5A">' + escapeHtml(summary) + '</div></div></div></div>';
+      mEl.style.display = 'block';
+    }
+  });
 
   // Fetch the friend's lists
   var listsEl = document.getElementById('fdetail-lists');
@@ -2312,8 +2425,9 @@ async function circleSearchFriend() {
       resultEl.innerHTML = '<div style="font-size:11px;color:#27500A;background:#EAF3DE;padding:8px;border-radius:8px">You\'re already connected with ' + name + '.</div>';
       return;
     }
-    resultEl.innerHTML = '<div class="member-row"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">@' + p.handle + '</div></div>'
-      + '<button class="add-btn" onclick="sendFriendReqFromCircle(\'' + p.id + '\')">Add friend</button></div>';
+    resultEl.innerHTML = '<div class="card no-hover" style="margin-bottom:0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">@' + p.handle + '</div></div></div>'
+      + '<input type="text" id="circle-req-note" maxlength="140" placeholder="Add a note so they know who you are (optional)" style="margin-bottom:8px;font-size:12px;padding:7px 9px">'
+      + '<button class="btn-primary" style="margin-bottom:0;font-size:12px;padding:8px" onclick="sendFriendReqFromCircle(\'' + p.id + '\')">Send friend request</button></div>';
   } catch(e) {
     resultEl.innerHTML = '<div style="font-size:11px;color:#A32D2D">Search failed.</div>';
   }
@@ -2321,8 +2435,10 @@ async function circleSearchFriend() {
 
 async function sendFriendReqFromCircle(addresseeId) {
   var resultEl = document.getElementById('circle-friend-search-result');
+  var noteEl = document.getElementById('circle-req-note');
+  var note = noteEl ? noteEl.value.trim().slice(0, 140) : '';
   try {
-    var res = await sbClient.from('friendships').insert({ requester_id: userId, addressee_id: addresseeId, status: 'pending' });
+    var res = await insertFriendship(addresseeId, 'pending', note);
     if (res.error) throw res.error;
     if (resultEl) resultEl.innerHTML = '<div style="font-size:11px;color:#27500A;background:#EAF3DE;padding:8px;border-radius:8px">Friend request sent!</div>';
     await loadFriends();
