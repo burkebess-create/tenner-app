@@ -1414,13 +1414,7 @@ function renderGroupDetail() {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
   var title = document.getElementById('gdetail-title');
-  if (title) {
-    if (g.photo) {
-      title.innerHTML = '<img src="' + g.photo + '" style="width:22px;height:22px;border-radius:5px;object-fit:cover;vertical-align:middle;margin-right:4px"> ' + g.n;
-    } else {
-      title.textContent = (g.emoji || '👥') + ' ' + g.n;
-    }
-  }
+  if (title) title.textContent = g.n;
 
   var memberIds = g.memberIds || [];
   var members = memberIds.map(function(fid) {
@@ -1502,8 +1496,15 @@ function renderGroupDetail() {
 
   var deleteHtml = '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmDeleteGroup()">Delete group</button>';
 
+  // Large avatar header
+  var headerHtml = '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:16px">'
+    + groupAvatarHtml(g, 88)
+    + '<div style="font-size:17px;font-weight:700;color:#2C2C2A;margin-top:10px">' + g.n + '</div>'
+    + '<div style="font-size:11px;color:#5F5E5A;margin-top:2px">' + memberCount + ' member' + (memberCount !== 1 ? 's' : '') + '</div>'
+    + '</div>';
+
   var el = document.getElementById('gdetail-content');
-  if (el) el.innerHTML = membersCardHtml + sharedListsHtml + matchHtml + deleteHtml;
+  if (el) el.innerHTML = headerHtml + membersCardHtml + sharedListsHtml + matchHtml + deleteHtml;
 }
 
 function toggleGroupMembers() {
