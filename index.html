@@ -1856,23 +1856,7 @@ document.addEventListener('click', function(e) {
 
   if (!sbClient) { go('s-home'); renderHome(); renderListPicker(); return; }
 
-  // Listen for auth state changes (handles login, logout, and magic link redirects)
-  sbClient.auth.onAuthStateChange(async function(event, session) {
-    if (event === 'SIGNED_OUT') { go('s-auth'); return; }
-    if (event === 'SIGNED_IN' && session) {
-      onSignedIn(session);
-      await loadState();
-      renderHome();
-      renderListPicker();
-      go('s-home');
-      loadProfile().catch(console.warn);
-      loadFriends().catch(console.warn);
-    }
-  });
-
-  // Check if already logged in
-  var { data: { session } } = await sbClient.auth.getSession();
-  if (session) {
+  async function handleSession(session) {
     onSignedIn(session);
     await loadState();
     renderHome();
@@ -1880,9 +1864,19 @@ document.addEventListener('click', function(e) {
     go('s-home');
     loadProfile().catch(console.warn);
     loadFriends().catch(console.warn);
-  } else {
-    go('s-auth');
   }
+
+  // onAuthStateChange fires with INITIAL_SESSION on load (covers "already logged in")
+  // and with SIGNED_IN after OAuth redirect or email login
+  sbClient.auth.onAuthStateChange(async function(event, session) {
+    if (event === 'SIGNED_OUT') { go('s-auth'); return; }
+    if (event === 'TOKEN_REFRESHED') return;
+    if (session) {
+      await handleSession(session);
+    } else if (event === 'INITIAL_SESSION') {
+      go('s-auth');
+    }
+  });
 })();
 </script>
 </body>
