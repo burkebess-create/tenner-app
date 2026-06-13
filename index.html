@@ -1856,12 +1856,12 @@ document.addEventListener('click', function(e) {
 
   if (!sbClient) { go('s-home'); renderHome(); renderListPicker(); return; }
 
-  async function handleSession(session) {
+  function handleSession(session) {
     onSignedIn(session);
-    await loadState();
     renderHome();
     renderListPicker();
     go('s-home');
+    loadState().then(function() { renderHome(); renderListPicker(); }).catch(console.warn);
     loadProfile().catch(console.warn);
     loadFriends().catch(console.warn);
   }
