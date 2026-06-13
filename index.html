@@ -1281,8 +1281,10 @@ function renderGroupDetail() {
     + '<span style="font-size:16px;color:#D85A30">›</span>'
     + '</div></div>';
 
+  var deleteHtml = '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmDeleteGroup()">Delete group</button>';
+
   var el = document.getElementById('gdetail-content');
-  if (el) el.innerHTML = membersCardHtml + sharedListsHtml + matchHtml;
+  if (el) el.innerHTML = membersCardHtml + sharedListsHtml + matchHtml + deleteHtml;
 }
 
 function toggleGroupMembers() {
@@ -1305,9 +1307,26 @@ function removeMemberFromGroup(friendId) {
 }
 
 function sendListToNewMembers(cat) {
-  // Opens the invite modal pre-filled for the specific list
   selCat = cat;
   openListInviteModal();
+}
+
+function confirmDeleteGroup() {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g) return;
+  showConfirm(
+    'Delete "' + g.n + '"?',
+    'This will permanently delete the group for all members. This cannot be undone.',
+    'Delete group',
+    'danger',
+    function() {
+      MY_GROUPS.splice(selGroupIdx, 1);
+      selGroupIdx = 0;
+      saveState();
+      renderCircleGroups();
+      go('s-circle');
+    }
+  );
 }
 
 function finishGroup() {
