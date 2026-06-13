@@ -506,7 +506,11 @@
         </div>
         <div class="content">
           <div style="text-align:center;padding:16px 0 18px">
-            <div id="profile-avatar" style="width:60px;height:60px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 10px">?</div>
+            <label style="position:relative;display:inline-block;cursor:pointer;margin:0 auto 10px">
+              <div id="profile-avatar" style="width:72px;height:72px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden">?</div>
+              <span style="position:absolute;right:-2px;bottom:-2px;width:24px;height:24px;border-radius:50%;background:#D85A30;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;border:2px solid #fff">📷</span>
+              <input type="file" accept="image/*" onchange="onProfilePhotoUpload(this)" style="display:none">
+            </label>
             <div id="profile-display-name" style="font-size:15px;font-weight:700;color:#2C2C2A">—</div>
             <div id="profile-handle-display" style="font-size:11px;color:#5F5E5A;margin-top:2px">@—</div>
             <div id="profile-on-tenner" style="font-size:10px;color:#888780;margin-top:4px;display:none"></div>
@@ -1943,15 +1947,46 @@ async function loadProfile() {
   try { renderProfileHeader(); } catch(e) { console.warn(e); }
 }
 
+function onProfilePhotoUpload(input) {
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    myProfile = myProfile || { id: userId };
+    myProfile.photo = e.target.result;
+    renderProfileHeader();
+    // Persist immediately so it survives a reload
+    if (sbClient && userId) {
+      saveProfilePhoto(e.target.result);
+    }
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+async function saveProfilePhoto(dataUrl) {
+  try {
+    var res = await sbClient.from('profiles').upsert({ id: userId, photo: dataUrl, updated_at: new Date().toISOString() });
+    if (res.error && /photo|column/i.test(res.error.message || '')) {
+      console.warn('profiles.photo column missing — run the SQL to enable profile photos.');
+    }
+  } catch(e) { console.warn('Profile photo save failed', e); }
+}
+
 async function saveProfile() {
   var name = (document.getElementById('profile-name-input') || {}).value || '';
   var handle = (document.getElementById('profile-handle-input') || {}).value || '';
   var birthday = (document.getElementById('profile-birthday-input') || {}).value || null;
   handle = handle.replace(/^@/, '').toLowerCase().trim();
+  var existingPhoto = myProfile && myProfile.photo;
   myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, updated_at: new Date().toISOString() };
+  if (existingPhoto) myProfile.photo = existingPhoto;
   if (sbClient && userId) {
     try {
-      await sbClient.from('profiles').upsert(myProfile);
+      var res = await sbClient.from('profiles').upsert(myProfile);
+      if (res && res.error && /photo|column/i.test(res.error.message || '')) {
+        // photo column not present yet — retry without it so the rest saves
+        var noPhoto = Object.assign({}, myProfile); delete noPhoto.photo;
+        await sbClient.from('profiles').upsert(noPhoto);
+      }
     } catch(e) { console.warn('Profile save failed', e); }
   }
   renderProfileHeader();
@@ -1964,7 +1999,14 @@ function renderProfileHeader() {
   var name = p.display_name || currentUserEmail || '—';
   var handle = p.handle ? '@' + p.handle : '@—';
   var initials = name.split(' ').map(function(w) { return w[0]; }).join('').toUpperCase().slice(0, 2) || '?';
-  var av = document.getElementById('profile-avatar'); if (av) av.textContent = initials;
+  var av = document.getElementById('profile-avatar');
+  if (av) {
+    if (p.photo) {
+      av.innerHTML = '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover">';
+    } else {
+      av.textContent = initials;
+    }
+  }
   var dn = document.getElementById('profile-display-name'); if (dn) dn.textContent = name;
   var hd = document.getElementById('profile-handle-display'); if (hd) hd.textContent = handle;
   var ni = document.getElementById('profile-name-input'); if (ni && !ni.value) ni.value = p.display_name || '';
