@@ -818,7 +818,7 @@ function go(id) {
   if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; items = []; renderCatGrid(); renderItems(); updateProg(); }
   if (id === 's-create2') { renderItems(); updateProg(); }
-  if (id === 's-cg1') { creatingNewGroup = true; selEmoji = 0; addedFriends = new Set([0,1,2]); renderEmojiGrid(); }
+  if (id === 's-cg1') { creatingNewGroup = true; selEmoji = 0; addedFriends = new Set(); renderEmojiGrid(); }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
   if (id === 's-cg3') renderListPicker();
   if (id === 's-create2') {
@@ -1141,17 +1141,27 @@ function renderEmojiGrid() {
 function renderFriendsList() {
   var list = document.getElementById('friends-list');
   if (!list) return;
+  var accepted = myFriends.filter(function(f) { return f.status === 'accepted'; });
+  if (accepted.length === 0) {
+    list.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No friends yet — invite someone below or add friends from the Circle tab.</div>';
+    return;
+  }
   list.innerHTML = '';
-  FRIENDS.forEach(function(f, i) {
+  accepted.forEach(function(f) {
+    var name = f.profile.display_name || f.profile.handle || 'Friend';
+    var handle = f.profile.handle ? '@' + f.profile.handle : '';
+    var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
+    var isAdded = addedFriends.has(f.friendId);
     var row = document.createElement('div');
     row.className = 'member-row';
-    var isAdded = addedFriends.has(i);
-    row.innerHTML = '<div class="avatar" style="background:' + f.bg + ';color:' + f.c + '">' + f.i + '</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + f.n + '</div><div style="font-size:10px;color:#5F5E5A">' + f.m + '</div></div>';
+    row.innerHTML = '<div class="avatar" style="background:#E6F1FB;color:#185FA5;margin-right:8px;flex-shrink:0">' + initials + '</div>'
+      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>';
     var btn = document.createElement('button');
     btn.className = isAdded ? 'added-btn' : 'add-btn';
     btn.textContent = isAdded ? 'Added ✓' : '+ Add';
+    var fid = f.friendId;
     btn.onclick = function() {
-      if (addedFriends.has(i)) addedFriends.delete(i); else addedFriends.add(i);
+      if (addedFriends.has(fid)) addedFriends.delete(fid); else addedFriends.add(fid);
       renderFriendsList(); renderAddedChips();
     };
     row.appendChild(btn);
@@ -1165,12 +1175,14 @@ function renderAddedChips() {
   if (!chips) return;
   if (count) count.textContent = addedFriends.size;
   chips.innerHTML = '';
-  addedFriends.forEach(function(i) {
-    var f = FRIENDS[i];
+  addedFriends.forEach(function(fid) {
+    var f = myFriends.find(function(mf) { return mf.friendId === fid; });
     if (!f) return;
+    var name = f.profile.display_name || f.profile.handle || 'Friend';
     var chip = document.createElement('div');
-    chip.style.cssText = 'display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:99px;background:' + f.bg + ';border:1px solid ' + f.c + ';cursor:pointer';
-    chip.innerHTML = '<span style="font-size:10px;font-weight:600;color:' + f.c + '">' + f.n.split(' ')[0] + '</span><span style="color:' + f.c + ';font-size:14px" onclick="(function(){addedFriends.delete(' + i + ');renderFriendsList();renderAddedChips();})()" >×</span>';
+    chip.style.cssText = 'display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:99px;background:#E6F1FB;border:1px solid #185FA5;cursor:pointer';
+    chip.innerHTML = '<span style="font-size:10px;font-weight:600;color:#185FA5">' + name.split(' ')[0] + '</span>'
+      + '<span style="color:#185FA5;font-size:14px;cursor:pointer" onclick="addedFriends.delete(\'' + fid + '\');renderFriendsList();renderAddedChips()">×</span>';
     chips.appendChild(chip);
   });
 }
@@ -1359,11 +1371,18 @@ function renderGroupDetail() {
 function renderGroupOverview(g) {
   var el = document.getElementById('gtab-0-content');
   if (!el) return;
-  var members = (g.memberIdxs || []).map(function(i) { return FRIENDS[i]; }).filter(Boolean);
+  var memberIds = g.memberIds || [];
+  var members = memberIds.map(function(fid) {
+    return myFriends.find(function(mf) { return mf.friendId === fid; });
+  }).filter(Boolean);
   var memberCount = members.length + 1;
-  var membersHtml = '<div style="text-align:center"><div class="avatar" style="background:#FAECE7;color:#993C1D">You</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">You</div></div>';
+  var myName = (myProfile && myProfile.display_name) || 'You';
+  var myInitials = myName.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || 'YO';
+  var membersHtml = '<div style="text-align:center"><div class="avatar" style="background:#FAECE7;color:#993C1D">' + myInitials + '</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">You</div></div>';
   members.forEach(function(f) {
-    membersHtml += '<div style="text-align:center"><div class="avatar" style="background:' + f.bg + ';color:' + f.c + '">' + f.i + '</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">' + f.n.split(' ')[0] + '</div></div>';
+    var name = f.profile.display_name || f.profile.handle || 'Friend';
+    var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
+    membersHtml += '<div style="text-align:center"><div class="avatar" style="background:#E6F1FB;color:#185FA5">' + initials + '</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">' + name.split(' ')[0] + '</div></div>';
   });
   var listsCompared = parseInt((g.meta.match(/(\d+) lists/) || [0,0])[1]) || 0;
   var statsHtml = '<div class="stat-grid">'
@@ -1389,14 +1408,15 @@ function finishGroup() {
     var nameEl = document.getElementById('group-name');
     var groupName = nameEl ? nameEl.value.trim() : 'New Group';
     if (!groupName) groupName = 'New Group';
-    var memberCount = addedFriends.size + 1;
+    var memberIds = Array.from(addedFriends); // real friend user IDs
+    var memberCount = memberIds.length + 1;
     MY_GROUPS.push({
       n: groupName,
       emoji: EMOJIS[selEmoji] || '🎉',
       meta: memberCount + ' member' + (memberCount !== 1 ? 's' : '') + ' · 0 lists compared',
       pill: 'New',
       pillClass: 'pill-blue',
-      memberIdxs: Array.from(addedFriends),
+      memberIds: memberIds,
       isNew: true
     });
     selGroupIdx = MY_GROUPS.length - 1;
@@ -1573,12 +1593,12 @@ function copyInviteLink() {
   }
 }
 
-function removeMember(memberIdx) {
+function removeMemberById(friendId) {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
-  g.memberIdxs = (g.memberIdxs || []).filter(function(i) { return i !== memberIdx; });
-  var memberCount = g.memberIdxs.length + 1;
-  g.meta = memberCount + ' member' + (memberCount !== 1 ? 's' : '') + g.meta.replace(/^\d+ members?/, '').replace(/^\d+ member/, '');
+  g.memberIds = (g.memberIds || []).filter(function(id) { return id !== friendId; });
+  var memberCount = g.memberIds.length + 1;
+  g.meta = memberCount + ' member' + (memberCount !== 1 ? 's' : '') + (g.meta.replace(/^\d+ members?/, '') || ' · 0 lists compared');
   saveState();
   renderGroupSettings();
 }
@@ -1586,7 +1606,11 @@ function removeMember(memberIdx) {
 function renderGroupSettings() {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
-  var members = (g.memberIdxs || []).map(function(i) { return {idx: i, f: FRIENDS[i]}; }).filter(function(x) { return !!x.f; });
+  // Support both old memberIdxs (legacy) and new memberIds (real user IDs)
+  var memberIds = g.memberIds || [];
+  var members = memberIds.map(function(fid) {
+    return myFriends.find(function(mf) { return mf.friendId === fid; });
+  }).filter(Boolean);
   var memberCount = members.length + 1;
   var headerEl = document.getElementById('gsettings-header');
   var membersEl = document.getElementById('gsettings-members');
@@ -1598,12 +1622,16 @@ function renderGroupSettings() {
   var nameInput = document.getElementById('gsettings-name');
   if (nameInput) nameInput.value = g.n;
   if (!membersEl) return;
-  var html = '<div class="member-row"><div class="avatar" style="background:#FAECE7;color:#993C1D">YO</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">You</div><div style="font-size:10px;color:#5F5E5A">Admin</div></div><span class="pill pill-coral">You</span></div>';
-  members.forEach(function(item) {
-    var f = item.f; var idx = item.idx;
-    html += '<div class="member-row"><div class="avatar" style="background:' + f.bg + ';color:' + f.c + '">' + f.i + '</div>'
-      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + f.n + '</div><div style="font-size:10px;color:#5F5E5A">Member</div></div>'
-      + '<button class="back-btn" onclick="showConfirm(\'Remove ' + f.n + '?\',\'They will lose access to this group and all shared lists.\',\'Remove\',\'danger\',function(){removeMember(' + idx + ')})" style="font-size:10px;padding:3px 7px">Remove</button></div>';
+  var myName = (myProfile && myProfile.display_name) || 'You';
+  var myInitials = myName.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || 'YO';
+  var html = '<div class="member-row"><div class="avatar" style="background:#FAECE7;color:#993C1D">' + myInitials + '</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + myName + '</div><div style="font-size:10px;color:#5F5E5A">Admin</div></div><span class="pill pill-coral">You</span></div>';
+  members.forEach(function(f) {
+    var name = f.profile.display_name || f.profile.handle || 'Friend';
+    var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
+    var fid = f.friendId;
+    html += '<div class="member-row"><div class="avatar" style="background:#E6F1FB;color:#185FA5">' + initials + '</div>'
+      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">Member</div></div>'
+      + '<button class="back-btn" onclick="showConfirm(\'Remove ' + name.replace(/'/g,"\\'") + '?\',\'They will lose access to this group.\',\'Remove\',\'danger\',function(){removeMemberById(\'' + fid + '\')})" style="font-size:10px;padding:3px 7px">Remove</button></div>';
   });
   membersEl.innerHTML = html;
 }
