@@ -311,6 +311,8 @@
           <div style="font-size:11px;color:#5F5E5A;margin-bottom:12px">Pick an emoji and give it a name</div>
           <div class="sec-label">Choose an emoji</div>
           <div class="emoji-grid" id="emoji-grid"></div>
+          <input type="text" id="emoji-search" placeholder="Search emoji (e.g. sports, food, heart…)" oninput="searchEmoji(this.value)" style="margin-bottom:6px;font-size:12px">
+          <div class="emoji-grid" id="emoji-search-results" style="display:none;margin-bottom:4px"></div>
           <div class="sec-label">Group name</div>
           <input type="text" id="group-name" placeholder="e.g. High School Friends">
           <div class="sec-label">Description (optional)</div>
@@ -399,7 +401,7 @@
         </div>
         <div class="content">
           <div class="sec-label">Group emoji</div>
-          <div id="gsettings-emoji-grid" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+          <div class="emoji-grid" id="gsettings-emoji-grid" style="margin-bottom:14px"></div>
           <div class="sec-label">Group name</div>
           <input type="text" id="gsettings-name" placeholder="Group name">
           <button class="btn-primary" onclick="saveGroupSettings()">Save changes</button>
@@ -627,6 +629,63 @@ var MY_LISTS = [];
 var MY_GROUPS = [];
 var EMOJIS = ['🎓','💼','👨‍👩‍👧‍👦','🏡','⚽','🎮','🎵','🍕','🏖️','✈️','🎉','📚'];
 
+var EMOJI_SEARCH_POOL = [
+  // People & family
+  ['👫','couple dating romance'],['👭','friends girls women'],['👬','friends guys men'],['🧑‍🤝‍🧑','friends people'],
+  ['👶','baby infant'],['🧒','child kid'],['🧑','person adult'],['👴','grandfather old man'],['👵','grandmother old woman'],
+  ['🤰','pregnant baby'],['💑','couple love romance'],['👨‍👩‍👦','family parents son'],['🧑‍🍼','parent baby'],
+  // Activities & sports
+  ['⚽','soccer football sports'],['🏀','basketball sports'],['🏈','football american sports'],['⚾','baseball sports'],
+  ['🎾','tennis sports'],['🏐','volleyball sports'],['🏉','rugby sports'],['🎱','pool billiards'],
+  ['🏓','ping pong table tennis sports'],['🏸','badminton sports'],['🥊','boxing fighting sports'],
+  ['🏊','swimming water sports'],['🚴','cycling bike sports'],['🏃','running jogging sports'],['🧗','climbing sports'],
+  ['⛷️','skiing winter sports snow'],['🏂','snowboard winter sports'],['🤸','gymnastics sports'],
+  ['🎿','ski winter sports'],['🏋️','weightlifting gym fitness'],['🤼','wrestling sports'],['🥋','martial arts karate sports'],
+  ['🏇','horse racing sports'],['🎣','fishing outdoor'],['🏹','archery hunting'],['⛳','golf sports'],
+  // Food & drink
+  ['🍔','burger fast food'],['🌮','taco mexican food'],['🍣','sushi japanese food'],['🍜','noodles ramen food'],
+  ['🍦','ice cream dessert sweet'],['🍰','cake dessert birthday'],['🍺','beer drinks alcohol'],['🍷','wine drinks'],
+  ['☕','coffee drinks morning'],['🧃','juice drinks'],['🥗','salad healthy food'],['🌯','burrito wrap food'],
+  ['🍪','cookie dessert sweet'],['🧁','cupcake dessert birthday'],['🍩','donut dessert'],['🥩','steak meat food'],
+  ['🦞','lobster seafood'],['🍣','sushi japanese'],['🥓','bacon breakfast food'],['🍟','fries fast food'],
+  // Travel & places
+  ['🗺️','map travel adventure'],['🏔️','mountain hiking outdoors'],['🌋','volcano nature'],['🏝️','island tropical'],
+  ['🌊','ocean waves beach water'],['🏕️','camping outdoors nature'],['🗽','new york statue liberty'],
+  ['🗼','paris eiffel tower'],['🏯','castle japan'],['🕌','mosque architecture'],['⛩️','shrine japan'],
+  ['🎡','amusement park fun'],['🎢','roller coaster amusement'],['🚀','rocket space travel'],['🛸','ufo space aliens'],
+  ['🚂','train travel'],['🚢','cruise ship travel sea'],['🛺','rickshaw travel asia'],
+  // Music & arts
+  ['🎸','guitar music rock'],['🎹','piano keyboard music'],['🥁','drums music beat'],['🎺','trumpet music jazz'],
+  ['🎻','violin music classical'],['🎤','microphone singing music'],['🎧','headphones music listening'],
+  ['🎨','art painting creative'],['🖌️','painting brush art'],['🎭','theater drama acting'],['🎬','film movies cinema'],
+  ['📷','camera photography'],['🎙️','podcast recording microphone'],['🪗','accordion music'],
+  // Nature & animals
+  ['🐶','dog puppy pet animal'],['🐱','cat kitten pet animal'],['🐻','bear animal nature'],['🦊','fox animal'],
+  ['🦁','lion animal wild'],['🐯','tiger animal wild'],['🐼','panda animal bear'],['🐨','koala animal australia'],
+  ['🦋','butterfly nature insect'],['🌸','cherry blossom flower spring'],['🌻','sunflower flower nature'],
+  ['🌈','rainbow colorful nature'],['⭐','star space night'],['🌙','moon night'],['☀️','sun sunny weather'],
+  ['❄️','snow winter cold ice'],['🌊','wave ocean sea'],['🍀','clover luck green'],['🌿','plant nature green'],
+  // Objects & symbols
+  ['❤️','heart love red'],['💛','heart love yellow'],['💚','heart love green'],['💙','heart love blue'],
+  ['💜','heart love purple'],['🖤','heart love black'],['🤍','heart love white'],['🧡','heart love orange'],
+  ['🏆','trophy winner championship'],['🥇','gold medal winner'],['🎯','target goal darts'],['🎲','dice games'],
+  ['🃏','cards games playing'],['🎰','casino luck gambling'],['💡','idea light bulb'],['🔑','key lock'],
+  ['📱','phone mobile tech'],['💻','laptop computer tech'],['🎁','gift present birthday'],['🎈','balloon party'],
+  ['🎀','ribbon bow gift'],['🌟','star sparkle shine'],['✨','sparkles magic shine'],['💥','explosion boom'],
+  ['🔥','fire hot trending'],['💧','water drop'],['⚡','lightning electric energy'],['🌍','earth globe world'],
+  // Work & school
+  ['📊','chart graph data analytics'],['📈','chart growth stats'],['💰','money cash business'],
+  ['🏦','bank money finance'],['⚖️','law justice balance'],['🔬','science lab microscope'],
+  ['🔭','telescope astronomy space'],['🧪','lab experiment science'],['📐','math geometry school'],
+  ['✏️','pencil writing school'],['📖','book reading study'],['🖊️','pen writing'],['📝','notes writing memo'],
+  // Misc fun
+  ['🎃','halloween pumpkin spooky'],['🎄','christmas holiday tree'],['🎆','fireworks celebration'],
+  ['🦄','unicorn magic fantasy'],['👻','ghost halloween spooky'],['💀','skull death halloween'],
+  ['🤖','robot tech ai'],['👽','alien space ufo'],['🧸','teddy bear stuffed toy'],['🪄','magic wand wizard'],
+  ['🧩','puzzle pieces game'],['♟️','chess strategy game'],['🎪','circus fun performance'],
+  ['🛋️','couch home relax'],['🛁','bath relax home'],['🌃','city night skyline'],['🏙️','city urban skyline']
+];
+
 var selCat = 'Movies';
 var items = [];
 var isRanked = true;
@@ -665,7 +724,7 @@ function go(id) {
   if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; items = []; renderCatGrid(); renderItems(); updateProg(); }
   if (id === 's-create2') { renderItems(); updateProg(); }
-  if (id === 's-cg1') { creatingNewGroup = true; selEmoji = 0; addedFriends = new Set(); renderEmojiGrid(); }
+  if (id === 's-cg1') { creatingNewGroup = true; selEmoji = 0; selEmojiChar = EMOJIS[0]; addedFriends = new Set(); clearEmojiSearch(); renderEmojiGrid(); }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
   if (id === 's-cg3') renderListPicker();
   if (id === 's-create2') {
@@ -972,17 +1031,75 @@ function updateProg() {
   if (aa) aa.style.display = n >= 10 ? 'none' : 'block';
 }
 
+var selEmojiChar = '🎉'; // store the actual emoji char instead of index
+
 function renderEmojiGrid() {
   var grid = document.getElementById('emoji-grid');
   if (!grid) return;
   grid.innerHTML = '';
   EMOJIS.forEach(function(e, i) {
     var div = document.createElement('div');
-    div.className = 'emoji-opt' + (i === selEmoji ? ' selected' : '');
+    div.className = 'emoji-opt' + (e === selEmojiChar ? ' selected' : '');
     div.textContent = e;
-    div.onclick = function() { selEmoji = i; renderEmojiGrid(); };
+    div.onclick = function() { selEmojiChar = e; selEmoji = i; renderEmojiGrid(); clearEmojiSearch(); };
     grid.appendChild(div);
   });
+}
+
+function searchEmoji(val) {
+  var resultsEl = document.getElementById('emoji-search-results');
+  if (!resultsEl) return;
+  var q = val.trim().toLowerCase();
+  if (!q) { resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; return; }
+  var matches = EMOJI_SEARCH_POOL.filter(function(entry) {
+    return entry[1].toLowerCase().includes(q);
+  }).slice(0, 24);
+  if (matches.length === 0) {
+    resultsEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:4px 0;grid-column:1/-1">No results for "' + val + '"</div>';
+    resultsEl.style.display = 'grid';
+    return;
+  }
+  resultsEl.innerHTML = '';
+  matches.forEach(function(entry) {
+    var e = entry[0];
+    var div = document.createElement('div');
+    div.className = 'emoji-opt' + (e === selEmojiChar ? ' selected' : '');
+    div.textContent = e;
+    div.onclick = function() { selEmojiChar = e; selEmoji = -1; renderEmojiGrid(); renderSearchResults(q); };
+    resultsEl.appendChild(div);
+  });
+  resultsEl.style.display = 'grid';
+}
+
+function renderSearchResults(q) {
+  // Re-render with updated selection highlight
+  searchEmoji(q);
+}
+
+function searchEmojiSettings(val) {
+  var resultsEl = document.getElementById('gsettings-emoji-search');
+  if (!resultsEl) return;
+  var q = val.trim().toLowerCase();
+  var g = MY_GROUPS[selGroupIdx];
+  if (!q) { resultsEl.style.display = 'none'; return; }
+  var matches = EMOJI_SEARCH_POOL.filter(function(e) { return e[1].toLowerCase().includes(q); }).slice(0,24);
+  resultsEl.innerHTML = '';
+  matches.forEach(function(entry) {
+    var e = entry[0];
+    var btn = document.createElement('div');
+    btn.className = 'emoji-opt' + (g && e === g.emoji ? ' selected' : '');
+    btn.textContent = e;
+    btn.onclick = function() { if (g) { g.emoji = e; renderGroupSettings(); } };
+    resultsEl.appendChild(btn);
+  });
+  resultsEl.style.display = matches.length ? 'grid' : 'none';
+}
+
+function clearEmojiSearch() {
+  var inp = document.getElementById('emoji-search');
+  var resultsEl = document.getElementById('emoji-search-results');
+  if (inp) inp.value = '';
+  if (resultsEl) { resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; }
 }
 
 function renderFriendsList() {
@@ -1332,7 +1449,7 @@ function finishGroup() {
     var memberCount = memberIds.length + 1;
     MY_GROUPS.push({
       n: groupName,
-      emoji: EMOJIS[selEmoji] || '🎉',
+      emoji: selEmojiChar || EMOJIS[selEmoji] || '🎉',
       meta: memberCount + ' member' + (memberCount !== 1 ? 's' : '') + ' · 0 lists compared',
       pill: 'New',
       pillClass: 'pill-blue',
@@ -1538,22 +1655,22 @@ function renderGroupSettings() {
   if (!g) return;
   var nameInput = document.getElementById('gsettings-name');
   if (nameInput) nameInput.value = g.n;
-  // Render emoji picker
   var grid = document.getElementById('gsettings-emoji-grid');
-  if (grid) {
-    grid.innerHTML = '';
-    EMOJIS.forEach(function(emoji, i) {
-      var btn = document.createElement('div');
-      var isSelected = emoji === g.emoji;
-      btn.style.cssText = 'width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;border:2px solid ' + (isSelected ? '#D85A30' : 'transparent') + ';background:' + (isSelected ? '#FFF8F6' : '#F1EFE8');
-      btn.textContent = emoji;
-      btn.onclick = function() {
-        g.emoji = emoji;
-        renderGroupSettings();
-      };
-      grid.appendChild(btn);
-    });
-  }
+  if (!grid) return;
+  grid.innerHTML = '';
+  // Defaults row
+  EMOJIS.forEach(function(emoji) {
+    var btn = document.createElement('div');
+    btn.className = 'emoji-opt' + (emoji === g.emoji ? ' selected' : '');
+    btn.textContent = emoji;
+    btn.onclick = function() { g.emoji = emoji; renderGroupSettings(); };
+    grid.appendChild(btn);
+  });
+  // Search
+  var searchWrap = document.createElement('div');
+  searchWrap.style.cssText = 'grid-column:1/-1;margin-top:4px';
+  searchWrap.innerHTML = '<input type="text" placeholder="Search more emoji…" oninput="searchEmojiSettings(this.value)" style="font-size:12px;margin-bottom:6px"><div class="emoji-grid" id="gsettings-emoji-search" style="display:none"></div>';
+  grid.appendChild(searchWrap);
 }
 
 function saveGroupSettings() {
