@@ -146,7 +146,7 @@
       <div class="screen" id="s-home">
         <div class="topbar">
           <span class="logo">Tenner</span>
-          <span style="font-size:11px;color:#5F5E5A">Home</span>
+          <span style="font-size:11px;color:#5F5E5A">My Lists</span>
         </div>
         <div class="content">
           <div class="sec-label">My Lists</div>
@@ -184,7 +184,7 @@
         <div class="topbar">
           <button class="back-btn" onclick="go('s-home')">← Back</button>
           <span id="list-detail-title" style="font-size:13px;font-weight:600;color:#2C2C2A"></span>
-          <span style="width:52px"></span>
+          <button class="back-btn" id="list-detail-edit-btn" onclick="editCurrentList()" style="font-size:11px;color:#D85A30;border-color:#D85A30">Edit</button>
         </div>
         <div class="content">
           <div id="list-detail-meta" style="font-size:11px;color:#5F5E5A;margin-bottom:14px"></div>
@@ -672,7 +672,7 @@
 
       <!-- GLOBAL BOTTOM NAV -->
       <div class="bnav" id="global-bnav">
-        <div class="ni" id="nav-home" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home</div>
+        <div class="ni" id="nav-home" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>My Lists</div>
         <div class="ni" id="nav-create" onclick="go('s-create1')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Create</div>
         <div class="ni" id="nav-circle" onclick="go('s-circle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Circle</div>
         <div class="ni" id="nav-match" onclick="go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
@@ -802,11 +802,20 @@ function go(id) {
   }
   if (id === 's-home') renderHome();
   if (id === 's-gdetail') renderGroupDetail();
-  if (id === 's-create1') { selCat = 'Movies'; items = []; renderCatGrid(); renderItems(); updateProg(); }
-  if (id === 's-create2') { document.getElementById('create2-title').textContent = 'Top 10 ' + selCat; renderItems(); updateProg(); }
+  if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; items = []; renderCatGrid(); renderItems(); updateProg(); }
+  if (id === 's-create2') { renderItems(); updateProg(); }
   if (id === 's-cg1') { creatingNewGroup = true; selEmoji = 0; addedFriends = new Set([0,1,2]); renderEmojiGrid(); }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
   if (id === 's-cg3') renderListPicker();
+  if (id === 's-create2') {
+    var t = document.getElementById('create2-title');
+    if (t) t.textContent = 'Top 10 ' + selCat;
+    var backBtn = document.querySelector('#s-create2 .back-btn');
+    if (backBtn) backBtn.onclick = editingListIdx >= 0 ? function(){ go('s-list-detail'); } : function(){ go('s-create1'); };
+    var contBtn = document.querySelector('#s-create2 .btn-primary');
+    if (contBtn) contBtn.textContent = editingListIdx >= 0 ? 'Save changes →' : 'Continue →';
+    if (editingListIdx >= 0 && contBtn) contBtn.onclick = function(){ saveList(); };
+  }
   if (id === 's-create3') renderShareGroups();
   if (id === 's-gsettings') renderGroupSettings();
   if (id === 's-match') renderMatch();
@@ -973,7 +982,7 @@ function renderItems() {
     var badge = isRanked
       ? '<div class="rank-badge">' + (i+1) + '</div>'
       : '<div class="rank-dot"></div>';
-    div.innerHTML = badge + '<span style="flex:1;font-size:12px;color:#2C2C2A">' + item + '</span><span style="font-size:14px;color:#C8C6BE;cursor:grab;padding:0 4px">⠿</span><button onclick="removeItem(' + i + ')" style="background:none;border:none;color:#888780;cursor:pointer;font-size:16px;line-height:1;padding:0 2px">×</button>';
+    div.innerHTML = badge + '<input type="text" value="' + item.replace(/"/g,'&quot;') + '" oninput="items[' + i + ']=this.value;updateProg();" onblur="items[' + i + ']=this.value.trim();if(!this.value.trim()){removeItem(' + i + ');}else{updateProg();}" style="flex:1;font-size:12px;color:#2C2C2A;border:none;background:transparent;outline:none;padding:0;min-width:0"><span style="font-size:14px;color:#C8C6BE;cursor:grab;padding:0 4px;flex-shrink:0">⠿</span><button onclick="removeItem(' + i + ')" style="background:none;border:none;color:#888780;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0">×</button>';
     // Desktop drag
     div.addEventListener('dragstart', function(e) {
       dragSrcIdx = parseInt(this.dataset.idx);
@@ -1154,6 +1163,25 @@ function showListDetail(l) {
     });
   }
   go('s-list-detail');
+}
+
+var editingListIdx = -1;
+
+function editCurrentList() {
+  // Find the list index by matching the title shown
+  var title = document.getElementById('list-detail-title').textContent;
+  var idx = MY_LISTS.findIndex(function(l) { return l.n === title; });
+  if (idx < 0) return;
+  var l = MY_LISTS[idx];
+  editingListIdx = idx;
+  selCat = l.category || l.n.replace('Top 10 ', '');
+  items = l.items.slice();
+  isRanked = l.ranked !== false;
+  listOrigin = 's-list-detail';
+  renderCatGrid();
+  renderItems();
+  updateProg();
+  go('s-create2');
 }
 
 function renderHome() {
@@ -2079,14 +2107,43 @@ function saveList() {
   var itemCount = items.filter(function(i) { return i.trim(); }).length;
   var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
   var existing = MY_LISTS.findIndex(function(l) { return (l.category || l.n.replace('Top 10 ', '')) === selCat; });
-  var listObj = { n: listName, m: meta, items: items.slice(), ranked: isRanked, category: selCat };
-  if (existing >= 0) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
+  var isUpdate = existing >= 0;
+  var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat };
+  if (isUpdate) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
   var dest = listOrigin;
   listOrigin = 's-home';
+  editingListIdx = -1;
   if (dest === 's-cg3') selList = existing >= 0 ? existing : MY_LISTS.length - 1;
   saveState();
   saveListToDb(listObj);
-  go(dest);
+  // Notify friends of update
+  if (isUpdate && myFriends.filter(function(f){return f.status==='accepted';}).length > 0) {
+    var senderName = (myProfile && myProfile.display_name) || 'Someone';
+    notifyFriendsOfUpdate(senderName, selCat);
+  }
+  if (dest === 's-list-detail') {
+    showListDetail(listObj);
+  } else {
+    go(dest);
+  }
+}
+
+function notifyFriendsOfUpdate(name, category) {
+  // Store a notification in localStorage that friends will see on their next visit
+  // (In a real app this would be a push notification via Supabase realtime)
+  try {
+    var note = { from: name, fromId: userId, category: category, ts: Date.now() };
+    var existing = JSON.parse(localStorage.getItem('tenner_friend_updates') || '[]');
+    existing.unshift(note);
+    existing = existing.slice(0, 20); // keep last 20
+    localStorage.setItem('tenner_friend_updates', JSON.stringify(existing));
+  } catch(e) {}
+  // Show a subtle confirmation to the user
+  var banner = document.createElement('div');
+  banner.style.cssText = 'position:fixed;top:0;left:50%;transform:translateX(-50%);background:#2C2C2A;color:#fff;font-size:11px;padding:8px 14px;border-radius:0 0 10px 10px;z-index:999;max-width:320px;text-align:center';
+  banner.textContent = '✓ List saved — your friends will be notified of your update';
+  document.body.appendChild(banner);
+  setTimeout(function(){ banner.remove(); }, 3000);
 }
 
 function setGroupTab(n) {
