@@ -2957,8 +2957,10 @@ function clearPendingInvite() {
         clearPendingInvite();
         // Auto-connect as friends if an inviter ID was provided
         if (fromId && fromId !== userId && sbClient) {
+          // Only skip if a link already exists between THESE two users
           sbClient.from('friendships')
-            .select('id').or('requester_id.eq.' + userId + ',addressee_id.eq.' + userId)
+            .select('id')
+            .or('and(requester_id.eq.' + userId + ',addressee_id.eq.' + fromId + '),and(requester_id.eq.' + fromId + ',addressee_id.eq.' + userId + ')')
             .then(function(existing) {
               var alreadyLinked = existing.data && existing.data.length > 0;
               if (!alreadyLinked) {
