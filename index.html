@@ -1079,6 +1079,39 @@ function updateProg() {
 var selEmojiChar = '🎉'; // store the actual emoji char instead of index
 var groupPhotoData = null; // base64 photo for new group being created
 
+// Resize an image dataURL to max `px` pixels on longest side, returns a Promise<dataURL>
+function resizeImage(dataUrl, px) {
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.onload = function() {
+      var w = img.width, h = img.height;
+      var scale = Math.min(1, px / Math.max(w, h));
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = function() { resolve(dataUrl); };
+    img.src = dataUrl;
+  });
+}
+
+// Renders a circular person avatar — photo if available, else initials.
+function friendAvatarHtml(profile, size) {
+  size = size || 32;
+  var p = profile || {};
+  var name = p.display_name || p.handle || '?';
+  var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
+  var base = 'width:' + size + 'px;height:' + size + 'px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;';
+  if (p.photo) {
+    return '<div style="' + base + '">'
+      + '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover"></div>';
+  }
+  var fontSize = Math.round(size * 0.38);
+  return '<div style="' + base + 'background:#E6F1FB;color:#185FA5;font-size:' + fontSize + 'px;font-weight:700">' + initials + '</div>';
+}
+
 function groupAvatarHtml(g, size) {
   size = size || 42;
   var radius = Math.round(size * 0.28);
@@ -1242,7 +1275,7 @@ function renderFriendsList() {
     var isAdded = addedFriends.has(f.friendId);
     var row = document.createElement('div');
     row.className = 'member-row';
-    row.innerHTML = '<div class="avatar" style="background:#E6F1FB;color:#185FA5;margin-right:8px;flex-shrink:0">' + initials + '</div>'
+    row.innerHTML = '<div style="margin-right:8px">' + friendAvatarHtml(f.profile, 32) + '</div>'
       + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>';
     var btn = document.createElement('button');
     btn.className = isAdded ? 'added-btn' : 'add-btn';
@@ -1365,7 +1398,7 @@ function openShareListModal(cat) {
       var handle = f.profile.handle ? '@' + f.profile.handle : '';
       var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
       return '<div class="member-row" style="margin-bottom:6px">'
-        + '<div class="avatar" style="background:#E6F1FB;color:#185FA5;margin-right:8px;flex-shrink:0">' + initials + '</div>'
+        + '<div style="margin-right:8px">' + friendAvatarHtml(f.profile, 32) + '</div>'
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>'
         + '<button class="add-btn" id="share-friend-btn-' + f.friendId + '" onclick="shareListWithFriend(\'' + f.friendId + '\',\'' + cat.replace(/'/g,"\\'") + '\',this)">Send</button>'
         + '</div>';
@@ -1447,12 +1480,14 @@ function renderGroupDetail() {
   var myInitials = myName.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || 'YO';
 
   // Member avatars row
+  var myAvatarHtml = myProfile && myProfile.photo
+    ? '<img src="' + myProfile.photo + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover">'
+    : '<div class="avatar" style="background:#FAECE7;color:#993C1D">' + myInitials + '</div>';
   var avatarsHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
-    + '<div style="text-align:center"><div class="avatar" style="background:#FAECE7;color:#993C1D">' + myInitials + '</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">You</div></div>';
+    + '<div style="text-align:center">' + myAvatarHtml + '<div style="font-size:9px;color:#5F5E5A;margin-top:3px">You</div></div>';
   members.forEach(function(f) {
     var name = f.profile.display_name || f.profile.handle || 'Friend';
-    var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
-    avatarsHtml += '<div style="text-align:center"><div class="avatar" style="background:#E6F1FB;color:#185FA5">' + initials + '</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">' + name.split(' ')[0] + '</div></div>';
+    avatarsHtml += '<div style="text-align:center">' + friendAvatarHtml(f.profile, 32) + '<div style="font-size:9px;color:#5F5E5A;margin-top:3px">' + name.split(' ')[0] + '</div></div>';
   });
   avatarsHtml += '</div>';
 
@@ -1464,15 +1499,14 @@ function renderGroupDetail() {
     + '<span id="members-chevron" style="font-size:16px;color:#888780">›</span>'
     + '</div>'
     + '<div id="group-members-panel" style="display:none;margin-top:12px">'
-    + '<div class="member-row" style="margin-bottom:6px"><div class="avatar" style="background:#FAECE7;color:#993C1D;flex-shrink:0;margin-right:8px">' + myInitials + '</div>'
+    + '<div class="member-row" style="margin-bottom:6px"><div style="margin-right:8px">' + (myProfile && myProfile.photo ? '<img src="' + myProfile.photo + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">' : '<div class="avatar" style="background:#FAECE7;color:#993C1D;flex-shrink:0">' + myInitials + '</div>') + '</div>'
     + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + myName + '</div><div style="font-size:10px;color:#5F5E5A">Admin</div></div>'
     + '<span class="pill pill-coral">You</span></div>'
     + members.map(function(f) {
         var name = f.profile.display_name || f.profile.handle || 'Friend';
         var handle = f.profile.handle ? '@' + f.profile.handle : '';
-        var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
         var fid = f.friendId;
-        return '<div class="member-row" style="margin-bottom:6px"><div class="avatar" style="background:#E6F1FB;color:#185FA5;flex-shrink:0;margin-right:8px">' + initials + '</div>'
+        return '<div class="member-row" style="margin-bottom:6px"><div style="margin-right:8px">' + friendAvatarHtml(f.profile, 32) + '</div>'
           + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>'
           + '<button class="back-btn" style="font-size:10px;padding:3px 7px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();showConfirm(\'Remove ' + name.replace(/'/g,"\\'") + '?\',\'They will lose access to this group.\',\'Remove\',\'danger\',function(){removeMemberFromGroup(\'' + fid + '\')})">Remove</button></div>';
       }).join('')
@@ -1951,13 +1985,12 @@ function onProfilePhotoUpload(input) {
   if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    myProfile = myProfile || { id: userId };
-    myProfile.photo = e.target.result;
-    renderProfileHeader();
-    // Persist immediately so it survives a reload
-    if (sbClient && userId) {
-      saveProfilePhoto(e.target.result);
-    }
+    resizeImage(e.target.result, 300).then(function(dataUrl) {
+      myProfile = myProfile || { id: userId };
+      myProfile.photo = dataUrl;
+      renderProfileHeader();
+      if (sbClient && userId) saveProfilePhoto(dataUrl);
+    });
   };
   reader.readAsDataURL(input.files[0]);
 }
@@ -2100,8 +2133,8 @@ function renderFoundUserCard(p, noteId, sendFn, resultEl) {
   var metaLine = '@' + p.handle + (since ? ' · ' + since : '');
   resultEl.innerHTML = '<div class="card no-hover" style="margin-bottom:0">'
     + '<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
-    + '<div class="avatar" style="background:#E6F1FB;color:#185FA5;flex-shrink:0">' + initials + '</div>'
-    + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + newBadge + '</div>'
+    + friendAvatarHtml(p, 32)
+    + '<div style="flex:1;min-width:0;margin-left:9px"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + newBadge + '</div>'
     + '<div style="font-size:10px;color:#5F5E5A">' + escapeHtml(metaLine) + '</div>'
     + '<div id="' + noteId + '-mutual" style="font-size:10px;color:#3B6D11;margin-top:3px;display:none"></div>'
     + '</div></div>'
@@ -2206,8 +2239,8 @@ function renderCircleFriends() {
           var mutualHtml = '<div id="mutual-' + f.id + '" style="font-size:10px;color:#3B6D11;margin-top:5px;display:none"></div>';
           return '<div class="card no-hover" style="margin-bottom:8px;cursor:pointer" onclick="openFriendDetail(\'' + f.friendId + '\')">'
             + '<div style="display:flex;align-items:center;gap:9px">'
-            + '<div class="avatar" style="background:#E6F1FB;color:#185FA5;flex-shrink:0">' + initials + '</div>'
-            + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + newBadge + '</div>'
+            + friendAvatarHtml(p, 32)
+            + '<div style="flex:1;min-width:0;margin-left:9px"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + newBadge + '</div>'
             + '<div style="font-size:10px;color:#5F5E5A">' + metaLine + '</div></div>'
             + '<button class="add-btn" onclick="event.stopPropagation();respondToFriendRequest(\'' + f.id + '\',true)" style="margin-right:4px">Accept</button>'
             + '<button class="back-btn" onclick="event.stopPropagation();respondToFriendRequest(\'' + f.id + '\',false)" style="font-size:10px;padding:3px 7px">Decline</button>'
@@ -2226,7 +2259,7 @@ function renderCircleFriends() {
       var name = f.profile.display_name || f.profile.handle || 'Unknown';
       var handle = f.profile.handle ? '@' + f.profile.handle : '';
       var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
-      return '<div class="member-row" style="cursor:pointer" onclick="openFriendDetail(\'' + f.friendId + '\')"><div class="avatar" style="background:#E6F1FB;color:#185FA5;margin-right:8px;flex-shrink:0">' + initials + '</div>'
+      return '<div class="member-row" style="cursor:pointer" onclick="openFriendDetail(\'' + f.friendId + '\')"><div style="margin-right:8px">' + friendAvatarHtml(f.profile, 32) + '</div>'
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>'
         + '<button class="back-btn" style="font-size:10px;padding:3px 8px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();confirmUnfriend(\'' + f.id + '\',\'' + name.replace(/'/g,"\\'") + '\')">Remove</button></div>';
     }).join('');
@@ -2332,7 +2365,7 @@ async function renderFriendDetail() {
 
   // Header
   var headerHtml = '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:16px">'
-    + '<div style="width:88px;height:88px;border-radius:50%;background:#E6F1FB;color:#185FA5;font-size:32px;font-weight:700;display:flex;align-items:center;justify-content:center">' + initials + '</div>'
+    + friendAvatarHtml(p, 88)
     + '<div style="font-size:18px;font-weight:700;color:#2C2C2A;margin-top:10px">' + escapeHtml(name) + newBadge + '</div>'
     + (handle ? '<div style="font-size:12px;color:#5F5E5A;margin-top:2px">' + escapeHtml(handle) + '</div>' : '')
     + (isPendingInbound ? '<div style="font-size:11px;color:#854F0B;margin-top:6px">wants to connect with you</div>' : '')
