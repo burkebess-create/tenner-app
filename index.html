@@ -289,7 +289,7 @@
           <div class="sec-label">Share with a group</div>
           <div id="share-groups-list"></div>
           <div class="sec-label">Or share directly</div>
-          <button class="btn-secondary" style="margin-bottom:8px" onclick="openListInviteModal()">📧💬 Invite by email or text</button>
+          <button class="btn-secondary" style="margin-bottom:8px" onclick="openListInviteModal()">✉️💬 Invite by email or text</button>
           <button class="btn-primary" onclick="saveList()">Save & finish</button>
         </div>
       </div>
@@ -339,7 +339,7 @@
           <div class="info-box">
             <div style="font-size:12px;font-weight:600;color:#2C2C2A;margin-bottom:3px">Invite non-users via link</div>
             <div style="font-size:10px;color:#5F5E5A;margin-bottom:8px">Anyone with the link can join this group</div>
-            <button class="btn-secondary" style="padding:8px;font-size:11px;margin-bottom:0" onclick="openInviteModal()">📧💬 Invite by email or text</button>
+            <button class="btn-secondary" style="padding:8px;font-size:11px;margin-bottom:0" onclick="openInviteModal()">✉️💬 Invite by email or text</button>
           </div>
           <div class="sec-label">Added to group (<span id="added-count">3</span>)</div>
           <div id="added-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
@@ -450,7 +450,7 @@
             <button class="btn-primary" onclick="circleSearchFriend()" style="width:auto;padding:7px 14px;margin-bottom:0;font-size:12px;white-space:nowrap">Search</button>
           </div>
           <div id="circle-friend-search-result" style="margin-bottom:8px"></div>
-          <button class="btn-secondary" style="margin-bottom:12px;font-size:12px" onclick="openCircleInviteModal()">📧💬 Invite a friend by email or text</button>
+          <button class="btn-secondary" style="margin-bottom:12px;font-size:12px" onclick="openCircleInviteModal()">✉️💬 Invite a friend by email or text</button>
           <div id="circle-friend-requests"></div>
           <div id="circle-friends-list"></div>
 
@@ -1145,7 +1145,7 @@ function openShareListModal(cat) {
 
   // Invite new
   html += '<div class="sec-label">Invite someone new</div>';
-  html += '<button class="btn-secondary" style="margin-bottom:0" onclick="closeShareListModal();openListInviteModal()">✉ 📧💬 Invite by email or text</button>';
+  html += '<button class="btn-secondary" style="margin-bottom:0" onclick="closeShareListModal();openListInviteModal()">✉ ✉️💬 Invite by email or text</button>';
 
   document.getElementById('share-list-modal-content').innerHTML = html;
   document.getElementById('share-list-modal').style.display = 'flex';
