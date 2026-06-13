@@ -682,6 +682,17 @@
         <div class="ni" id="nav-profile" onclick="go('s-profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</div>
       </div>
 
+      <!-- SHARE LIST MODAL -->
+      <div id="share-list-modal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end">
+        <div style="background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%;max-height:80vh;overflow-y:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div id="share-list-modal-title" style="font-size:14px;font-weight:600;color:#2C2C2A"></div>
+            <button onclick="closeShareListModal()" style="border:none;background:none;font-size:20px;color:#888780;cursor:pointer;padding:0 4px">×</button>
+          </div>
+          <div id="share-list-modal-content"></div>
+        </div>
+      </div>
+
       <!-- INVITE MODAL -->
       <div id="invite-modal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end">
         <div style="background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%">
@@ -1238,7 +1249,66 @@ function shareCurrentList() {
   var title = document.getElementById('list-detail-title').textContent;
   var cat = title.replace('Top 10 ', '');
   selCat = cat;
-  openListInviteModal();
+  openShareListModal(cat);
+}
+
+function openShareListModal(cat) {
+  document.getElementById('share-list-modal-title').textContent = 'Share Top 10 ' + cat;
+  var accepted = myFriends.filter(function(f) { return f.status === 'accepted'; });
+  var html = '';
+
+  // Friends section
+  if (accepted.length > 0) {
+    html += '<div class="sec-label" style="margin-top:0">Friends</div>';
+    html += accepted.map(function(f) {
+      var name = f.profile.display_name || f.profile.handle || 'Friend';
+      var handle = f.profile.handle ? '@' + f.profile.handle : '';
+      var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
+      return '<div class="member-row" style="margin-bottom:6px">'
+        + '<div class="avatar" style="background:#E6F1FB;color:#185FA5;margin-right:8px;flex-shrink:0">' + initials + '</div>'
+        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>'
+        + '<button class="add-btn" id="share-friend-btn-' + f.friendId + '" onclick="shareListWithFriend(\'' + f.friendId + '\',\'' + cat.replace(/'/g,"\\'") + '\',this)">Send</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  // Groups section
+  if (MY_GROUPS.length > 0) {
+    html += '<div class="sec-label">Groups</div>';
+    html += MY_GROUPS.map(function(g, i) {
+      return '<div class="card" style="margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:8px">'
+        + '<div style="font-size:20px">' + (g.emoji || '👥') + '</div>'
+        + '<div style="flex:1;font-size:12px;font-weight:600;color:#2C2C2A">' + g.n + '</div>'
+        + '<button class="add-btn" id="share-group-btn-' + i + '" onclick="shareListWithGroup(' + i + ',\'' + cat.replace(/'/g,"\\'") + '\',this)">Send</button>'
+        + '</div></div>';
+    }).join('');
+  }
+
+  // Invite new
+  html += '<div class="sec-label">Invite someone new</div>';
+  html += '<button class="btn-secondary" style="margin-bottom:0" onclick="closeShareListModal();openListInviteModal()">✉ Invite via email or link</button>';
+
+  document.getElementById('share-list-modal-content').innerHTML = html;
+  document.getElementById('share-list-modal').style.display = 'flex';
+}
+
+function closeShareListModal() {
+  document.getElementById('share-list-modal').style.display = 'none';
+}
+
+function shareListWithFriend(friendId, cat, btn) {
+  // In a real app, this would send a Supabase notification. For now show confirmation.
+  btn.textContent = 'Sent ✓';
+  btn.style.color = '#3B6D11';
+  btn.style.borderColor = '#3B6D11';
+  btn.disabled = true;
+}
+
+function shareListWithGroup(groupIdx, cat, btn) {
+  btn.textContent = 'Sent ✓';
+  btn.style.color = '#3B6D11';
+  btn.style.borderColor = '#3B6D11';
+  btn.disabled = true;
 }
 
 function editCurrentList() {
