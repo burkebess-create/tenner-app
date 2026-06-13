@@ -293,8 +293,8 @@
           <div id="share-groups-list"></div>
           <div class="sec-label">Or share directly</div>
           <div style="display:flex;gap:8px;margin-bottom:8px">
-            <button class="btn-secondary" style="flex:1;margin-bottom:0" onclick="alert('Link copied to clipboard!')">Copy link</button>
-            <button class="btn-secondary" style="flex:1;margin-bottom:0" onclick="alert('Opens share sheet!')">Send to...</button>
+            <button class="btn-secondary" style="flex:1;margin-bottom:0" onclick="copyListInviteLink()">Copy link</button>
+            <button class="btn-secondary" style="flex:1;margin-bottom:0" onclick="openListInviteModal()">Send to...</button>
           </div>
           <button class="btn-primary" onclick="saveList()">Save & finish</button>
         </div>
@@ -1313,6 +1313,34 @@ function selectMatchList(btn, key) {
     + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + agreesHtml + '</div>';
 }
 
+function getListInviteUrl() {
+  return 'https://burkebess-create.github.io/tenner-app/?fill=' + encodeURIComponent(selCat);
+}
+
+function copyListInviteLink() {
+  var url = getListInviteUrl();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(function() {
+      showConfirm('Link copied!', 'Share this with friends:\n' + url, 'Done', 'primary', function(){});
+    }).catch(function() {
+      showConfirm('Invite link', url, 'Done', 'primary', function(){});
+    });
+  } else {
+    showConfirm('Invite link', url, 'Done', 'primary', function(){});
+  }
+}
+
+function openListInviteModal() {
+  var url = getListInviteUrl();
+  var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
+  var defaultMsg = senderName + ' shared their Top 10 ' + selCat + ' list on Tenner!\n\nFill out yours and see how you compare:\n' + url;
+  var msgEl = document.getElementById('invite-message');
+  if (msgEl) msgEl.value = defaultMsg;
+  var emailEl = document.getElementById('invite-email');
+  if (emailEl) emailEl.value = '';
+  document.getElementById('invite-modal').style.display = 'flex';
+}
+
 function openInviteModalForGroup() {
   var g = MY_GROUPS[selGroupIdx];
   var groupName = g ? g.n : '';
@@ -1344,9 +1372,16 @@ function closeInviteModal() {
 function sendInviteEmail() {
   var email = (document.getElementById('invite-email') || {}).value || '';
   var message = (document.getElementById('invite-message') || {}).value || '';
-  var groupNameEl = document.getElementById('group-name');
-  var groupName = groupNameEl ? groupNameEl.value.trim() : '';
-  var subject = encodeURIComponent('You\'re invited to join' + (groupName ? ' "' + groupName + '"' : ' a group') + ' on Tenner');
+  var isListInvite = message.indexOf('Top 10') !== -1;
+  var subject;
+  if (isListInvite) {
+    var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
+    subject = encodeURIComponent(senderName + ' wants to compare Top 10 ' + selCat + ' lists with you on Tenner');
+  } else {
+    var groupNameEl = document.getElementById('group-name');
+    var groupName = groupNameEl ? groupNameEl.value.trim() : '';
+    subject = encodeURIComponent('You\'re invited to join' + (groupName ? ' "' + groupName + '"' : ' a group') + ' on Tenner');
+  }
   var body = encodeURIComponent(message);
   var to = encodeURIComponent(email);
   window.location.href = 'mailto:' + to + '?subject=' + subject + '&body=' + body;
@@ -1909,6 +1944,14 @@ document.addEventListener('click', function(e) {
 });
 
 (async function init() {
+  // Check for ?fill=<category> invite link
+  var fillParam = new URLSearchParams(window.location.search).get('fill');
+  if (fillParam) {
+    window.pendingFill = decodeURIComponent(fillParam);
+    // Clean the URL so it doesn't re-trigger on refresh
+    history.replaceState(null, '', window.location.pathname);
+  }
+
   initSupabase();
   renderCatGrid();
   renderEmojiGrid();
@@ -1926,6 +1969,19 @@ document.addEventListener('click', function(e) {
       renderHome();
       renderListPicker();
       go('s-home');
+      if (window.pendingFill) {
+        var cat = window.pendingFill;
+        window.pendingFill = null;
+        selCat = cat;
+        items = [];
+        showConfirm(
+          'Fill out your list!',
+          'Your friend shared their Top 10 ' + cat + ' list. Fill yours out to see how you compare!',
+          'Create my Top 10 ' + cat,
+          'primary',
+          function() { renderCatGrid(); renderItems(); updateProg(); go('s-create2'); }
+        );
+      }
     }
     loadState().then(function() { renderHome(); renderListPicker(); }).catch(console.warn);
     loadProfile().catch(console.warn);
