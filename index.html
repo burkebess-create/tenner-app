@@ -1311,7 +1311,9 @@ function selectMatchList(btn, key) {
 }
 
 function getListInviteUrl() {
-  return 'https://burkebess-create.github.io/tenner-app/?fill=' + encodeURIComponent(selCat);
+  var base = 'https://burkebess-create.github.io/tenner-app/?fill=' + encodeURIComponent(selCat);
+  if (userId) base += '&from=' + encodeURIComponent(userId);
+  return base;
 }
 
 function copyListInviteLink() {
@@ -1942,10 +1944,12 @@ document.addEventListener('click', function(e) {
 
 (async function init() {
   // Check for ?fill=<category> invite link
-  var fillParam = new URLSearchParams(window.location.search).get('fill');
+  var _qs = new URLSearchParams(window.location.search);
+  var fillParam = _qs.get('fill');
+  var fromParam = _qs.get('from');
   if (fillParam) {
     window.pendingFill = decodeURIComponent(fillParam);
-    // Clean the URL so it doesn't re-trigger on refresh
+    if (fromParam) window.pendingFrom = decodeURIComponent(fromParam);
     history.replaceState(null, '', window.location.pathname);
   }
 
@@ -1968,7 +1972,22 @@ document.addEventListener('click', function(e) {
       go('s-home');
       if (window.pendingFill) {
         var cat = window.pendingFill;
+        var fromId = window.pendingFrom || null;
         window.pendingFill = null;
+        window.pendingFrom = null;
+        // Auto-connect as friends if an inviter ID was provided
+        if (fromId && fromId !== userId && sbClient) {
+          sbClient.from('friendships')
+            .select('id').or('requester_id.eq.' + userId + ',addressee_id.eq.' + userId)
+            .then(function(existing) {
+              var alreadyLinked = existing.data && existing.data.length > 0;
+              if (!alreadyLinked) {
+                sbClient.from('friendships').insert({ requester_id: userId, addressee_id: fromId, status: 'accepted' })
+                  .then(function() { loadFriends().catch(console.warn); })
+                  .catch(console.warn);
+              }
+            }).catch(console.warn);
+        }
         selCat = cat;
         items = [];
         showConfirm(
