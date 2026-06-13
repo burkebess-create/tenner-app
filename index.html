@@ -2886,14 +2886,46 @@ document.addEventListener('click', function(e) {
   }
 });
 
+// Persist invite context (fill/from) so it survives the email-confirmation
+// round trip, which reloads the app on a fresh page without the URL params.
+var PENDING_INVITE_KEY = 'tenner_pending_invite';
+var PENDING_INVITE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+function savePendingInvite(fill, from) {
+  try {
+    localStorage.setItem(PENDING_INVITE_KEY, JSON.stringify({ fill: fill, from: from || null, ts: Date.now() }));
+  } catch(e) {}
+}
+
+function getPendingInvite() {
+  try {
+    var raw = localStorage.getItem(PENDING_INVITE_KEY);
+    if (!raw) return null;
+    var obj = JSON.parse(raw);
+    if (!obj || !obj.fill || (Date.now() - (obj.ts || 0)) > PENDING_INVITE_TTL) {
+      clearPendingInvite();
+      return null;
+    }
+    return obj;
+  } catch(e) { return null; }
+}
+
+function clearPendingInvite() {
+  try { localStorage.removeItem(PENDING_INVITE_KEY); } catch(e) {}
+}
+
 (async function init() {
   // Check for ?fill=<category> invite link
   var _qs = new URLSearchParams(window.location.search);
   var fillParam = _qs.get('fill');
   var fromParam = _qs.get('from');
   if (fillParam) {
-    window.pendingFill = decodeURIComponent(fillParam);
-    if (fromParam) window.pendingFrom = decodeURIComponent(fromParam);
+    var fillVal = decodeURIComponent(fillParam);
+    var fromVal = fromParam ? decodeURIComponent(fromParam) : null;
+    window.pendingFill = fillVal;
+    if (fromVal) window.pendingFrom = fromVal;
+    // Persist so it survives signup + email confirmation reload
+    savePendingInvite(fillVal, fromVal);
     history.replaceState(null, '', window.location.pathname);
   }
 
@@ -2914,11 +2946,15 @@ document.addEventListener('click', function(e) {
       renderHome();
       renderListPicker();
       go('s-home');
-      if (window.pendingFill) {
-        var cat = window.pendingFill;
-        var fromId = window.pendingFrom || null;
+      // Prefer in-memory invite (same page load); fall back to persisted
+      // invite that survived the email-confirmation reload.
+      var invite = window.pendingFill ? { fill: window.pendingFill, from: window.pendingFrom || null } : getPendingInvite();
+      if (invite) {
+        var cat = invite.fill;
+        var fromId = invite.from || null;
         window.pendingFill = null;
         window.pendingFrom = null;
+        clearPendingInvite();
         // Auto-connect as friends if an inviter ID was provided
         if (fromId && fromId !== userId && sbClient) {
           sbClient.from('friendships')
