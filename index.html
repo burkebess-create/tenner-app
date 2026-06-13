@@ -398,18 +398,11 @@
           <span style="width:52px"></span>
         </div>
         <div class="content">
-          <div id="gsettings-header" style="text-align:center;padding:14px 0 18px"></div>
+          <div class="sec-label">Group emoji</div>
+          <div id="gsettings-emoji-grid" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
           <div class="sec-label">Group name</div>
           <input type="text" id="gsettings-name" placeholder="Group name">
-          <div class="sec-label">Invite more members</div>
-          <input type="text" placeholder="Search by name or @handle...">
-          <button class="btn-secondary" style="font-size:11px;padding:9px;margin-bottom:14px" onclick="openInviteModalForGroup()">Invite via email or link</button>
-          <div class="sec-label">Members</div>
-          <div id="gsettings-members"></div>
-          <div style="display:flex;gap:8px;margin-top:14px">
-            <button class="btn-secondary" style="flex:1;margin-bottom:0;color:#A32D2D;border-color:#F09595" onclick="showConfirm('Leave this group?','You will lose access to all shared lists in this group.','Leave','danger',function(){go('s-home')})">Leave group</button>
-            <button class="btn-primary" style="flex:1;margin-bottom:0" onclick="go('s-gdetail')">Save changes</button>
-          </div>
+          <button class="btn-primary" onclick="saveGroupSettings()">Save changes</button>
         </div>
       </div>
 
@@ -1532,34 +1525,33 @@ function removeMemberById(friendId) {
 function renderGroupSettings() {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
-  // Support both old memberIdxs (legacy) and new memberIds (real user IDs)
-  var memberIds = g.memberIds || [];
-  var members = memberIds.map(function(fid) {
-    return myFriends.find(function(mf) { return mf.friendId === fid; });
-  }).filter(Boolean);
-  var memberCount = members.length + 1;
-  var headerEl = document.getElementById('gsettings-header');
-  var membersEl = document.getElementById('gsettings-members');
-  if (headerEl) {
-    headerEl.innerHTML = '<div class="group-emoji" style="margin:0 auto 10px;width:52px;height:52px;font-size:28px">' + g.emoji + '</div>'
-      + '<div style="font-size:15px;font-weight:700;color:#2C2C2A">' + g.n + '</div>'
-      + '<div style="font-size:11px;color:#5F5E5A;margin-top:2px">' + memberCount + ' member' + (memberCount !== 1 ? 's' : '') + '</div>';
-  }
   var nameInput = document.getElementById('gsettings-name');
   if (nameInput) nameInput.value = g.n;
-  if (!membersEl) return;
-  var myName = (myProfile && myProfile.display_name) || 'You';
-  var myInitials = myName.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || 'YO';
-  var html = '<div class="member-row"><div class="avatar" style="background:#FAECE7;color:#993C1D">' + myInitials + '</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + myName + '</div><div style="font-size:10px;color:#5F5E5A">Admin</div></div><span class="pill pill-coral">You</span></div>';
-  members.forEach(function(f) {
-    var name = f.profile.display_name || f.profile.handle || 'Friend';
-    var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
-    var fid = f.friendId;
-    html += '<div class="member-row"><div class="avatar" style="background:#E6F1FB;color:#185FA5">' + initials + '</div>'
-      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">Member</div></div>'
-      + '<button class="back-btn" onclick="showConfirm(\'Remove ' + name.replace(/'/g,"\\'") + '?\',\'They will lose access to this group.\',\'Remove\',\'danger\',function(){removeMemberById(\'' + fid + '\')})" style="font-size:10px;padding:3px 7px">Remove</button></div>';
-  });
-  membersEl.innerHTML = html;
+  // Render emoji picker
+  var grid = document.getElementById('gsettings-emoji-grid');
+  if (grid) {
+    grid.innerHTML = '';
+    EMOJIS.forEach(function(emoji, i) {
+      var btn = document.createElement('div');
+      var isSelected = emoji === g.emoji;
+      btn.style.cssText = 'width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;border:2px solid ' + (isSelected ? '#D85A30' : 'transparent') + ';background:' + (isSelected ? '#FFF8F6' : '#F1EFE8');
+      btn.textContent = emoji;
+      btn.onclick = function() {
+        g.emoji = emoji;
+        renderGroupSettings();
+      };
+      grid.appendChild(btn);
+    });
+  }
+}
+
+function saveGroupSettings() {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g) return;
+  var nameInput = document.getElementById('gsettings-name');
+  if (nameInput && nameInput.value.trim()) g.n = nameInput.value.trim();
+  saveState();
+  go('s-gdetail');
 }
 
 var SUPABASE_URL = (window.TENNER_CONFIG && window.TENNER_CONFIG.SUPABASE_URL) || 'https://bbjpvlmkhvggtwyvpzrq.supabase.co';
