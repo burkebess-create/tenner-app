@@ -184,7 +184,10 @@
         <div class="topbar">
           <button class="back-btn" onclick="go('s-home')">← Back</button>
           <span id="list-detail-title" style="font-size:13px;font-weight:600;color:#2C2C2A"></span>
-          <button class="back-btn" id="list-detail-edit-btn" onclick="editCurrentList()" style="font-size:11px;color:#D85A30;border-color:#D85A30">Edit</button>
+          <div style="display:flex;gap:6px">
+            <button class="back-btn" onclick="shareCurrentList()" style="font-size:11px">Share</button>
+            <button class="back-btn" id="list-detail-edit-btn" onclick="editCurrentList()" style="font-size:11px;color:#D85A30;border-color:#D85A30">Edit</button>
+          </div>
         </div>
         <div class="content">
           <div id="list-detail-meta" style="font-size:11px;color:#5F5E5A;margin-bottom:14px"></div>
@@ -943,6 +946,64 @@ function pickItem(name) {
   doAddItem();
 }
 
+function onItemEditType(val, idx) {
+  items[idx] = val;
+  updateProg();
+  var sugsEl = document.getElementById('item-edit-sugs-' + idx);
+  if (!sugsEl) return;
+  var lv = val.toLowerCase().trim();
+  if (!lv) { sugsEl.style.display = 'none'; return; }
+  var pool = getItemPool().filter(function(x) { return !items.includes(x); });
+  var matches = pool.filter(function(x) { return x.toLowerCase().includes(lv); }).slice(0, 5);
+  if (matches.length) {
+    sugsEl.innerHTML = '';
+    matches.forEach(function(m) {
+      var div = document.createElement('div');
+      div.className = 'sug-item';
+      var li = m.toLowerCase().indexOf(lv);
+      div.innerHTML = m.slice(0,li) + '<span class="sug-match">' + m.slice(li, li+lv.length) + '</span>' + m.slice(li+lv.length);
+      div.onmousedown = function(e) { e.preventDefault(); pickItemEdit(m, idx); };
+      sugsEl.appendChild(div);
+    });
+    sugsEl.style.display = 'block';
+  } else {
+    sugsEl.style.display = 'none';
+  }
+}
+
+function pickItemEdit(name, idx) {
+  items[idx] = name;
+  var sugsEl = document.getElementById('item-edit-sugs-' + idx);
+  if (sugsEl) sugsEl.style.display = 'none';
+  renderItems();
+  updateProg();
+}
+
+function onItemEditKey(e, idx) {
+  if (e.key === 'Enter') {
+    var sugsEl = document.getElementById('item-edit-sugs-' + idx);
+    if (sugsEl) sugsEl.style.display = 'none';
+    // Move focus to next item or the add input
+    var next = document.getElementById('item-edit-inp-' + (idx + 1));
+    if (next) next.focus(); else document.getElementById('item-inp') && document.getElementById('item-inp').focus();
+  }
+}
+
+function onItemEditBlur(idx, input) {
+  var val = input.value.trim();
+  if (!val) {
+    removeItem(idx);
+  } else {
+    items[idx] = val;
+    updateProg();
+    // hide suggestions after a short delay so mousedown on sug fires first
+    setTimeout(function() {
+      var sugsEl = document.getElementById('item-edit-sugs-' + idx);
+      if (sugsEl) sugsEl.style.display = 'none';
+    }, 150);
+  }
+}
+
 function useItemWarn() {
   if (fuzzyItemSug) pickItem(fuzzyItemSug);
 }
@@ -982,7 +1043,13 @@ function renderItems() {
     var badge = isRanked
       ? '<div class="rank-badge">' + (i+1) + '</div>'
       : '<div class="rank-dot"></div>';
-    div.innerHTML = badge + '<input type="text" value="' + item.replace(/"/g,'&quot;') + '" oninput="items[' + i + ']=this.value;updateProg();" onblur="items[' + i + ']=this.value.trim();if(!this.value.trim()){removeItem(' + i + ');}else{updateProg();}" style="flex:1;font-size:12px;color:#2C2C2A;border:none;background:transparent;outline:none;padding:0;min-width:0"><span style="font-size:14px;color:#C8C6BE;cursor:grab;padding:0 4px;flex-shrink:0">⠿</span><button onclick="removeItem(' + i + ')" style="background:none;border:none;color:#888780;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0">×</button>';
+    var sugsId = 'item-edit-sugs-' + i;
+    div.style.flexWrap = 'wrap';
+    div.innerHTML = badge
+      + '<input type="text" value="' + item.replace(/"/g,'&quot;') + '" id="item-edit-inp-' + i + '" oninput="onItemEditType(this.value,' + i + ')" onkeydown="onItemEditKey(event,' + i + ')" onblur="onItemEditBlur(' + i + ',this)" style="flex:1;font-size:12px;color:#2C2C2A;border:none;background:transparent;outline:none;padding:0;min-width:0">'
+      + '<span style="font-size:14px;color:#C8C6BE;cursor:grab;padding:0 4px;flex-shrink:0">⠿</span>'
+      + '<button onmousedown="removeItem(' + i + ')" style="background:none;border:none;color:#888780;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0">×</button>'
+      + '<div class="sugs" id="' + sugsId + '" style="width:100%;margin-top:2px"></div>';
     // Desktop drag
     div.addEventListener('dragstart', function(e) {
       dragSrcIdx = parseInt(this.dataset.idx);
@@ -1166,6 +1233,13 @@ function showListDetail(l) {
 }
 
 var editingListIdx = -1;
+
+function shareCurrentList() {
+  var title = document.getElementById('list-detail-title').textContent;
+  var cat = title.replace('Top 10 ', '');
+  selCat = cat;
+  openListInviteModal();
+}
 
 function editCurrentList() {
   // Find the list index by matching the title shown
