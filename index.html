@@ -2120,12 +2120,12 @@ function renderCircleGroups() {
     return;
   }
   el.innerHTML = MY_GROUPS.map(function(g, i) {
-    return '<div class="card" style="display:flex;align-items:center;gap:10px">'
+    return '<div class="card" style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="selGroupIdx='+i+';go(\'s-gdetail\')">'
       + groupAvatarHtml(g, 42)
-      + '<div style="flex:1" onclick="selGroupIdx='+i+';go(\'s-gdetail\')">'
+      + '<div style="flex:1">'
       + '<div style="font-size:13px;font-weight:600;color:#2C2C2A">' + g.n + '</div>'
       + '<div style="font-size:11px;color:#5F5E5A">' + (g.meta || '') + '</div></div>'
-      + '<button class="back-btn" style="font-size:10px;padding:3px 8px;color:#A32D2D;border-color:#F09595" onclick="confirmLeaveGroup(' + i + ')">Leave</button>'
+      + '<button class="back-btn" style="font-size:10px;padding:3px 8px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();confirmLeaveGroup(' + i + ')">Leave</button>'
       + '</div>';
   }).join('');
 }
