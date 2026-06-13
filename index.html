@@ -546,12 +546,13 @@
             <div style="font-size:14px;font-weight:600;color:#2C2C2A">Invite someone</div>
             <button onclick="closeInviteModal()" style="border:none;background:none;font-size:20px;color:#888780;cursor:pointer;padding:0 4px">×</button>
           </div>
-          <div style="font-size:11px;font-weight:600;color:#5F5E5A;margin-bottom:4px">Their email address</div>
-          <input type="email" id="invite-email" placeholder="friend@example.com" style="margin-bottom:10px">
+          <div style="font-size:11px;font-weight:600;color:#5F5E5A;margin-bottom:4px">Their email or phone number</div>
+          <input type="text" id="invite-email" placeholder="friend@example.com or 555-867-5309" style="margin-bottom:10px">
           <div style="font-size:11px;font-weight:600;color:#5F5E5A;margin-bottom:4px">Message (optional)</div>
           <textarea id="invite-message" rows="3" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:12px;font-family:inherit;resize:none;margin-bottom:12px;color:#2C2C2A"></textarea>
-          <button class="btn-primary" onclick="sendInviteEmail()" style="margin-bottom:8px">Send invite email</button>
-          <button class="btn-secondary" onclick="copyInviteLink()" style="margin-bottom:0">Copy link instead</button>
+          <button class="btn-primary" onclick="sendInviteEmail()" style="margin-bottom:8px">📧 Send invite email</button>
+          <button class="btn-secondary" onclick="sendInviteText()" style="margin-bottom:8px">💬 Send text instead</button>
+          <button class="btn-secondary" onclick="copyInviteLink()" style="margin-bottom:0">🔗 Copy link</button>
         </div>
       </div>
 
@@ -1493,6 +1494,16 @@ function sendInviteEmail() {
   var body = encodeURIComponent(message);
   var to = encodeURIComponent(email);
   window.location.href = 'mailto:' + to + '?subject=' + subject + '&body=' + body;
+  closeInviteModal();
+}
+
+function sendInviteText() {
+  var to = (document.getElementById('invite-email') || {}).value || '';
+  var message = (document.getElementById('invite-message') || {}).value || '';
+  // sms: URI — body param works on iOS; Android uses ? instead of &
+  var body = encodeURIComponent(message);
+  var sep = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? '&' : '?';
+  window.location.href = 'sms:' + encodeURIComponent(to) + sep + 'body=' + body;
   closeInviteModal();
 }
 
