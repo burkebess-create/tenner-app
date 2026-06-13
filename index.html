@@ -383,158 +383,11 @@
       <!-- ═══ GROUP DETAIL ═══ -->
       <div class="screen" id="s-gdetail">
         <div class="topbar">
-          <button class="back-btn" onclick="go('s-home')">← Back</button>
-          <span id="gdetail-title" style="font-size:13px;font-weight:600;color:#2C2C2A">🎓 College Friends</span>
+          <button class="back-btn" onclick="go('s-circle')">← Back</button>
+          <span id="gdetail-title" style="font-size:13px;font-weight:600;color:#2C2C2A"></span>
           <button class="back-btn" onclick="go('s-gsettings')">⚙</button>
         </div>
-        <div class="content">
-          <div class="tab-row">
-            <button class="tab-btn active" id="tab-0" onclick="setGroupTab(0)">Overview</button>
-            <button class="tab-btn" id="tab-1" onclick="setGroupTab(1)">Movies</button>
-            <button class="tab-btn" id="tab-2" onclick="setGroupTab(2)">Candy</button>
-            <button class="tab-btn" id="tab-3" onclick="setGroupTab(3)">Compare</button>
-          </div>
-
-          <!-- Overview tab -->
-          <div id="gtab-0"><div id="gtab-0-content"></div></div>
-
-          <!-- New group empty state (shown for newly created groups) -->
-          <div id="gdetail-new" style="display:none;text-align:center;padding:30px 16px">
-            <div style="font-size:40px;margin-bottom:12px" id="gdetail-new-emoji">🎉</div>
-            <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px" id="gdetail-new-name">New Group</div>
-            <div style="font-size:11px;color:#5F5E5A;margin-bottom:20px">Your group is created! Send a list to get started comparing with your members.</div>
-            <button class="btn-primary" onclick="go('s-cg3')">Send a list to this group</button>
-          </div>
-
-          <!-- Movies tab -->
-          <div id="gtab-1" style="display:none">
-            <div style="font-size:13px;font-weight:600;color:#2C2C2A;margin-bottom:2px">Top 10 Movies</div>
-            <div style="font-size:10px;color:#5F5E5A;margin-bottom:12px">6 members filled · Ranked · Group match: 84%</div>
-            <div class="sec-label">Everyone picked these ✦</div>
-            <div class="overlap-row">
-              <div class="overlap-num">1</div>
-              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">The Godfather</div><div style="font-size:10px;color:#5F5E5A">All 6 members · avg rank #2</div></div>
-              <span class="pill pill-green">6/6</span>
-            </div>
-            <div class="overlap-row">
-              <div class="overlap-num">2</div>
-              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Inception</div><div style="font-size:10px;color:#5F5E5A">All 6 members · avg rank #4</div></div>
-              <span class="pill pill-green">6/6</span>
-            </div>
-            <div class="overlap-row">
-              <div class="overlap-num">3</div>
-              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Interstellar</div><div style="font-size:10px;color:#5F5E5A">5 of 6 members · avg rank #5</div></div>
-              <span class="pill pill-blue">5/6</span>
-            </div>
-            <div class="sec-label">Most picked overall</div>
-            <div class="overlap-row">
-              <div class="overlap-num">4</div>
-              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">The Dark Knight</div><div style="font-size:10px;color:#5F5E5A">4 of 6 members</div></div>
-              <span class="pill pill-blue">4/6</span>
-            </div>
-            <div class="overlap-row">
-              <div class="overlap-num">5</div>
-              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Pulp Fiction</div><div style="font-size:10px;color:#5F5E5A">4 of 6 members</div></div>
-              <span class="pill pill-blue">4/6</span>
-            </div>
-            <div class="overlap-row">
-              <div class="overlap-num">6</div>
-              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">The Matrix</div><div style="font-size:10px;color:#5F5E5A">3 of 6 members</div></div>
-              <span class="pill pill-amber">3/6</span>
-            </div>
-            <button class="btn-secondary" style="margin-top:10px;font-size:11px;padding:9px" onclick="setGroupTab(3)">See full side-by-side comparison →</button>
-          </div>
-
-          <!-- Candy tab -->
-          <div id="gtab-2" style="display:none">
-            <div style="font-size:13px;font-weight:600;color:#2C2C2A;margin-bottom:2px">Top 10 Candy Bars</div>
-            <div style="font-size:10px;color:#5F5E5A;margin-bottom:12px">5 members filled · Unranked · Group match: 71%</div>
-            <div class="sec-label">Everyone picked these ✦</div>
-            <div class="overlap-row">
-              <div class="overlap-num">1</div>
-              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Reese's Peanut Butter Cups</div><div style="font-size:10px;color:#5F5E5A">All 5 members</div></div>
-              <span class="pill pill-green">5/5</span>
-            </div>
-            <div class="overlap-row">
-              <div class="overlap-num">2</div>
-              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Snickers</div><div style="font-size:10px;color:#5F5E5A">All 5 members</div></div>
-              <span class="pill pill-green">5/5</span>
-            </div>
-            <div class="sec-label">Most picked overall</div>
-            <div class="overlap-row">
-              <div class="overlap-num">3</div>
-              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Kit Kat</div><div style="font-size:10px;color:#5F5E5A">4 of 5 members</div></div>
-              <span class="pill pill-blue">4/5</span>
-            </div>
-            <div class="overlap-row">
-              <div class="overlap-num">4</div>
-              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Butterfinger</div><div style="font-size:10px;color:#5F5E5A">3 of 5 members</div></div>
-              <span class="pill pill-amber">3/5</span>
-            </div>
-            <div class="info-box" style="margin-top:10px">
-              <div style="font-size:11px;font-weight:600;color:#2C2C2A;margin-bottom:3px">Most unique pick</div>
-              <div style="font-size:11px;color:#5F5E5A">Casey M. is the only one with <strong>100 Grand</strong> in their list</div>
-            </div>
-          </div>
-
-          <!-- Compare tab -->
-          <div id="gtab-3" style="display:none">
-            <div style="font-size:13px;font-weight:600;color:#2C2C2A;margin-bottom:2px">Side-by-side · Movies</div>
-            <div style="font-size:10px;color:#5F5E5A;margin-bottom:10px">Green = everyone picked it · numbers = each person's rank</div>
-            <div style="overflow-x:auto;margin-bottom:14px;-webkit-overflow-scrolling:touch">
-              <table style="border-collapse:separate;border-spacing:3px;min-width:320px">
-                <thead>
-                  <tr>
-                    <th style="position:sticky;left:0;background:#fff;z-index:2;font-size:10px;font-weight:600;color:#5F5E5A;text-align:left;padding:2px 6px 4px;min-width:100px">Movie</th>
-                    <th style="position:sticky;left:112px;background:#FAECE7;z-index:2;font-size:10px;font-weight:600;color:#993C1D;text-align:center;padding:2px 4px 4px;min-width:36px;border-radius:4px">You</th>
-                    <th style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center;padding:2px 4px 4px;min-width:36px">Sarah</th>
-                    <th style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center;padding:2px 4px 4px;min-width:36px">Jamie</th>
-                    <th style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center;padding:2px 4px 4px;min-width:36px">Mike</th>
-                    <th style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center;padding:2px 4px 4px;min-width:36px">Alex</th>
-                    <th style="font-size:10px;font-weight:600;color:#5F5E5A;text-align:center;padding:2px 4px 4px;min-width:36px">Casey</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">1. The Godfather</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell match" style="background:#FAECE7">1</div></td><td><div class="compare-cell match">2</div></td><td><div class="compare-cell match">1</div></td><td><div class="compare-cell match">3</div></td><td><div class="compare-cell match">2</div></td><td><div class="compare-cell match">1</div></td></tr>
-                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">2. Inception</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell match" style="background:#FAECE7">2</div></td><td><div class="compare-cell match">1</div></td><td><div class="compare-cell match">3</div></td><td><div class="compare-cell match">2</div></td><td><div class="compare-cell match">4</div></td><td><div class="compare-cell match">2</div></td></tr>
-                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">3. Interstellar</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell match" style="background:#FAECE7">3</div></td><td><div class="compare-cell match">4</div></td><td><div class="compare-cell match">2</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">3</div></td><td><div class="compare-cell match">4</div></td></tr>
-                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">4. The Dark Knight</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">4</div></td><td><div class="compare-cell">3</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">1</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">3</div></td></tr>
-                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">5. Parasite</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">5</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">4</div></td><td><div class="compare-cell">5</div></td><td><div class="compare-cell">5</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td></tr>
-                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">6. Forrest Gump</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">6</div></td><td><div class="compare-cell">5</div></td><td><div class="compare-cell">5</div></td><td><div class="compare-cell">4</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">5</div></td></tr>
-                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">7. Shawshank Redemption</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">7</div></td><td><div class="compare-cell">6</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">6</div></td><td><div class="compare-cell">6</div></td><td><div class="compare-cell">6</div></td></tr>
-                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">8. Pulp Fiction</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">8</div></td><td><div class="compare-cell">7</div></td><td><div class="compare-cell">6</div></td><td><div class="compare-cell">7</div></td><td><div class="compare-cell">7</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td></tr>
-                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">9. Goodfellas</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">9</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">7</div></td><td><div class="compare-cell">8</div></td><td><div class="compare-cell">8</div></td><td><div class="compare-cell">7</div></td></tr>
-                  <tr><td style="position:sticky;left:0;background:#fff;z-index:1;font-size:9px;color:#2C2C2A;padding:2px 6px;white-space:nowrap">10. The Matrix</td><td style="position:sticky;left:112px;z-index:1"><div class="compare-cell" style="background:#FAECE7">10</div></td><td><div class="compare-cell">8</div></td><td><div class="compare-cell">8</div></td><td><div class="compare-cell" style="opacity:0.4">—</div></td><td><div class="compare-cell">9</div></td><td><div class="compare-cell">8</div></td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="sec-label">Pair match scores</div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-              <div class="avatar" style="background:#FAECE7;color:#993C1D;font-size:9px;width:26px;height:26px">YO</div>
-              <div style="flex:1">
-                <div style="font-size:11px;color:#2C2C2A;margin-bottom:3px">You &amp; Sarah K.</div>
-                <div class="bar-bg"><div class="bar-fill" style="width:80%"></div></div>
-              </div>
-              <div style="font-size:13px;font-weight:700;color:#D85A30">80%</div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-              <div class="avatar" style="background:#FAECE7;color:#993C1D;font-size:9px;width:26px;height:26px">YO</div>
-              <div style="flex:1">
-                <div style="font-size:11px;color:#2C2C2A;margin-bottom:3px">You &amp; Jamie R.</div>
-                <div class="bar-bg"><div class="bar-fill" style="width:72%"></div></div>
-              </div>
-              <div style="font-size:13px;font-weight:700;color:#D85A30">72%</div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <div class="avatar" style="background:#FAECE7;color:#993C1D;font-size:9px;width:26px;height:26px">YO</div>
-              <div style="flex:1">
-                <div style="font-size:11px;color:#2C2C2A;margin-bottom:3px">You &amp; Mike K.</div>
-                <div class="bar-bg"><div class="bar-fill" style="width:65%"></div></div>
-              </div>
-              <div style="font-size:13px;font-weight:700;color:#D85A30">65%</div>
-            </div>
-          </div>
-        </div>
+        <div class="content" id="gdetail-content"></div>
       </div>
 
       <!-- ═══ GROUP SETTINGS ═══ -->
@@ -1349,28 +1202,7 @@ function renderGroupDetail() {
   if (!g) return;
   var title = document.getElementById('gdetail-title');
   if (title) title.textContent = g.emoji + ' ' + g.n;
-  var isNew = !!g.isNew;
-  var tabRow = document.querySelector('#s-gdetail .tab-row');
-  var gtab0 = document.getElementById('gtab-0');
-  var newPanel = document.getElementById('gdetail-new');
-  if (tabRow) tabRow.style.display = isNew ? 'none' : '';
-  if (gtab0) gtab0.style.display = isNew ? 'none' : 'block';
-  if (newPanel) {
-    newPanel.style.display = isNew ? 'block' : 'none';
-    if (isNew) {
-      var ne = document.getElementById('gdetail-new-emoji');
-      var nn = document.getElementById('gdetail-new-name');
-      if (ne) ne.textContent = g.emoji;
-      if (nn) nn.textContent = g.n;
-    }
-  }
-  if (!isNew) renderGroupOverview(g);
-  setGroupTab(0);
-}
 
-function renderGroupOverview(g) {
-  var el = document.getElementById('gtab-0-content');
-  if (!el) return;
   var memberIds = g.memberIds || [];
   var members = memberIds.map(function(fid) {
     return myFriends.find(function(mf) { return mf.friendId === fid; });
@@ -1378,29 +1210,104 @@ function renderGroupOverview(g) {
   var memberCount = members.length + 1;
   var myName = (myProfile && myProfile.display_name) || 'You';
   var myInitials = myName.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || 'YO';
-  var membersHtml = '<div style="text-align:center"><div class="avatar" style="background:#FAECE7;color:#993C1D">' + myInitials + '</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">You</div></div>';
+
+  // Member avatars row
+  var avatarsHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+    + '<div style="text-align:center"><div class="avatar" style="background:#FAECE7;color:#993C1D">' + myInitials + '</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">You</div></div>';
   members.forEach(function(f) {
     var name = f.profile.display_name || f.profile.handle || 'Friend';
     var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
-    membersHtml += '<div style="text-align:center"><div class="avatar" style="background:#E6F1FB;color:#185FA5">' + initials + '</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">' + name.split(' ')[0] + '</div></div>';
+    avatarsHtml += '<div style="text-align:center"><div class="avatar" style="background:#E6F1FB;color:#185FA5">' + initials + '</div><div style="font-size:9px;color:#5F5E5A;margin-top:3px">' + name.split(' ')[0] + '</div></div>';
   });
-  var listsCompared = parseInt((g.meta.match(/(\d+) lists/) || [0,0])[1]) || 0;
-  var statsHtml = '<div class="stat-grid">'
-    + '<div class="stat-card"><div class="stat-num">' + memberCount + '</div><div class="stat-lbl">members</div></div>'
-    + (listsCompared > 0 ? '<div class="stat-card"><div class="stat-num">' + g.pill.replace(' avg','') + '</div><div class="stat-lbl">avg group match</div></div>' : '<div class="stat-card"><div class="stat-num">—</div><div class="stat-lbl">avg group match</div></div>')
-    + '<div class="stat-card"><div class="stat-num">' + listsCompared + '</div><div class="stat-lbl">lists compared</div></div>'
-    + '<div class="stat-card"><div class="stat-num">' + (listsCompared > 0 ? '2' : '0') + '</div><div class="stat-lbl">pending fills</div></div>'
-    + '</div>';
-  var leadersHtml = '';
-  if (listsCompared > 0 && members.length >= 2) {
-    leadersHtml = '<div class="sec-label">Most alike in this group</div>'
-      + '<div class="leader-row"><span style="font-size:18px">🥇</span><div class="avatar" style="background:' + members[0].bg + ';color:' + members[0].c + '">' + members[0].i + '</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">You &amp; ' + members[0].n + '</div><div style="font-size:10px;color:#5F5E5A">' + members[0].m + ' across all lists</div></div></div>'
-      + (members[1] ? '<div class="leader-row"><span style="font-size:18px">🥈</span><div class="avatar" style="background:' + members[1].bg + ';color:' + members[1].c + '">' + members[1].i + '</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">You &amp; ' + members[1].n + '</div><div style="font-size:10px;color:#5F5E5A">' + members[1].m + ' across all lists</div></div></div>' : '');
+  avatarsHtml += '</div>';
+
+  // Members expandable card
+  var membersCardHtml = '<div class="card" onclick="toggleGroupMembers()" style="cursor:pointer;margin-bottom:8px">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between">'
+    + '<div><div style="font-size:13px;font-weight:600;color:#2C2C2A">Group Members</div>'
+    + '<div style="font-size:10px;color:#5F5E5A;margin-top:2px">' + memberCount + ' member' + (memberCount !== 1 ? 's' : '') + '</div></div>'
+    + '<span id="members-chevron" style="font-size:16px;color:#888780">›</span>'
+    + '</div>'
+    + '<div id="group-members-panel" style="display:none;margin-top:12px">'
+    + '<div class="member-row" style="margin-bottom:6px"><div class="avatar" style="background:#FAECE7;color:#993C1D;flex-shrink:0;margin-right:8px">' + myInitials + '</div>'
+    + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + myName + '</div><div style="font-size:10px;color:#5F5E5A">Admin</div></div>'
+    + '<span class="pill pill-coral">You</span></div>'
+    + members.map(function(f) {
+        var name = f.profile.display_name || f.profile.handle || 'Friend';
+        var handle = f.profile.handle ? '@' + f.profile.handle : '';
+        var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
+        var fid = f.friendId;
+        return '<div class="member-row" style="margin-bottom:6px"><div class="avatar" style="background:#E6F1FB;color:#185FA5;flex-shrink:0;margin-right:8px">' + initials + '</div>'
+          + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>'
+          + '<button class="back-btn" style="font-size:10px;padding:3px 7px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();showConfirm(\'Remove ' + name.replace(/'/g,"\\'") + '?\',\'They will lose access to this group.\',\'Remove\',\'danger\',function(){removeMemberFromGroup(\'' + fid + '\')})">Remove</button></div>';
+      }).join('')
+    + '<div style="display:flex;gap:6px;margin-top:10px">'
+    + '<button class="btn-secondary" style="flex:1;margin-bottom:0;font-size:11px;padding:8px" onclick="event.stopPropagation();openInviteModalForGroup()">✉ Invite by email</button>'
+    + '<button class="btn-secondary" style="flex:1;margin-bottom:0;font-size:11px;padding:8px" onclick="event.stopPropagation();go(\'s-gsettings\')">+ Add friend</button>'
+    + '</div>'
+    + '</div></div>';
+
+  // Shared lists
+  var sharedListsHtml = '<div class="sec-label">Shared Lists</div>';
+  if (MY_LISTS.length === 0) {
+    sharedListsHtml += '<div style="font-size:11px;color:#888780;padding:8px 0">No lists shared yet.</div>';
+  } else {
+    sharedListsHtml += MY_LISTS.map(function(l) {
+      var cat = l.category || l.n.replace('Top 10 ', '');
+      var filledCount = 1; // at minimum you've filled it
+      members.forEach(function(f) {
+        // We'd need friend list data to know — show "?" for now as a placeholder
+      });
+      return '<div class="card" style="margin-bottom:6px">'
+        + '<div style="display:flex;align-items:center;gap:10px">'
+        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + l.n + '</div>'
+        + '<div style="font-size:10px;color:#5F5E5A">Shared with group</div></div>'
+        + '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="sendListToNewMembers(\'' + cat.replace(/'/g,"\\'") + '\')">Send to new</button>'
+        + '</div></div>';
+    }).join('');
+    sharedListsHtml += '<button class="btn-secondary" style="font-size:11px;padding:9px;margin-top:4px" onclick="listOrigin=\'s-gdetail\';go(\'s-create1\')">+ Send a new list to group</button>';
   }
-  el.innerHTML = statsHtml + leadersHtml
-    + '<div class="sec-label">Members</div>'
-    + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">' + membersHtml + '</div>'
-    + '<div style="display:flex;gap:8px"><button class="btn-primary" style="flex:1;margin-bottom:0;padding:10px;font-size:12px" onclick="go(\'s-cg3\')">Send a list</button><button class="btn-secondary" style="flex:1;margin-bottom:0;padding:10px;font-size:12px" onclick="go(\'s-gsettings\')">Invite more</button></div>';
+
+  if (MY_LISTS.length === 0) {
+    sharedListsHtml += '<button class="btn-primary" style="margin-top:8px" onclick="listOrigin=\'s-gdetail\';go(\'s-create1\')">Send your first list to this group</button>';
+  }
+
+  // Match link
+  var matchHtml = '<div class="card" onclick="go(\'s-match\')" style="cursor:pointer;margin-top:4px;background:#FFF8F6;border-color:#F4C9B8">'
+    + '<div style="display:flex;align-items:center;gap:10px">'
+    + '<div style="font-size:22px">📊</div>'
+    + '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#993C1D">View Group Match Scores</div>'
+    + '<div style="font-size:10px;color:#5F5E5A;margin-top:2px">See how everyone compares across all lists</div></div>'
+    + '<span style="font-size:16px;color:#D85A30">›</span>'
+    + '</div></div>';
+
+  var el = document.getElementById('gdetail-content');
+  if (el) el.innerHTML = membersCardHtml + sharedListsHtml + matchHtml;
+}
+
+function toggleGroupMembers() {
+  var panel = document.getElementById('group-members-panel');
+  var chevron = document.getElementById('members-chevron');
+  if (!panel) return;
+  var open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+}
+
+function removeMemberFromGroup(friendId) {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g) return;
+  g.memberIds = (g.memberIds || []).filter(function(id) { return id !== friendId; });
+  var cnt = g.memberIds.length + 1;
+  g.meta = cnt + ' member' + (cnt !== 1 ? 's' : '') + (g.meta.replace(/^\d+ members?/, '') || ' · 0 lists compared');
+  saveState();
+  renderGroupDetail();
+}
+
+function sendListToNewMembers(cat) {
+  // Opens the invite modal pre-filled for the specific list
+  selCat = cat;
+  openListInviteModal();
 }
 
 function finishGroup() {
