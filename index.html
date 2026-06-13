@@ -290,20 +290,7 @@
             </div>
           </div>
           <div class="sec-label">Share with a group</div>
-          <div class="card" onclick="alert('Sent to College Friends!')">
-            <div style="display:flex;align-items:center;gap:8px">
-              <div class="group-emoji" style="width:34px;height:34px;font-size:18px">🎓</div>
-              <div style="flex:1;font-size:12px;font-weight:600;color:#2C2C2A">College Friends</div>
-              <button class="add-btn" onclick="event.stopPropagation();alert('Sent!')">Send</button>
-            </div>
-          </div>
-          <div class="card" onclick="alert('Sent to Work Team!')">
-            <div style="display:flex;align-items:center;gap:8px">
-              <div class="group-emoji" style="width:34px;height:34px;font-size:18px">💼</div>
-              <div style="flex:1;font-size:12px;font-weight:600;color:#2C2C2A">Work Team</div>
-              <button class="add-btn" onclick="event.stopPropagation();alert('Sent!')">Send</button>
-            </div>
-          </div>
+          <div id="share-groups-list"></div>
           <div class="sec-label">Or share directly</div>
           <div style="display:flex;gap:8px;margin-bottom:8px">
             <button class="btn-secondary" style="flex:1;margin-bottom:0" onclick="alert('Link copied to clipboard!')">Copy link</button>
@@ -331,7 +318,7 @@
           <div class="sec-label">Choose an emoji</div>
           <div class="emoji-grid" id="emoji-grid"></div>
           <div class="sec-label">Group name</div>
-          <input type="text" id="group-name" value="High School Friends">
+          <input type="text" id="group-name" placeholder="e.g. High School Friends">
           <div class="sec-label">Description (optional)</div>
           <input type="text" placeholder="e.g. Friends from Jefferson High">
           <button class="btn-primary" onclick="go('s-cg2')">Continue → Add members</button>
@@ -796,6 +783,7 @@ function go(id) {
   if (id === 's-cg1') { creatingNewGroup = true; selEmoji = 0; addedFriends = new Set([0,1,2]); renderEmojiGrid(); }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
   if (id === 's-cg3') renderListPicker();
+  if (id === 's-create3') renderShareGroups();
   if (id === 's-gsettings') renderGroupSettings();
   if (id === 's-match') renderMatch();
   if (id === 's-profile') { renderProfileHeader(); renderFriendsSection(); renderGiftReminders(); }
@@ -1073,6 +1061,22 @@ function renderAddedChips() {
     chip.innerHTML = '<span style="font-size:10px;font-weight:600;color:' + f.c + '">' + f.n.split(' ')[0] + '</span><span style="color:' + f.c + ';font-size:14px" onclick="(function(){addedFriends.delete(' + i + ');renderFriendsList();renderAddedChips();})()" >×</span>';
     chips.appendChild(chip);
   });
+}
+
+function renderShareGroups() {
+  var el = document.getElementById('share-groups-list');
+  if (!el) return;
+  if (MY_GROUPS.length === 0) {
+    el.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No circles yet — create one first to share with a group.</div>';
+    return;
+  }
+  el.innerHTML = MY_GROUPS.map(function(g, i) {
+    return '<div class="card" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:8px">'
+      + '<div class="group-emoji" style="width:34px;height:34px;font-size:18px">' + g.emoji + '</div>'
+      + '<div style="flex:1;font-size:12px;font-weight:600;color:#2C2C2A">' + g.n + '</div>'
+      + '<button class="add-btn" onclick="event.stopPropagation();this.textContent=\'Sent ✓\';this.style.color=\'#3B6D11\';this.style.borderColor=\'#3B6D11\'">Send</button>'
+      + '</div></div>';
+  }).join('');
 }
 
 function renderListPicker() {
@@ -1858,9 +1862,12 @@ document.addEventListener('click', function(e) {
 
   function handleSession(session) {
     onSignedIn(session);
-    renderHome();
-    renderListPicker();
-    go('s-home');
+    var onAuthScreen = document.getElementById('s-auth').classList.contains('active');
+    if (onAuthScreen) {
+      renderHome();
+      renderListPicker();
+      go('s-home');
+    }
     loadState().then(function() { renderHome(); renderListPicker(); }).catch(console.warn);
     loadProfile().catch(console.warn);
     loadFriends().catch(console.warn);
