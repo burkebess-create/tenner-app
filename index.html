@@ -2030,9 +2030,7 @@ async function searchFriend() {
     if (alreadyFriend) {
       resultEl.innerHTML = '<div class="member-row"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">@' + handle + '</div></div><span class="pill pill-green">Already friends</span></div>';
     } else {
-      resultEl.innerHTML = '<div class="card no-hover" style="margin-bottom:0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">@' + handle + '</div></div></div>'
-        + '<input type="text" id="req-note" maxlength="140" placeholder="Add a note so they know who you are (optional)" style="margin-bottom:8px;font-size:12px;padding:7px 9px">'
-        + '<button class="btn-primary" style="margin-bottom:0;font-size:12px;padding:8px" onclick="sendFriendRequest(\'' + res.data.id + '\')">Send friend request</button></div>';
+      renderFoundUserCard(res.data, 'req-note', 'sendFriendRequest', resultEl);
     }
   } catch(e) { resultEl.innerHTML = '<div style="font-size:11px;color:#A32D2D">Search failed.</div>'; }
 }
@@ -2048,6 +2046,33 @@ async function insertFriendship(addresseeId, status, note) {
     res = await sbClient.from('friendships').insert(payload);
   }
   return res;
+}
+
+// Renders a found-user card with new-account badge, mutual friends placeholder,
+// note input, and a send button. `noteId` and `sendFn` differ by context.
+function renderFoundUserCard(p, noteId, sendFn, resultEl) {
+  var name = p.display_name || ('@' + p.handle);
+  var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
+  var since = timeOnTenner(p);
+  var newBadge = isNewAccount(p) ? '<span class="pill pill-amber" style="margin-left:6px;font-size:9px">New account</span>' : '';
+  var metaLine = '@' + p.handle + (since ? ' · ' + since : '');
+  resultEl.innerHTML = '<div class="card no-hover" style="margin-bottom:0">'
+    + '<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
+    + '<div class="avatar" style="background:#E6F1FB;color:#185FA5;flex-shrink:0">' + initials + '</div>'
+    + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + newBadge + '</div>'
+    + '<div style="font-size:10px;color:#5F5E5A">' + escapeHtml(metaLine) + '</div>'
+    + '<div id="' + noteId + '-mutual" style="font-size:10px;color:#3B6D11;margin-top:3px;display:none"></div>'
+    + '</div></div>'
+    + '<input type="text" id="' + noteId + '" maxlength="140" placeholder="Add a note so they know who you are (optional)" style="margin-bottom:8px;font-size:12px;padding:7px 9px">'
+    + '<button class="btn-primary" style="margin-bottom:0;font-size:12px;padding:8px" onclick="' + sendFn + '(\'' + p.id + '\')">Send friend request</button>'
+    + '</div>';
+  // Fill in mutual friends async
+  getMutualFriends(p.id).then(function(names) {
+    var mEl = document.getElementById(noteId + '-mutual');
+    if (!mEl) return;
+    var summary = mutualSummary(names);
+    if (summary) { mEl.textContent = '🤝 ' + summary; mEl.style.display = 'block'; }
+  });
 }
 
 async function sendFriendRequest(addresseeId) {
@@ -2425,9 +2450,7 @@ async function circleSearchFriend() {
       resultEl.innerHTML = '<div style="font-size:11px;color:#27500A;background:#EAF3DE;padding:8px;border-radius:8px">You\'re already connected with ' + name + '.</div>';
       return;
     }
-    resultEl.innerHTML = '<div class="card no-hover" style="margin-bottom:0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">@' + p.handle + '</div></div></div>'
-      + '<input type="text" id="circle-req-note" maxlength="140" placeholder="Add a note so they know who you are (optional)" style="margin-bottom:8px;font-size:12px;padding:7px 9px">'
-      + '<button class="btn-primary" style="margin-bottom:0;font-size:12px;padding:8px" onclick="sendFriendReqFromCircle(\'' + p.id + '\')">Send friend request</button></div>';
+    renderFoundUserCard(p, 'circle-req-note', 'sendFriendReqFromCircle', resultEl);
   } catch(e) {
     resultEl.innerHTML = '<div style="font-size:11px;color:#A32D2D">Search failed.</div>';
   }
