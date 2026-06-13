@@ -508,6 +508,7 @@
             <div id="profile-avatar" style="width:60px;height:60px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 10px">?</div>
             <div id="profile-display-name" style="font-size:15px;font-weight:700;color:#2C2C2A">—</div>
             <div id="profile-handle-display" style="font-size:11px;color:#5F5E5A;margin-top:2px">@—</div>
+            <div id="profile-on-tenner" style="font-size:10px;color:#888780;margin-top:4px;display:none"></div>
             <div style="display:flex;justify-content:center;gap:20px;margin-top:12px">
               <div style="text-align:center"><div id="profile-stat-lists" style="font-size:16px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9px;color:#5F5E5A">Lists</div></div>
               <div style="text-align:center"><div id="profile-stat-friends" style="font-size:16px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9px;color:#5F5E5A">Friends</div></div>
@@ -1962,6 +1963,12 @@ function renderProfileHeader() {
   var sl = document.getElementById('profile-stat-lists'); if (sl) sl.textContent = MY_LISTS.length;
   var sf = document.getElementById('profile-stat-friends'); if (sf) sf.textContent = myFriends.filter(function(f) { return f.status === 'accepted'; }).length;
   var sc = document.getElementById('profile-stat-circles'); if (sc) sc.textContent = MY_GROUPS.length;
+  var ot = document.getElementById('profile-on-tenner');
+  if (ot) {
+    var since = timeOnTenner(p);
+    if (since) { ot.textContent = '🗓️ ' + since; ot.style.display = 'block'; }
+    else { ot.style.display = 'none'; }
+  }
 }
 
 async function loadFriends() {
