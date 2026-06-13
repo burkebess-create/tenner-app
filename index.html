@@ -524,7 +524,7 @@
         <div class="ni" id="nav-home" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>My Lists</div>
         <div class="ni" id="nav-create" onclick="go('s-create1')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Create</div>
         <div class="ni" id="nav-circle" onclick="go('s-circle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Circle</div>
-        <div class="ni" id="nav-match" onclick="go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
+        <div class="ni" id="nav-match" onclick="matchGroupCtx=-1;go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
         <div class="ni" id="nav-profile" onclick="go('s-profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</div>
       </div>
 
@@ -678,7 +678,7 @@ function go(id) {
   }
   if (id === 's-create3') renderShareGroups();
   if (id === 's-gsettings') renderGroupSettings();
-  if (id === 's-match') renderMatch();
+  if (id === 's-match') { if (typeof matchGroupCtx === 'undefined') matchGroupCtx = -1; renderMatch(); }
   if (id === 's-circle') { renderCircleScreen(); }
   if (id === 's-profile') { renderProfileHeader(); renderFriendsSection(); renderGiftReminders(); }
 }
@@ -1266,7 +1266,7 @@ function renderGroupDetail() {
   }
 
   // Match link
-  var matchHtml = '<div class="card" onclick="go(\'s-match\')" style="cursor:pointer;margin-top:4px;background:#FFF8F6;border-color:#F4C9B8">'
+  var matchHtml = '<div class="card" onclick="matchGroupCtx=selGroupIdx;go(\'s-match\')" style="cursor:pointer;margin-top:4px;background:#FFF8F6;border-color:#F4C9B8">'
     + '<div style="display:flex;align-items:center;gap:10px">'
     + '<div style="font-size:22px">📊</div>'
     + '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#993C1D">View Group Match Scores</div>'
@@ -1561,6 +1561,7 @@ var userId = null;
 var currentUserEmail = '';
 var myProfile = null;
 var myFriends = [];
+var matchGroupCtx = -1; // group index to scope match view, -1 = all friends
 var currentAuthTab = 'login';
 
 var DEFAULT_GROUPS = [
@@ -2109,13 +2110,59 @@ async function renderMatch() {
       el.innerHTML = '<div style="text-align:center;padding:30px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">🔍</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No overlapping lists yet</div><div style="font-size:12px;line-height:1.5">You and your friends need lists in the same category to compare. Your lists: ' + myCategories.join(', ') + '.</div></div>';
       return;
     }
+    // Build per-friend overall scores (average across all categories they share with you)
+    var byFriend = {};
+    comparisons.forEach(function(c) {
+      var fid = c.friend.friendId;
+      if (!byFriend[fid]) byFriend[fid] = { friend: c.friend, scores: [], cats: [] };
+      byFriend[fid].scores.push(c.score);
+      byFriend[fid].cats.push(c.category);
+    });
+    var overallRanked = Object.values(byFriend).map(function(entry) {
+      var avg = Math.round(entry.scores.reduce(function(a,b){return a+b;},0) / entry.scores.length);
+      return { friend: entry.friend, avg: avg, cats: entry.cats, scores: entry.scores };
+    }).sort(function(a,b){ return b.avg - a.avg; });
+
+    // Overall section header
+    var groupLabel = '';
+    if (matchGroupCtx >= 0 && MY_GROUPS[matchGroupCtx]) {
+      groupLabel = MY_GROUPS[matchGroupCtx].emoji + ' ' + MY_GROUPS[matchGroupCtx].n + ' · ';
+    }
+    var overallHtml = '<div class="sec-label">' + groupLabel + 'Overall Match (across all lists)</div>';
+    if (overallRanked.length === 0) {
+      overallHtml += '<div style="font-size:11px;color:#888780;padding:8px 0">No shared lists yet.</div>';
+    } else {
+      overallHtml += overallRanked.map(function(entry, rank) {
+        var fname = (entry.friend.profile && entry.friend.profile.display_name) || (entry.friend.profile && entry.friend.profile.handle ? '@'+entry.friend.profile.handle : 'Friend');
+        var initials = fname.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+        var medals = ['🥇','🥈','🥉'];
+        var medal = medals[rank] || '';
+        var detail = entry.cats.length + ' list' + (entry.cats.length!==1?'s':'') + ' · ' + entry.cats.join(', ');
+        return '<div class="card no-hover" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
+          + '<span style="font-size:18px;width:24px;text-align:center">' + medal + '</span>'
+          + '<div class="avatar" style="background:#E6F1FB;color:#185FA5">' + initials + '</div>'
+          + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div>'
+          + '<div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
+          + '<div style="font-size:18px;font-weight:700;color:#D85A30">' + entry.avg + '%</div></div>'
+          + '<div class="bar-bg"><div class="bar-fill" style="width:' + entry.avg + '%"></div></div></div>';
+      }).join('');
+      if (overallRanked.length >= 2) {
+        var most = overallRanked[0];
+        var least = overallRanked[overallRanked.length-1];
+        var mostName = (most.friend.profile && most.friend.profile.display_name) || 'Friend';
+        var leastName = (least.friend.profile && least.friend.profile.display_name) || 'Friend';
+        overallHtml += '<div class="info-box" style="margin-bottom:4px"><div style="font-size:11px;color:#2C2C2A"><strong>' + mostName + '</strong> is your closest match overall · <strong>' + leastName + '</strong> is your most different</div></div>';
+      }
+    }
+    overallHtml += '<div class="sec-label" style="margin-top:4px">By List</div>';
+
     var byCategory = {};
     comparisons.forEach(function(c) {
       if (!byCategory[c.category]) byCategory[c.category] = [];
       byCategory[c.category].push(c);
     });
     var cats = Object.keys(byCategory);
-    var tabsHtml = '<div class="list-selector" style="margin-bottom:12px">' + cats.map(function(cat, i) { return '<button class="list-sel-btn' + (i===0?' active':'') + '" onclick="showMatchTab(this,\'' + cat.replace(/'/g,"\\'") + '\')">' + cat + '</button>'; }).join('') + '</div>';
+    var tabsHtml = overallHtml + '<div class="list-selector" style="margin-bottom:12px">' + cats.map(function(cat, i) { return '<button class="list-sel-btn' + (i===0?' active':'') + '" onclick="showMatchTab(this,\'' + cat.replace(/'/g,"\\'") + '\')">' + cat + '</button>'; }).join('') + '</div>';
     var panelsHtml = cats.map(function(cat, i) {
       var comps = byCategory[cat];
       var scoresHtml = comps.map(function(c) {
