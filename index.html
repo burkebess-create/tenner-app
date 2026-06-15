@@ -2915,6 +2915,7 @@ async function renderMatch() {
   var dbg = document.getElementById('match-topbar-debug');
   if (dbg) dbg.textContent = 'fc=' + (friendCtx || 'null') + ' gc=' + groupCtx;
 
+
   // Reload friends fresh before rendering
   await loadFriends().catch(console.warn);
 
@@ -2926,6 +2927,7 @@ async function renderMatch() {
     }
     return true;
   });
+  if (dbg) dbg.textContent = 'fc=' + (friendCtx||'null') + ' accepted=' + accepted.length + '/' + myFriends.filter(function(f){return f.status==='accepted';}).length + ' ids=' + accepted.map(function(f){return f.friendId.slice(0,6);}).join(',');
   if (accepted.length === 0) {
     // Check if there are ANY friendship rows at all (pending too)
     var anyFriends = myFriends.length > 0;
