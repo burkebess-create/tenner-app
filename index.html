@@ -472,7 +472,7 @@
         <div class="content">
           <div class="sec-label">Friends</div>
           <div style="display:flex;gap:6px;margin-bottom:8px">
-            <input type="text" id="circle-friend-search" placeholder="Search by @handle" style="margin-bottom:0;flex:1;font-size:12px;padding:7px 10px">
+            <input type="text" id="circle-friend-search" placeholder="@handle or phone number" style="margin-bottom:0;flex:1;font-size:12px;padding:7px 10px">
             <button class="btn-primary" onclick="circleSearchFriend()" style="width:auto;padding:7px 14px;margin-bottom:0;font-size:12px;white-space:nowrap">Search</button>
           </div>
           <div id="circle-friend-search-result" style="margin-bottom:8px"></div>
@@ -539,7 +539,14 @@
             </div>
             <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
               <div style="font-size:10px;color:#5F5E5A;margin-bottom:3px">Handle (for friends to find you)</div>
-              <input type="text" id="profile-handle-input" placeholder="@yourhandle" style="margin-bottom:0;font-size:12px;padding:6px 8px">
+              <input type="text" id="profile-handle-input" placeholder="@yourhandle" oninput="onHandleInput()" style="margin-bottom:4px;font-size:12px;padding:6px 8px">
+              <div id="handle-status" style="font-size:10px;color:#888780"></div>
+              <div id="handle-locked-msg" style="display:none;font-size:10px;color:#5F5E5A;background:#F7F6F2;padding:6px 8px;border-radius:6px;border:1px solid #E2DFD8">Your handle is set and cannot be changed. Contact support if you need help.</div>
+            </div>
+            <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
+              <div style="font-size:10px;color:#5F5E5A;margin-bottom:3px">Phone number (optional)</div>
+              <input type="tel" id="profile-phone-input" placeholder="+1 555 000 0000" style="margin-bottom:4px;font-size:12px;padding:6px 8px">
+              <div style="font-size:10px;color:#888780;line-height:1.4">Friends can search for you by phone number to send you a friend request or invite you to Tenner.</div>
             </div>
             <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
               <div style="font-size:10px;color:#5F5E5A;margin-bottom:3px">Birthday (month &amp; day)</div>
@@ -2021,27 +2028,64 @@ async function saveProfilePhoto(dataUrl) {
 
 async function saveProfile() {
   var name = (document.getElementById('profile-name-input') || {}).value || '';
-  var handle = (document.getElementById('profile-handle-input') || {}).value || '';
   var bdMonth = (document.getElementById('profile-bday-month') || {}).value || '';
   var bdDay = (document.getElementById('profile-bday-day') || {}).value || '';
   var birthday = (bdMonth && bdDay) ? (bdMonth + '-' + bdDay) : null;
-  handle = handle.replace(/^@/, '').toLowerCase().trim();
+  var phone = (document.getElementById('profile-phone-input') || {}).value.trim() || null;
+
+  // Handle: only settable if not already saved; locked once set
+  var existingHandle = myProfile && myProfile.handle;
+  var handle = existingHandle;
+  if (!existingHandle) {
+    var raw = (document.getElementById('profile-handle-input') || {}).value || '';
+    handle = raw.replace(/^@/, '').toLowerCase().trim();
+    if (!handle) {
+      showProfileError('Please choose a handle before saving.');
+      return;
+    }
+    // Uniqueness check
+    if (sbClient) {
+      var chk = await sbClient.from('profiles').select('id').eq('handle', handle).neq('id', userId).maybeSingle();
+      if (chk.data) {
+        var hs = document.getElementById('handle-status');
+        if (hs) { hs.textContent = '@' + handle + ' is already taken. Please choose another.'; hs.style.color = '#A32D2D'; }
+        return;
+      }
+    }
+  }
+
   var existingPhoto = myProfile && myProfile.photo;
-  myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, updated_at: new Date().toISOString() };
+  myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, updated_at: new Date().toISOString() };
   if (existingPhoto) myProfile.photo = existingPhoto;
   if (sbClient && userId) {
     try {
       var res = await sbClient.from('profiles').upsert(myProfile);
-      if (res && res.error && /photo|column/i.test(res.error.message || '')) {
-        // photo column not present yet — retry without it so the rest saves
-        var noPhoto = Object.assign({}, myProfile); delete noPhoto.photo;
-        await sbClient.from('profiles').upsert(noPhoto);
+      if (res && res.error) {
+        // Fallback: retry without optional columns that may not exist yet
+        var safe = { id: userId, display_name: name, handle: handle, birthday: birthday || null, updated_at: myProfile.updated_at };
+        if (existingPhoto) safe.photo = existingPhoto;
+        await sbClient.from('profiles').upsert(safe);
       }
     } catch(e) { console.warn('Profile save failed', e); }
   }
   renderProfileHeader();
   var msg = document.getElementById('profile-save-msg');
   if (msg) { msg.style.display = 'block'; setTimeout(function() { msg.style.display = 'none'; }, 2000); }
+}
+
+function showProfileError(msg) {
+  var el = document.getElementById('profile-save-msg');
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.background = '#FAECE7';
+  el.style.borderColor = '#F09595';
+  el.style.color = '#A32D2D';
+  el.textContent = msg;
+  setTimeout(function() {
+    el.style.display = 'none';
+    el.style.background = '#EAF3DE'; el.style.borderColor = '#97C459'; el.style.color = '#27500A';
+    el.textContent = 'Profile saved!';
+  }, 3000);
 }
 
 function renderProfileHeader() {
@@ -2060,7 +2104,19 @@ function renderProfileHeader() {
   var dn = document.getElementById('profile-display-name'); if (dn) dn.textContent = name;
   var hd = document.getElementById('profile-handle-display'); if (hd) hd.textContent = handle;
   var ni = document.getElementById('profile-name-input'); if (ni && !ni.value) ni.value = p.display_name || '';
-  var hi = document.getElementById('profile-handle-input'); if (hi && !hi.value) hi.value = p.handle || '';
+  var hi = document.getElementById('profile-handle-input');
+  var hlocked = document.getElementById('handle-locked-msg');
+  var hs = document.getElementById('handle-status');
+  if (p.handle) {
+    if (hi) { hi.value = p.handle; hi.disabled = true; hi.style.background = '#F7F6F2'; hi.style.color = '#888780'; }
+    if (hlocked) hlocked.style.display = 'block';
+    if (hs) hs.textContent = '';
+  } else {
+    if (hi && !hi.value) hi.value = '';
+    if (hlocked) hlocked.style.display = 'none';
+    if (hs) { hs.textContent = 'Choose carefully — your handle cannot be changed once set.'; hs.style.color = '#854F0B'; }
+  }
+  var pi = document.getElementById('profile-phone-input'); if (pi && !pi.value) pi.value = p.phone || '';
   (function() {
     var bm = document.getElementById('profile-bday-month');
     var bd = document.getElementById('profile-bday-day');
@@ -2112,10 +2168,32 @@ async function loadFriends() {
   try { renderCircleFriends(); } catch(e) {}
 }
 
+var _handleCheckTimer = null;
+function onHandleInput() {
+  if (myProfile && myProfile.handle) return; // already locked
+  var hi = document.getElementById('profile-handle-input');
+  var hs = document.getElementById('handle-status');
+  if (!hi || !hs) return;
+  var val = hi.value.replace(/^@/, '').toLowerCase().trim();
+  if (!val) { hs.textContent = 'Choose carefully — your handle cannot be changed once set.'; hs.style.color = '#854F0B'; return; }
+  if (!/^[a-z0-9_]{3,20}$/.test(val)) {
+    hs.textContent = 'Letters, numbers, and underscores only. 3–20 characters.';
+    hs.style.color = '#A32D2D'; return;
+  }
+  hs.textContent = 'Checking…'; hs.style.color = '#888780';
+  clearTimeout(_handleCheckTimer);
+  _handleCheckTimer = setTimeout(async function() {
+    if (!sbClient) return;
+    var chk = await sbClient.from('profiles').select('id').eq('handle', val).neq('id', userId).maybeSingle();
+    if (chk.data) { hs.textContent = '@' + val + ' is already taken.'; hs.style.color = '#A32D2D'; }
+    else { hs.textContent = '@' + val + ' is available ✓'; hs.style.color = '#27500A'; }
+  }, 500);
+}
+
 async function searchFriend() {
   var input = document.getElementById('friend-search-input');
   if (!input || !input.value.trim()) return;
-  var handle = input.value.trim().replace(/^@/, '').toLowerCase();
+  var query = input.value.trim();
   var resultEl = document.getElementById('friend-search-result');
   if (!sbClient) { resultEl.innerHTML = '<div style="font-size:11px;color:#888780">Not connected.</div>'; return; }
   if (!myProfile || !myProfile.handle) {
@@ -2124,15 +2202,25 @@ async function searchFriend() {
   }
   resultEl.innerHTML = '<div style="font-size:11px;color:#888780">Searching…</div>';
   try {
-    var res = await sbClient.from('profiles').select('*').eq('handle', handle).neq('id', userId).maybeSingle();
+    var res;
+    // Phone search: starts with + or is mostly digits
+    var isPhone = /^\+/.test(query) || /^[\d\s\-().]{7,}$/.test(query);
+    if (isPhone) {
+      var normalized = query.replace(/\s/g, '');
+      res = await sbClient.from('profiles').select('*').eq('phone', normalized).neq('id', userId).maybeSingle();
+    } else {
+      var handle = query.replace(/^@/, '').toLowerCase();
+      res = await sbClient.from('profiles').select('*').eq('handle', handle).neq('id', userId).maybeSingle();
+    }
     if (!res.data) {
-      resultEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No user found with @' + handle + '</div>';
+      var hint = isPhone ? 'No user found with that phone number.' : 'No user found with @' + query.replace(/^@/, '');
+      resultEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">' + hint + '</div>';
       return;
     }
     var alreadyFriend = myFriends.some(function(f) { return f.friendId === res.data.id; });
-    var name = res.data.display_name || ('@' + handle);
+    var name = res.data.display_name || ('@' + res.data.handle);
     if (alreadyFriend) {
-      resultEl.innerHTML = '<div class="member-row"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">@' + handle + '</div></div><span class="pill pill-green">Already friends</span></div>';
+      resultEl.innerHTML = '<div class="member-row"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '</div><div style="font-size:10px;color:#5F5E5A">@' + escapeHtml(res.data.handle) + '</div></div><span class="pill pill-green">Already friends</span></div>';
     } else {
       renderFoundUserCard(res.data, 'req-note', 'sendFriendRequest', resultEl);
     }
@@ -2235,7 +2323,7 @@ function renderFriendsSection() {
     } else if (sent.length > 0) {
       html = '<div style="font-size:11px;color:#888780;padding:6px 0">' + sent.length + ' request' + (sent.length>1?'s':'') + ' sent — waiting for them to accept.</div>';
     } else {
-      html = '<div style="font-size:11px;color:#888780;padding:6px 0">Search by @handle above to add friends.</div>';
+      html = '<div style="font-size:11px;color:#888780;padding:6px 0">Search by @handle or phone number in the Circle tab to add friends.</div>';
     }
     listEl.innerHTML = html;
   }
@@ -2295,7 +2383,7 @@ function renderCircleFriends() {
   } else if (sent.length > 0) {
     html = '<div style="font-size:11px;color:#888780;padding:8px 0">' + sent.length + ' request' + (sent.length>1?'s':'') + ' sent — waiting for them to accept.</div>';
   } else {
-    html = '<div style="font-size:11px;color:#888780;padding:8px 0">Search by @handle or invite someone by email to add friends.</div>';
+    html = '<div style="font-size:11px;color:#888780;padding:8px 0">Search by @handle or phone number, or invite someone by email to add friends.</div>';
   }
   listEl.innerHTML = html;
 }
@@ -2565,7 +2653,7 @@ function confirmLeaveGroup(idx) {
 async function circleSearchFriend() {
   var input = document.getElementById('circle-friend-search');
   if (!input || !input.value.trim()) return;
-  var handle = input.value.trim().replace(/^@/, '').toLowerCase();
+  var query = input.value.trim();
   var resultEl = document.getElementById('circle-friend-search-result');
   if (!sbClient) { resultEl.innerHTML = '<div style="font-size:11px;color:#888780">Not connected.</div>'; return; }
   if (!myProfile || !myProfile.handle) {
@@ -2574,16 +2662,25 @@ async function circleSearchFriend() {
   }
   resultEl.innerHTML = '<div style="font-size:11px;color:#888780">Searching…</div>';
   try {
-    var res = await sbClient.from('profiles').select('*').eq('handle', handle).neq('id', userId).maybeSingle();
+    var res;
+    var isPhone = /^\+/.test(query) || /^[\d\s\-().]{7,}$/.test(query);
+    if (isPhone) {
+      var normalized = query.replace(/\s/g, '');
+      res = await sbClient.from('profiles').select('*').eq('phone', normalized).neq('id', userId).maybeSingle();
+    } else {
+      var handle = query.replace(/^@/, '').toLowerCase();
+      res = await sbClient.from('profiles').select('*').eq('handle', handle).neq('id', userId).maybeSingle();
+    }
     if (!res.data) {
-      resultEl.innerHTML = '<div style="font-size:11px;color:#888780">No user found with that handle.</div>';
+      var hint = isPhone ? 'No user found with that phone number.' : 'No user found with that handle.';
+      resultEl.innerHTML = '<div style="font-size:11px;color:#888780">' + hint + '</div>';
       return;
     }
     var p = res.data;
     var name = p.display_name || ('@' + p.handle);
     var alreadyFriend = myFriends.some(function(f) { return f.friendId === p.id; });
     if (alreadyFriend) {
-      resultEl.innerHTML = '<div style="font-size:11px;color:#27500A;background:#EAF3DE;padding:8px;border-radius:8px">You\'re already connected with ' + name + '.</div>';
+      resultEl.innerHTML = '<div style="font-size:11px;color:#27500A;background:#EAF3DE;padding:8px;border-radius:8px">You\'re already connected with ' + escapeHtml(name) + '.</div>';
       return;
     }
     renderFoundUserCard(p, 'circle-req-note', 'sendFriendReqFromCircle', resultEl);
