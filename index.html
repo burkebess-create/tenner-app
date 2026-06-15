@@ -2587,7 +2587,7 @@ async function renderFriendDetail() {
     + '</div>' : '';
 
   // Match link (only when connected)
-  var matchHtml = isAccepted ? '<div class="card" onclick="openMatchWithFriend(\'' + p.id + '\',\'s-fdetail\')" style="cursor:pointer;margin-bottom:12px;background:#FFF8F6;border-color:#F4C9B8">'
+  var matchHtml = isAccepted ? '<div class="card" onclick="openMatchWithFriend(\'' + f.friendId + '\',\'s-fdetail\')" style="cursor:pointer;margin-bottom:12px;background:#FFF8F6;border-color:#F4C9B8">'
     + '<div style="display:flex;align-items:center;gap:10px">'
     + '<div style="font-size:22px">📊</div>'
     + '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#993C1D">View match scores</div>'
@@ -2909,14 +2909,18 @@ async function renderMatch() {
   var el = document.getElementById('match-screen-content');
   if (!el) return;
 
+  // Capture context at start — loadFriends is async and we don't want mid-flight mutation
+  var friendCtx = matchFriendCtx;
+  var groupCtx = matchGroupCtx;
+
   // Reload friends fresh before rendering
   await loadFriends().catch(console.warn);
 
   var accepted = myFriends.filter(function(f) {
     if (f.status !== 'accepted') return false;
-    if (matchFriendCtx) return f.friendId === matchFriendCtx;
-    if (matchGroupCtx >= 0 && MY_GROUPS[matchGroupCtx]) {
-      return (MY_GROUPS[matchGroupCtx].memberIds || []).indexOf(f.friendId) >= 0;
+    if (friendCtx) return f.friendId === friendCtx;
+    if (groupCtx >= 0 && MY_GROUPS[groupCtx]) {
+      return (MY_GROUPS[groupCtx].memberIds || []).indexOf(f.friendId) >= 0;
     }
     return true;
   });
@@ -2975,11 +2979,11 @@ async function renderMatch() {
 
     // Overall section header
     var groupLabel = '';
-    if (matchFriendCtx && accepted[0]) {
+    if (friendCtx && accepted[0]) {
       var fn = (accepted[0].profile && accepted[0].profile.display_name) || (accepted[0].profile && accepted[0].profile.handle ? '@' + accepted[0].profile.handle : 'Friend');
       groupLabel = 'You vs ' + fn + ' · ';
-    } else if (matchGroupCtx >= 0 && MY_GROUPS[matchGroupCtx]) {
-      groupLabel = MY_GROUPS[matchGroupCtx].emoji + ' ' + MY_GROUPS[matchGroupCtx].n + ' · ';
+    } else if (groupCtx >= 0 && MY_GROUPS[groupCtx]) {
+      groupLabel = MY_GROUPS[groupCtx].emoji + ' ' + MY_GROUPS[groupCtx].n + ' · ';
     }
     var overallHtml = '<div class="sec-label">' + groupLabel + 'Overall Match (across all lists)</div>';
     if (overallRanked.length === 0) {
