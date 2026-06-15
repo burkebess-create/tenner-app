@@ -585,7 +585,7 @@
         <div class="ni" id="nav-home" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>My Lists</div>
         <div class="ni" id="nav-create" onclick="go('s-create1')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Create</div>
         <div class="ni" id="nav-circle" onclick="go('s-circle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Circle</div>
-        <div class="ni" id="nav-match" onclick="matchGroupCtx=-1;matchOrigin=null;go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
+        <div class="ni" id="nav-match" onclick="matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
         <div class="ni" id="nav-profile" onclick="go('s-profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</div>
       </div>
 
@@ -1579,7 +1579,7 @@ async function renderGroupDetail() {
   }
 
   // Match link
-  var matchHtml = '<div class="card" onclick="matchGroupCtx=selGroupIdx;openMatch(\'s-gdetail\')" style="cursor:pointer;margin-top:4px;background:#FFF8F6;border-color:#F4C9B8">'
+  var matchHtml = '<div class="card" onclick="matchGroupCtx=selGroupIdx;matchFriendCtx=null;openMatch(\'s-gdetail\')" style="cursor:pointer;margin-top:4px;background:#FFF8F6;border-color:#F4C9B8">'
     + '<div style="display:flex;align-items:center;gap:10px">'
     + '<div style="font-size:22px">📊</div>'
     + '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#993C1D">View Group Match Scores</div>'
@@ -1921,9 +1921,11 @@ var currentUserEmail = '';
 var myProfile = null;
 var myFriends = [];
 var matchGroupCtx = -1; // group index to scope match view, -1 = all friends
+var matchFriendCtx = null; // friend userId to scope match to one person, null = no filter
 var matchOrigin = null; // screen to return to from match via back button
 
 function openMatch(origin) { matchOrigin = origin || null; go('s-match'); }
+function openMatchWithFriend(friendId, origin) { matchFriendCtx = friendId; matchGroupCtx = -1; matchOrigin = origin || null; go('s-match'); }
 var currentAuthTab = 'login';
 
 var DEFAULT_GROUPS = [
@@ -2585,7 +2587,7 @@ async function renderFriendDetail() {
     + '</div>' : '';
 
   // Match link (only when connected)
-  var matchHtml = isAccepted ? '<div class="card" onclick="matchGroupCtx=-1;openMatch(\'s-fdetail\')" style="cursor:pointer;margin-bottom:12px;background:#FFF8F6;border-color:#F4C9B8">'
+  var matchHtml = isAccepted ? '<div class="card" onclick="openMatchWithFriend(\'' + p.id + '\',\'s-fdetail\')" style="cursor:pointer;margin-bottom:12px;background:#FFF8F6;border-color:#F4C9B8">'
     + '<div style="display:flex;align-items:center;gap:10px">'
     + '<div style="font-size:22px">📊</div>'
     + '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#993C1D">View match scores</div>'
@@ -2910,7 +2912,14 @@ async function renderMatch() {
   // Reload friends fresh before rendering
   await loadFriends().catch(console.warn);
 
-  var accepted = myFriends.filter(function(f) { return f.status === 'accepted'; });
+  var accepted = myFriends.filter(function(f) {
+    if (f.status !== 'accepted') return false;
+    if (matchFriendCtx) return f.friendId === matchFriendCtx;
+    if (matchGroupCtx >= 0 && MY_GROUPS[matchGroupCtx]) {
+      return (MY_GROUPS[matchGroupCtx].memberIds || []).indexOf(f.friendId) >= 0;
+    }
+    return true;
+  });
   if (accepted.length === 0) {
     // Check if there are ANY friendship rows at all (pending too)
     var anyFriends = myFriends.length > 0;
@@ -2966,7 +2975,10 @@ async function renderMatch() {
 
     // Overall section header
     var groupLabel = '';
-    if (matchGroupCtx >= 0 && MY_GROUPS[matchGroupCtx]) {
+    if (matchFriendCtx && accepted[0]) {
+      var fn = (accepted[0].profile && accepted[0].profile.display_name) || (accepted[0].profile && accepted[0].profile.handle ? '@' + accepted[0].profile.handle : 'Friend');
+      groupLabel = 'You vs ' + fn + ' · ';
+    } else if (matchGroupCtx >= 0 && MY_GROUPS[matchGroupCtx]) {
       groupLabel = MY_GROUPS[matchGroupCtx].emoji + ' ' + MY_GROUPS[matchGroupCtx].n + ' · ';
     }
     var overallHtml = '<div class="sec-label">' + groupLabel + 'Overall Match (across all lists)</div>';
