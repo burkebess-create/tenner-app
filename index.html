@@ -435,7 +435,7 @@
       <div class="screen" id="s-match">
         <div class="topbar">
           <button class="back-btn" id="match-back-btn" onclick="go(matchOrigin || 's-circle')" style="font-size:11px;display:none">← Back</button>
-          <span style="font-size:13px;font-weight:600;color:#2C2C2A">Match Scores</span>
+          <span id="match-topbar-debug" style="font-size:10px;font-weight:600;color:#2C2C2A">Match Scores</span>
           <button class="back-btn" onclick="go('s-circle')" style="font-size:11px">+ Add friend</button>
         </div>
         <div class="content" id="match-screen-content">
@@ -2912,6 +2912,8 @@ async function renderMatch() {
   // Capture context at start — loadFriends is async and we don't want mid-flight mutation
   var friendCtx = matchFriendCtx;
   var groupCtx = matchGroupCtx;
+  var dbg = document.getElementById('match-topbar-debug');
+  if (dbg) dbg.textContent = 'fc=' + (friendCtx || 'null') + ' gc=' + groupCtx;
 
   // Reload friends fresh before rendering
   await loadFriends().catch(console.warn);
@@ -2937,7 +2939,7 @@ async function renderMatch() {
     el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📋</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">Create some lists first</div><div style="font-size:12px;line-height:1.5">Make your top 10 lists and your friends\' comparisons will appear here.</div></div>';
     return;
   }
-  el.innerHTML = '<div style="font-size:11px;color:#888780;text-align:center;padding:20px">Loading… friendCtx=' + friendCtx + ' groupCtx=' + groupCtx + ' friends=' + myFriends.filter(function(x){return x.status==='accepted';}).map(function(x){return x.friendId;}).join(',') + '</div>';
+  el.innerHTML = '<div style="font-size:11px;color:#888780;text-align:center;padding:20px">Loading comparisons…</div>';
   try {
     var friendIds = accepted.map(function(f) { return f.friendId; });
     // Fetch friend lists without profile join (FK is to auth.users, not profiles)
