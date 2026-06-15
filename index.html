@@ -1484,11 +1484,21 @@ function renderHome() {
   renderLists();
 }
 
-function renderGroupDetail() {
+async function renderGroupDetail() {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
   var title = document.getElementById('gdetail-title');
   if (title) title.textContent = g.n;
+
+  // Load members from DB if we have a group id
+  if (sbClient && g.id && (!g.memberIds || g.memberIds.length === 0)) {
+    try {
+      var mRes = await sbClient.from('group_members').select('user_id').eq('group_id', g.id);
+      if (mRes.data) {
+        g.memberIds = mRes.data.map(function(r) { return r.user_id; }).filter(function(id) { return id !== userId; });
+      }
+    } catch(e) { console.warn('Load group members failed', e); }
+  }
 
   var memberIds = g.memberIds || [];
   var members = memberIds.map(function(fid) {
@@ -1591,13 +1601,15 @@ function toggleGroupMembers() {
   if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
 }
 
-function removeMemberFromGroup(friendId) {
+async function removeMemberFromGroup(friendId) {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
+  if (sbClient && g.id) {
+    try { await sbClient.from('group_members').delete().eq('group_id', g.id).eq('user_id', friendId); } catch(e) { console.warn('Remove member failed', e); }
+  }
   g.memberIds = (g.memberIds || []).filter(function(id) { return id !== friendId; });
   var cnt = g.memberIds.length + 1;
   g.meta = cnt + ' member' + (cnt !== 1 ? 's' : '') + (g.meta.replace(/^\d+ members?/, '') || ' · 0 lists compared');
-  saveState();
   renderGroupDetail();
 }
 
@@ -1614,36 +1626,55 @@ function confirmDeleteGroup() {
     'This will permanently delete the group for all members. This cannot be undone.',
     'Delete group',
     'danger',
-    function() {
+    async function() {
+      if (sbClient && g.id) {
+        try { await sbClient.from('groups').delete().eq('id', g.id); } catch(e) { console.warn('Group delete failed', e); }
+      }
       MY_GROUPS.splice(selGroupIdx, 1);
       selGroupIdx = 0;
-      saveState();
       renderCircleGroups();
       go('s-circle');
     }
   );
 }
 
-function finishGroup() {
+async function finishGroup() {
   if (creatingNewGroup) {
     var nameEl = document.getElementById('group-name');
     var groupName = nameEl ? nameEl.value.trim() : 'New Group';
     if (!groupName) groupName = 'New Group';
-    var memberIds = Array.from(addedFriends); // real friend user IDs
+    var memberIds = Array.from(addedFriends);
     var memberCount = memberIds.length + 1;
-    MY_GROUPS.push({
+    var localGroup = {
       n: groupName,
       emoji: selEmojiChar || EMOJIS[selEmoji] || '🎉',
       photo: groupPhotoData || null,
       meta: memberCount + ' member' + (memberCount !== 1 ? 's' : '') + ' · 0 lists compared',
-      pill: 'New',
-      pillClass: 'pill-blue',
-      memberIds: memberIds,
-      isNew: true
-    });
+      pill: 'New', pillClass: 'pill-blue',
+      memberIds: memberIds, isNew: true
+    };
+    if (sbClient && userId) {
+      try {
+        var gRes = await sbClient.from('groups').insert({
+          name: groupName,
+          emoji: localGroup.emoji,
+          photo: localGroup.photo,
+          created_by: userId
+        }).select().single();
+        if (gRes.error) throw gRes.error;
+        var gid = gRes.data.id;
+        localGroup.id = gid;
+        var memberRows = [{ group_id: gid, user_id: userId }].concat(
+          memberIds.map(function(mid) { return { group_id: gid, user_id: mid }; })
+        );
+        var mRes = await sbClient.from('group_members').insert(memberRows);
+        if (mRes.error) throw mRes.error;
+      } catch(e) { console.warn('Group save failed', e); }
+    }
+    MY_GROUPS.push(localGroup);
     selGroupIdx = MY_GROUPS.length - 1;
     creatingNewGroup = false;
-    saveState();
+    // Don't saveState for groups — they live in DB now
   }
   go('s-gdetail');
 }
@@ -1825,13 +1856,15 @@ function copyInviteLink() {
   }
 }
 
-function removeMemberById(friendId) {
+async function removeMemberById(friendId) {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
+  if (sbClient && g.id) {
+    try { await sbClient.from('group_members').delete().eq('group_id', g.id).eq('user_id', friendId); } catch(e) { console.warn('Remove member failed', e); }
+  }
   g.memberIds = (g.memberIds || []).filter(function(id) { return id !== friendId; });
   var memberCount = g.memberIds.length + 1;
   g.meta = memberCount + ' member' + (memberCount !== 1 ? 's' : '') + (g.meta.replace(/^\d+ members?/, '') || ' · 0 lists compared');
-  saveState();
   renderGroupSettings();
 }
 
@@ -1859,12 +1892,16 @@ function renderGroupSettings() {
   updateSettingsAvatarPreview(g);
 }
 
-function saveGroupSettings() {
+async function saveGroupSettings() {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
   var nameInput = document.getElementById('gsettings-name');
   if (nameInput && nameInput.value.trim()) g.n = nameInput.value.trim();
-  saveState();
+  if (sbClient && g.id) {
+    try {
+      await sbClient.from('groups').update({ name: g.n, emoji: g.emoji, photo: g.photo }).eq('id', g.id);
+    } catch(e) { console.warn('Group settings save failed', e); }
+  }
   go('s-gdetail');
 }
 
@@ -2642,9 +2679,11 @@ async function unfriend(friendshipId) {
 function confirmLeaveGroup(idx) {
   var g = MY_GROUPS[idx];
   if (!g) return;
-  showConfirm('Leave group?', 'Leave "' + g.n + '"? You can be re-invited later.', 'Leave', 'secondary', function() {
+  showConfirm('Leave group?', 'Leave "' + g.n + '"? You can be re-invited later.', 'Leave', 'secondary', async function() {
+    if (sbClient && g.id) {
+      try { await sbClient.from('group_members').delete().eq('group_id', g.id).eq('user_id', userId); } catch(e) { console.warn('Leave group failed', e); }
+    }
     MY_GROUPS.splice(idx, 1);
-    saveState();
     renderCircleGroups();
     renderHome();
   });
@@ -2758,12 +2797,12 @@ async function renderGiftReminders() {
 }
 
 async function saveState() {
-  localStorage.setItem('tenner_groups', JSON.stringify(MY_GROUPS));
+  // Groups are persisted directly to DB — don't store in localStorage or tenner_state
   localStorage.setItem('tenner_lists', JSON.stringify(MY_LISTS));
   if (sbClient && userId) {
     try {
       await sbClient.from('tenner_state').upsert({
-        user_id: userId, groups: MY_GROUPS, lists: MY_LISTS,
+        user_id: userId, lists: MY_LISTS,
         updated_at: new Date().toISOString()
       });
     } catch(e) { console.warn('Supabase save failed', e); }
@@ -2792,16 +2831,38 @@ async function loadState() {
         MY_LISTS = listsRes.data.map(function(l) {
           return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category };
         });
+      } else {
+        var l = localStorage.getItem('tenner_lists');
+        if (l) MY_LISTS = JSON.parse(l);
       }
-      var stateRes = await sbClient.from('tenner_state').select('groups').eq('user_id', userId).maybeSingle();
-      if (stateRes.data) MY_GROUPS = stateRes.data.groups || [];
-      if (listsRes.data && listsRes.data.length > 0) return;
+      // Load groups the user is a member of (works for all members, not just creator)
+      var groupsRes = await sbClient.from('group_members')
+        .select('group_id, joined_at, groups(id, name, emoji, photo, created_by, created_at)')
+        .eq('user_id', userId);
+      if (groupsRes.data && groupsRes.data.length > 0) {
+        MY_GROUPS = groupsRes.data.map(function(row) {
+          var g = row.groups;
+          return {
+            id: g.id,
+            n: g.name,
+            emoji: g.emoji || '👥',
+            photo: g.photo || null,
+            meta: '0 lists compared',
+            pill: '', pillClass: '',
+            memberIds: [], // populated lazily in renderGroupDetail
+            createdBy: g.created_by,
+            isNew: false
+          };
+        });
+      } else {
+        MY_GROUPS = [];
+      }
+      return;
     } catch(e) { console.warn('Supabase load failed', e); }
   }
-  var g = localStorage.getItem('tenner_groups');
   var l = localStorage.getItem('tenner_lists');
-  if (g) MY_GROUPS = JSON.parse(g);
   if (l) MY_LISTS = JSON.parse(l);
+  MY_GROUPS = [];
 }
 
 async function renderMatch() {
