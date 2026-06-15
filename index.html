@@ -542,8 +542,19 @@
               <input type="text" id="profile-handle-input" placeholder="@yourhandle" style="margin-bottom:0;font-size:12px;padding:6px 8px">
             </div>
             <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
-              <div style="font-size:10px;color:#5F5E5A;margin-bottom:3px">Birthday</div>
-              <input type="date" id="profile-birthday-input" style="margin-bottom:0;font-size:12px;padding:6px 8px">
+              <div style="font-size:10px;color:#5F5E5A;margin-bottom:3px">Birthday (month &amp; day)</div>
+              <div style="display:flex;gap:6px">
+                <select id="profile-bday-month" onchange="onBdayMonthChange()" style="flex:1;margin-bottom:0;font-size:12px;padding:6px 8px">
+                  <option value="">Month</option>
+                  <option value="01">January</option><option value="02">February</option><option value="03">March</option>
+                  <option value="04">April</option><option value="05">May</option><option value="06">June</option>
+                  <option value="07">July</option><option value="08">August</option><option value="09">September</option>
+                  <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+                </select>
+                <select id="profile-bday-day" style="width:80px;margin-bottom:0;font-size:12px;padding:6px 8px">
+                  <option value="">Day</option>
+                </select>
+              </div>
             </div>
             <div style="padding:6px 0;display:flex;justify-content:space-between;align-items:center">
               <span style="font-size:11px;color:#5F5E5A">Email</span>
@@ -2011,7 +2022,9 @@ async function saveProfilePhoto(dataUrl) {
 async function saveProfile() {
   var name = (document.getElementById('profile-name-input') || {}).value || '';
   var handle = (document.getElementById('profile-handle-input') || {}).value || '';
-  var birthday = (document.getElementById('profile-birthday-input') || {}).value || null;
+  var bdMonth = (document.getElementById('profile-bday-month') || {}).value || '';
+  var bdDay = (document.getElementById('profile-bday-day') || {}).value || '';
+  var birthday = (bdMonth && bdDay) ? (bdMonth + '-' + bdDay) : null;
   handle = handle.replace(/^@/, '').toLowerCase().trim();
   var existingPhoto = myProfile && myProfile.photo;
   myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, updated_at: new Date().toISOString() };
@@ -2048,7 +2061,19 @@ function renderProfileHeader() {
   var hd = document.getElementById('profile-handle-display'); if (hd) hd.textContent = handle;
   var ni = document.getElementById('profile-name-input'); if (ni && !ni.value) ni.value = p.display_name || '';
   var hi = document.getElementById('profile-handle-input'); if (hi && !hi.value) hi.value = p.handle || '';
-  var bi = document.getElementById('profile-birthday-input'); if (bi && !bi.value) bi.value = p.birthday || '';
+  (function() {
+    var bm = document.getElementById('profile-bday-month');
+    var bd = document.getElementById('profile-bday-day');
+    if (!bm || !bd) return;
+    var raw = p.birthday || '';
+    // support legacy YYYY-MM-DD, new MM-DD, or --MM-DD
+    var parts = raw.replace(/^--/, '').split('-');
+    var mm = '', dd = '';
+    if (parts.length === 2) { mm = parts[0]; dd = parts[1]; }
+    else if (parts.length === 3) { mm = parts[1]; dd = parts[2]; }
+    bm.value = mm;
+    populateDaySelect(bd, mm, dd);
+  })();
   var sl = document.getElementById('profile-stat-lists'); if (sl) sl.textContent = MY_LISTS.length;
   var sf = document.getElementById('profile-stat-friends'); if (sf) sf.textContent = myFriends.filter(function(f) { return f.status === 'accepted'; }).length;
   var sc = document.getElementById('profile-stat-circles'); if (sc) sc.textContent = MY_GROUPS.length;
@@ -2343,11 +2368,43 @@ function timeOnTenner(p) {
   return 'Member for ' + years + ' year' + (years !== 1 ? 's' : '');
 }
 
+// Returns [month0, day] where month0 is 0-indexed (for Date constructor), day is 1-indexed
+function parseBdayMonthDay(bd) {
+  if (!bd) return null;
+  var simple = bd.match(/^(\d{2})-(\d{2})$/);
+  if (simple) return [parseInt(simple[1], 10) - 1, parseInt(simple[2], 10)];
+  var legacy = new Date(bd + 'T00:00:00');
+  if (!isNaN(legacy.getTime())) return [legacy.getMonth(), legacy.getDate()];
+  return null;
+}
+
+function populateDaySelect(sel, month, selectedDay) {
+  var daysInMonth = [0,31,29,31,30,31,30,31,31,30,31,30,31];
+  var max = month ? (daysInMonth[parseInt(month, 10)] || 31) : 31;
+  var html = '<option value="">Day</option>';
+  for (var i = 1; i <= max; i++) {
+    var val = i < 10 ? '0' + i : '' + i;
+    html += '<option value="' + val + '"' + (val === selectedDay ? ' selected' : '') + '>' + i + '</option>';
+  }
+  sel.innerHTML = html;
+  if (selectedDay) sel.value = selectedDay;
+}
+
+function onBdayMonthChange() {
+  var bm = document.getElementById('profile-bday-month');
+  var bd = document.getElementById('profile-bday-day');
+  if (bm && bd) populateDaySelect(bd, bm.value, bd.value);
+}
+
 function formatBirthday(bd) {
   if (!bd) return null;
+  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  // new format: MM-DD (no year)
+  var simple = bd.match(/^(\d{2})-(\d{2})$/);
+  if (simple) return months[parseInt(simple[1], 10) - 1] + ' ' + parseInt(simple[2], 10);
+  // legacy: YYYY-MM-DD
   var d = new Date(bd + 'T00:00:00');
   if (isNaN(d.getTime())) return null;
-  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   return months[d.getMonth()] + ' ' + d.getDate();
 }
 
@@ -2564,15 +2621,15 @@ function openCircleInviteModal() {
 async function renderGiftReminders() {
   var el = document.getElementById('gift-reminders-section');
   if (!el) return;
-  var accepted = myFriends.filter(function(f) { return f.status === 'accepted' && f.profile && f.profile.birthday; });
+  var accepted = myFriends.filter(function(f) { return f.status === 'accepted' && f.profile && f.profile.birthday && parseBdayMonthDay(f.profile.birthday); });
   if (accepted.length === 0) {
     el.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">Add friends with birthdays to see gift reminders.</div>';
     return;
   }
   var today = new Date();
   var upcoming = accepted.filter(function(f) {
-    var bd = new Date(f.profile.birthday);
-    var next = new Date(today.getFullYear(), bd.getMonth(), bd.getDate());
+    var md = parseBdayMonthDay(f.profile.birthday);
+    var next = new Date(today.getFullYear(), md[0], md[1]);
     if (next < today) next.setFullYear(today.getFullYear() + 1);
     var days = Math.round((next - today) / 86400000);
     f._daysUntilBirthday = days;
