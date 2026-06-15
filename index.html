@@ -435,7 +435,7 @@
       <div class="screen" id="s-match">
         <div class="topbar">
           <button class="back-btn" id="match-back-btn" onclick="go(matchOrigin || 's-circle')" style="font-size:11px;display:none">← Back</button>
-          <span id="match-topbar-debug" style="font-size:10px;font-weight:600;color:#2C2C2A">Match Scores</span>
+          <span id="match-topbar-debug" style="font-size:13px;font-weight:600;color:#2C2C2A">Match Scores</span>
           <button class="back-btn" onclick="go('s-circle')" style="font-size:11px">+ Add friend</button>
         </div>
         <div class="content" id="match-screen-content">
@@ -2913,7 +2913,6 @@ async function renderMatch() {
   var friendCtx = matchFriendCtx;
   var groupCtx = matchGroupCtx;
   var dbg = document.getElementById('match-topbar-debug');
-  if (dbg) dbg.textContent = 'fc=' + (friendCtx || 'null') + ' gc=' + groupCtx;
 
 
   // Reload friends fresh before rendering
@@ -2927,7 +2926,7 @@ async function renderMatch() {
     }
     return true;
   });
-  if (dbg) dbg.textContent = 'fc=' + (friendCtx||'null') + ' accepted=' + accepted.length + '/' + myFriends.filter(function(f){return f.status==='accepted';}).length + ' ids=' + accepted.map(function(f){return f.friendId.slice(0,6);}).join(',');
+  if (dbg) dbg.textContent = 'Match Scores';
   if (accepted.length === 0) {
     // Check if there are ANY friendship rows at all (pending too)
     var anyFriends = myFriends.length > 0;
