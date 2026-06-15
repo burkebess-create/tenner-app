@@ -480,6 +480,7 @@
           <div id="circle-friend-requests"></div>
           <div id="circle-friends-list"></div>
 
+          <div id="circle-group-invites"></div>
           <div class="sec-label" style="margin-top:4px">Groups</div>
           <div id="circle-groups-list"></div>
           <div class="card" onclick="go('s-cg1')" style="border-style:dashed;text-align:center;padding:14px">
@@ -685,6 +686,7 @@ var FUZZY_ITEMS = {'mars':'Mars Bar','snicker':'Snickers','reeses':'Reese\'s Pea
 var FRIENDS = [];
 var MY_LISTS = [];
 var MY_GROUPS = [];
+var MY_PENDING_GROUP_INVITES = [];
 var EMOJIS = ['🎓','💼','👨‍👩‍👧‍👦','🏡','⚽','🎮','🎵','🍕','🏖️','✈️','🎉','📚'];
 
 var EMOJI_SEARCH_POOL = [
@@ -1490,12 +1492,17 @@ async function renderGroupDetail() {
   var title = document.getElementById('gdetail-title');
   if (title) title.textContent = g.n;
 
-  // Load members from DB if we have a group id
-  if (sbClient && g.id && (!g.memberIds || g.memberIds.length === 0)) {
+  // Load members from DB (always refresh to get current statuses)
+  var memberStatuses = {}; // userId -> status
+  if (sbClient && g.id) {
     try {
-      var mRes = await sbClient.from('group_members').select('user_id').eq('group_id', g.id);
+      var mRes = await sbClient.from('group_members').select('user_id, status').eq('group_id', g.id);
       if (mRes.data) {
-        g.memberIds = mRes.data.map(function(r) { return r.user_id; }).filter(function(id) { return id !== userId; });
+        g.memberIds = [];
+        mRes.data.forEach(function(r) {
+          memberStatuses[r.user_id] = r.status;
+          if (r.user_id !== userId) g.memberIds.push(r.user_id);
+        });
       }
     } catch(e) { console.warn('Load group members failed', e); }
   }
@@ -1535,8 +1542,9 @@ async function renderGroupDetail() {
         var name = f.profile.display_name || f.profile.handle || 'Friend';
         var handle = f.profile.handle ? '@' + f.profile.handle : '';
         var fid = f.friendId;
+        var isPending = memberStatuses[fid] === 'pending';
         return '<div class="member-row" style="margin-bottom:6px"><div style="margin-right:8px">' + friendAvatarHtml(f.profile, 32) + '</div>'
-          + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>'
+          + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + (isPending ? ' <span class="pill pill-amber" style="font-size:9px">Pending</span>' : '') + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>'
           + '<button class="back-btn" style="font-size:10px;padding:3px 7px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();showConfirm(\'Remove ' + name.replace(/'/g,"\\'") + '?\',\'They will lose access to this group.\',\'Remove\',\'danger\',function(){removeMemberFromGroup(\'' + fid + '\')})">Remove</button></div>';
       }).join('')
     + '<div style="display:flex;gap:6px;margin-top:10px">'
@@ -1664,8 +1672,8 @@ async function finishGroup() {
         if (gRes.error) throw gRes.error;
         var gid = gRes.data.id;
         localGroup.id = gid;
-        var memberRows = [{ group_id: gid, user_id: userId }].concat(
-          memberIds.map(function(mid) { return { group_id: gid, user_id: mid }; })
+        var memberRows = [{ group_id: gid, user_id: userId, status: 'accepted' }].concat(
+          memberIds.map(function(mid) { return { group_id: gid, user_id: mid, status: 'pending' }; })
         );
         var mRes = await sbClient.from('group_members').insert(memberRows);
         if (mRes.error) throw mRes.error;
@@ -2642,21 +2650,55 @@ async function renderFriendDetail() {
 }
 
 function renderCircleGroups() {
+  // Pending group invites
+  var invEl = document.getElementById('circle-group-invites');
+  if (invEl) {
+    if (MY_PENDING_GROUP_INVITES.length > 0) {
+      invEl.innerHTML = '<div class="sec-label" style="margin-top:4px">Group Invites (' + MY_PENDING_GROUP_INVITES.length + ')</div>'
+        + MY_PENDING_GROUP_INVITES.map(function(g) {
+          return '<div class="card no-hover" style="margin-bottom:8px;background:#FFF8F6;border-color:#F4C9B8">'
+            + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+            + groupAvatarHtml(g, 38)
+            + '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(g.n) + '</div>'
+            + '<div style="font-size:10px;color:#5F5E5A">You\'ve been invited to join this group</div></div></div>'
+            + '<div style="display:flex;gap:8px">'
+            + '<button class="btn-primary" style="flex:1;margin-bottom:0;font-size:12px;padding:8px" onclick="respondToGroupInvite(\'' + g.id + '\',true)">Accept</button>'
+            + '<button class="btn-secondary" style="flex:1;margin-bottom:0;font-size:12px;padding:8px" onclick="respondToGroupInvite(\'' + g.id + '\',false)">Decline</button>'
+            + '</div></div>';
+        }).join('');
+    } else {
+      invEl.innerHTML = '';
+    }
+  }
+
+  // Accepted groups
   var el = document.getElementById('circle-groups-list');
   if (!el) return;
-  if (MY_GROUPS.length === 0) {
-    el.innerHTML = '';
-    return;
-  }
+  if (MY_GROUPS.length === 0) { el.innerHTML = ''; return; }
   el.innerHTML = MY_GROUPS.map(function(g, i) {
     return '<div class="card" style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="selGroupIdx='+i+';go(\'s-gdetail\')">'
       + groupAvatarHtml(g, 42)
       + '<div style="flex:1">'
-      + '<div style="font-size:13px;font-weight:600;color:#2C2C2A">' + g.n + '</div>'
+      + '<div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(g.n) + '</div>'
       + '<div style="font-size:11px;color:#5F5E5A">' + (g.meta || '') + '</div></div>'
       + '<button class="back-btn" style="font-size:10px;padding:3px 8px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();confirmLeaveGroup(' + i + ')">Leave</button>'
       + '</div>';
   }).join('');
+}
+
+async function respondToGroupInvite(groupId, accept) {
+  if (!sbClient) return;
+  try {
+    if (accept) {
+      await sbClient.from('group_members').update({ status: 'accepted' }).eq('group_id', groupId).eq('user_id', userId);
+      var inv = MY_PENDING_GROUP_INVITES.find(function(g) { return g.id === groupId; });
+      if (inv) { MY_GROUPS.push(inv); }
+    } else {
+      await sbClient.from('group_members').delete().eq('group_id', groupId).eq('user_id', userId);
+    }
+    MY_PENDING_GROUP_INVITES = MY_PENDING_GROUP_INVITES.filter(function(g) { return g.id !== groupId; });
+    renderCircleGroups();
+  } catch(e) { console.warn('Group invite response failed', e); }
 }
 
 function confirmUnfriend(friendshipId, name) {
@@ -2835,27 +2877,23 @@ async function loadState() {
         var l = localStorage.getItem('tenner_lists');
         if (l) MY_LISTS = JSON.parse(l);
       }
-      // Load groups the user is a member of (works for all members, not just creator)
+      // Load groups — split into accepted (full member) and pending (invited but not yet accepted)
       var groupsRes = await sbClient.from('group_members')
-        .select('group_id, joined_at, groups(id, name, emoji, photo, created_by, created_at)')
+        .select('group_id, status, joined_at, groups(id, name, emoji, photo, created_by, created_at)')
         .eq('user_id', userId);
-      if (groupsRes.data && groupsRes.data.length > 0) {
-        MY_GROUPS = groupsRes.data.map(function(row) {
+      MY_GROUPS = [];
+      MY_PENDING_GROUP_INVITES = [];
+      if (groupsRes.data) {
+        groupsRes.data.forEach(function(row) {
           var g = row.groups;
-          return {
-            id: g.id,
-            n: g.name,
-            emoji: g.emoji || '👥',
-            photo: g.photo || null,
-            meta: '0 lists compared',
-            pill: '', pillClass: '',
-            memberIds: [], // populated lazily in renderGroupDetail
-            createdBy: g.created_by,
-            isNew: false
+          var obj = {
+            id: g.id, n: g.name, emoji: g.emoji || '👥', photo: g.photo || null,
+            meta: '0 lists compared', pill: '', pillClass: '',
+            memberIds: [], createdBy: g.created_by, isNew: false
           };
+          if (row.status === 'accepted') MY_GROUPS.push(obj);
+          else MY_PENDING_GROUP_INVITES.push(obj);
         });
-      } else {
-        MY_GROUPS = [];
       }
       return;
     } catch(e) { console.warn('Supabase load failed', e); }
