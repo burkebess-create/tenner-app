@@ -2937,7 +2937,7 @@ async function renderMatch() {
     el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📋</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">Create some lists first</div><div style="font-size:12px;line-height:1.5">Make your top 10 lists and your friends\' comparisons will appear here.</div></div>';
     return;
   }
-  el.innerHTML = '<div style="font-size:11px;color:#888780;text-align:center;padding:20px">Loading comparisons…</div>';
+  el.innerHTML = '<div style="font-size:11px;color:#888780;text-align:center;padding:20px">Loading… friendCtx=' + friendCtx + ' groupCtx=' + groupCtx + ' friends=' + myFriends.filter(function(x){return x.status==='accepted';}).map(function(x){return x.friendId;}).join(',') + '</div>';
   try {
     var friendIds = accepted.map(function(f) { return f.friendId; });
     // Fetch friend lists without profile join (FK is to auth.users, not profiles)
