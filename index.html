@@ -485,6 +485,11 @@
           <div class="card" onclick="go('s-cg1')" style="border-style:dashed;text-align:center;padding:14px">
             <span style="font-size:12px;color:#888780">+ Create a new group</span>
           </div>
+
+          <div class="sec-label" style="margin-top:4px">Gift Reminders</div>
+          <div id="gift-reminders-section">
+            <div style="font-size:11px;color:#888780;padding:8px 0">Add friends with birthdays to see gift reminders.</div>
+          </div>
         </div>
       </div>
 
@@ -571,16 +576,12 @@
           <button class="btn-primary" onclick="saveProfile()" style="margin-top:10px">Save profile</button>
           <div id="profile-save-msg" style="display:none;font-size:11px;color:#27500A;background:#EAF3DE;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #97C459">Profile saved!</div>
 
-          <div class="sec-label" style="margin-top:8px">Gift Reminders</div>
-          <div id="gift-reminders-section">
-            <div style="font-size:11px;color:#888780;padding:8px 0">Add friends with birthdays to see gift reminders.</div>
-          </div>
         </div>
       </div>
 
       <!-- GLOBAL BOTTOM NAV -->
       <div class="bnav" id="global-bnav">
-        <div class="ni" id="nav-home" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>My Lists</div>
+        <div class="ni" id="nav-home" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>My Lists</div>
         <div class="ni" id="nav-create" onclick="go('s-create1')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Create</div>
         <div class="ni" id="nav-circle" onclick="go('s-circle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Circle</div>
         <div class="ni" id="nav-match" onclick="matchGroupCtx=-1;matchOrigin=null;go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
@@ -802,8 +803,8 @@ function go(id) {
     if (mbb) mbb.style.display = matchOrigin ? 'block' : 'none';
     renderMatch();
   }
-  if (id === 's-circle') { renderCircleScreen(); }
-  if (id === 's-profile') { renderProfileHeader(); renderFriendsSection(); renderGiftReminders(); }
+  if (id === 's-circle') { renderCircleScreen(); renderGiftReminders(); }
+  if (id === 's-profile') { renderProfileHeader(); renderFriendsSection(); }
 }
 
 function showConfirm(title, message, okLabel, style, onOk) {
@@ -2120,9 +2121,8 @@ function renderProfileHeader() {
   (function() {
     var bm = document.getElementById('profile-bday-month');
     var bd = document.getElementById('profile-bday-day');
-    if (!bm || !bd) return;
+    if (!bm || !bd || bm.value) return; // don't overwrite if user has already made a selection
     var raw = p.birthday || '';
-    // support legacy YYYY-MM-DD, new MM-DD, or --MM-DD
     var parts = raw.replace(/^--/, '').split('-');
     var mm = '', dd = '';
     if (parts.length === 2) { mm = parts[0]; dd = parts[1]; }
@@ -2443,7 +2443,7 @@ function mutualSummary(names) {
 }
 
 function timeOnTenner(p) {
-  var since = p && (p.created_at || p.updated_at);
+  var since = p && p.created_at;
   if (!since) return null;
   var start = new Date(since);
   if (isNaN(start.getTime())) return null;
@@ -3091,7 +3091,7 @@ function clearPendingInvite() {
   renderItems();
   updateProg();
 
-  if (!sbClient) { go('s-home'); renderHome(); renderListPicker(); return; }
+  if (!sbClient) { go('s-circle'); renderHome(); renderListPicker(); renderCircleScreen(); return; }
 
   function handleSession(session) {
     onSignedIn(session);
@@ -3099,7 +3099,8 @@ function clearPendingInvite() {
     if (onAuthScreen) {
       renderHome();
       renderListPicker();
-      go('s-home');
+      renderCircleScreen();
+      go('s-circle');
       // Prefer in-memory invite (same page load); fall back to persisted
       // invite that survived the email-confirmation reload.
       var invite = window.pendingFill ? { fill: window.pendingFill, from: window.pendingFrom || null } : getPendingInvite();
