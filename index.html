@@ -3254,7 +3254,7 @@ function clearPendingInvite() {
         );
       }
     }
-    loadState().then(function() { renderHome(); renderListPicker(); }).catch(console.warn);
+    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderGiftReminders(); }).catch(console.warn);
     loadProfile().catch(console.warn);
     loadFriends().catch(console.warn);
   }
