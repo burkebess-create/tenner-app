@@ -3704,9 +3704,39 @@ function computeMatch(myItems, theirItems, ranked) {
   return Math.round(overlapScore * 100);
 }
 
+// Open an existing list (by MY_LISTS index) in the editor.
+function editListByIdx(idx) {
+  var l = MY_LISTS[idx];
+  if (!l) return;
+  editingListIdx = idx;
+  selCat = l.category || l.n.replace('Top 10 ', '');
+  items = l.items.slice();
+  isRanked = l.ranked !== false;
+  listOrigin = 's-list-detail';
+  renderCatGrid();
+  renderItems();
+  updateProg();
+  go('s-create2');
+}
+
 function goToCreateStep2() {
   var inp = document.getElementById('cat-inp');
   if (inp && inp.value.trim()) selCat = inp.value.trim();
+  // Prevent silently overwriting an existing list of the same category.
+  if (editingListIdx < 0) {
+    var existing = MY_LISTS.findIndex(function(l) {
+      return (l.category || l.n.replace('Top 10 ', '')).toLowerCase() === selCat.toLowerCase();
+    });
+    if (existing >= 0) {
+      showConfirm(
+        'You already have a Top 10 ' + selCat + ' list',
+        'Edit your existing list, or give this one a different name (e.g. "' + selCat + ' (2024)") to keep both.',
+        'Edit existing list', 'primary',
+        function() { editListByIdx(existing); }
+      );
+      return;
+    }
+  }
   go('s-create2');
 }
 
