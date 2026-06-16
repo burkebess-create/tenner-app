@@ -3518,13 +3518,12 @@ async function renderMatch() {
         return aAvg - bAvg;
       });
 
-      var isOneOnOne = comps.length === 1;
-      var singleFname = isOneOnOne ? ((comps[0].friend.profile && comps[0].friend.profile.display_name) || 'Friend') : 'Group avg';
-
-      // Column header(s)
-      var colHeaders = isOneOnOne
-        ? '<div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">' + escapeHtml(singleFname) + '</div>'
-        : '<div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">Group avg rank</div>';
+      // Display mode:
+      //  - allFriendsMode: not scoped to a friend or group → swipeable card per friend
+      //  - isOneOnOne: scoped to a single friend
+      //  - else: group context → You vs group average
+      var allFriendsMode = !friendCtx && groupCtx < 0;
+      var isOneOnOne = !allFriendsMode && comps.length === 1;
 
       function mkCell(text, bg, col) {
         return '<div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + text + '</div>';
@@ -3533,38 +3532,76 @@ async function renderMatch() {
         return '<span style="font-weight:600;color:#888780;min-width:16px;display:inline-block">#' + rank + '</span> ' + escapeHtml(disp);
       }
 
-      var rowsHtml;
-      if (isOneOnOne) {
-        // Shared picks first (already agreement-sorted in sortedItems), then each
-        // person's unique picks listed independently in their own rank order.
-        var sharedSorted = sortedItems.filter(function(it){ return it.myRank !== null && it.friendEntries.length > 0; });
-        var myOnly = Object.values(itemMap).filter(function(it){ return it.myRank !== null && it.friendEntries.length === 0; })
-          .sort(function(a,b){ return a.myRank - b.myRank; });
-        var theirOnly = Object.values(itemMap).filter(function(it){ return it.myRank === null && it.friendEntries.length > 0; })
-          .sort(function(a,b){ return a.friendEntries[0].rank - b.friendEntries[0].rank; });
-
-        var sharedRows = sharedSorted.map(function(it) {
+      // You-vs-one-friend body: shared picks (green, agreement-sorted) on top,
+      // then each person's unique picks listed in their own rank order.
+      function pairBody(c) {
+        var imap = {};
+        c.myList.items.forEach(function(item, idx){ imap[item.toLowerCase().trim()] = { display:item, myRank: idx+1, theirRank: null }; });
+        c.friendList.items.forEach(function(item, idx){
+          var key = item.toLowerCase().trim();
+          if (!imap[key]) imap[key] = { display:item, myRank:null, theirRank: idx+1 };
+          else imap[key].theirRank = idx+1;
+        });
+        var all = Object.keys(imap).map(function(k){ return imap[k]; });
+        var shared = all.filter(function(it){ return it.myRank!==null && it.theirRank!==null; })
+          .sort(function(a,b){ return (a.myRank+a.theirRank) - (b.myRank+b.theirRank); });
+        var myOnly = all.filter(function(it){ return it.myRank!==null && it.theirRank===null; }).sort(function(a,b){ return a.myRank-b.myRank; });
+        var theirOnly = all.filter(function(it){ return it.myRank===null && it.theirRank!==null; }).sort(function(a,b){ return a.theirRank-b.theirRank; });
+        var sharedRows = shared.map(function(it){
           return '<div style="display:flex;gap:5px;margin-bottom:4px">'
             + mkCell(rankText(it.myRank, it.display), '#EAF3DE', '#3B6D11')
-            + mkCell(rankText(it.friendEntries[0].rank, it.display), '#EAF3DE', '#3B6D11')
-            + '</div>';
+            + mkCell(rankText(it.theirRank, it.display), '#EAF3DE', '#3B6D11') + '</div>';
         }).join('');
-
         var remCount = Math.max(myOnly.length, theirOnly.length);
         var remRows = '';
-        for (var r = 0; r < remCount; r++) {
+        for (var r=0;r<remCount;r++){
           var lm = myOnly[r], rt = theirOnly[r];
           remRows += '<div style="display:flex;gap:5px;margin-bottom:4px">'
             + mkCell(lm ? rankText(lm.myRank, lm.display) : '', lm ? '#F1EFE8' : 'transparent', '#2C2C2A')
-            + mkCell(rt ? rankText(rt.friendEntries[0].rank, rt.display) : '', rt ? '#F1EFE8' : 'transparent', '#2C2C2A')
-            + '</div>';
+            + mkCell(rt ? rankText(rt.theirRank, rt.display) : '', rt ? '#F1EFE8' : 'transparent', '#2C2C2A') + '</div>';
         }
-        var divider = (sharedRows && remRows)
-          ? '<div style="font-size:9px;color:#A8A6A0;text-align:center;margin:8px 0 6px">— unique picks —</div>'
-          : '';
-        rowsHtml = sharedRows + divider + remRows;
+        var divider = (sharedRows && remRows) ? '<div style="font-size:9px;color:#A8A6A0;text-align:center;margin:8px 0 6px">— unique picks —</div>' : '';
+        var pills = shared.map(function(it){ return '<span class="pill pill-green">' + escapeHtml(it.display) + '</span>'; }).join('');
+        return { rows: sharedRows + divider + remRows, pills: pills };
+      }
+
+      function pairHeader(fn) {
+        return '<div style="display:flex;gap:5px;margin-bottom:6px"><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">' + escapeHtml(fn) + '</div></div>';
+      }
+
+      var sideLabel, sideBodyHtml, agreePills = '';
+
+      if (allFriendsMode) {
+        // One swipeable card per friend who shares this list, closest match first.
+        var ordered = comps.slice().sort(function(a,b){ return b.score - a.score; });
+        var slides = ordered.map(function(c) {
+          var fn = (c.friend.profile && c.friend.profile.display_name) || (c.friend.profile && c.friend.profile.handle ? '@'+c.friend.profile.handle : 'Friend');
+          var body = pairBody(c);
+          return '<div style="flex:0 0 100%;min-width:100%;box-sizing:border-box;scroll-snap-align:start;padding:0 2px">'
+            + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+              + friendAvatarHtml(c.friend.profile, 26)
+              + '<div style="font-size:11px;font-weight:600;color:#2C2C2A">You vs ' + escapeHtml(fn) + '</div>'
+              + '<div style="margin-left:auto;font-size:13px;font-weight:700;color:#D85A30">' + c.score + '%</div></div>'
+            + pairHeader(fn)
+            + body.rows + '</div>';
+        }).join('');
+        var multi = ordered.length > 1;
+        var hint = multi ? '<div style="text-align:center;font-size:10px;color:#A8A6A0;margin-bottom:6px">← swipe to compare ' + ordered.length + ' friends →</div>' : '';
+        var dots = multi ? '<div id="sbs-dots-' + i + '" style="display:flex;justify-content:center;gap:5px;margin-top:8px">' + ordered.map(function(_, di){ return '<span style="width:6px;height:6px;border-radius:50%;background:' + (di===0?'#D85A30':'#D3D1C7') + ';transition:background .15s"></span>'; }).join('') + '</div>' : '';
+        sideLabel = 'Side-by-side';
+        sideBodyHtml = hint
+          + '<div id="sbs-track-' + i + '" onscroll="updateSbsDots(' + i + ',' + ordered.length + ')" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:0 -2px">' + slides + '</div>'
+          + dots;
+      } else if (isOneOnOne) {
+        var singleFname = (comps[0].friend.profile && comps[0].friend.profile.display_name) || 'Friend';
+        var oneBody = pairBody(comps[0]);
+        sideLabel = 'Side-by-side: You vs ' + escapeHtml(singleFname);
+        sideBodyHtml = pairHeader(singleFname) + oneBody.rows;
+        agreePills = oneBody.pills;
       } else {
-        rowsHtml = sortedItems.map(function(item) {
+        // Group average mode: You vs the group's average rank for each item.
+        var colHeaders = '<div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">Group avg rank</div>';
+        var rowsHtml = sortedItems.map(function(item) {
           var totalPickers = (item.myRank !== null ? 1 : 0) + item.friendEntries.length;
           var totalParticipants = 1 + comps.length; // me + all compared friends
           var everyonePicked = totalPickers === totalParticipants;
@@ -3583,21 +3620,19 @@ async function renderMatch() {
           }
           return '<div style="display:flex;gap:5px;margin-bottom:4px">' + mkCell(myCell, bg, col) + mkCell(rightCell, bg, col) + '</div>';
         }).join('');
+        var sharedItems = sortedItems.filter(function(item) {
+          return item.myRank !== null && item.friendEntries.length > 0;
+        });
+        agreePills = sharedItems.map(function(item){ return '<span class="pill pill-green">' + escapeHtml(item.display) + '</span>'; }).join('');
+        sideLabel = 'Side-by-side: You vs Group';
+        sideBodyHtml = '<div style="display:flex;gap:5px;margin-bottom:6px">' + colHeaders + '</div>' + rowsHtml;
       }
-
-      var sharedItems = sortedItems.filter(function(item) {
-        return item.myRank !== null && item.friendEntries.length > 0;
-      });
-      var agreePills = sharedItems.map(function(item){ return '<span class="pill pill-green">' + escapeHtml(item.display) + '</span>'; }).join('');
-
-      var sideLabel = isOneOnOne ? 'Side-by-side: You vs ' + escapeHtml(singleFname) : 'Side-by-side: You vs Group';
 
       return '<div id="match-panel-' + i + '" style="display:' + (i===0?'block':'none') + '">'
         + '<div style="font-size:10px;color:#5F5E5A;margin-bottom:12px">Top 10 ' + escapeHtml(cat) + ' · ' + comps.length + ' friend' + (comps.length>1?'s':'') + ' compared</div>'
         + '<div class="sec-label">Match Scores</div>' + scoresHtml
         + '<div class="sec-label">' + sideLabel + '</div>'
-        + '<div style="display:flex;gap:5px;margin-bottom:6px">' + colHeaders + '</div>'
-        + rowsHtml
+        + sideBodyHtml
         + (agreePills ? '<div class="sec-label">Everyone agrees on…</div><div style="display:flex;flex-wrap:wrap;gap:6px">' + agreePills + '</div>' : '')
         + '</div>';
     }).join('');
@@ -3608,6 +3643,18 @@ async function renderMatch() {
     el.innerHTML = '<div style="text-align:center;padding:30px;font-size:12px;color:#A32D2D">Could not load comparisons.<br><span style="font-size:10px;color:#888780">' + msg + '</span></div>';
     console.warn('Match load failed', e);
   }
+}
+
+// Highlights the active dot for a swipeable side-by-side track as the user scrolls.
+function updateSbsDots(i, count) {
+  var track = document.getElementById('sbs-track-' + i);
+  var dotsWrap = document.getElementById('sbs-dots-' + i);
+  if (!track || !dotsWrap) return;
+  var idx = Math.round(track.scrollLeft / track.clientWidth);
+  if (idx < 0) idx = 0; if (idx > count - 1) idx = count - 1;
+  Array.prototype.forEach.call(dotsWrap.children, function(dot, di) {
+    dot.style.background = di === idx ? '#D85A30' : '#D3D1C7';
+  });
 }
 
 function showMatchTab(btn, cat) {
