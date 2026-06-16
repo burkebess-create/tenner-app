@@ -993,6 +993,17 @@ function removeItem(idx) {
   setTimeout(function(){document.getElementById('item-inp').focus();}, 50);
 }
 
+// Move an item up (dir=-1) or down (dir=1) by one position. Used by the
+// mobile-friendly arrow buttons in the list editor.
+function moveItem(idx, dir) {
+  var dest = idx + dir;
+  if (dest < 0 || dest >= items.length) return;
+  var moved = items.splice(idx, 1)[0];
+  items.splice(dest, 0, moved);
+  renderItems();
+  updateProg();
+}
+
 var dragSrcIdx = null;
 
 function renderItems() {
@@ -1010,8 +1021,13 @@ function renderItems() {
       : '<div class="rank-dot"></div>';
     var sugsId = 'item-edit-sugs-' + i;
     div.style.flexWrap = 'wrap';
+    var moveBtns = isRanked
+      ? '<button onclick="moveItem(' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + ' style="background:none;border:none;font-size:18px;line-height:1;padding:6px 5px;flex-shrink:0;cursor:pointer;color:' + (i === 0 ? '#DAD8D0' : '#888780') + '">▲</button>'
+        + '<button onclick="moveItem(' + i + ',1)"' + (i === items.length - 1 ? ' disabled' : '') + ' style="background:none;border:none;font-size:18px;line-height:1;padding:6px 5px;flex-shrink:0;cursor:pointer;color:' + (i === items.length - 1 ? '#DAD8D0' : '#888780') + '">▼</button>'
+      : '';
     div.innerHTML = badge
       + '<input type="text" value="' + item.replace(/"/g,'&quot;') + '" id="item-edit-inp-' + i + '" oninput="onItemEditType(this.value,' + i + ')" onkeydown="onItemEditKey(event,' + i + ')" onblur="onItemEditBlur(' + i + ',this)" style="flex:1;font-size:12px;color:#2C2C2A;border:none;background:transparent;outline:none;padding:0;min-width:0">'
+      + moveBtns
       + '<span style="font-size:14px;color:#C8C6BE;cursor:grab;padding:0 4px;flex-shrink:0">⠿</span>'
       + '<button onmousedown="removeItem(' + i + ')" style="background:none;border:none;color:#888780;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0">×</button>'
       + '<div class="sugs" id="' + sugsId + '" style="width:100%;margin-top:2px"></div>';
