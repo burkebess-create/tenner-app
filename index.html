@@ -756,6 +756,7 @@ var fuzzyItemSug = '';
 var listOrigin = 's-home';
 var selGroupIdx = 0;
 var creatingNewGroup = false;
+var pendingShareGroupId = null; // group to share a list with after it's saved
 
 function go(id) {
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
@@ -785,7 +786,7 @@ function go(id) {
   if (id === 's-fdetail' && selFriendId) renderFriendDetail();
   if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; items = []; renderCatGrid(); renderItems(); updateProg(); }
   if (id === 's-create2') { renderItems(); updateProg(); }
-  if (id === 's-cg1') { creatingNewGroup = true; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
+  if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
   if (id === 's-cg3') renderListPicker();
   if (id === 's-create2') {
@@ -1340,9 +1341,16 @@ function renderShareGroups() {
     return '<div class="card" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:8px">'
       + '<div class="group-emoji" style="width:34px;height:34px;font-size:18px">' + g.emoji + '</div>'
       + '<div style="flex:1;font-size:12px;font-weight:600;color:#2C2C2A">' + g.n + '</div>'
-      + '<button class="add-btn" onclick="event.stopPropagation();this.textContent=\'Sent ✓\';this.style.color=\'#3B6D11\';this.style.borderColor=\'#3B6D11\'">Send</button>'
+      + '<button class="add-btn" onclick="event.stopPropagation();shareCreateListToGroup(' + i + ', this)">Send</button>'
       + '</div></div>';
   }).join('');
+}
+
+async function shareCreateListToGroup(groupIdx, btn) {
+  var g = MY_GROUPS[groupIdx];
+  if (!g) return;
+  await shareListToGroup(g.id, selCat);
+  if (btn) { btn.textContent = 'Sent ✓'; btn.style.color = '#3B6D11'; btn.style.borderColor = '#3B6D11'; }
 }
 
 function renderListPicker() {
@@ -1486,6 +1494,84 @@ function renderHome() {
   renderLists();
 }
 
+// Record that a list topic (category) has been shared with a group, so all
+// members are invited to fill out the same list and results can be compared.
+async function shareListToGroup(groupId, category) {
+  if (!sbClient || !groupId || !userId || !category) return;
+  try {
+    var res = await sbClient.from('group_lists').insert({ group_id: groupId, category: category, shared_by: userId });
+    if (res.error && res.error.code !== '23505') console.warn('Share to group failed', res.error);
+  } catch(e) {
+    if (!(e && e.code === '23505')) console.warn('Share to group failed', e); // 23505 = already shared
+  }
+}
+
+// Open the create flow to fill out a list for a category already shared with the group.
+// Pre-loads the user's existing list for that category if they have one.
+function openFillGroupList(cat) {
+  selCat = cat;
+  editingListIdx = -1;
+  var existing = MY_LISTS.find(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
+  items = existing ? (existing.items || []).slice() : [];
+  isRanked = existing ? existing.ranked !== false : true;
+  listOrigin = 's-gdetail';
+  pendingShareGroupId = (MY_GROUPS[selGroupIdx] && MY_GROUPS[selGroupIdx].id) || null;
+  go('s-create2');
+}
+
+// Sheet to share an existing list with the group, or start a brand-new one.
+function openShareToGroupPicker() {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g) return;
+  var prev = document.getElementById('share-to-group-modal');
+  if (prev) prev.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'share-to-group-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center;z-index:1000';
+  overlay.onclick = function(e){ if (e.target === overlay) overlay.remove(); };
+  var sheet = document.createElement('div');
+  sheet.style.cssText = 'background:#fff;width:100%;max-width:420px;border-radius:16px 16px 0 0;padding:18px;max-height:70vh;overflow-y:auto';
+  var alreadyShared = (GROUP_SHARED_LISTS[g.id] || []).map(function(s){ return s.category; });
+  var html = '<div style="font-size:15px;font-weight:700;color:#2C2C2A;margin-bottom:4px">Share a list with ' + escapeHtml(g.n) + '</div>'
+    + '<div style="font-size:11px;color:#5F5E5A;margin-bottom:12px">Members will be asked to fill out the same list so you can compare.</div>';
+  var shareable = MY_LISTS.filter(function(l){ return alreadyShared.indexOf(l.category || l.n.replace('Top 10 ','')) < 0; });
+  if (shareable.length > 0) {
+    html += '<div class="sec-label">Your lists</div>';
+    html += shareable.map(function(l) {
+      var cat = l.category || l.n.replace('Top 10 ','');
+      return '<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
+        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(l.n) + '</div>'
+        + '<div style="font-size:10px;color:#5F5E5A">' + escapeHtml(l.m || '') + '</div></div>'
+        + '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="shareExistingListToGroup(\'' + cat.replace(/'/g,"\\'") + '\')">Share</button>'
+        + '</div>';
+    }).join('');
+  } else if (MY_LISTS.length > 0) {
+    html += '<div style="font-size:11px;color:#888780;padding:6px 0">All your lists are already shared with this group.</div>';
+  }
+  html += '<button class="btn-secondary" style="margin-top:8px" onclick="document.getElementById(\'share-to-group-modal\').remove();openShareNewListToGroup()">+ Create a new list to share</button>';
+  html += '<button class="btn-secondary" style="margin-top:6px;color:#888780" onclick="document.getElementById(\'share-to-group-modal\').remove()">Cancel</button>';
+  sheet.innerHTML = html;
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+}
+
+async function shareExistingListToGroup(cat) {
+  var g = MY_GROUPS[selGroupIdx];
+  var modal = document.getElementById('share-to-group-modal');
+  if (modal) modal.remove();
+  if (!g) return;
+  await shareListToGroup(g.id, cat);
+  renderGroupDetail();
+}
+
+function openShareNewListToGroup() {
+  pendingShareGroupId = (MY_GROUPS[selGroupIdx] && MY_GROUPS[selGroupIdx].id) || null;
+  go('s-create1');
+  listOrigin = 's-gdetail';
+}
+
+var GROUP_SHARED_LISTS = {}; // groupId -> [{category, shared_by}] cache for the share sheet
+
 async function renderGroupDetail() {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
@@ -1553,30 +1639,56 @@ async function renderGroupDetail() {
     + '</div>'
     + '</div></div>';
 
-  // Shared lists
-  var sharedListsHtml = '<div class="sec-label">Shared Lists</div>';
-  if (MY_LISTS.length === 0) {
-    sharedListsHtml += '<div style="font-size:11px;color:#888780;padding:8px 0">No lists shared yet.</div>';
-  } else {
-    sharedListsHtml += MY_LISTS.map(function(l) {
-      var cat = l.category || l.n.replace('Top 10 ', '');
-      var filledCount = 1; // at minimum you've filled it
-      members.forEach(function(f) {
-        // We'd need friend list data to know — show "?" for now as a placeholder
-      });
-      return '<div class="card" style="margin-bottom:6px">'
-        + '<div style="display:flex;align-items:center;gap:10px">'
-        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + l.n + '</div>'
-        + '<div style="font-size:10px;color:#5F5E5A">Shared with group</div></div>'
-        + '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="sendListToNewMembers(\'' + cat.replace(/'/g,"\\'") + '\')">Send to new</button>'
-        + '</div></div>';
-    }).join('');
-    sharedListsHtml += '<button class="btn-secondary" style="font-size:11px;padding:9px;margin-top:4px" onclick="listOrigin=\'s-gdetail\';go(\'s-create1\')">+ Send a new list to group</button>';
+  // Shared lists — topics shared with this group (from group_lists table).
+  // Each member fills out their own version; we show who shared it and how many filled it.
+  var sharedLists = [];
+  var filledByCat = {}; // category -> [userIds who have a list in it]
+  if (sbClient && g.id) {
+    try {
+      var slRes = await sbClient.from('group_lists').select('category, shared_by, created_at').eq('group_id', g.id).order('created_at');
+      sharedLists = slRes.data || [];
+    } catch(e) { console.warn('Load shared lists failed', e); }
+    GROUP_SHARED_LISTS[g.id] = sharedLists;
+    if (sharedLists.length > 0) {
+      var allMemberIds = [userId].concat(memberIds);
+      try {
+        var flRes = await sbClient.from('lists').select('user_id, category').in('user_id', allMemberIds);
+        (flRes.data || []).forEach(function(r) {
+          if (!filledByCat[r.category]) filledByCat[r.category] = [];
+          filledByCat[r.category].push(r.user_id);
+        });
+      } catch(e) { console.warn('Load member lists failed', e); }
+    }
   }
 
-  if (MY_LISTS.length === 0) {
-    sharedListsHtml += '<button class="btn-primary" style="margin-top:8px" onclick="listOrigin=\'s-gdetail\';go(\'s-create1\')">Send your first list to this group</button>';
+  function nameForId(uid) {
+    if (uid === userId) return 'you';
+    var f = myFriends.find(function(mf){ return mf.friendId === uid; });
+    if (f && f.profile) return (f.profile.display_name || (f.profile.handle ? '@' + f.profile.handle : 'a member'));
+    return 'a member';
   }
+
+  var totalMembers = memberIds.length + 1;
+  var sharedListsHtml = '<div class="sec-label">Shared Lists</div>';
+  if (sharedLists.length === 0) {
+    sharedListsHtml += '<div style="font-size:11px;color:#888780;padding:8px 0">No lists shared with this group yet. Share one so everyone can fill it out and compare.</div>';
+  } else {
+    sharedListsHtml += sharedLists.map(function(sl) {
+      var cat = sl.category;
+      var filled = filledByCat[cat] || [];
+      var iFilled = filled.indexOf(userId) >= 0;
+      var btn = iFilled
+        ? '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="openFillGroupList(\'' + cat.replace(/'/g,"\\'") + '\')">View / edit</button>'
+        : '<button class="add-btn" style="font-size:10px;padding:4px 8px;background:#D85A30;color:#fff;border-color:#D85A30" onclick="openFillGroupList(\'' + cat.replace(/'/g,"\\'") + '\')">Fill out</button>';
+      return '<div class="card" style="margin-bottom:6px">'
+        + '<div style="display:flex;align-items:center;gap:10px">'
+        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Top 10 ' + escapeHtml(cat) + '</div>'
+        + '<div style="font-size:10px;color:#5F5E5A">Shared by ' + escapeHtml(nameForId(sl.shared_by)) + ' · ' + filled.length + ' of ' + totalMembers + ' filled out' + (iFilled ? '' : ' · not yet yours') + '</div></div>'
+        + btn
+        + '</div></div>';
+    }).join('');
+  }
+  sharedListsHtml += '<button class="btn-secondary" style="font-size:11px;padding:9px;margin-top:4px" onclick="openShareToGroupPicker()">+ Share a list with this group</button>';
 
   // Match link
   var matchHtml = '<div class="card" onclick="matchGroupCtx=selGroupIdx;matchFriendCtx=null;openMatch(\'s-gdetail\')" style="cursor:pointer;margin-top:4px;background:#FFF8F6;border-color:#F4C9B8">'
@@ -1677,6 +1789,11 @@ async function finishGroup() {
         );
         var mRes = await sbClient.from('group_members').insert(memberRows);
         if (mRes.error) throw mRes.error;
+        // If a list was picked on the "Send a list" step, share it with the new group.
+        if (selList >= 0 && MY_LISTS[selList]) {
+          var pickedCat = MY_LISTS[selList].category || MY_LISTS[selList].n.replace('Top 10 ', '');
+          await shareListToGroup(gid, pickedCat);
+        }
       } catch(e) {
         console.warn('Group save failed', e);
         alert('Group save failed: ' + (e && (e.message || e.code || JSON.stringify(e))));
@@ -1684,6 +1801,7 @@ async function finishGroup() {
     }
     MY_GROUPS.push(localGroup);
     selGroupIdx = MY_GROUPS.length - 1;
+    selList = -1;
     creatingNewGroup = false;
     // Don't saveState for groups — they live in DB now
   }
@@ -3121,6 +3239,17 @@ function saveList() {
   if (isUpdate && myFriends.filter(function(f){return f.status==='accepted';}).length > 0) {
     var senderName = (myProfile && myProfile.display_name) || 'Someone';
     notifyFriendsOfUpdate(senderName, selCat);
+  }
+  if (dest === 's-gdetail') {
+    // Returning to a group after filling/creating a list: record it as shared, then refresh.
+    var shareGid = pendingShareGroupId;
+    pendingShareGroupId = null;
+    var shareCat = selCat;
+    (async function(){
+      if (shareGid) await shareListToGroup(shareGid, shareCat);
+      go('s-gdetail');
+    })();
+    return;
   }
   if (dest === 's-list-detail') {
     showListDetail(listObj);
