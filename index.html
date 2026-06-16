@@ -1677,7 +1677,10 @@ async function finishGroup() {
         );
         var mRes = await sbClient.from('group_members').insert(memberRows);
         if (mRes.error) throw mRes.error;
-      } catch(e) { console.warn('Group save failed', e); }
+      } catch(e) {
+        console.warn('Group save failed', e);
+        alert('Group save failed: ' + (e && (e.message || e.code || JSON.stringify(e))));
+      }
     }
     MY_GROUPS.push(localGroup);
     selGroupIdx = MY_GROUPS.length - 1;
