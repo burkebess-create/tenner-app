@@ -3249,25 +3249,54 @@ async function renderMatch() {
         ? '<div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">' + escapeHtml(singleFname) + '</div>'
         : '<div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">Group avg rank</div>';
 
-      var rowsHtml = sortedItems.map(function(item) {
-        var totalPickers = (item.myRank !== null ? 1 : 0) + item.friendEntries.length;
-        var totalParticipants = 1 + comps.length; // me + all compared friends
-        var everyonePicked = totalPickers === totalParticipants;
-        var somePicked = totalPickers > 1;
-        var bg = everyonePicked ? '#EAF3DE' : somePicked ? '#FFF8F2' : '#F1EFE8';
-        var col = everyonePicked ? '#3B6D11' : '#2C2C2A';
+      function mkCell(text, bg, col) {
+        return '<div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + text + '</div>';
+      }
+      function rankText(rank, disp) {
+        return '<span style="font-weight:600;color:#888780;min-width:16px;display:inline-block">#' + rank + '</span> ' + escapeHtml(disp);
+      }
 
-        var myCell = item.myRank !== null
-          ? '<span style="font-weight:600;color:#888780;min-width:16px;display:inline-block">#' + item.myRank + '</span> ' + escapeHtml(item.display)
-          : '<span style="color:#C4C2BA">—</span>';
+      var rowsHtml;
+      if (isOneOnOne) {
+        // Shared picks first (already agreement-sorted in sortedItems), then each
+        // person's unique picks listed independently in their own rank order.
+        var sharedSorted = sortedItems.filter(function(it){ return it.myRank !== null && it.friendEntries.length > 0; });
+        var myOnly = Object.values(itemMap).filter(function(it){ return it.myRank !== null && it.friendEntries.length === 0; })
+          .sort(function(a,b){ return a.myRank - b.myRank; });
+        var theirOnly = Object.values(itemMap).filter(function(it){ return it.myRank === null && it.friendEntries.length > 0; })
+          .sort(function(a,b){ return a.friendEntries[0].rank - b.friendEntries[0].rank; });
 
-        var rightCell;
-        if (isOneOnOne) {
-          var fe = item.friendEntries[0];
-          rightCell = fe
-            ? '<span style="font-weight:600;color:#888780;min-width:16px;display:inline-block">#' + fe.rank + '</span> ' + escapeHtml(item.display)
-            : '<span style="color:#C4C2BA">—</span>';
-        } else {
+        var sharedRows = sharedSorted.map(function(it) {
+          return '<div style="display:flex;gap:5px;margin-bottom:4px">'
+            + mkCell(rankText(it.myRank, it.display), '#EAF3DE', '#3B6D11')
+            + mkCell(rankText(it.friendEntries[0].rank, it.display), '#EAF3DE', '#3B6D11')
+            + '</div>';
+        }).join('');
+
+        var remCount = Math.max(myOnly.length, theirOnly.length);
+        var remRows = '';
+        for (var r = 0; r < remCount; r++) {
+          var lm = myOnly[r], rt = theirOnly[r];
+          remRows += '<div style="display:flex;gap:5px;margin-bottom:4px">'
+            + mkCell(lm ? rankText(lm.myRank, lm.display) : '', lm ? '#F1EFE8' : 'transparent', '#2C2C2A')
+            + mkCell(rt ? rankText(rt.friendEntries[0].rank, rt.display) : '', rt ? '#F1EFE8' : 'transparent', '#2C2C2A')
+            + '</div>';
+        }
+        var divider = (sharedRows && remRows)
+          ? '<div style="font-size:9px;color:#A8A6A0;text-align:center;margin:8px 0 6px">— unique picks —</div>'
+          : '';
+        rowsHtml = sharedRows + divider + remRows;
+      } else {
+        rowsHtml = sortedItems.map(function(item) {
+          var totalPickers = (item.myRank !== null ? 1 : 0) + item.friendEntries.length;
+          var totalParticipants = 1 + comps.length; // me + all compared friends
+          var everyonePicked = totalPickers === totalParticipants;
+          var somePicked = totalPickers > 1;
+          var bg = everyonePicked ? '#EAF3DE' : somePicked ? '#FFF8F2' : '#F1EFE8';
+          var col = everyonePicked ? '#3B6D11' : '#2C2C2A';
+
+          var myCell = item.myRank !== null ? rankText(item.myRank, item.display) : '<span style="color:#C4C2BA">—</span>';
+          var rightCell;
           if (item.friendEntries.length === 0) {
             rightCell = '<span style="color:#C4C2BA">—</span>';
           } else {
@@ -3275,13 +3304,9 @@ async function renderMatch() {
             rightCell = '<span style="font-weight:600;color:#888780">#' + avgRank.toFixed(1).replace(/\.0$/,'') + '</span>'
               + ' <span style="font-size:10px;color:#888780">(' + item.friendEntries.length + '/' + comps.length + ')</span>';
           }
-        }
-
-        return '<div style="display:flex;gap:5px;margin-bottom:4px">'
-          + '<div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + myCell + '</div>'
-          + '<div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + rightCell + '</div>'
-          + '</div>';
-      }).join('');
+          return '<div style="display:flex;gap:5px;margin-bottom:4px">' + mkCell(myCell, bg, col) + mkCell(rightCell, bg, col) + '</div>';
+        }).join('');
+      }
 
       var sharedItems = sortedItems.filter(function(item) {
         return item.myRank !== null && item.friendEntries.length > 0;
