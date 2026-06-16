@@ -3255,14 +3255,16 @@ async function loadState() {
         if (l) MY_LISTS = JSON.parse(l);
       }
 
-      // Fetch the group records themselves by primary key (fast, indexed)
+      // Fetch the group records by primary key, but WITHOUT the photo column —
+      // group photos are large base64 data URLs and pulling them inline was the
+      // main startup bottleneck. Photos are backfilled lazily below.
       MY_GROUPS = [];
       MY_PENDING_GROUP_INVITES = [];
       var memberRows = gmRes.data || [];
       var gids = memberRows.map(function(r){ return r.group_id; });
       if (gids.length > 0) {
         console.time('loadState:groups');
-        var gRes = await sbClient.from('groups').select('id, name, emoji, photo, created_by, created_at').in('id', gids);
+        var gRes = await sbClient.from('groups').select('id, name, emoji, created_by, created_at').in('id', gids);
         console.timeEnd('loadState:groups');
         var groupsById = {};
         (gRes.data || []).forEach(function(g){ groupsById[g.id] = g; });
@@ -3270,13 +3272,14 @@ async function loadState() {
           var g = groupsById[row.group_id];
           if (!g) return;
           var obj = {
-            id: g.id, n: g.name, emoji: g.emoji || '👥', photo: g.photo || null,
+            id: g.id, n: g.name, emoji: g.emoji || '👥', photo: null,
             meta: '0 lists compared', pill: '', pillClass: '',
             memberIds: [], createdBy: g.created_by, isNew: false
           };
           if (row.status === 'accepted') MY_GROUPS.push(obj);
           else MY_PENDING_GROUP_INVITES.push(obj);
         });
+        loadGroupPhotos(gids); // fire-and-forget; patches avatars in when ready
       }
       console.timeEnd('loadState:total');
       return;
@@ -3285,6 +3288,26 @@ async function loadState() {
   var l = localStorage.getItem('tenner_lists');
   if (l) MY_LISTS = JSON.parse(l);
   MY_GROUPS = [];
+}
+
+// Backfill group photos in the background so they don't block the initial render.
+async function loadGroupPhotos(gids) {
+  if (!sbClient || !gids || gids.length === 0) return;
+  try {
+    console.time('loadState:groupPhotos');
+    var res = await sbClient.from('groups').select('id, photo').in('id', gids);
+    console.timeEnd('loadState:groupPhotos');
+    var changed = false;
+    (res.data || []).forEach(function(row) {
+      if (!row.photo) return;
+      MY_GROUPS.concat(MY_PENDING_GROUP_INVITES).forEach(function(g) {
+        if (g.id === row.id) { g.photo = row.photo; changed = true; }
+      });
+    });
+    if (changed && document.getElementById('s-circle').classList.contains('active')) {
+      renderCircleGroups();
+    }
+  } catch(e) { console.warn('Group photo load failed', e); }
 }
 
 async function renderMatch() {
