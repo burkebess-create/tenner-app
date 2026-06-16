@@ -3574,10 +3574,10 @@ async function renderMatch() {
       if (allFriendsMode) {
         // One swipeable card per friend who shares this list, closest match first.
         var ordered = comps.slice().sort(function(a,b){ return b.score - a.score; });
-        var slides = ordered.map(function(c) {
+        var slides = ordered.map(function(c, si) {
           var fn = (c.friend.profile && c.friend.profile.display_name) || (c.friend.profile && c.friend.profile.handle ? '@'+c.friend.profile.handle : 'Friend');
           var body = pairBody(c);
-          return '<div style="flex:0 0 100%;min-width:100%;box-sizing:border-box;scroll-snap-align:start;padding:0 2px">'
+          return '<div id="sbs-slide-' + i + '-' + si + '" style="display:' + (si===0?'block':'none') + ';width:100%">'
             + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
               + friendAvatarHtml(c.friend.profile, 26)
               + '<div style="font-size:11px;font-weight:600;color:#2C2C2A">You vs ' + escapeHtml(fn) + '</div>'
@@ -3586,12 +3586,16 @@ async function renderMatch() {
             + body.rows + '</div>';
         }).join('');
         var multi = ordered.length > 1;
-        var hint = multi ? '<div style="text-align:center;font-size:10px;color:#A8A6A0;margin-bottom:6px">← swipe to compare ' + ordered.length + ' friends →</div>' : '';
-        var dots = multi ? '<div id="sbs-dots-' + i + '" style="display:flex;justify-content:center;gap:5px;margin-top:8px">' + ordered.map(function(_, di){ return '<span style="width:6px;height:6px;border-radius:50%;background:' + (di===0?'#D85A30':'#D3D1C7') + ';transition:background .15s"></span>'; }).join('') + '</div>' : '';
+        var nav = multi
+          ? '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+              + '<button onclick="sbsNav(' + i + ',-1,' + ordered.length + ')" style="background:none;border:1px solid #D3D1C7;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;color:#5F5E5A;display:flex;align-items:center;justify-content:center">‹</button>'
+              + '<div id="sbs-dots-' + i + '" style="display:flex;gap:5px">' + ordered.map(function(_, di){ return '<span style="width:6px;height:6px;border-radius:50%;background:' + (di===0?'#D85A30':'#D3D1C7') + ';transition:background .15s;display:inline-block"></span>'; }).join('') + '</div>'
+              + '<button onclick="sbsNav(' + i + ',1,' + ordered.length + ')" style="background:none;border:1px solid #D3D1C7;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;color:#5F5E5A;display:flex;align-items:center;justify-content:center">›</button>'
+              + '</div>'
+          : '';
         sideLabel = 'Side-by-side';
-        sideBodyHtml = hint
-          + '<div id="sbs-track-' + i + '" onscroll="updateSbsDots(' + i + ',' + ordered.length + ')" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:0 -2px">' + slides + '</div>'
-          + dots;
+        sideBodyHtml = nav
+          + '<div id="sbs-track-' + i + '" ontouchstart="sbsTouchStart(event,' + i + ')" ontouchend="sbsTouchEnd(event,' + i + ',' + ordered.length + ')" style="width:100%;overflow:hidden">' + slides + '</div>';
       } else if (isOneOnOne) {
         var singleFname = (comps[0].friend.profile && comps[0].friend.profile.display_name) || 'Friend';
         var oneBody = pairBody(comps[0]);
@@ -3645,16 +3649,42 @@ async function renderMatch() {
   }
 }
 
-// Highlights the active dot for a swipeable side-by-side track as the user scrolls.
-function updateSbsDots(i, count) {
-  var track = document.getElementById('sbs-track-' + i);
+var _sbsIdx = {}; // panel index → current slide index
+var _sbsTouchX = {};
+
+function sbsNav(i, dir, count) {
+  var cur = _sbsIdx[i] || 0;
+  var next = cur + dir;
+  if (next < 0 || next >= count) return;
+  sbsGoTo(i, next, count);
+}
+
+function sbsGoTo(i, next, count) {
+  var cur = _sbsIdx[i] || 0;
+  var oldSlide = document.getElementById('sbs-slide-' + i + '-' + cur);
+  var newSlide = document.getElementById('sbs-slide-' + i + '-' + next);
+  if (oldSlide) oldSlide.style.display = 'none';
+  if (newSlide) newSlide.style.display = 'block';
+  _sbsIdx[i] = next;
   var dotsWrap = document.getElementById('sbs-dots-' + i);
-  if (!track || !dotsWrap) return;
-  var idx = Math.round(track.scrollLeft / track.clientWidth);
-  if (idx < 0) idx = 0; if (idx > count - 1) idx = count - 1;
-  Array.prototype.forEach.call(dotsWrap.children, function(dot, di) {
-    dot.style.background = di === idx ? '#D85A30' : '#D3D1C7';
-  });
+  if (dotsWrap) {
+    Array.prototype.forEach.call(dotsWrap.children, function(dot, di) {
+      dot.style.background = di === next ? '#D85A30' : '#D3D1C7';
+    });
+  }
+}
+
+function sbsTouchStart(e, i) {
+  _sbsTouchX[i] = e.touches[0].clientX;
+}
+
+function sbsTouchEnd(e, i, count) {
+  var startX = _sbsTouchX[i];
+  if (startX == null) return;
+  var dx = e.changedTouches[0].clientX - startX;
+  _sbsTouchX[i] = null;
+  if (Math.abs(dx) < 30) return;
+  sbsNav(i, dx < 0 ? 1 : -1, count);
 }
 
 function showMatchTab(btn, cat) {
