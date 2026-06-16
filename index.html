@@ -2897,6 +2897,7 @@ async function loadState() {
           else MY_PENDING_GROUP_INVITES.push(obj);
         });
       }
+      console.log('loadState groups:', groupsRes.data ? groupsRes.data.length : 'null', 'err:', groupsRes.error, 'accepted:', MY_GROUPS.length, 'pending:', MY_PENDING_GROUP_INVITES.length);
       return;
     } catch(e) { console.warn('Supabase load failed', e); }
   }
