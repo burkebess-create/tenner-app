@@ -2584,8 +2584,8 @@ function renderFriendsSection() {
 
 function renderCircleScreen() {
   renderCircleFriends();
-  renderCircleGroups();
-  updateGroupMetaCounts();
+  renderCircleGroups(); // renders immediately with whatever meta is cached
+  updateGroupMetaCounts(); // async — fetches real counts then re-renders
 }
 
 var MY_LIST_SHARE_INVITES = []; // incoming "fill out this list" invites from friends
@@ -2697,35 +2697,49 @@ async function declineListInvite(inviteId) {
 // Compute real "X members · N lists compared" for each group and refresh the cards.
 // A list counts as "compared" when at least 2 group members have filled it out.
 async function updateGroupMetaCounts() {
-  if (!sbClient || MY_GROUPS.length === 0) return;
-  for (var i = 0; i < MY_GROUPS.length; i++) {
-    var g = MY_GROUPS[i];
-    if (!g.id) continue;
-    try {
-      var mRes = await sbClient.from('group_members').select('user_id').eq('group_id', g.id);
-      var memberIds = (mRes.data || []).map(function(r){ return r.user_id; });
-      var memberCount = memberIds.length;
-      g.memberIds = memberIds.filter(function(id){ return id !== userId; });
+  if (!sbClient || !userId) return;
+  // Wait for groups to be loaded if they aren't yet
+  if (MY_GROUPS.length === 0) return;
+  var gids = MY_GROUPS.map(function(g){ return g.id; }).filter(Boolean);
+  if (gids.length === 0) return;
+  try {
+    // Batch all three queries instead of looping per-group
+    var membersRes = await sbClient.from('group_members').select('group_id, user_id').in('group_id', gids);
+    var sharedRes  = await sbClient.from('group_lists').select('group_id, category').in('group_id', gids);
+    var memberRows  = membersRes.data || [];
+    var sharedRows  = sharedRes.data || [];
 
-      var slRes = await sbClient.from('group_lists').select('category').eq('group_id', g.id);
-      var sharedCats = (slRes.data || []).map(function(r){ return r.category; });
+    // Collect all member IDs across all groups for the lists query
+    var allMemberIds = Array.from(new Set(memberRows.map(function(r){ return r.user_id; })));
+    var listsByCat   = {};
+    if (sharedRows.length > 0 && allMemberIds.length > 0) {
+      var sharedCatSet = Array.from(new Set(sharedRows.map(function(r){ return r.category; })));
+      var listsRes = await sbClient.from('lists').select('user_id, category').in('user_id', allMemberIds).in('category', sharedCatSet);
+      (listsRes.data || []).forEach(function(r) {
+        var key = r.category + '|' + (memberRows.find(function(mr){ return mr.user_id === r.user_id; }) || {}).group_id;
+        // Build per-group-category fills map
+        memberRows.filter(function(mr){ return mr.user_id === r.user_id; }).forEach(function(mr) {
+          var k = mr.group_id + '::' + r.category;
+          if (!listsByCat[k]) listsByCat[k] = {};
+          listsByCat[k][r.user_id] = true;
+        });
+      });
+    }
 
+    MY_GROUPS.forEach(function(g) {
+      if (!g.id) return;
+      var gMembers = memberRows.filter(function(r){ return r.group_id === g.id; });
+      var memberCount = gMembers.length;
+      g.memberIds = gMembers.map(function(r){ return r.user_id; }).filter(function(id){ return id !== userId; });
+      var gShared = sharedRows.filter(function(r){ return r.group_id === g.id; });
       var compared = 0;
-      if (sharedCats.length > 0 && memberIds.length > 0) {
-        var lRes = await sbClient.from('lists').select('user_id, category').in('user_id', memberIds);
-        var fillsByCat = {};
-        (lRes.data || []).forEach(function(r) {
-          if (sharedCats.indexOf(r.category) < 0) return;
-          if (!fillsByCat[r.category]) fillsByCat[r.category] = {};
-          fillsByCat[r.category][r.user_id] = true;
-        });
-        sharedCats.forEach(function(cat) {
-          if (fillsByCat[cat] && Object.keys(fillsByCat[cat]).length >= 2) compared++;
-        });
-      }
+      gShared.forEach(function(sl) {
+        var fills = listsByCat[g.id + '::' + sl.category] || {};
+        if (Object.keys(fills).length >= 2) compared++;
+      });
       g.meta = memberCount + ' member' + (memberCount !== 1 ? 's' : '') + ' · ' + compared + ' list' + (compared !== 1 ? 's' : '') + ' compared';
-    } catch(e) { console.warn('Group meta count failed', e); }
-  }
+    });
+  } catch(e) { console.warn('Group meta count failed', e); }
   renderCircleGroups();
 }
 
@@ -3726,7 +3740,7 @@ function clearPendingInvite() {
         );
       }
     }
-    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderGiftReminders(); }).catch(console.warn);
+    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderGiftReminders(); updateGroupMetaCounts(); }).catch(console.warn);
     loadProfile().catch(console.warn);
     loadFriends().catch(console.warn);
     refreshNotifications().catch(console.warn);
