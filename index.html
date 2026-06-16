@@ -1161,9 +1161,11 @@ function onGroupPhotoUpload(input) {
   if (!input.files || !input.files[0] || !g) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    g.photo = e.target.result;
-    g.emoji = '';
-    updateSettingsAvatarPreview(g);
+    resizeImage(e.target.result, 300).then(function(dataUrl) {
+      g.photo = dataUrl;
+      g.emoji = '';
+      updateSettingsAvatarPreview(g);
+    });
   };
   reader.readAsDataURL(input.files[0]);
 }
@@ -1172,10 +1174,12 @@ function onGroupPhotoUploadCreate(input) {
   if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    groupPhotoData = e.target.result;
-    selEmojiChar = '';
-    var preview = document.getElementById('cg1-avatar-preview');
-    if (preview) preview.innerHTML = '<img src="' + groupPhotoData + '" style="width:48px;height:48px;border-radius:12px;object-fit:cover">';
+    resizeImage(e.target.result, 300).then(function(dataUrl) {
+      groupPhotoData = dataUrl;
+      selEmojiChar = '';
+      var preview = document.getElementById('cg1-avatar-preview');
+      if (preview) preview.innerHTML = '<img src="' + groupPhotoData + '" style="width:48px;height:48px;border-radius:12px;object-fit:cover">';
+    });
   };
   reader.readAsDataURL(input.files[0]);
 }
@@ -3303,6 +3307,19 @@ async function loadGroupPhotos(gids) {
       MY_GROUPS.concat(MY_PENDING_GROUP_INVITES).forEach(function(g) {
         if (g.id === row.id) { g.photo = row.photo; changed = true; }
       });
+      // Auto-heal legacy oversized photos (stored before upload compression).
+      // Re-compress and write back; only the group creator's update will pass RLS.
+      if (row.photo.length > 60000) {
+        resizeImage(row.photo, 300).then(function(small) {
+          if (small.length < row.photo.length * 0.9) {
+            MY_GROUPS.concat(MY_PENDING_GROUP_INVITES).forEach(function(g) {
+              if (g.id === row.id) g.photo = small;
+            });
+            sbClient.from('groups').update({ photo: small }).eq('id', row.id).then(function(){}, function(){});
+            if (document.getElementById('s-circle').classList.contains('active')) renderCircleGroups();
+          }
+        });
+      }
     });
     if (changed && document.getElementById('s-circle').classList.contains('active')) {
       renderCircleGroups();
