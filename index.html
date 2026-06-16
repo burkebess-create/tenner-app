@@ -480,6 +480,7 @@
           <div id="circle-friend-requests"></div>
           <div id="circle-friends-list"></div>
 
+          <div id="circle-list-invites"></div>
           <div id="circle-group-invites"></div>
           <div class="sec-label" style="margin-top:4px">Groups</div>
           <div id="circle-groups-list"></div>
@@ -1458,15 +1459,22 @@ function closeShareListModal() {
   document.getElementById('share-list-modal').style.display = 'none';
 }
 
-function shareListWithFriend(friendId, cat, btn) {
-  // In a real app, this would send a Supabase notification. For now show confirmation.
+async function shareListWithFriend(friendId, cat, btn) {
+  if (sbClient && userId) {
+    try {
+      var res = await sbClient.from('list_share_invites').insert({ from_user_id: userId, to_user_id: friendId, category: cat });
+      if (res.error && res.error.code !== '23505') throw res.error; // 23505 = already invited
+    } catch(e) { console.warn('Share invite failed', e); }
+  }
   btn.textContent = 'Sent ✓';
   btn.style.color = '#3B6D11';
   btn.style.borderColor = '#3B6D11';
   btn.disabled = true;
 }
 
-function shareListWithGroup(groupIdx, cat, btn) {
+async function shareListWithGroup(groupIdx, cat, btn) {
+  var g = MY_GROUPS[groupIdx];
+  if (g && g.id) await shareListToGroup(g.id, cat);
   btn.textContent = 'Sent ✓';
   btn.style.color = '#3B6D11';
   btn.style.borderColor = '#3B6D11';
@@ -2501,6 +2509,66 @@ function renderCircleScreen() {
   renderCircleFriends();
   renderCircleGroups();
   updateGroupMetaCounts();
+  loadListShareInvites().then(renderListShareInvites);
+}
+
+var MY_LIST_SHARE_INVITES = []; // incoming "fill out this list" invites from friends
+
+async function loadListShareInvites() {
+  MY_LIST_SHARE_INVITES = [];
+  if (!sbClient || !userId) return;
+  try {
+    var res = await sbClient.from('list_share_invites').select('*').eq('to_user_id', userId);
+    var invites = res.data || [];
+    if (invites.length === 0) return;
+    var fromIds = invites.map(function(r){ return r.from_user_id; });
+    var profileMap = {};
+    try {
+      var pRes = await sbClient.from('profiles').select('*').in('id', fromIds);
+      (pRes.data || []).forEach(function(p){ profileMap[p.id] = p; });
+    } catch(e) {}
+    MY_LIST_SHARE_INVITES = invites.map(function(r) {
+      return { id: r.id, fromId: r.from_user_id, category: r.category, profile: profileMap[r.from_user_id] || {} };
+    });
+  } catch(e) { console.warn('Load list invites failed', e); }
+}
+
+function renderListShareInvites() {
+  var el = document.getElementById('circle-list-invites');
+  if (!el) return;
+  if (MY_LIST_SHARE_INVITES.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="sec-label" style="margin-top:4px">List Invites (' + MY_LIST_SHARE_INVITES.length + ')</div>'
+    + MY_LIST_SHARE_INVITES.map(function(inv) {
+      var name = inv.profile.display_name || (inv.profile.handle ? '@' + inv.profile.handle : 'A friend');
+      return '<div class="card no-hover" style="margin-bottom:8px;background:#FFF8F6;border-color:#F4C9B8">'
+        + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+        + friendAvatarHtml(inv.profile, 38)
+        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '</div>'
+        + '<div style="font-size:11px;color:#5F5E5A">invited you to fill out <strong>Top 10 ' + escapeHtml(inv.category) + '</strong></div></div></div>'
+        + '<div style="display:flex;gap:6px">'
+        + '<button class="btn-primary" style="flex:1;margin-bottom:0;font-size:12px;padding:9px" onclick="acceptListInvite(\'' + inv.id + '\',\'' + inv.category.replace(/'/g,"\\'") + '\')">Fill it out</button>'
+        + '<button class="btn-secondary" style="flex:1;margin-bottom:0;font-size:12px;padding:9px" onclick="declineListInvite(\'' + inv.id + '\')">Dismiss</button>'
+        + '</div></div>';
+    }).join('');
+}
+
+async function acceptListInvite(inviteId, cat) {
+  if (sbClient) { try { await sbClient.from('list_share_invites').delete().eq('id', inviteId); } catch(e) { console.warn('Dismiss invite failed', e); } }
+  MY_LIST_SHARE_INVITES = MY_LIST_SHARE_INVITES.filter(function(i){ return i.id !== inviteId; });
+  selCat = cat;
+  editingListIdx = -1;
+  var existing = MY_LISTS.find(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
+  items = existing ? (existing.items || []).slice() : [];
+  isRanked = existing ? existing.ranked !== false : true;
+  listOrigin = 's-home';
+  pendingShareGroupId = null;
+  go('s-create2');
+}
+
+async function declineListInvite(inviteId) {
+  if (sbClient) { try { await sbClient.from('list_share_invites').delete().eq('id', inviteId); } catch(e) { console.warn('Dismiss invite failed', e); } }
+  MY_LIST_SHARE_INVITES = MY_LIST_SHARE_INVITES.filter(function(i){ return i.id !== inviteId; });
+  renderListShareInvites();
 }
 
 // Compute real "X members · N lists compared" for each group and refresh the cards.
