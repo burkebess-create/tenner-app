@@ -1415,9 +1415,35 @@ function shareCurrentList() {
   openShareListModal(cat);
 }
 
-function openShareListModal(cat) {
+function fmtShareDate(iso) {
+  if (!iso) return '';
+  var d = new Date(iso), now = new Date();
+  var opts = { month: 'short', day: 'numeric' };
+  if (d.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+  return d.toLocaleDateString(undefined, opts);
+}
+
+async function openShareListModal(cat) {
   document.getElementById('share-list-modal-title').textContent = 'Share Top 10 ' + cat;
   var accepted = myFriends.filter(function(f) { return f.status === 'accepted'; });
+
+  // Look up what's already been shared for this category
+  var friendInvites = {}; // toUserId -> { id, created_at, dismissed_at }
+  var groupShares = {};    // groupId -> created_at
+  if (sbClient && userId) {
+    try {
+      var fr = await sbClient.from('list_share_invites').select('id, to_user_id, created_at, dismissed_at').eq('from_user_id', userId).eq('category', cat);
+      (fr.data || []).forEach(function(r){ friendInvites[r.to_user_id] = r; });
+    } catch(e) { console.warn('Invite lookup failed', e); }
+    var gids = MY_GROUPS.map(function(g){ return g.id; }).filter(Boolean);
+    if (gids.length) {
+      try {
+        var gr = await sbClient.from('group_lists').select('group_id, created_at').in('group_id', gids).eq('category', cat);
+        (gr.data || []).forEach(function(r){ groupShares[r.group_id] = r.created_at; });
+      } catch(e) { console.warn('Group share lookup failed', e); }
+    }
+  }
+
   var html = '';
 
   // Friends section
@@ -1426,11 +1452,17 @@ function openShareListModal(cat) {
     html += accepted.map(function(f) {
       var name = f.profile.display_name || f.profile.handle || 'Friend';
       var handle = f.profile.handle ? '@' + f.profile.handle : '';
-      var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
+      var inv = friendInvites[f.friendId];
+      var sub = inv
+        ? '<div style="font-size:10px;color:#3B6D11">Shared ' + fmtShareDate(inv.created_at) + '</div>'
+        : '<div style="font-size:10px;color:#5F5E5A">' + handle + '</div>';
+      var btn = inv
+        ? '<button class="add-btn" id="share-friend-btn-' + f.friendId + '" onclick="remindListInvite(\'' + f.friendId + '\',\'' + cat.replace(/'/g,"\\'") + '\',this)">Remind</button>'
+        : '<button class="add-btn" id="share-friend-btn-' + f.friendId + '" onclick="shareListWithFriend(\'' + f.friendId + '\',\'' + cat.replace(/'/g,"\\'") + '\',this)">Send</button>';
       return '<div class="member-row" style="margin-bottom:6px">'
         + '<div style="margin-right:8px">' + friendAvatarHtml(f.profile, 32) + '</div>'
-        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>'
-        + '<button class="add-btn" id="share-friend-btn-' + f.friendId + '" onclick="shareListWithFriend(\'' + f.friendId + '\',\'' + cat.replace(/'/g,"\\'") + '\',this)">Send</button>'
+        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div>' + sub + '</div>'
+        + btn
         + '</div>';
     }).join('');
   }
@@ -1439,10 +1471,15 @@ function openShareListModal(cat) {
   if (MY_GROUPS.length > 0) {
     html += '<div class="sec-label">Groups</div>';
     html += MY_GROUPS.map(function(g, i) {
+      var sharedAt = g.id ? groupShares[g.id] : null;
+      var sub = sharedAt ? '<div style="font-size:10px;color:#3B6D11">Shared ' + fmtShareDate(sharedAt) + '</div>' : '';
+      var btn = sharedAt
+        ? '<button class="add-btn" disabled style="opacity:.6">Shared ✓</button>'
+        : '<button class="add-btn" id="share-group-btn-' + i + '" onclick="shareListWithGroup(' + i + ',\'' + cat.replace(/'/g,"\\'") + '\',this)">Send</button>';
       return '<div class="card" style="margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:8px">'
         + '<div style="font-size:20px">' + (g.emoji || '👥') + '</div>'
-        + '<div style="flex:1;font-size:12px;font-weight:600;color:#2C2C2A">' + g.n + '</div>'
-        + '<button class="add-btn" id="share-group-btn-' + i + '" onclick="shareListWithGroup(' + i + ',\'' + cat.replace(/'/g,"\\'") + '\',this)">Send</button>'
+        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + g.n + '</div>' + sub + '</div>'
+        + btn
         + '</div></div>';
     }).join('');
   }
@@ -1467,6 +1504,34 @@ async function shareListWithFriend(friendId, cat, btn) {
     } catch(e) { console.warn('Share invite failed', e); }
   }
   btn.textContent = 'Sent ✓';
+  btn.style.color = '#3B6D11';
+  btn.style.borderColor = '#3B6D11';
+  btn.disabled = true;
+}
+
+// Remind a friend about a previously-shared list. If they dismissed it within the
+// last 90 days, the sender sees "Reminded" but no live notification is re-sent.
+// Otherwise (still pending, or dismissed >90 days ago) it goes through as a fresh invite.
+async function remindListInvite(friendId, cat, btn) {
+  var NINETY_DAYS = 90 * 24 * 3600 * 1000;
+  if (sbClient && userId) {
+    try {
+      var res = await sbClient.from('list_share_invites').select('*')
+        .eq('from_user_id', userId).eq('to_user_id', friendId).eq('category', cat).maybeSingle();
+      var inv = res.data;
+      if (!inv) {
+        // Row vanished — treat as a brand-new send
+        await sbClient.from('list_share_invites').insert({ from_user_id: userId, to_user_id: friendId, category: cat });
+      } else {
+        var suppress = inv.dismissed_at && (Date.now() - new Date(inv.dismissed_at).getTime() < NINETY_DAYS);
+        if (!suppress) {
+          // Re-surface as a live invite with a refreshed share date
+          await sbClient.from('list_share_invites').update({ dismissed_at: null, created_at: new Date().toISOString() }).eq('id', inv.id);
+        }
+      }
+    } catch(e) { console.warn('Remind failed', e); }
+  }
+  btn.textContent = 'Reminded ✓';
   btn.style.color = '#3B6D11';
   btn.style.borderColor = '#3B6D11';
   btn.disabled = true;
@@ -2518,7 +2583,7 @@ async function loadListShareInvites() {
   MY_LIST_SHARE_INVITES = [];
   if (!sbClient || !userId) return;
   try {
-    var res = await sbClient.from('list_share_invites').select('*').eq('to_user_id', userId);
+    var res = await sbClient.from('list_share_invites').select('*').eq('to_user_id', userId).is('dismissed_at', null);
     var invites = res.data || [];
     if (invites.length === 0) return;
     var fromIds = invites.map(function(r){ return r.from_user_id; });
@@ -2553,7 +2618,7 @@ function renderListShareInvites() {
 }
 
 async function acceptListInvite(inviteId, cat) {
-  if (sbClient) { try { await sbClient.from('list_share_invites').delete().eq('id', inviteId); } catch(e) { console.warn('Dismiss invite failed', e); } }
+  if (sbClient) { try { await sbClient.from('list_share_invites').update({ dismissed_at: new Date().toISOString() }).eq('id', inviteId); } catch(e) { console.warn('Mark invite failed', e); } }
   MY_LIST_SHARE_INVITES = MY_LIST_SHARE_INVITES.filter(function(i){ return i.id !== inviteId; });
   selCat = cat;
   editingListIdx = -1;
@@ -2566,7 +2631,7 @@ async function acceptListInvite(inviteId, cat) {
 }
 
 async function declineListInvite(inviteId) {
-  if (sbClient) { try { await sbClient.from('list_share_invites').delete().eq('id', inviteId); } catch(e) { console.warn('Dismiss invite failed', e); } }
+  if (sbClient) { try { await sbClient.from('list_share_invites').update({ dismissed_at: new Date().toISOString() }).eq('id', inviteId); } catch(e) { console.warn('Dismiss invite failed', e); } }
   MY_LIST_SHARE_INVITES = MY_LIST_SHARE_INVITES.filter(function(i){ return i.id !== inviteId; });
   renderListShareInvites();
 }
