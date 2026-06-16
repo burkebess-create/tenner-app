@@ -2432,8 +2432,8 @@ async function saveProfile() {
     try {
       var res = await sbClient.from('profiles').upsert(myProfile);
       if (res && res.error) {
-        // Fallback: retry without optional columns that may not exist yet
-        var safe = { id: userId, display_name: name, handle: handle, birthday: birthday || null, updated_at: myProfile.updated_at };
+        // Fallback: retry without optional columns that may not exist yet (e.g. photo)
+        var safe = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, updated_at: myProfile.updated_at };
         if (existingPhoto) safe.photo = existingPhoto;
         await sbClient.from('profiles').upsert(safe);
       }
