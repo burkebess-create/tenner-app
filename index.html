@@ -1416,7 +1416,7 @@ function renderLists() {
   MY_LISTS.forEach(function(l, i) {
     var card = document.createElement('div');
     card.className = 'card';
-    card.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + l.n + '</div><div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + l.m + '</div></div><span style="font-size:18px;color:#D3D1C7">›</span></div>';
+    card.innerHTML = '<div style="display:flex;align-items:center;gap:10px"><div style="font-size:22px;width:36px;text-align:center">' + (l.emoji || getCatEmoji(l.category)) + '</div><div style="flex:1"><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + l.n + '</div><div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + l.m + '</div></div><span style="font-size:18px;color:#D3D1C7">›</span></div>';
     card.onclick = (function(list) { return function() { showListDetail(list); }; })(l);
     container.appendChild(card);
   });
@@ -1425,7 +1425,7 @@ function renderLists() {
 function showListDetail(l) {
   var listItems = (l.items || []);
   var screen = document.getElementById('s-list-detail');
-  document.getElementById('list-detail-title').textContent = l.n;
+  document.getElementById('list-detail-title').textContent = (l.emoji || getCatEmoji(l.category)) + ' ' + l.n;
   document.getElementById('list-detail-meta').textContent = l.m;
   var el = document.getElementById('list-detail-items');
   el.innerHTML = '';
@@ -1584,13 +1584,14 @@ async function shareListWithGroup(groupIdx, cat, btn) {
 }
 
 function editCurrentList() {
-  // Find the list index by matching the title shown
+  // Find the list index by matching the title shown (title may include emoji prefix)
   var title = document.getElementById('list-detail-title').textContent;
-  var idx = MY_LISTS.findIndex(function(l) { return l.n === title; });
+  var idx = MY_LISTS.findIndex(function(l) { return title === l.n || title.endsWith(' ' + l.n); });
   if (idx < 0) return;
   var l = MY_LISTS[idx];
   editingListIdx = idx;
   selCat = l.category || l.n.replace('Top 10 ', '');
+  selCatEmoji = l.emoji || getCatEmoji(selCat);
   items = l.items.slice();
   isRanked = l.ranked !== false;
   listOrigin = 's-list-detail';
@@ -3249,6 +3250,7 @@ async function saveListToDb(listObj) {
       category: listObj.category || listObj.n.replace('Top 10 ', ''),
       items: listObj.items,
       is_ranked: listObj.ranked !== false,
+      emoji: listObj.emoji || '📋',
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id,category' });
   } catch(e) { console.warn('List save to DB failed', e); }
@@ -3273,7 +3275,7 @@ async function loadState() {
 
       if (listsRes.data && listsRes.data.length > 0) {
         MY_LISTS = listsRes.data.map(function(l) {
-          return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category };
+          return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category, emoji: l.emoji || getCatEmoji(l.category) };
         });
       } else {
         var l = localStorage.getItem('tenner_lists');
@@ -3741,6 +3743,7 @@ function editListByIdx(idx) {
   if (!l) return;
   editingListIdx = idx;
   selCat = l.category || l.n.replace('Top 10 ', '');
+  selCatEmoji = l.emoji || getCatEmoji(selCat);
   items = l.items.slice();
   isRanked = l.ranked !== false;
   listOrigin = 's-list-detail';
@@ -3750,9 +3753,16 @@ function editListByIdx(idx) {
   go('s-create2');
 }
 
+function getCatEmoji(cat) {
+  var found = CATS.find(function(c) { return c.n === cat; });
+  return found ? found.e : '📋';
+}
+
 function goToCreateStep2() {
   var inp = document.getElementById('cat-inp');
   if (inp && inp.value.trim()) selCat = inp.value.trim();
+  var catMatch = CATS.find(function(c) { return c.n.toLowerCase() === selCat.toLowerCase(); });
+  if (catMatch) selCatEmoji = catMatch.e;
   // Prevent silently overwriting an existing list of the same category.
   if (editingListIdx < 0) {
     var existing = MY_LISTS.findIndex(function(l) {
@@ -3777,7 +3787,7 @@ function saveList() {
   var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
   var existing = MY_LISTS.findIndex(function(l) { return (l.category || l.n.replace('Top 10 ', '')) === selCat; });
   var isUpdate = existing >= 0;
-  var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat };
+  var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋' };
   if (isUpdate) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
   var dest = listOrigin;
   listOrigin = 's-home';
