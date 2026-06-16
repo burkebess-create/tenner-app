@@ -3232,7 +3232,20 @@ async function saveListToDb(listObj) {
 async function loadState() {
   if (sbClient && userId) {
     try {
-      var listsRes = await sbClient.from('lists').select('*').eq('user_id', userId);
+      console.time('loadState:total');
+      // Run the independent lists + group-membership queries in parallel
+      console.time('loadState:lists+memberships');
+      var results = await Promise.all([
+        sbClient.from('lists').select('*').eq('user_id', userId),
+        // Avoid an embedded groups(...) join: under RLS the planner re-checks the
+        // groups policy per joined row, which is dramatically slower. Two flat,
+        // index-backed queries are much faster.
+        sbClient.from('group_members').select('group_id, status').eq('user_id', userId)
+      ]);
+      console.timeEnd('loadState:lists+memberships');
+      var listsRes = results[0];
+      var gmRes = results[1];
+
       if (listsRes.data && listsRes.data.length > 0) {
         MY_LISTS = listsRes.data.map(function(l) {
           return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category };
@@ -3241,15 +3254,20 @@ async function loadState() {
         var l = localStorage.getItem('tenner_lists');
         if (l) MY_LISTS = JSON.parse(l);
       }
-      // Load groups — split into accepted (full member) and pending (invited but not yet accepted)
-      var groupsRes = await sbClient.from('group_members')
-        .select('group_id, status, joined_at, groups(id, name, emoji, photo, created_by, created_at)')
-        .eq('user_id', userId);
+
+      // Fetch the group records themselves by primary key (fast, indexed)
       MY_GROUPS = [];
       MY_PENDING_GROUP_INVITES = [];
-      if (groupsRes.data && groupsRes.data.length > 0) {
-        groupsRes.data.forEach(function(row) {
-          var g = row.groups;
+      var memberRows = gmRes.data || [];
+      var gids = memberRows.map(function(r){ return r.group_id; });
+      if (gids.length > 0) {
+        console.time('loadState:groups');
+        var gRes = await sbClient.from('groups').select('id, name, emoji, photo, created_by, created_at').in('id', gids);
+        console.timeEnd('loadState:groups');
+        var groupsById = {};
+        (gRes.data || []).forEach(function(g){ groupsById[g.id] = g; });
+        memberRows.forEach(function(row) {
+          var g = groupsById[row.group_id];
           if (!g) return;
           var obj = {
             id: g.id, n: g.name, emoji: g.emoji || '👥', photo: g.photo || null,
@@ -3260,6 +3278,7 @@ async function loadState() {
           else MY_PENDING_GROUP_INVITES.push(obj);
         });
       }
+      console.timeEnd('loadState:total');
       return;
     } catch(e) { console.warn('Supabase load failed', e); }
   }
@@ -3748,10 +3767,15 @@ function clearPendingInvite() {
 
   // onAuthStateChange fires with INITIAL_SESSION on load (covers "already logged in")
   // and with SIGNED_IN after OAuth redirect or email login
+  var _handledUserId = null;
   sbClient.auth.onAuthStateChange(async function(event, session) {
-    if (event === 'SIGNED_OUT') { go('s-auth'); return; }
+    if (event === 'SIGNED_OUT') { _handledUserId = null; go('s-auth'); return; }
     if (event === 'TOKEN_REFRESHED') return;
     if (session) {
+      // Avoid running the full load twice when INITIAL_SESSION and SIGNED_IN
+      // both fire for the same user on startup.
+      if (_handledUserId === session.user.id) return;
+      _handledUserId = session.user.id;
       await handleSession(session);
     } else if (event === 'INITIAL_SESSION') {
       go('s-auth');
