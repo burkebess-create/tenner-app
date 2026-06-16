@@ -305,6 +305,8 @@
               <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
             </div>
           </div>
+          <div class="sec-label">Share with friends</div>
+          <div id="share-friends-list"></div>
           <div class="sec-label">Share with a group</div>
           <div id="share-groups-list"></div>
           <div class="sec-label">Or share directly</div>
@@ -1428,22 +1430,52 @@ function renderAddedChips() {
 }
 
 function renderShareGroups() {
+  // Friends
+  var fe = document.getElementById('share-friends-list');
+  if (fe) {
+    var accepted = myFriends.filter(function(f) { return f.status === 'accepted'; });
+    if (accepted.length === 0) {
+      fe.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No friends yet — add some from your Profile tab.</div>';
+    } else {
+      fe.innerHTML = accepted.map(function(f) {
+        var name = f.profile.display_name || f.profile.handle || 'Friend';
+        return '<div class="member-row" style="margin-bottom:6px">'
+          + '<div style="margin-right:8px">' + friendAvatarHtml(f.profile, 32) + '</div>'
+          + '<div style="flex:1;font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div>'
+          + '<button class="add-btn" onclick="shareCreateListToFriend(\'' + f.friendId + '\',this)">Send</button>'
+          + '</div>';
+      }).join('');
+    }
+  }
+  // Groups
   var el = document.getElementById('share-groups-list');
   if (!el) return;
   if (MY_GROUPS.length === 0) {
-    el.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No circles yet — create one first to share with a group.</div>';
+    el.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No circles yet — create one first.</div>';
     return;
   }
   el.innerHTML = MY_GROUPS.map(function(g, i) {
     return '<div class="card" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:8px">'
-      + '<div class="group-emoji" style="width:34px;height:34px;font-size:18px">' + g.emoji + '</div>'
+      + groupAvatarHtml(g, 34)
       + '<div style="flex:1;font-size:12px;font-weight:600;color:#2C2C2A">' + g.n + '</div>'
       + '<button class="add-btn" onclick="event.stopPropagation();shareCreateListToGroup(' + i + ', this)">Send</button>'
       + '</div></div>';
   }).join('');
 }
 
+async function shareCreateListToFriend(friendId, btn) {
+  saveList(); // save first
+  if (sbClient && userId) {
+    try {
+      var res = await sbClient.from('list_share_invites').insert({ from_user_id: userId, to_user_id: friendId, category: selCat });
+      if (res.error && res.error.code !== '23505') throw res.error;
+    } catch(e) { console.warn('Friend share failed', e); }
+  }
+  if (btn) { btn.textContent = 'Sent ✓'; btn.disabled = true; btn.style.color = '#3B6D11'; btn.style.borderColor = '#3B6D11'; }
+}
+
 async function shareCreateListToGroup(groupIdx, btn) {
+  saveList(); // save first
   var g = MY_GROUPS[groupIdx];
   if (!g) return;
   await shareListToGroup(g.id, selCat);
