@@ -3212,24 +3212,91 @@ async function renderMatch() {
         var detail = shared.length + '/' + Math.max(myItems.length, theirItems.length) + ' same picks';
         return '<div class="card no-hover"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px"><div class="avatar" style="background:#E6F1FB;color:#185FA5">' + initials + '</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div><div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div><div style="font-size:18px;font-weight:700;color:#D85A30">' + c.score + '%</div></div><div class="bar-bg"><div class="bar-fill" style="width:' + c.score + '%"></div></div></div>';
       }).join('');
-      var topComp = comps[0];
-      var myI = topComp.myList.items.map(function(x){return x.toLowerCase().trim();});
-      var theirI = topComp.friendList.items.map(function(x){return x.toLowerCase().trim();});
-      var shared = topComp.myList.items.filter(function(x){return theirI.indexOf(x.toLowerCase().trim())!==-1;});
-      var fname = (topComp.friend.profile && topComp.friend.profile.display_name) || 'Friend';
-      var rowsHtml = topComp.myList.items.slice(0,5).map(function(item, idx) {
-        var match = theirI.indexOf(item.toLowerCase().trim()) !== -1;
-        var theirItem = topComp.friendList.items[idx] || '—';
-        var bg = match ? '#EAF3DE' : '#F1EFE8'; var col = match ? '#3B6D11' : '#2C2C2A';
-        return '<div style="display:flex;gap:5px;margin-bottom:4px"><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + item + '</div><div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + theirItem + '</div></div>';
+
+      // Build a unified item map: key (lowercase) -> { display, myRank, friendEntries: [{fname, rank}] }
+      var itemMap = {};
+      var myListItems = comps[0].myList.items; // all comps share the same myList
+      myListItems.forEach(function(item, idx) {
+        var key = item.toLowerCase().trim();
+        itemMap[key] = { display: item, myRank: idx + 1, friendEntries: [] };
+      });
+      comps.forEach(function(c) {
+        var fn = (c.friend.profile && c.friend.profile.display_name) || (c.friend.profile && c.friend.profile.handle ? '@' + c.friend.profile.handle : 'Friend');
+        c.friendList.items.forEach(function(item, idx) {
+          var key = item.toLowerCase().trim();
+          if (!itemMap[key]) itemMap[key] = { display: item, myRank: null, friendEntries: [] };
+          itemMap[key].friendEntries.push({ fname: fn, rank: idx + 1 });
+        });
+      });
+
+      // Sort: items picked by more people first; ties broken by lowest average rank (closest agreement)
+      var sortedItems = Object.values(itemMap).sort(function(a, b) {
+        var aPickers = (a.myRank !== null ? 1 : 0) + a.friendEntries.length;
+        var bPickers = (b.myRank !== null ? 1 : 0) + b.friendEntries.length;
+        if (bPickers !== aPickers) return bPickers - aPickers;
+        var aRanks = (a.myRank ? [a.myRank] : []).concat(a.friendEntries.map(function(e){ return e.rank; }));
+        var bRanks = (b.myRank ? [b.myRank] : []).concat(b.friendEntries.map(function(e){ return e.rank; }));
+        var aAvg = aRanks.reduce(function(s,r){return s+r;},0) / aRanks.length;
+        var bAvg = bRanks.reduce(function(s,r){return s+r;},0) / bRanks.length;
+        return aAvg - bAvg;
+      });
+
+      var isOneOnOne = comps.length === 1;
+      var singleFname = isOneOnOne ? ((comps[0].friend.profile && comps[0].friend.profile.display_name) || 'Friend') : 'Group avg';
+
+      // Column header(s)
+      var colHeaders = isOneOnOne
+        ? '<div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">' + escapeHtml(singleFname) + '</div>'
+        : '<div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">Group avg rank</div>';
+
+      var rowsHtml = sortedItems.map(function(item) {
+        var totalPickers = (item.myRank !== null ? 1 : 0) + item.friendEntries.length;
+        var totalParticipants = 1 + comps.length; // me + all compared friends
+        var everyonePicked = totalPickers === totalParticipants;
+        var somePicked = totalPickers > 1;
+        var bg = everyonePicked ? '#EAF3DE' : somePicked ? '#FFF8F2' : '#F1EFE8';
+        var col = everyonePicked ? '#3B6D11' : '#2C2C2A';
+
+        var myCell = item.myRank !== null
+          ? '<span style="font-weight:600;color:#888780;min-width:16px;display:inline-block">#' + item.myRank + '</span> ' + escapeHtml(item.display)
+          : '<span style="color:#C4C2BA">—</span>';
+
+        var rightCell;
+        if (isOneOnOne) {
+          var fe = item.friendEntries[0];
+          rightCell = fe
+            ? '<span style="font-weight:600;color:#888780;min-width:16px;display:inline-block">#' + fe.rank + '</span> ' + escapeHtml(item.display)
+            : '<span style="color:#C4C2BA">—</span>';
+        } else {
+          if (item.friendEntries.length === 0) {
+            rightCell = '<span style="color:#C4C2BA">—</span>';
+          } else {
+            var avgRank = item.friendEntries.reduce(function(s,e){return s+e.rank;},0) / item.friendEntries.length;
+            rightCell = '<span style="font-weight:600;color:#888780">#' + avgRank.toFixed(1).replace(/\.0$/,'') + '</span>'
+              + ' <span style="font-size:10px;color:#888780">(' + item.friendEntries.length + '/' + comps.length + ')</span>';
+          }
+        }
+
+        return '<div style="display:flex;gap:5px;margin-bottom:4px">'
+          + '<div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + myCell + '</div>'
+          + '<div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + rightCell + '</div>'
+          + '</div>';
       }).join('');
-      var agreePills = shared.map(function(a){return '<span class="pill pill-green">'+a+'</span>';}).join('');
+
+      var sharedItems = sortedItems.filter(function(item) {
+        return item.myRank !== null && item.friendEntries.length > 0;
+      });
+      var agreePills = sharedItems.map(function(item){ return '<span class="pill pill-green">' + escapeHtml(item.display) + '</span>'; }).join('');
+
+      var sideLabel = isOneOnOne ? 'Side-by-side: You vs ' + escapeHtml(singleFname) : 'Side-by-side: You vs Group';
+
       return '<div id="match-panel-' + i + '" style="display:' + (i===0?'block':'none') + '">'
-        + '<div style="font-size:10px;color:#5F5E5A;margin-bottom:12px">Top 10 ' + cat + ' · ' + comps.length + ' friend' + (comps.length>1?'s':'') + ' compared</div>'
+        + '<div style="font-size:10px;color:#5F5E5A;margin-bottom:12px">Top 10 ' + escapeHtml(cat) + ' · ' + comps.length + ' friend' + (comps.length>1?'s':'') + ' compared</div>'
         + '<div class="sec-label">Match Scores</div>' + scoresHtml
-        + (comps.length>0 ? '<div class="sec-label">Side-by-side: You vs ' + fname + '</div>'
-          + '<div style="display:flex;gap:5px;margin-bottom:3px"><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">' + fname + '</div></div>' + rowsHtml : '')
-        + (shared.length>0 ? '<div class="sec-label">Everyone agrees on…</div><div style="display:flex;flex-wrap:wrap;gap:6px">' + agreePills + '</div>' : '')
+        + '<div class="sec-label">' + sideLabel + '</div>'
+        + '<div style="display:flex;gap:5px;margin-bottom:6px">' + colHeaders + '</div>'
+        + rowsHtml
+        + (agreePills ? '<div class="sec-label">Everyone agrees on…</div><div style="display:flex;flex-wrap:wrap;gap:6px">' + agreePills + '</div>' : '')
         + '</div>';
     }).join('');
     el.innerHTML = tabsHtml + panelsHtml;
