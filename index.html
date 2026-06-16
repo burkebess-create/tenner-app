@@ -3451,13 +3451,12 @@ async function renderMatch() {
     } else {
       overallHtml += overallRanked.map(function(entry, rank) {
         var fname = (entry.friend.profile && entry.friend.profile.display_name) || (entry.friend.profile && entry.friend.profile.handle ? '@'+entry.friend.profile.handle : 'Friend');
-        var initials = fname.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
         var medals = ['🥇','🥈','🥉'];
         var medal = medals[rank] || '';
         var detail = entry.cats.length + ' list' + (entry.cats.length!==1?'s':'') + ' · ' + entry.cats.join(', ');
         return '<div class="card no-hover" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
           + '<span style="font-size:18px;width:24px;text-align:center">' + medal + '</span>'
-          + '<div class="avatar" style="background:#E6F1FB;color:#185FA5">' + initials + '</div>'
+          + friendAvatarHtml(entry.friend.profile, 32)
           + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div>'
           + '<div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
           + '<div style="font-size:18px;font-weight:700;color:#D85A30">' + entry.avg + '%</div></div>'
@@ -3484,12 +3483,11 @@ async function renderMatch() {
       var comps = byCategory[cat];
       var scoresHtml = comps.map(function(c) {
         var fname = (c.friend.profile && c.friend.profile.display_name) || (c.friend.profile && c.friend.profile.handle ? '@'+c.friend.profile.handle : 'Friend');
-        var initials = fname.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
         var myItems = c.myList.items.map(function(x){return x.toLowerCase().trim();});
         var theirItems = c.friendList.items.map(function(x){return x.toLowerCase().trim();});
         var shared = myItems.filter(function(x){return theirItems.indexOf(x)!==-1;});
         var detail = shared.length + '/' + Math.max(myItems.length, theirItems.length) + ' same picks';
-        return '<div class="card no-hover"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px"><div class="avatar" style="background:#E6F1FB;color:#185FA5">' + initials + '</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div><div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div><div style="font-size:18px;font-weight:700;color:#D85A30">' + c.score + '%</div></div><div class="bar-bg"><div class="bar-fill" style="width:' + c.score + '%"></div></div></div>';
+        return '<div class="card no-hover"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">' + friendAvatarHtml(c.friend.profile, 32) + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div><div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div><div style="font-size:18px;font-weight:700;color:#D85A30">' + c.score + '%</div></div><div class="bar-bg"><div class="bar-fill" style="width:' + c.score + '%"></div></div></div>';
       }).join('');
 
       // Build a unified item map: key (lowercase) -> { display, myRank, friendEntries: [{fname, rank}] }
