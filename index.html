@@ -146,7 +146,7 @@
       <div class="screen" id="s-home">
         <div class="topbar">
           <span class="logo">Tenner</span>
-          <button class="back-btn" onclick="go('s-notifications')" style="position:relative;padding:4px 8px;font-size:16px;border:none">🔔<span id="notif-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center"></span></button>
+          <span style="font-size:11px;color:#5F5E5A">My Lists</span>
         </div>
         <div class="content">
           <div class="sec-label">My Lists</div>
@@ -597,6 +597,7 @@
         <div class="ni" id="nav-circle" onclick="go('s-circle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Circle</div>
         <div class="ni" id="nav-match" onclick="matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
         <div class="ni" id="nav-profile" onclick="go('s-profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</div>
+        <div class="ni" id="nav-alerts" onclick="go('s-notifications')" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>Alerts<span id="notif-badge" style="display:none;position:absolute;top:2px;right:14px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center"></span></div>
       </div>
 
       <!-- SHARE LIST MODAL -->
@@ -777,7 +778,7 @@ function go(id) {
   var bnav = document.getElementById('global-bnav');
   if (bnav) {
     bnav.style.display = (id === 's-auth') ? 'none' : 'flex';
-    ['nav-home','nav-create','nav-circle','nav-match','nav-profile'].forEach(function(nid) {
+    ['nav-home','nav-create','nav-circle','nav-match','nav-profile','nav-alerts'].forEach(function(nid) {
       document.getElementById(nid) && document.getElementById(nid).classList.remove('active');
     });
     var activeNav = {
@@ -787,7 +788,8 @@ function go(id) {
       's-gdetail': 'nav-circle', 's-groups': 'nav-circle', 's-gsettings': 'nav-circle',
       's-match': 'nav-match',
       's-circle': 'nav-circle', 's-fdetail': 'nav-circle',
-      's-profile': 'nav-profile'
+      's-profile': 'nav-profile',
+      's-notifications': 'nav-alerts'
     }[id];
     if (activeNav) document.getElementById(activeNav) && document.getElementById(activeNav).classList.add('active');
   }
@@ -817,7 +819,7 @@ function go(id) {
     renderMatch();
   }
   if (id === 's-circle') { renderCircleScreen(); renderGiftReminders(); }
-  if (id === 's-notifications') { loadListShareInvites().then(renderNotifications); }
+  if (id === 's-notifications') { loadListShareInvites().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
   if (id === 's-profile') { renderProfileHeader(); renderFriendsSection(); }
 }
 
@@ -2591,7 +2593,7 @@ var MY_LIST_SHARE_INVITES = []; // incoming "fill out this list" invites from fr
 function updateNotificationBadge() {
   var badge = document.getElementById('notif-badge');
   if (!badge) return;
-  var n = MY_LIST_SHARE_INVITES.length;
+  var n = MY_LIST_SHARE_INVITES.filter(function(i){ return !i.read_at; }).length;
   if (n > 0) { badge.textContent = n > 9 ? '9+' : n; badge.style.display = 'block'; }
   else { badge.style.display = 'none'; }
 }
@@ -2615,9 +2617,21 @@ async function loadListShareInvites() {
       (pRes.data || []).forEach(function(p){ profileMap[p.id] = p; });
     } catch(e) {}
     MY_LIST_SHARE_INVITES = invites.map(function(r) {
-      return { id: r.id, fromId: r.from_user_id, category: r.category, profile: profileMap[r.from_user_id] || {} };
+      return { id: r.id, fromId: r.from_user_id, category: r.category, read_at: r.read_at, profile: profileMap[r.from_user_id] || {} };
     });
   } catch(e) { console.warn('Load list invites failed', e); }
+}
+
+// Mark every currently-loaded unread invite as read (called when the screen is opened)
+async function markNotificationsRead() {
+  var unread = MY_LIST_SHARE_INVITES.filter(function(i){ return !i.read_at; });
+  if (unread.length === 0) return;
+  var now = new Date().toISOString();
+  unread.forEach(function(i){ i.read_at = now; });
+  if (sbClient && userId) {
+    try { await sbClient.from('list_share_invites').update({ read_at: now }).eq('to_user_id', userId).is('read_at', null).is('dismissed_at', null); }
+    catch(e) { console.warn('Mark read failed', e); }
+  }
 }
 
 function renderNotifications() {
@@ -2631,22 +2645,31 @@ function renderNotifications() {
   el.innerHTML = '<div class="sec-label" style="margin-top:0">List Invites (' + MY_LIST_SHARE_INVITES.length + ')</div>'
     + MY_LIST_SHARE_INVITES.map(function(inv) {
       var name = inv.profile.display_name || (inv.profile.handle ? '@' + inv.profile.handle : 'A friend');
+      var catEsc = inv.category.replace(/'/g,"\\'");
+      var filled = MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === inv.category; });
+      var unreadDot = inv.read_at ? '' : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#D85A30;margin-left:6px;vertical-align:middle"></span>';
+      var actions = filled
+        ? '<button class="btn-secondary" style="flex:1;margin-bottom:0;font-size:12px;padding:9px;color:#3B6D11;border-color:#97C459" onclick="openFilledListFromNotif(\'' + catEsc + '\')">✓ Filled out · View your list</button>'
+        : '<button class="btn-primary" style="flex:1;margin-bottom:0;font-size:12px;padding:9px" onclick="acceptListInvite(\'' + inv.id + '\',\'' + catEsc + '\')">Fill it out</button>'
+          + '<button class="btn-secondary" style="flex:1;margin-bottom:0;font-size:12px;padding:9px" onclick="declineListInvite(\'' + inv.id + '\')">Dismiss</button>';
       return '<div class="card no-hover" style="margin-bottom:8px;background:#FFF8F6;border-color:#F4C9B8">'
         + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
         + friendAvatarHtml(inv.profile, 38)
-        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '</div>'
-        + '<div style="font-size:11px;color:#5F5E5A">invited you to fill out <strong>Top 10 ' + escapeHtml(inv.category) + '</strong></div></div></div>'
-        + '<div style="display:flex;gap:6px">'
-        + '<button class="btn-primary" style="flex:1;margin-bottom:0;font-size:12px;padding:9px" onclick="acceptListInvite(\'' + inv.id + '\',\'' + inv.category.replace(/'/g,"\\'") + '\')">Fill it out</button>'
-        + '<button class="btn-secondary" style="flex:1;margin-bottom:0;font-size:12px;padding:9px" onclick="declineListInvite(\'' + inv.id + '\')">Dismiss</button>'
-        + '</div></div>';
+        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + unreadDot + '</div>'
+        + '<div style="font-size:11px;color:#5F5E5A">' + (filled ? 'You filled out' : 'invited you to fill out') + ' <strong>Top 10 ' + escapeHtml(inv.category) + '</strong></div></div></div>'
+        + '<div style="display:flex;gap:6px">' + actions + '</div></div>';
     }).join('');
 }
 
+// "Fill it out" — mark the invite read (do NOT dismiss), then open the create flow.
+// The invite stays in Notifications so the user can return to it if they don't finish.
 async function acceptListInvite(inviteId, cat) {
-  if (sbClient) { try { await sbClient.from('list_share_invites').update({ dismissed_at: new Date().toISOString() }).eq('id', inviteId); } catch(e) { console.warn('Mark invite failed', e); } }
-  MY_LIST_SHARE_INVITES = MY_LIST_SHARE_INVITES.filter(function(i){ return i.id !== inviteId; });
-  updateNotificationBadge();
+  var inv = MY_LIST_SHARE_INVITES.find(function(i){ return i.id === inviteId; });
+  if (inv && !inv.read_at) {
+    inv.read_at = new Date().toISOString();
+    if (sbClient) { try { await sbClient.from('list_share_invites').update({ read_at: inv.read_at }).eq('id', inviteId); } catch(e) {} }
+    updateNotificationBadge();
+  }
   selCat = cat;
   editingListIdx = -1;
   var existing = MY_LISTS.find(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
@@ -2657,8 +2680,16 @@ async function acceptListInvite(inviteId, cat) {
   go('s-create2');
 }
 
+function openFilledListFromNotif(cat) {
+  var l = MY_LISTS.find(function(x){ return (x.category || x.n.replace('Top 10 ','')) === cat; });
+  if (l) showListDetail(l);
+}
+
+// "Dismiss" — mark dismissed + read. Kept in DB (not deleted) for the 90-day
+// reminder window; removed from the active notification view.
 async function declineListInvite(inviteId) {
-  if (sbClient) { try { await sbClient.from('list_share_invites').update({ dismissed_at: new Date().toISOString() }).eq('id', inviteId); } catch(e) { console.warn('Dismiss invite failed', e); } }
+  var now = new Date().toISOString();
+  if (sbClient) { try { await sbClient.from('list_share_invites').update({ dismissed_at: now, read_at: now }).eq('id', inviteId); } catch(e) { console.warn('Dismiss invite failed', e); } }
   MY_LIST_SHARE_INVITES = MY_LIST_SHARE_INVITES.filter(function(i){ return i.id !== inviteId; });
   renderNotifications();
 }
