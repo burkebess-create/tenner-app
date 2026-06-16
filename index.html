@@ -146,7 +146,7 @@
       <div class="screen" id="s-home">
         <div class="topbar">
           <span class="logo">Tenner</span>
-          <span style="font-size:11px;color:#5F5E5A">My Lists</span>
+          <button class="back-btn" onclick="go('s-notifications')" style="position:relative;padding:4px 8px;font-size:16px;border:none">🔔<span id="notif-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center"></span></button>
         </div>
         <div class="content">
           <div class="sec-label">My Lists</div>
@@ -177,6 +177,16 @@
             <div style="margin-top:10px;font-size:11px;color:#D85A30;cursor:pointer;font-weight:600" onclick="go('s-gift')">See all gift ideas for Burke →</div>
           </div>
         </div>
+      </div>
+
+      <!-- ═══ NOTIFICATIONS ═══ -->
+      <div class="screen" id="s-notifications">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-home')">← Back</button>
+          <span style="font-size:13px;font-weight:600;color:#2C2C2A">Notifications</span>
+          <span style="width:52px"></span>
+        </div>
+        <div class="content" id="notifications-content"></div>
       </div>
 
       <!-- ═══ LIST DETAIL ═══ -->
@@ -480,7 +490,6 @@
           <div id="circle-friend-requests"></div>
           <div id="circle-friends-list"></div>
 
-          <div id="circle-list-invites"></div>
           <div id="circle-group-invites"></div>
           <div class="sec-label" style="margin-top:4px">Groups</div>
           <div id="circle-groups-list"></div>
@@ -808,6 +817,7 @@ function go(id) {
     renderMatch();
   }
   if (id === 's-circle') { renderCircleScreen(); renderGiftReminders(); }
+  if (id === 's-notifications') { loadListShareInvites().then(renderNotifications); }
   if (id === 's-profile') { renderProfileHeader(); renderFriendsSection(); }
 }
 
@@ -2574,10 +2584,22 @@ function renderCircleScreen() {
   renderCircleFriends();
   renderCircleGroups();
   updateGroupMetaCounts();
-  loadListShareInvites().then(renderListShareInvites);
 }
 
 var MY_LIST_SHARE_INVITES = []; // incoming "fill out this list" invites from friends
+
+function updateNotificationBadge() {
+  var badge = document.getElementById('notif-badge');
+  if (!badge) return;
+  var n = MY_LIST_SHARE_INVITES.length;
+  if (n > 0) { badge.textContent = n > 9 ? '9+' : n; badge.style.display = 'block'; }
+  else { badge.style.display = 'none'; }
+}
+
+// Refresh the unread count without rendering the full screen (called on app load / tab changes)
+function refreshNotifications() {
+  return loadListShareInvites().then(updateNotificationBadge);
+}
 
 async function loadListShareInvites() {
   MY_LIST_SHARE_INVITES = [];
@@ -2598,11 +2620,15 @@ async function loadListShareInvites() {
   } catch(e) { console.warn('Load list invites failed', e); }
 }
 
-function renderListShareInvites() {
-  var el = document.getElementById('circle-list-invites');
+function renderNotifications() {
+  var el = document.getElementById('notifications-content');
   if (!el) return;
-  if (MY_LIST_SHARE_INVITES.length === 0) { el.innerHTML = ''; return; }
-  el.innerHTML = '<div class="sec-label" style="margin-top:4px">List Invites (' + MY_LIST_SHARE_INVITES.length + ')</div>'
+  updateNotificationBadge();
+  if (MY_LIST_SHARE_INVITES.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">🔕</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">You\'re all caught up</div><div style="font-size:12px;line-height:1.5">List invites and reminders from friends will show up here.</div></div>';
+    return;
+  }
+  el.innerHTML = '<div class="sec-label" style="margin-top:0">List Invites (' + MY_LIST_SHARE_INVITES.length + ')</div>'
     + MY_LIST_SHARE_INVITES.map(function(inv) {
       var name = inv.profile.display_name || (inv.profile.handle ? '@' + inv.profile.handle : 'A friend');
       return '<div class="card no-hover" style="margin-bottom:8px;background:#FFF8F6;border-color:#F4C9B8">'
@@ -2620,6 +2646,7 @@ function renderListShareInvites() {
 async function acceptListInvite(inviteId, cat) {
   if (sbClient) { try { await sbClient.from('list_share_invites').update({ dismissed_at: new Date().toISOString() }).eq('id', inviteId); } catch(e) { console.warn('Mark invite failed', e); } }
   MY_LIST_SHARE_INVITES = MY_LIST_SHARE_INVITES.filter(function(i){ return i.id !== inviteId; });
+  updateNotificationBadge();
   selCat = cat;
   editingListIdx = -1;
   var existing = MY_LISTS.find(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
@@ -2633,7 +2660,7 @@ async function acceptListInvite(inviteId, cat) {
 async function declineListInvite(inviteId) {
   if (sbClient) { try { await sbClient.from('list_share_invites').update({ dismissed_at: new Date().toISOString() }).eq('id', inviteId); } catch(e) { console.warn('Dismiss invite failed', e); } }
   MY_LIST_SHARE_INVITES = MY_LIST_SHARE_INVITES.filter(function(i){ return i.id !== inviteId; });
-  renderListShareInvites();
+  renderNotifications();
 }
 
 // Compute real "X members · N lists compared" for each group and refresh the cards.
@@ -3671,6 +3698,7 @@ function clearPendingInvite() {
     loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderGiftReminders(); }).catch(console.warn);
     loadProfile().catch(console.warn);
     loadFriends().catch(console.warn);
+    refreshNotifications().catch(console.warn);
   }
 
   // onAuthStateChange fires with INITIAL_SESSION on load (covers "already logged in")
