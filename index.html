@@ -1153,8 +1153,9 @@ function groupAvatarHtml(g, size) {
   if (g && g.photo) {
     return '<img src="' + g.photo + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + 'px;object-fit:cover;flex-shrink:0">';
   }
-  // g.emoji === '' means a photo was uploaded (emoji cleared); show blank box while photo loads
-  var content = (g && g.emoji) ? g.emoji : (g && g.emoji === '' ? '' : '👥');
+  // photoPending: a photo exists in the DB but hasn't loaded yet — show a blank
+  // box rather than briefly flashing the emoji placeholder.
+  var content = (g && g.photoPending) ? '' : ((g && g.emoji) ? g.emoji : (g && g.emoji === '' ? '' : '👥'));
   return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + 'px;background:#F1EFE8;display:flex;align-items:center;justify-content:center;font-size:' + Math.round(size*0.55) + 'px;flex-shrink:0">' + content + '</div>';
 }
 
@@ -3278,13 +3279,23 @@ async function loadState() {
           var g = groupsById[row.group_id];
           if (!g) return;
           var obj = {
-            id: g.id, n: g.name, emoji: g.emoji || '👥', photo: null,
+            id: g.id, n: g.name, emoji: g.emoji == null ? '👥' : g.emoji, photo: null,
             meta: '0 lists compared', pill: '', pillClass: '',
-            memberIds: [], createdBy: g.created_by, isNew: false
+            memberIds: [], createdBy: g.created_by, isNew: false, photoPending: false
           };
           if (row.status === 'accepted') MY_GROUPS.push(obj);
           else MY_PENDING_GROUP_INVITES.push(obj);
         });
+        // Cheap id-only query to learn which groups have a photo, so the avatar
+        // can show a blank placeholder (not an emoji) while the heavy photo loads.
+        sbClient.from('groups').select('id').not('photo', 'is', null).in('id', gids).then(function(res) {
+          (res.data || []).forEach(function(row) {
+            MY_GROUPS.concat(MY_PENDING_GROUP_INVITES).forEach(function(g) {
+              if (g.id === row.id && !g.photo) g.photoPending = true;
+            });
+          });
+          if (document.getElementById('s-circle').classList.contains('active')) renderCircleGroups();
+        }, function(){});
         loadGroupPhotos(gids); // fire-and-forget; patches avatars in when ready
       }
       console.timeEnd('loadState:total');
@@ -3307,7 +3318,7 @@ async function loadGroupPhotos(gids) {
     (res.data || []).forEach(function(row) {
       if (!row.photo) return;
       MY_GROUPS.concat(MY_PENDING_GROUP_INVITES).forEach(function(g) {
-        if (g.id === row.id) { g.photo = row.photo; changed = true; }
+        if (g.id === row.id) { g.photo = row.photo; g.photoPending = false; changed = true; }
       });
       // Auto-heal legacy oversized photos (stored before upload compression).
       // Re-compress and write back; only the group creator's update will pass RLS.
