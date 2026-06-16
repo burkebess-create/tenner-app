@@ -3074,10 +3074,21 @@ async function renderMatch() {
       f.lists = friendLists.filter(function(l) { return l.user_id === f.friendId; });
     });
     var myCategories = MY_LISTS.map(function(l) { return l.category || l.n.replace('Top 10 ', ''); });
+
+    // When in group context, limit comparisons to categories shared with that group.
+    var sharedGroupCats = null;
+    if (groupCtx >= 0 && MY_GROUPS[groupCtx] && MY_GROUPS[groupCtx].id && sbClient) {
+      try {
+        var sgRes = await sbClient.from('group_lists').select('category').eq('group_id', MY_GROUPS[groupCtx].id);
+        sharedGroupCats = (sgRes.data || []).map(function(r){ return r.category; });
+      } catch(e) { console.warn('Could not load group shared lists for match', e); }
+    }
+
     var comparisons = [];
     accepted.forEach(function(f) {
       f.lists.forEach(function(fl) {
         var cat = fl.category || fl.name.replace('Top 10 ', '');
+        if (sharedGroupCats && sharedGroupCats.indexOf(cat) < 0) return; // skip cats not shared with this group
         var myList = MY_LISTS.find(function(ml) { return (ml.category || ml.n.replace('Top 10 ', '')) === cat; });
         if (myList) {
           var score = computeMatch(myList.items, fl.items, myList.ranked && fl.is_ranked);
@@ -3086,7 +3097,15 @@ async function renderMatch() {
       });
     });
     if (comparisons.length === 0) {
-      el.innerHTML = '<div style="text-align:center;padding:30px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">🔍</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No overlapping lists yet</div><div style="font-size:12px;line-height:1.5">You and your friends need lists in the same category to compare. Your lists: ' + myCategories.join(', ') + '.</div></div>';
+      var emptyMsg;
+      if (sharedGroupCats !== null && sharedGroupCats.length === 0) {
+        emptyMsg = 'No lists have been shared with this group yet. Go to the group page and share a list so everyone can fill it out.';
+      } else if (sharedGroupCats !== null) {
+        emptyMsg = 'None of the group\'s shared topics have been filled out yet. Fill out a list from the group page to start comparing: ' + sharedGroupCats.join(', ') + '.';
+      } else {
+        emptyMsg = 'You and your friends need lists in the same category to compare. Your lists: ' + myCategories.join(', ') + '.';
+      }
+      el.innerHTML = '<div style="text-align:center;padding:30px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">🔍</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No overlapping lists yet</div><div style="font-size:12px;line-height:1.5">' + emptyMsg + '</div></div>';
       return;
     }
     // Build per-friend overall scores (average across all categories they share with you)
@@ -3110,7 +3129,8 @@ async function renderMatch() {
     } else if (groupCtx >= 0 && MY_GROUPS[groupCtx]) {
       groupLabel = MY_GROUPS[groupCtx].emoji + ' ' + MY_GROUPS[groupCtx].n + ' · ';
     }
-    var overallHtml = '<div class="sec-label">' + groupLabel + 'Overall Match (across all lists)</div>';
+    var overallSuffix = sharedGroupCats ? 'across ' + sharedGroupCats.length + ' shared list' + (sharedGroupCats.length !== 1 ? 's' : '') : 'across all lists';
+    var overallHtml = '<div class="sec-label">' + groupLabel + 'Overall Match (' + overallSuffix + ')</div>';
     if (overallRanked.length === 0) {
       overallHtml += '<div style="font-size:11px;color:#888780;padding:8px 0">No shared lists yet.</div>';
     } else {
