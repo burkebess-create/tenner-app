@@ -3288,14 +3288,16 @@ async function loadState() {
         });
         // Cheap id-only query to learn which groups have a photo, so the avatar
         // can show a blank placeholder (not an emoji) while the heavy photo loads.
-        sbClient.from('groups').select('id').not('photo', 'is', null).in('id', gids).then(function(res) {
-          (res.data || []).forEach(function(row) {
+        // Awaited (it only returns ids, so it's fast) so photoPending is set
+        // before the first render and the emoji never flashes.
+        try {
+          var hasPhotoRes = await sbClient.from('groups').select('id').not('photo', 'is', null).in('id', gids);
+          (hasPhotoRes.data || []).forEach(function(row) {
             MY_GROUPS.concat(MY_PENDING_GROUP_INVITES).forEach(function(g) {
               if (g.id === row.id && !g.photo) g.photoPending = true;
             });
           });
-          if (document.getElementById('s-circle').classList.contains('active')) renderCircleGroups();
-        }, function(){});
+        } catch(e) { console.warn('has-photo probe failed', e); }
         loadGroupPhotos(gids); // fire-and-forget; patches avatars in when ready
       }
       console.timeEnd('loadState:total');
