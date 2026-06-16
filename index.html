@@ -1663,6 +1663,12 @@ async function finishGroup() {
     };
     if (sbClient && userId) {
       try {
+        var liveUser = await sbClient.auth.getUser();
+        var liveId = liveUser && liveUser.data && liveUser.data.user ? liveUser.data.user.id : null;
+        console.log('finishGroup auth check — userId:', userId, 'live auth.uid:', liveId, 'match:', userId === liveId);
+        if (liveId !== userId) {
+          alert('Auth mismatch — userId: ' + userId + '\nlive auth.uid: ' + liveId + '\n(try signing out and back in)');
+        }
         var gRes = await sbClient.from('groups').insert({
           name: groupName,
           emoji: localGroup.emoji,
