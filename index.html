@@ -769,14 +769,14 @@ function go(id) {
   if (id === 's-home') renderHome();
   if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-fdetail' && selFriendId) renderFriendDetail();
-  if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; items = []; renderCatGrid(); renderItems(); updateProg(); }
+  if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; }
   if (id === 's-create2') { renderItems(); updateProg(); }
   if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
   if (id === 's-cg3') renderListPicker();
   if (id === 's-create2') {
     var t = document.getElementById('create2-title');
-    if (t) t.textContent = 'Top 10 ' + selCat;
+    if (t) t.textContent = (selCatEmoji || '📋') + ' Top 10 ' + selCat;
     var backBtn = document.querySelector('#s-create2 .back-btn');
     if (backBtn) backBtn.onclick = editingListIdx >= 0 ? function(){ go('s-list-detail'); } : function(){ go('s-create1'); };
     var contBtn = document.querySelector('#s-create2 .btn-primary');
