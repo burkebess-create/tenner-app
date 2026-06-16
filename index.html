@@ -2891,6 +2891,7 @@ async function loadState() {
       if (groupsRes.data && groupsRes.data.length > 0) {
         groupsRes.data.forEach(function(row) {
           var g = row.groups;
+          if (!g) return;
           var obj = {
             id: g.id, n: g.name, emoji: g.emoji || '👥', photo: g.photo || null,
             meta: '0 lists compared', pill: '', pillClass: '',
@@ -2899,33 +2900,6 @@ async function loadState() {
           if (row.status === 'accepted') MY_GROUPS.push(obj);
           else MY_PENDING_GROUP_INVITES.push(obj);
         });
-      } else {
-        // One-time migration: pull groups from old tenner_state JSON blob (if column exists)
-        try {
-          var oldStateRes = await sbClient.from('tenner_state').select('groups').eq('user_id', userId).maybeSingle();
-          if (oldStateRes.data && Array.isArray(oldStateRes.data.groups) && oldStateRes.data.groups.length > 0) {
-            var oldGroups = oldStateRes.data.groups;
-            for (var gi = 0; gi < oldGroups.length; gi++) {
-              var og = oldGroups[gi];
-              var gInsert = await sbClient.from('groups').insert({
-                name: og.n || og.name || 'Group',
-                emoji: og.emoji || '👥',
-                created_by: userId
-              }).select().single();
-              if (gInsert.data) {
-                var gid = gInsert.data.id;
-                await sbClient.from('group_members').insert({ group_id: gid, user_id: userId, status: 'accepted' });
-                MY_GROUPS.push({
-                  id: gid, n: gInsert.data.name, emoji: gInsert.data.emoji || '👥', photo: null,
-                  meta: '0 lists compared', pill: '', pillClass: '',
-                  memberIds: [], createdBy: userId, isNew: false
-                });
-              }
-            }
-            // Clear old groups from tenner_state to avoid re-migration
-            await sbClient.from('tenner_state').update({ groups: [] }).eq('user_id', userId);
-          }
-        } catch(migErr) { console.warn('Group migration skipped:', migErr); }
       }
       return;
     } catch(e) { console.warn('Supabase load failed', e); }
