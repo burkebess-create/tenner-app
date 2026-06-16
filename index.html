@@ -222,6 +222,10 @@
           <div style="font-size:11px;color:#5F5E5A;margin-bottom:12px">Pick one or type your own</div>
           <div class="cat-grid" id="cat-grid"></div>
           <input type="text" id="cat-inp" placeholder="Or type a custom category..." oninput="onCatType(this.value)">
+          <div id="cat-emoji-row" style="display:none;margin-bottom:8px">
+            <div style="font-size:11px;color:#5F5E5A;margin-bottom:5px">Pick an emoji for your list</div>
+            <div id="cat-emoji-grid" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+          </div>
           <div class="sugs" id="cat-sugs"></div>
           <div class="fuzzy-warn" id="cat-warn" onclick="useCatWarn()">
             Similar category already exists: <strong id="cat-warn-name"></strong> — tap to use it instead
@@ -726,6 +730,7 @@ var EMOJI_SEARCH_POOL = [
 ];
 
 var selCat = 'Movies';
+var selCatEmoji = '📋'; // emoji for the current category being created/edited
 var items = [];
 var isRanked = true;
 var selEmoji = 0;
@@ -835,8 +840,23 @@ function renderCatGrid() {
     var div = document.createElement('div');
     div.className = 'cat-card' + (selCat === cat.n ? ' selected' : '');
     div.innerHTML = '<div class="cat-icon">' + cat.e + '</div><div class="cat-name">' + cat.n + '</div>';
-    div.onclick = function() { selCat = cat.n; renderCatGrid(); document.getElementById('cat-inp').value = ''; document.getElementById('cat-warn').style.display = 'none'; document.getElementById('cat-sugs').style.display = 'none'; };
+    div.onclick = function() { selCat = cat.n; selCatEmoji = cat.e; renderCatGrid(); document.getElementById('cat-inp').value = ''; document.getElementById('cat-warn').style.display = 'none'; document.getElementById('cat-sugs').style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; };
     grid.appendChild(div);
+  });
+}
+
+function renderCatEmojiPicker() {
+  var row = document.getElementById('cat-emoji-row');
+  var grid = document.getElementById('cat-emoji-grid');
+  row.style.display = 'block';
+  var emojis = ['📋','🎯','🏆','⭐','🔥','💡','🎮','🎵','📚','🎬','📺','🍕','🏀','✈️','🌟','💎','🎨','🌮','🎤','🐾'];
+  grid.innerHTML = '';
+  emojis.forEach(function(em) {
+    var btn = document.createElement('button');
+    btn.textContent = em;
+    btn.style.cssText = 'font-size:18px;padding:4px;border-radius:6px;cursor:pointer;background:none;border:2px solid ' + (selCatEmoji === em ? '#F97316' : 'transparent') + ';';
+    btn.onclick = function() { selCatEmoji = em; renderCatEmojiPicker(); };
+    grid.appendChild(btn);
   });
 }
 
@@ -844,7 +864,13 @@ function onCatType(val) {
   var lv = val.toLowerCase().trim();
   var warn = document.getElementById('cat-warn');
   var sugs = document.getElementById('cat-sugs');
-  if (!lv) { warn.style.display = 'none'; sugs.style.display = 'none'; return; }
+  if (!lv) {
+    warn.style.display = 'none';
+    sugs.style.display = 'none';
+    document.getElementById('cat-emoji-row').style.display = 'none';
+    selCatEmoji = '📋';
+    return;
+  }
   var fk = Object.keys(FUZZY_CATS).find(function(k) { return lv === k || lv.includes(k); });
   if (fk) { warn.style.display = 'block'; document.getElementById('cat-warn-name').textContent = FUZZY_CATS[fk]; }
   else warn.style.display = 'none';
@@ -855,19 +881,24 @@ function onCatType(val) {
       var div = document.createElement('div');
       div.className = 'sug-item';
       div.textContent = c.e + ' ' + c.n;
-      div.onclick = function() { selCat = c.n; renderCatGrid(); document.getElementById('cat-inp').value = c.n; sugs.style.display = 'none'; warn.style.display = 'none'; };
+      div.onclick = function() { selCat = c.n; selCatEmoji = c.e; renderCatGrid(); document.getElementById('cat-inp').value = c.n; sugs.style.display = 'none'; warn.style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; };
       sugs.appendChild(div);
     });
     sugs.style.display = 'block';
   } else sugs.style.display = 'none';
-  if (val.trim()) selCat = val.trim();
+  if (val.trim()) {
+    selCat = val.trim();
+    renderCatEmojiPicker();
+  }
 }
 
 function useCatWarn() {
   var name = document.getElementById('cat-warn-name').textContent;
   selCat = name;
+  selCatEmoji = getCatEmoji(name);
   document.getElementById('cat-inp').value = name;
   document.getElementById('cat-warn').style.display = 'none';
+  document.getElementById('cat-emoji-row').style.display = 'none';
   renderCatGrid();
 }
 
