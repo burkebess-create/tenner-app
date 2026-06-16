@@ -224,7 +224,12 @@
           <input type="text" id="cat-inp" placeholder="Or type a custom category..." oninput="onCatType(this.value)">
           <div id="cat-emoji-row" style="display:none;margin-bottom:8px">
             <div style="font-size:11px;color:#5F5E5A;margin-bottom:5px">Pick an emoji for your list</div>
-            <div id="cat-emoji-grid" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
+              <div id="cat-emoji-current" style="font-size:22px;width:34px;height:34px;border-radius:8px;background:#FAECE7;display:flex;align-items:center;justify-content:center;flex-shrink:0">📋</div>
+              <input type="text" id="cat-emoji-search" placeholder="Search emoji (e.g. sports, food) or paste one…" oninput="onCatEmojiSearch(this.value)" style="margin-bottom:0;flex:1;font-size:12px">
+            </div>
+            <div id="cat-emoji-grid" class="emoji-grid"></div>
+            <div id="cat-emoji-results" class="emoji-grid" style="display:none;margin-top:4px"></div>
           </div>
           <div class="sugs" id="cat-sugs"></div>
           <div class="fuzzy-warn" id="cat-warn" onclick="useCatWarn()">
@@ -845,19 +850,69 @@ function renderCatGrid() {
   });
 }
 
+var CAT_EMOJI_DEFAULTS = ['📋','🎯','🏆','⭐','🔥','💡','🎮','🎵','📚','🎬','📺','🍕','🏀','✈️','🌟','💎','🎨','🌮','🎤','🐾','🍔','🍷','🐶','🚀','🎸','🌊','❤️','🎉'];
+
+function setCatEmoji(em) {
+  selCatEmoji = em;
+  var cur = document.getElementById('cat-emoji-current');
+  if (cur) cur.textContent = em;
+  renderCatEmojiPicker();
+  // Re-highlight active in the search results too, if present
+  var sInp = document.getElementById('cat-emoji-search');
+  if (sInp && sInp.value.trim()) onCatEmojiSearch(sInp.value);
+}
+
 function renderCatEmojiPicker() {
   var row = document.getElementById('cat-emoji-row');
   var grid = document.getElementById('cat-emoji-grid');
+  if (!row || !grid) return;
   row.style.display = 'block';
-  var emojis = ['📋','🎯','🏆','⭐','🔥','💡','🎮','🎵','📚','🎬','📺','🍕','🏀','✈️','🌟','💎','🎨','🌮','🎤','🐾'];
+  var cur = document.getElementById('cat-emoji-current');
+  if (cur) cur.textContent = selCatEmoji || '📋';
   grid.innerHTML = '';
-  emojis.forEach(function(em) {
-    var btn = document.createElement('button');
-    btn.textContent = em;
-    btn.style.cssText = 'font-size:18px;padding:4px;border-radius:6px;cursor:pointer;background:none;border:2px solid ' + (selCatEmoji === em ? '#F97316' : 'transparent') + ';';
-    btn.onclick = function() { selCatEmoji = em; renderCatEmojiPicker(); };
-    grid.appendChild(btn);
+  CAT_EMOJI_DEFAULTS.forEach(function(em) {
+    var div = document.createElement('div');
+    div.className = 'emoji-opt' + (selCatEmoji === em ? ' selected' : '');
+    div.textContent = em;
+    div.onclick = function() { setCatEmoji(em); };
+    grid.appendChild(div);
   });
+}
+
+// Search the full emoji pool by keyword, or accept a pasted/typed emoji directly.
+function onCatEmojiSearch(val) {
+  var resultsEl = document.getElementById('cat-emoji-results');
+  if (!resultsEl) return;
+  var q = (val || '').trim().toLowerCase();
+  if (!q) { resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; return; }
+  // If the user typed/pasted an actual emoji (non-letter), use it directly.
+  var firstChar = Array.from(val.trim())[0];
+  if (firstChar && !/[a-z0-9]/i.test(firstChar)) {
+    setCatEmoji(firstChar);
+    resultsEl.style.display = 'none';
+    resultsEl.innerHTML = '';
+    var sInp = document.getElementById('cat-emoji-search');
+    if (sInp) sInp.value = '';
+    return;
+  }
+  var matches = EMOJI_SEARCH_POOL.filter(function(entry) {
+    return entry[1].toLowerCase().includes(q);
+  }).slice(0, 30);
+  resultsEl.innerHTML = '';
+  if (matches.length === 0) {
+    resultsEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:4px 0;grid-column:1/-1">No results for "' + val + '"</div>';
+    resultsEl.style.display = 'grid';
+    return;
+  }
+  matches.forEach(function(entry) {
+    var e = entry[0];
+    var div = document.createElement('div');
+    div.className = 'emoji-opt' + (selCatEmoji === e ? ' selected' : '');
+    div.textContent = e;
+    div.onclick = function() { setCatEmoji(e); };
+    resultsEl.appendChild(div);
+  });
+  resultsEl.style.display = 'grid';
 }
 
 function onCatType(val) {
@@ -868,6 +923,10 @@ function onCatType(val) {
     warn.style.display = 'none';
     sugs.style.display = 'none';
     document.getElementById('cat-emoji-row').style.display = 'none';
+    var sInp = document.getElementById('cat-emoji-search');
+    if (sInp) sInp.value = '';
+    var sRes = document.getElementById('cat-emoji-results');
+    if (sRes) { sRes.style.display = 'none'; sRes.innerHTML = ''; }
     selCatEmoji = '📋';
     return;
   }
