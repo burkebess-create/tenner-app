@@ -1005,6 +1005,7 @@ function moveItem(idx, dir) {
 }
 
 var dragSrcIdx = null;
+var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
 function renderItems() {
   isRanked = document.getElementById('ranked-tog') ? document.getElementById('ranked-tog').checked : true;
@@ -1021,14 +1022,16 @@ function renderItems() {
       : '<div class="rank-dot"></div>';
     var sugsId = 'item-edit-sugs-' + i;
     div.style.flexWrap = 'wrap';
-    var moveBtns = isRanked
+    // Mobile: tappable up/down arrows. Desktop: drag handle.
+    var moveBtns = (isRanked && IS_TOUCH)
       ? '<button onclick="moveItem(' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + ' style="background:none;border:none;font-size:18px;line-height:1;padding:6px 5px;flex-shrink:0;cursor:pointer;color:' + (i === 0 ? '#DAD8D0' : '#888780') + '">▲</button>'
         + '<button onclick="moveItem(' + i + ',1)"' + (i === items.length - 1 ? ' disabled' : '') + ' style="background:none;border:none;font-size:18px;line-height:1;padding:6px 5px;flex-shrink:0;cursor:pointer;color:' + (i === items.length - 1 ? '#DAD8D0' : '#888780') + '">▼</button>'
       : '';
+    var dragHandle = IS_TOUCH ? '' : '<span style="font-size:14px;color:#C8C6BE;cursor:grab;padding:0 4px;flex-shrink:0">⠿</span>';
     div.innerHTML = badge
       + '<input type="text" value="' + item.replace(/"/g,'&quot;') + '" id="item-edit-inp-' + i + '" oninput="onItemEditType(this.value,' + i + ')" onkeydown="onItemEditKey(event,' + i + ')" onblur="onItemEditBlur(' + i + ',this)" style="flex:1;font-size:12px;color:#2C2C2A;border:none;background:transparent;outline:none;padding:0;min-width:0">'
       + moveBtns
-      + '<span style="font-size:14px;color:#C8C6BE;cursor:grab;padding:0 4px;flex-shrink:0">⠿</span>'
+      + dragHandle
       + '<button onmousedown="removeItem(' + i + ')" style="background:none;border:none;color:#888780;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0">×</button>'
       + '<div class="sugs" id="' + sugsId + '" style="width:100%;margin-top:2px"></div>';
     // Desktop drag
