@@ -546,6 +546,25 @@
         <div class="content" id="fdetail-content"></div>
       </div>
 
+      <!-- ═══ GIFT IDEAS SCREEN ═══ -->
+      <div class="screen" id="s-gift-ideas">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-circle')">← Back</button>
+          <span id="gift-ideas-title" style="font-size:13px;font-weight:600;color:#2C2C2A"></span>
+          <span style="width:52px"></span>
+        </div>
+        <div class="content">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:12px;background:#FFF8F6;border-radius:12px;border:1px solid #F4C9B8">
+            <div id="gift-ideas-avatar"></div>
+            <div>
+              <div id="gift-ideas-name" style="font-size:14px;font-weight:700;color:#993C1D"></div>
+              <div id="gift-ideas-bday" style="font-size:11px;color:#5F5E5A;margin-top:2px"></div>
+            </div>
+          </div>
+          <div id="gift-ideas-lists"></div>
+        </div>
+      </div>
+
       <!-- ═══ FRIEND LIST VIEW ═══ -->
       <div class="screen" id="s-friend-list">
         <div class="topbar">
@@ -808,7 +827,7 @@ function go(id) {
       's-cg1': 'nav-circle', 's-cg2': 'nav-circle', 's-cg3': 'nav-circle',
       's-gdetail': 'nav-circle', 's-groups': 'nav-circle', 's-gsettings': 'nav-circle',
       's-match': 'nav-match',
-      's-circle': 'nav-circle', 's-fdetail': 'nav-circle', 's-friend-list': 'nav-circle',
+      's-circle': 'nav-circle', 's-fdetail': 'nav-circle', 's-friend-list': 'nav-circle', 's-gift-ideas': 'nav-circle',
       's-profile': 'nav-profile',
       's-notifications': 'nav-alerts'
     }[id];
@@ -3508,6 +3527,55 @@ function openCircleInviteModal() {
   document.getElementById('invite-modal').style.display = 'flex';
 }
 
+function openGiftIdeas(friendId, friendListsJson) {
+  var f = myFriends.find(function(x){ return x.friendId === friendId; });
+  if (!f) return;
+  var p = f.profile || {};
+  var name = p.display_name || p.handle || 'Friend';
+  var lists = JSON.parse(friendListsJson);
+  var myCats = MY_LISTS.map(function(l){ return l.category || l.n.replace('Top 10 ',''); });
+
+  document.getElementById('gift-ideas-title').textContent = name + '\'s Gift Ideas';
+  document.getElementById('gift-ideas-avatar').innerHTML = friendAvatarHtml(p, 42);
+  document.getElementById('gift-ideas-name').textContent = '🎂 ' + name + '\'s birthday — in ' + f._daysUntilBirthday + ' day' + (f._daysUntilBirthday !== 1 ? 's' : '');
+  document.getElementById('gift-ideas-bday').textContent = formatBirthday(p.birthday) || '';
+
+  document.getElementById('gift-ideas-lists').innerHTML = lists.map(function(l, idx) {
+    var cat = l.category || (l.name || '').replace('Top 10 ','');
+    var emoji = l.emoji || getCatEmoji(cat);
+    var items = l.items || [];
+    var isMutual = myCats.indexOf(cat) !== -1;
+    var itemsHtml = items.slice(0, 3).map(function(item, i) {
+      return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #F1EFE8">'
+        + '<div class="rank-badge" style="font-size:10px;width:18px;height:18px;min-width:18px">' + (i+1) + '</div>'
+        + '<span style="font-size:12px;color:#2C2C2A">' + escapeHtml(item) + '</span>'
+        + '</div>';
+    }).join('');
+    return '<div class="card no-hover" style="margin-bottom:8px">'
+      + '<div style="display:flex;align-items:center;gap:10px" onclick="toggleGiftList(' + idx + ')">'
+      + '<span style="font-size:20px">' + emoji + '</span>'
+      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(l.name || ('Top 10 ' + cat)) + '</div>'
+      + (items[0] ? '<div style="font-size:11px;color:#5F5E5A">#1: ' + escapeHtml(items[0]) + '</div>' : '')
+      + '</div>'
+      + (isMutual ? '<span class="pill pill-green" style="flex-shrink:0">You have this</span>' : '')
+      + '<span id="gift-chevron-' + idx + '" style="font-size:14px;color:#888780;margin-left:4px;transition:transform .2s;display:inline-block">▼</span>'
+      + '</div>'
+      + '<div id="gift-expand-' + idx + '" style="display:none;margin-top:4px">' + itemsHtml + '</div>'
+      + '</div>';
+  }).join('');
+
+  go('s-gift-ideas');
+}
+
+function toggleGiftList(idx) {
+  var panel = document.getElementById('gift-expand-' + idx);
+  var chevron = document.getElementById('gift-chevron-' + idx);
+  if (!panel) return;
+  var open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
+}
+
 async function renderGiftReminders() {
   var el = document.getElementById('gift-reminders-section');
   if (!el) return;
@@ -3577,11 +3645,13 @@ async function renderGiftReminders() {
         + '</div>';
     }
 
-    html += '<div class="card no-hover" style="margin-bottom:8px;background:#FFF8F6;border-color:#F4C9B8">'
+    var listsJson = escapeHtml(JSON.stringify(visibleLists));
+    html += '<div class="share-pick" style="flex-direction:column;align-items:stretch;cursor:pointer;background:#FFF8F6;border-color:#F4C9B8" onclick="openGiftIdeas(\'' + f.friendId + '\',this.dataset.lists)" data-lists="' + listsJson + '">'
       + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
       + friendAvatarHtml(f.profile, 28)
-      + '<div><div style="font-size:12px;font-weight:700;color:#993C1D">' + escapeHtml(name) + '\'s birthday — ' + when + '</div>'
+      + '<div style="flex:1"><div style="font-size:12px;font-weight:700;color:#993C1D">' + escapeHtml(name) + '\'s birthday — ' + when + '</div>'
       + '<div style="font-size:10px;color:#5F5E5A">' + (formatBirthday(f.profile.birthday) || '') + '</div></div>'
+      + '<span style="font-size:14px;color:#D85A30">›</span>'
       + '</div>'
       + giftHtml
       + '</div>';
