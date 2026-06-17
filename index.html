@@ -572,7 +572,7 @@
             </div>
             <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
               <div style="font-size:10px;color:#5F5E5A;margin-bottom:3px">Phone number (optional)</div>
-              <input type="tel" id="profile-phone-input" placeholder="(555) 555 - 5555" onblur="formatPhoneInput(this)" style="margin-bottom:4px;font-size:12px;padding:6px 8px">
+              <input type="tel" id="profile-phone-input" placeholder="(555) 555-5555" onblur="formatPhoneInput(this)" style="margin-bottom:4px;font-size:12px;padding:6px 8px">
               <div style="font-size:10px;color:#888780;line-height:1.4">Friends can find you by phone number to send you a friend request.</div>
             </div>
             <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
@@ -807,7 +807,7 @@ function formatPhoneInput(input) {
   var digits = input.value.replace(/\D/g, '');
   if (digits.length === 11 && digits[0] === '1') digits = digits.slice(1);
   if (digits.length === 10) {
-    input.value = '(' + digits.slice(0,3) + ') ' + digits.slice(3,6) + ' - ' + digits.slice(6);
+    input.value = '(' + digits.slice(0,3) + ') ' + digits.slice(3,6) + '-' + digits.slice(6);
   }
 }
 
