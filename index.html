@@ -2958,7 +2958,7 @@ function renderCircleFriends() {
       var name = f.profile.display_name || f.profile.handle || 'Unknown';
       var handle = f.profile.handle ? '@' + f.profile.handle : '';
       var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
-      return '<div class="member-row" style="cursor:pointer" onclick="openFriendDetail(\'' + f.friendId + '\')"><div style="margin-right:8px">' + friendAvatarHtml(f.profile, 32) + '</div>'
+      return '<div class="share-pick" style="cursor:pointer" onclick="openFriendDetail(\'' + f.friendId + '\')">' + friendAvatarHtml(f.profile, 32)
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>'
         + '<button class="back-btn" style="font-size:10px;padding:3px 8px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();confirmUnfriend(\'' + f.id + '\',\'' + name.replace(/'/g,"\\'") + '\')">Remove</button></div>';
     }).join('');
@@ -3213,7 +3213,7 @@ function renderCircleGroups() {
   if (!el) return;
   if (MY_GROUPS.length === 0) { el.innerHTML = ''; return; }
   el.innerHTML = MY_GROUPS.map(function(g, i) {
-    return '<div class="card" style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="selGroupIdx='+i+';go(\'s-gdetail\')">'
+    return '<div class="share-pick" style="cursor:pointer" onclick="selGroupIdx='+i+';go(\'s-gdetail\')">'
       + groupAvatarHtml(g, 42)
       + '<div style="flex:1">'
       + '<div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(g.n) + '</div>'
