@@ -440,7 +440,7 @@
         <div class="topbar">
           <button class="back-btn" onclick="go('s-circle')">← Back</button>
           <span id="gdetail-title" style="font-size:13px;font-weight:600;color:#2C2C2A"></span>
-          <button onclick="go('s-gsettings')" title="Edit group" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#FAECE7;border:none;color:#D85A30;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button id="gdetail-edit-btn" onclick="go('s-gsettings')" title="Edit group" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#FAECE7;border:none;color:#D85A30;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
         </div>
         <div class="content" id="gdetail-content"></div>
       </div>
@@ -471,6 +471,8 @@
           <div class="sec-label">Group name</div>
           <input type="text" id="gsettings-name" placeholder="Group name">
           <button class="btn-primary" onclick="saveGroupSettings()">Save changes</button>
+          <div class="sec-label" style="margin-top:16px">Members</div>
+          <div id="gsettings-members"><div style="font-size:11px;color:#888780;padding:8px 0">Loading…</div></div>
         </div>
       </div>
 
@@ -2052,10 +2054,16 @@ async function renderGroupDetail() {
     + '<span style="font-size:16px;color:#D85A30">›</span>'
     + '</div></div>';
 
-  var isOwner = g.createdBy === userId;
-  var deleteHtml = isOwner
+  var isAdmin = !!g.isAdmin;
+  // Show/hide edit button based on admin status
+  var editBtn = document.getElementById('gdetail-edit-btn');
+  if (editBtn) editBtn.style.display = isAdmin ? '' : 'none';
+
+  var deleteHtml = g.createdBy === userId
     ? '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmDeleteGroup()">Delete group</button>'
-    : '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmLeaveGroup(' + selGroupIdx + ')">Leave group</button>';
+    : isAdmin
+      ? '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmAdminLeaveGroup(' + selGroupIdx + ')">Leave group</button>'
+      : '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmLeaveGroup(' + selGroupIdx + ')">Leave group</button>';
 
   // Large avatar header
   var headerHtml = '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:16px">'
@@ -2369,7 +2377,7 @@ async function removeMemberById(friendId) {
   renderGroupSettings();
 }
 
-function renderGroupSettings() {
+async function renderGroupSettings() {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
   var nameInput = document.getElementById('gsettings-name');
@@ -2377,7 +2385,6 @@ function renderGroupSettings() {
   var grid = document.getElementById('gsettings-emoji-grid');
   if (!grid) return;
   grid.innerHTML = '';
-  // Defaults row
   EMOJIS.forEach(function(emoji) {
     var btn = document.createElement('div');
     btn.className = 'emoji-opt' + (emoji === g.emoji ? ' selected' : '');
@@ -2385,12 +2392,48 @@ function renderGroupSettings() {
     btn.onclick = function() { g.emoji = emoji; g.photo = null; renderGroupSettings(); };
     grid.appendChild(btn);
   });
-  // Search
   var searchWrap = document.createElement('div');
   searchWrap.style.cssText = 'grid-column:1/-1;margin-top:4px';
   searchWrap.innerHTML = '<input type="text" placeholder="Search more emoji…" oninput="searchEmojiSettings(this.value)" style="font-size:12px;margin-bottom:6px"><div class="emoji-grid" id="gsettings-emoji-search" style="display:none"></div>';
   grid.appendChild(searchWrap);
   updateSettingsAvatarPreview(g);
+
+  // Load members with roles
+  var membersEl = document.getElementById('gsettings-members');
+  if (!membersEl || !sbClient || !g.id) return;
+  try {
+    var mRes = await sbClient.from('group_members').select('user_id, role').eq('group_id', g.id).eq('status', 'accepted');
+    var members = (mRes.data || []).filter(function(r){ return r.user_id !== userId; });
+    if (members.length === 0) { membersEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No other members yet.</div>'; return; }
+    var pids = members.map(function(r){ return r.user_id; });
+    var pRes = await sbClient.from('profiles').select('id, display_name, handle').in('id', pids);
+    var profileMap = {};
+    (pRes.data || []).forEach(function(p){ profileMap[p.id] = p; });
+    membersEl.innerHTML = members.map(function(r) {
+      var p = profileMap[r.user_id] || {};
+      var name = p.display_name || p.handle || 'Member';
+      var isThisAdmin = r.role === 'admin';
+      return '<div class="member-row" style="margin-bottom:6px">'
+        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '</div>'
+        + '<div style="font-size:10px;color:' + (isThisAdmin ? '#3B6D11' : '#888780') + '">' + (isThisAdmin ? '★ Admin' : 'Member') + '</div></div>'
+        + '<button class="add-btn" onclick="toggleMemberAdmin(\'' + r.user_id + '\',' + (!isThisAdmin) + ',this)">'
+        + (isThisAdmin ? 'Remove admin' : 'Make admin') + '</button>'
+        + '</div>';
+    }).join('');
+  } catch(e) { console.warn('Load members failed', e); membersEl.innerHTML = '<div style="font-size:11px;color:#888780">Could not load members.</div>'; }
+}
+
+async function toggleMemberAdmin(memberId, makeAdmin, btn) {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g || !sbClient) return;
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    await sbClient.from('group_members').update({ role: makeAdmin ? 'admin' : 'member' }).eq('group_id', g.id).eq('user_id', memberId);
+    renderGroupSettings();
+  } catch(e) {
+    console.warn('Toggle admin failed', e);
+    if (btn) { btn.disabled = false; btn.textContent = makeAdmin ? 'Make admin' : 'Remove admin'; }
+  }
 }
 
 async function saveGroupSettings() {
@@ -3472,6 +3515,26 @@ async function unfriend(friendshipId) {
   } catch(e) { console.warn('Unfriend failed', e); }
 }
 
+async function confirmAdminLeaveGroup(idx) {
+  var g = MY_GROUPS[idx];
+  if (!g || !sbClient) return;
+  // Check if there's at least one other admin
+  try {
+    var res = await sbClient.from('group_members').select('user_id').eq('group_id', g.id).eq('role', 'admin').neq('user_id', userId);
+    var otherAdmins = (res.data || []);
+    if (otherAdmins.length === 0) {
+      showConfirm(
+        'Promote an admin first',
+        'You\'re the only admin in "' + g.n + '". Please promote another member to admin on the Group Settings page before leaving.',
+        'Go to settings', 'primary',
+        function() { go('s-gsettings'); }
+      );
+      return;
+    }
+  } catch(e) { console.warn('Admin check failed', e); }
+  confirmLeaveGroup(idx);
+}
+
 function confirmLeaveGroup(idx) {
   var g = MY_GROUPS[idx];
   if (!g) return;
@@ -3728,7 +3791,7 @@ async function loadState() {
         // Avoid an embedded groups(...) join: under RLS the planner re-checks the
         // groups policy per joined row, which is dramatically slower. Two flat,
         // index-backed queries are much faster.
-        sbClient.from('group_members').select('group_id, status').eq('user_id', userId)
+        sbClient.from('group_members').select('group_id, status, role').eq('user_id', userId)
       ]);
       console.timeEnd('loadState:lists+memberships');
       var listsRes = results[0];
@@ -3762,7 +3825,7 @@ async function loadState() {
           var obj = {
             id: g.id, n: g.name, emoji: g.emoji == null ? '👥' : g.emoji, photo: null,
             meta: '0 lists compared', pill: '', pillClass: '',
-            memberIds: [], createdBy: g.created_by, isNew: false, photoPending: false
+            memberIds: [], createdBy: g.created_by, isAdmin: row.role === 'admin', isNew: false, photoPending: false
           };
           if (row.status === 'accepted') MY_GROUPS.push(obj);
           else MY_PENDING_GROUP_INVITES.push(obj);
