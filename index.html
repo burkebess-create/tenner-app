@@ -562,6 +562,7 @@
             </div>
           </div>
           <div id="friend-list-items"></div>
+          <div id="friend-list-cta" style="margin-top:16px"></div>
         </div>
       </div>
 
@@ -3090,6 +3091,30 @@ function openFriendList(listData) {
         + '</div>';
     }).join('');
   }
+
+  // CTA: show "Fill out yours" only if user doesn't already have this list
+  var ctaEl = document.getElementById('friend-list-cta');
+  if (ctaEl) {
+    var iHaveIt = MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
+    if (iHaveIt) {
+      ctaEl.innerHTML = '<button class="btn-secondary" onclick="(function(){'
+        + 'selCat=\'' + cat.replace(/'/g,"\\'") + '\';'
+        + 'selCatEmoji=\'' + emoji.replace(/'/g,"\\'") + '\';'
+        + 'editingListIdx=MY_LISTS.findIndex(function(l){return (l.category||l.n.replace(\'Top 10 \',\'\'))===selCat;});'
+        + 'items=(editingListIdx>=0?MY_LISTS[editingListIdx].items.slice():[]);'
+        + 'isRanked=(editingListIdx>=0?MY_LISTS[editingListIdx].ranked!==false:true);'
+        + 'listOrigin=\'s-friend-list\';renderCatGrid();renderItems();updateProg();go(\'s-create2\');'
+        + '})()">Edit your list</button>';
+    } else {
+      ctaEl.innerHTML = '<button class="btn-primary" onclick="'
+        + 'selCat=\'' + cat.replace(/'/g,"\\'") + '\';'
+        + 'selCatEmoji=\'' + emoji.replace(/'/g,"\\'") + '\';'
+        + 'editingListIdx=-1;items=[];isRanked=true;'
+        + 'listOrigin=\'s-friend-list\';renderCatGrid();renderItems();updateProg();go(\'s-create2\')'
+        + '">Fill out your own ' + escapeHtml(listData.name || ('Top 10 ' + cat)) + '</button>';
+    }
+  }
+
   go('s-friend-list');
 }
 
@@ -4112,6 +4137,11 @@ function saveList() {
   }
   if (dest === 's-list-detail') {
     showListDetail(listObj);
+  } else if (dest === 's-friend-list') {
+    // Refresh the CTA on the friend list view (they now have the list)
+    var ctaEl = document.getElementById('friend-list-cta');
+    if (ctaEl) ctaEl.innerHTML = '';
+    go('s-friend-list');
   } else {
     go(dest);
   }
