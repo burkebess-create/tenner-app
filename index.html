@@ -2501,7 +2501,7 @@ function renderProfileHeader() {
     if (hlocked) hlocked.style.display = 'none';
     if (hs) { hs.textContent = 'Choose carefully — your handle cannot be changed once set.'; hs.style.color = '#854F0B'; }
   }
-  var pi = document.getElementById('profile-phone-input'); if (pi && !pi.value) pi.value = p.phone || '';
+  var pi = document.getElementById('profile-phone-input'); if (pi && !pi.value) { pi.value = p.phone || ''; formatPhoneInput(pi); }
   (function() {
     var bm = document.getElementById('profile-bday-month');
     var bd = document.getElementById('profile-bday-day');
