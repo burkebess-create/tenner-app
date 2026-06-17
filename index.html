@@ -1767,6 +1767,7 @@ function openFillGroupList(cat) {
   var existing = MY_LISTS.find(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
   items = existing ? (existing.items || []).slice() : [];
   isRanked = existing ? existing.ranked !== false : true;
+  selCatEmoji = (existing && existing.emoji) || getCatEmoji(cat);
   listOrigin = 's-gdetail';
   pendingShareGroupId = (MY_GROUPS[selGroupIdx] && MY_GROUPS[selGroupIdx].id) || null;
   go('s-create2');
@@ -2852,6 +2853,18 @@ async function acceptListInvite(inviteId, cat) {
   var existing = MY_LISTS.find(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
   items = existing ? (existing.items || []).slice() : [];
   isRanked = existing ? existing.ranked !== false : true;
+  // Use recipient's own emoji if they have one, else try to inherit the sender's emoji
+  if (existing && existing.emoji) {
+    selCatEmoji = existing.emoji;
+  } else {
+    selCatEmoji = getCatEmoji(cat);
+    if (sbClient && inv && inv.from_user_id) {
+      try {
+        var senderList = await sbClient.from('lists').select('emoji').eq('user_id', inv.from_user_id).eq('category', cat).maybeSingle();
+        if (senderList.data && senderList.data.emoji) selCatEmoji = senderList.data.emoji;
+      } catch(e) {}
+    }
+  }
   listOrigin = 's-home';
   pendingShareGroupId = null;
   go('s-create2');
