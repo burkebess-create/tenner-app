@@ -211,6 +211,18 @@
             </div>
           </div>
           <div id="list-detail-items"></div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #F1EFE8;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-size:12px;font-weight:600;color:#2C2C2A">Visible to friends</div>
+              <div style="font-size:10px;color:#5F5E5A;margin-top:2px">Friends can see this list even if they haven't filled it out</div>
+            </div>
+            <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;margin-left:12px">
+              <input type="checkbox" id="list-detail-public-toggle" onchange="toggleListPublic(this.checked)" style="opacity:0;width:0;height:0;position:absolute">
+              <span id="list-detail-public-track" style="position:absolute;inset:0;border-radius:99px;background:#D3D1C7;cursor:pointer;transition:background .2s">
+                <span id="list-detail-public-thumb" style="position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s"></span>
+              </span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -1562,12 +1574,37 @@ function renderLists() {
   });
 }
 
+function setPublicToggleUI(checked) {
+  var tog = document.getElementById('list-detail-public-toggle');
+  var track = document.getElementById('list-detail-public-track');
+  var thumb = document.getElementById('list-detail-public-thumb');
+  if (!tog) return;
+  tog.checked = checked;
+  if (track) track.style.background = checked ? '#D85A30' : '#D3D1C7';
+  if (thumb) thumb.style.transform = checked ? 'translateX(18px)' : 'translateX(0)';
+}
+
+var _currentListCategory = null;
+
+async function toggleListPublic(checked) {
+  setPublicToggleUI(checked);
+  var l = MY_LISTS.find(function(x){ return (x.category || x.n.replace('Top 10 ','')) === _currentListCategory; });
+  if (l) l.is_public = checked;
+  if (sbClient && userId && _currentListCategory) {
+    try {
+      await sbClient.from('lists').update({ is_public: checked }).eq('user_id', userId).eq('category', _currentListCategory);
+    } catch(e) { console.warn('Toggle public failed', e); }
+  }
+}
+
 function showListDetail(l) {
   var listItems = (l.items || []);
   var screen = document.getElementById('s-list-detail');
+  _currentListCategory = l.category || l.n.replace('Top 10 ', '');
   document.getElementById('list-detail-emoji').textContent = (l.emoji || getCatEmoji(l.category));
   document.getElementById('list-detail-title').textContent = l.n;
   document.getElementById('list-detail-meta').textContent = l.m;
+  setPublicToggleUI(!!l.is_public);
   var el = document.getElementById('list-detail-items');
   el.innerHTML = '';
   if (listItems.length === 0) {
@@ -3162,7 +3199,7 @@ async function renderFriendDetail() {
     + '<span style="font-size:16px;color:#D85A30">›</span></div></div>' : '';
 
   // Shared lists (loaded async)
-  var listsHtml = '<div class="sec-label">' + (isAccepted ? 'Shared lists' : 'Their lists') + '</div><div id="fdetail-lists"><div style="font-size:11px;color:#888780;padding:8px 0">Loading…</div></div>';
+  var listsHtml = '<div class="sec-label">' + (isAccepted ? 'Lists in common &amp; public' : 'Their lists') + '</div><div id="fdetail-lists"><div style="font-size:11px;color:#888780;padding:8px 0">Loading…</div></div>';
 
   // Bottom action depends on relationship status
   var actionHtml;
@@ -3191,26 +3228,36 @@ async function renderFriendDetail() {
     }
   });
 
-  // Fetch the friend's lists
+  // Fetch the friend's lists — show only mutual (both filled out) + public ones
   var listsEl = document.getElementById('fdetail-lists');
   if (!sbClient) { if (listsEl) listsEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">Not connected.</div>'; return; }
   try {
     var res = await sbClient.from('lists').select('*').eq('user_id', selFriendId);
     if (selFriendId !== f.friendId) return; // user navigated away
-    var lists = (res.data || []);
+    var allLists = (res.data || []);
+    var myCats = MY_LISTS.map(function(l) { return l.category || l.n.replace('Top 10 ', ''); });
+    // Filter: mutual (both have it) OR friend marked it public
+    var lists = allLists.filter(function(l) {
+      var cat = l.category || (l.name || '').replace('Top 10 ', '');
+      return myCats.indexOf(cat) !== -1 || !!l.is_public;
+    });
     if (lists.length === 0) {
-      if (listsEl) listsEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">' + name.split(' ')[0] + ' hasn\'t shared any lists yet.</div>';
+      var hasAny = allLists.length > 0;
+      if (listsEl) listsEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">'
+        + (hasAny ? name.split(' ')[0] + ' has lists but none are shared with you yet. Fill out the same categories or ask them to make a list public.' : name.split(' ')[0] + ' hasn\'t made any lists yet.')
+        + '</div>';
       return;
     }
-    var myCats = MY_LISTS.map(function(l) { return l.category || l.n.replace('Top 10 ', ''); });
     if (listsEl) listsEl.innerHTML = lists.map(function(l) {
       var cat = l.category || (l.name || '').replace('Top 10 ', '');
       var count = (l.items || []).length;
-      var shared = myCats.indexOf(cat) !== -1;
+      var isMutual = myCats.indexOf(cat) !== -1;
+      var emoji = l.emoji || getCatEmoji(cat);
       return '<div class="card no-hover" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:10px">'
-        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + (l.name || ('Top 10 ' + cat)) + '</div>'
+        + '<div style="font-size:20px;width:30px;text-align:center">' + emoji + '</div>'
+        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(l.name || ('Top 10 ' + cat)) + '</div>'
         + '<div style="font-size:10px;color:#5F5E5A">' + (l.is_ranked !== false ? 'Ranked' : 'Unranked') + ' · ' + count + ' item' + (count !== 1 ? 's' : '') + '</div></div>'
-        + (shared ? '<span class="pill pill-green">You have this</span>' : '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="selCat=\'' + cat.replace(/'/g,"\\'") + '\';editingListIdx=-1;items=[];renderCatGrid();renderItems();updateProg();go(\'s-create2\')">Make yours</button>')
+        + (isMutual ? '<span class="pill pill-green">You have this</span>' : '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="selCat=\'' + cat.replace(/'/g,"\\'") + '\';editingListIdx=-1;items=[];selCatEmoji=getCatEmoji(\'' + cat.replace(/'/g,"\\'") + '\');renderCatGrid();renderItems();updateProg();go(\'s-create2\')">Make yours</button>')
         + '</div></div>';
     }).join('');
   } catch(e) {
@@ -3431,6 +3478,7 @@ async function saveListToDb(listObj) {
       items: listObj.items,
       is_ranked: listObj.ranked !== false,
       emoji: listObj.emoji || '📋',
+      is_public: !!listObj.is_public,
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id,category' });
   } catch(e) { console.warn('List save to DB failed', e); }
@@ -3455,7 +3503,7 @@ async function loadState() {
 
       if (listsRes.data && listsRes.data.length > 0) {
         MY_LISTS = listsRes.data.map(function(l) {
-          return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category, emoji: l.emoji || getCatEmoji(l.category) };
+          return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category, emoji: l.emoji || getCatEmoji(l.category), is_public: !!l.is_public };
         });
       } else {
         var l = localStorage.getItem('tenner_lists');
@@ -3967,7 +4015,8 @@ function saveList() {
   var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
   var existing = MY_LISTS.findIndex(function(l) { return (l.category || l.n.replace('Top 10 ', '')) === selCat; });
   var isUpdate = existing >= 0;
-  var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋' };
+  var prevPublic = isUpdate ? !!(MY_LISTS[existing] && MY_LISTS[existing].is_public) : false;
+  var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic };
   if (isUpdate) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
   var dest = listOrigin;
   listOrigin = 's-home';
