@@ -3210,12 +3210,21 @@ async function renderFriendDetail() {
   var isAccepted = f.status === 'accepted';
   var newBadge = isNewAccount(p) ? '<span class="pill pill-amber" style="margin-left:6px;font-size:10px;vertical-align:middle">New account</span>' : '';
 
-  // Header
-  var headerHtml = '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:16px">'
-    + friendAvatarHtml(p, 88)
-    + '<div style="font-size:18px;font-weight:700;color:#2C2C2A;margin-top:10px">' + escapeHtml(name) + newBadge + '</div>'
-    + (handle ? '<div style="font-size:12px;color:#5F5E5A;margin-top:2px">' + escapeHtml(handle) + '</div>' : '')
-    + (isPendingInbound ? '<div style="font-size:11px;color:#854F0B;margin-top:6px">wants to connect with you</div>' : '')
+  // Header — mirrors profile page layout
+  var since = timeOnTenner(p);
+  // Wrap avatar in a centering div
+  var avatarWrapped = '<div style="display:flex;justify-content:center;margin-bottom:10px">' + friendAvatarHtml(p, 72) + '</div>';
+  var headerHtml = '<div style="text-align:center;padding:12px 0 16px">'
+    + avatarWrapped
+    + '<div style="font-size:16px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + newBadge + '</div>'
+    + (handle ? '<div style="font-size:11px;color:#5F5E5A;margin-top:2px">' + escapeHtml(handle) + '</div>' : '')
+    + (since ? '<div style="font-size:10px;color:#888780;margin-top:4px">' + since + '</div>' : '')
+    + '<div style="display:flex;justify-content:center;gap:20px;margin-top:12px">'
+    + '<div style="text-align:center"><div id="fdetail-stat-lists" style="font-size:16px;font-weight:700;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A">Lists</div></div>'
+    + '<div style="text-align:center"><div id="fdetail-stat-friends" style="font-size:16px;font-weight:700;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A">Friends</div></div>'
+    + '<div style="text-align:center"><div id="fdetail-stat-circles" style="font-size:16px;font-weight:700;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A">Circles</div></div>'
+    + '</div>'
+    + (isPendingInbound ? '<div style="font-size:11px;color:#854F0B;margin-top:8px">wants to connect with you</div>' : '')
     + '</div>';
 
   // Intro note (pending inbound)
@@ -3224,17 +3233,10 @@ async function renderFriendDetail() {
   // Mutual friends (async fill)
   var mutualHtml = '<div id="fdetail-mutual" style="display:none;margin-bottom:12px"></div>';
 
-  // Info chips (birthday, member since)
+  // Birthday chip
   var bday = formatBirthday(p.birthday);
-  var since = timeOnTenner(p);
-  var infoItems = [];
-  if (bday) infoItems.push(['🎂', 'Birthday', bday]);
-  if (since) infoItems.push(['🗓️', 'On Tenner', since]);
-  var infoHtml = infoItems.length ? '<div class="card no-hover" style="margin-bottom:12px;padding:2px 12px">'
-    + infoItems.map(function(it, idx) {
-        var border = idx < infoItems.length - 1 ? 'border-bottom:1px solid #F1EFE8' : '';
-        return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;' + border + '"><span style="font-size:18px">' + it[0] + '</span><div><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + it[1] + '</div><div style="font-size:11px;color:#5F5E5A">' + it[2] + '</div></div></div>';
-      }).join('')
+  var infoHtml = bday ? '<div class="card no-hover" style="margin-bottom:12px;padding:2px 12px">'
+    + '<div style="display:flex;align-items:center;gap:10px;padding:10px 0"><span style="font-size:18px">🎂</span><div><div style="font-size:12px;font-weight:600;color:#2C2C2A">Birthday</div><div style="font-size:11px;color:#5F5E5A">' + bday + '</div></div></div>'
     + '</div>' : '';
 
   // Match link (only when connected)
@@ -3262,6 +3264,25 @@ async function renderFriendDetail() {
   }
 
   el.innerHTML = headerHtml + noteHtml + mutualHtml + infoHtml + matchHtml + listsHtml + actionHtml;
+
+  // Load friend's stats asynchronously
+  if (sbClient) {
+    (async function() {
+      try {
+        var fid = selFriendId;
+        var results = await Promise.all([
+          sbClient.from('lists').select('id', { count: 'exact', head: true }).eq('user_id', fid),
+          sbClient.from('friendships').select('id', { count: 'exact', head: true }).or('requester_id.eq.' + fid + ',addressee_id.eq.' + fid).eq('status', 'accepted'),
+          sbClient.from('group_members').select('id', { count: 'exact', head: true }).eq('user_id', fid).eq('status', 'accepted')
+        ]);
+        if (selFriendId !== fid) return;
+        var set = function(id, val) { var e = document.getElementById(id); if (e) e.textContent = val; };
+        set('fdetail-stat-lists', results[0].count != null ? results[0].count : '—');
+        set('fdetail-stat-friends', results[1].count != null ? results[1].count : '—');
+        set('fdetail-stat-circles', results[2].count != null ? results[2].count : '—');
+      } catch(e) { console.warn('Friend stats failed', e); }
+    })();
+  }
 
   // Fill mutual friends asynchronously
   getMutualFriends(f.friendId).then(function(names) {
