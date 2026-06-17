@@ -193,14 +193,19 @@
       <div class="screen" id="s-list-detail">
         <div class="topbar">
           <button class="back-btn" onclick="go('s-home')">← Back</button>
-          <span id="list-detail-title" style="font-size:13px;font-weight:600;color:#2C2C2A"></span>
-          <div style="display:flex;gap:6px">
-            <button class="back-btn" onclick="shareCurrentList()" style="font-size:11px">Share</button>
-            <button class="back-btn" id="list-detail-edit-btn" onclick="editCurrentList()" style="font-size:11px;color:#D85A30;border-color:#D85A30">Edit</button>
+          <div style="display:flex;gap:6px;margin-left:auto">
+            <button onclick="shareCurrentList()" title="Share" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#F1EFE8;border:none;color:#5F5E5A;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></button>
+            <button id="list-detail-edit-btn" onclick="editCurrentList()" title="Edit" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#FAECE7;border:none;color:#D85A30;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
           </div>
         </div>
         <div class="content">
-          <div id="list-detail-meta" style="font-size:11px;color:#5F5E5A;margin-bottom:14px"></div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div id="list-detail-emoji" style="width:48px;height:48px;border-radius:12px;background:#FAECE7;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <div id="list-detail-title" style="font-size:17px;font-weight:700;color:#2C2C2A;line-height:1.2"></div>
+              <div id="list-detail-meta" style="font-size:11px;color:#5F5E5A;margin-top:3px"></div>
+            </div>
+          </div>
           <div id="list-detail-items"></div>
         </div>
       </div>
@@ -1524,7 +1529,8 @@ function renderLists() {
 function showListDetail(l) {
   var listItems = (l.items || []);
   var screen = document.getElementById('s-list-detail');
-  document.getElementById('list-detail-title').textContent = (l.emoji || getCatEmoji(l.category)) + ' ' + l.n;
+  document.getElementById('list-detail-emoji').textContent = (l.emoji || getCatEmoji(l.category));
+  document.getElementById('list-detail-title').textContent = l.n;
   document.getElementById('list-detail-meta').textContent = l.m;
   var el = document.getElementById('list-detail-items');
   el.innerHTML = '';
