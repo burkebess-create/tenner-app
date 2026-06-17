@@ -3529,18 +3529,62 @@ async function renderGiftReminders() {
     el.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No birthdays in the next 30 days.</div>';
     return;
   }
+  // Fetch lists for all upcoming-birthday friends in one query
+  var upcomingIds = upcoming.map(function(f) { return f.friendId; });
+  var friendListMap = {};
+  if (sbClient && upcomingIds.length) {
+    try {
+      var listsRes = await sbClient.from('lists').select('user_id, name, category, items, is_ranked, emoji, is_public').in('user_id', upcomingIds);
+      (listsRes.data || []).forEach(function(l) {
+        if (!friendListMap[l.user_id]) friendListMap[l.user_id] = [];
+        friendListMap[l.user_id].push(l);
+      });
+    } catch(e) { console.warn('Gift reminder list fetch failed', e); }
+  }
+
+  var myCats = MY_LISTS.map(function(l) { return l.category || l.n.replace('Top 10 ', ''); });
+
   var html = '';
   for (var i = 0; i < upcoming.length; i++) {
     var f = upcoming[i];
     var name = f.profile.display_name || f.profile.handle || 'Friend';
     var days = f._daysUntilBirthday;
-    var when = days === 0 ? 'Today! 🎉' : days === 1 ? 'Tomorrow' : 'In ' + days + ' days';
-    var friendLists = f.lists || [];
-    var topItem = '';
-    if (friendLists.length > 0 && friendLists[0].items && friendLists[0].items.length > 0) {
-      topItem = ' · Their #1 pick: ' + friendLists[0].items[0];
+    var when = days === 0 ? 'Today! 🎉' : days === 1 ? 'Tomorrow' : 'in ' + days + ' days';
+    var friendLists = friendListMap[f.friendId] || [];
+    // Show lists that are public OR mutual — these are the gift idea source
+    var visibleLists = friendLists.filter(function(l) {
+      var cat = l.category || (l.name || '').replace('Top 10 ', '');
+      return !!l.is_public || myCats.indexOf(cat) !== -1;
+    });
+
+    var giftHtml = '';
+    if (visibleLists.length === 0) {
+      giftHtml = '<div style="font-size:11px;color:#888780;margin-top:4px">No shared or public lists yet — gift ideas will appear here once they fill out a list.</div>';
+    } else {
+      // Show top #1 item from each visible list as a gift idea row
+      giftHtml = '<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">'
+        + visibleLists.slice(0, 3).map(function(l) {
+          var cat = l.category || (l.name || '').replace('Top 10 ', '');
+          var emoji = l.emoji || getCatEmoji(cat);
+          var topPick = (l.items && l.items[0]) ? l.items[0] : null;
+          return '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#2C2C2A">'
+            + '<span style="font-size:14px">' + emoji + '</span>'
+            + '<span style="flex:1"><strong>' + escapeHtml(l.name || ('Top 10 ' + cat)) + '</strong>'
+            + (topPick ? ' · #1: ' + escapeHtml(topPick) : '') + '</span>'
+            + '</div>';
+        }).join('')
+        + (visibleLists.length > 3 ? '<div style="font-size:10px;color:#888780">+ ' + (visibleLists.length - 3) + ' more lists</div>' : '')
+        + '</div>';
     }
-    html += '<div class="gift-card" style="margin-bottom:8px"><div style="font-size:12px;font-weight:700;color:#993C1D;margin-bottom:2px">' + name + '\'s birthday — ' + when + '</div><div style="font-size:11px;color:#D85A30">' + (friendLists.length > 0 ? 'Based on their lists' + topItem : 'No lists filled yet') + '</div></div>';
+
+    html += '<div class="card no-hover" style="margin-bottom:8px;background:#FFF8F6;border-color:#F4C9B8">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+      + friendAvatarHtml(f.profile, 28)
+      + '<div><div style="font-size:12px;font-weight:700;color:#993C1D">' + escapeHtml(name) + '\'s birthday — ' + when + '</div>'
+      + '<div style="font-size:10px;color:#5F5E5A">' + (formatBirthday(f.profile.birthday) || '') + '</div></div>'
+      + '</div>'
+      + giftHtml
+      + '</div>';
   }
   el.innerHTML = html;
   var homeGift = document.querySelector('#s-home .gift-card');
