@@ -546,6 +546,25 @@
         <div class="content" id="fdetail-content"></div>
       </div>
 
+      <!-- ═══ FRIEND LIST VIEW ═══ -->
+      <div class="screen" id="s-friend-list">
+        <div class="topbar">
+          <button class="back-btn" id="friend-list-back-btn" onclick="go('s-fdetail')">← Back</button>
+          <span id="friend-list-title" style="font-size:13px;font-weight:600;color:#2C2C2A"></span>
+          <span style="width:52px"></span>
+        </div>
+        <div class="content">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div id="friend-list-emoji" style="width:48px;height:48px;border-radius:12px;background:#FAECE7;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <div id="friend-list-name" style="font-size:17px;font-weight:700;color:#2C2C2A;line-height:1.2"></div>
+              <div id="friend-list-meta" style="font-size:11px;color:#5F5E5A;margin-top:3px"></div>
+            </div>
+          </div>
+          <div id="friend-list-items"></div>
+        </div>
+      </div>
+
       <!-- ═══ PROFILE ═══ -->
       <div class="screen" id="s-profile">
         <div class="topbar">
@@ -788,7 +807,7 @@ function go(id) {
       's-cg1': 'nav-circle', 's-cg2': 'nav-circle', 's-cg3': 'nav-circle',
       's-gdetail': 'nav-circle', 's-groups': 'nav-circle', 's-gsettings': 'nav-circle',
       's-match': 'nav-match',
-      's-circle': 'nav-circle', 's-fdetail': 'nav-circle',
+      's-circle': 'nav-circle', 's-fdetail': 'nav-circle', 's-friend-list': 'nav-circle',
       's-profile': 'nav-profile',
       's-notifications': 'nav-alerts'
     }[id];
@@ -3046,6 +3065,34 @@ function openFriendDetail(friendId) {
   go('s-fdetail');
 }
 
+function openFriendList(listData) {
+  var f = myFriends.find(function(x){ return x.friendId === selFriendId; });
+  var friendName = (f && (f.profile.display_name || f.profile.handle)) || 'Friend';
+  var cat = listData.category || (listData.name || '').replace('Top 10 ', '');
+  var emoji = listData.emoji || getCatEmoji(cat);
+  var items = listData.items || [];
+  var count = items.length;
+  var meta = (listData.is_ranked !== false ? 'Ranked' : 'Unranked') + ' · ' + count + ' item' + (count !== 1 ? 's' : '') + ' · ' + friendName + '\'s list';
+
+  document.getElementById('friend-list-title').textContent = friendName;
+  document.getElementById('friend-list-emoji').textContent = emoji;
+  document.getElementById('friend-list-name').textContent = listData.name || ('Top 10 ' + cat);
+  document.getElementById('friend-list-meta').textContent = meta;
+
+  var el = document.getElementById('friend-list-items');
+  if (items.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:#888780;text-align:center;padding:20px">No items yet.</div>';
+  } else {
+    el.innerHTML = items.map(function(item, i) {
+      return '<div class="rank-item" style="margin-bottom:6px">'
+        + (listData.is_ranked !== false ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>')
+        + '<span style="flex:1;font-size:12px;color:#2C2C2A">' + escapeHtml(item) + '</span>'
+        + '</div>';
+    }).join('');
+  }
+  go('s-friend-list');
+}
+
 function loadMutualForPending(pending) {
   pending.forEach(function(f) {
     getMutualFriends(f.friendId).then(function(names) {
@@ -3253,12 +3300,14 @@ async function renderFriendDetail() {
       var count = (l.items || []).length;
       var isMutual = myCats.indexOf(cat) !== -1;
       var emoji = l.emoji || getCatEmoji(cat);
-      return '<div class="card no-hover" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:10px">'
-        + '<div style="font-size:20px;width:30px;text-align:center">' + emoji + '</div>'
+      var dataAttr = 'data-list=\'' + escapeHtml(JSON.stringify(l)).replace(/'/g, '&#39;') + '\'';
+      return '<div class="share-pick" style="cursor:pointer" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
+        + '<div style="font-size:20px;width:30px;text-align:center;flex-shrink:0">' + emoji + '</div>'
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(l.name || ('Top 10 ' + cat)) + '</div>'
         + '<div style="font-size:10px;color:#5F5E5A">' + (l.is_ranked !== false ? 'Ranked' : 'Unranked') + ' · ' + count + ' item' + (count !== 1 ? 's' : '') + '</div></div>'
-        + (isMutual ? '<span class="pill pill-green">You have this</span>' : '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="selCat=\'' + cat.replace(/'/g,"\\'") + '\';editingListIdx=-1;items=[];selCatEmoji=getCatEmoji(\'' + cat.replace(/'/g,"\\'") + '\');renderCatGrid();renderItems();updateProg();go(\'s-create2\')">Make yours</button>')
-        + '</div></div>';
+        + (isMutual ? '<span class="pill pill-green">You have this</span>' : '<span class="pill" style="background:#F1EFE8;color:#5F5E5A;white-space:nowrap">Their pick</span>')
+        + '<span style="font-size:16px;color:#D3D1C7;margin-left:4px">›</span>'
+        + '</div>';
     }).join('');
   } catch(e) {
     if (listsEl) listsEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">Couldn\'t load lists.</div>';
