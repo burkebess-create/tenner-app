@@ -2197,7 +2197,7 @@ async function finishGroup() {
         if (gRes.error) throw gRes.error;
         var gid = gRes.data.id;
         localGroup.id = gid;
-        var memberRows = [{ group_id: gid, user_id: userId, status: 'accepted' }].concat(
+        var memberRows = [{ group_id: gid, user_id: userId, status: 'accepted', role: 'admin' }].concat(
           memberIds.map(function(mid) { return { group_id: gid, user_id: mid, status: 'pending' }; })
         );
         var mRes = await sbClient.from('group_members').insert(memberRows);
