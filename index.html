@@ -848,8 +848,8 @@ function go(id) {
     var backBtn = document.querySelector('#s-create2 .back-btn');
     if (backBtn) backBtn.onclick = editingListIdx >= 0 ? function(){ go('s-list-detail'); } : function(){ go('s-create1'); };
     var contBtn = document.querySelector('#s-create2 .btn-primary');
-    if (contBtn) contBtn.textContent = editingListIdx >= 0 ? 'Save changes →' : 'Continue →';
-    if (editingListIdx >= 0 && contBtn) contBtn.onclick = function(){ saveList(); };
+    if (contBtn) contBtn.textContent = editingListIdx >= 0 ? 'Continue →' : 'Continue →';
+    if (contBtn) contBtn.onclick = function(){ checkListComplete(); };
   }
   if (id === 's-create3') {
     renderShareGroups();
