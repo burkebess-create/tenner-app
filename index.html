@@ -312,10 +312,10 @@
           <div class="card no-hover">
             <div class="toggle-wrap" style="margin-bottom:3px">
               <div>
-                <div style="font-size:12px;font-weight:600;color:#2C2C2A">Public list</div>
-                <div style="font-size:10px;color:#5F5E5A;margin-top:2px">Anyone with link can view</div>
+                <div style="font-size:12px;font-weight:600;color:#2C2C2A">Visible to friends</div>
+                <div style="font-size:10px;color:#5F5E5A;margin-top:2px">Friends can see this list even if they haven't filled it out</div>
               </div>
-              <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+              <label class="toggle"><input type="checkbox" id="create-public-toggle" checked><span class="toggle-slider"></span></label>
             </div>
           </div>
           <div class="card no-hover">
@@ -851,7 +851,14 @@ function go(id) {
     if (contBtn) contBtn.textContent = editingListIdx >= 0 ? 'Save changes →' : 'Continue →';
     if (editingListIdx >= 0 && contBtn) contBtn.onclick = function(){ saveList(); };
   }
-  if (id === 's-create3') renderShareGroups();
+  if (id === 's-create3') {
+    renderShareGroups();
+    var ct = document.getElementById('create-public-toggle');
+    if (ct) {
+      var existing = MY_LISTS.find(function(l){ return (l.category || l.n.replace('Top 10 ','')) === selCat; });
+      ct.checked = existing ? !!existing.is_public : true;
+    }
+  }
   if (id === 's-gsettings') renderGroupSettings();
   if (id === 's-match') {
     if (typeof matchGroupCtx === 'undefined') matchGroupCtx = -1;
@@ -4241,7 +4248,8 @@ function saveList() {
   var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
   var existing = MY_LISTS.findIndex(function(l) { return (l.category || l.n.replace('Top 10 ', '')) === selCat; });
   var isUpdate = existing >= 0;
-  var prevPublic = isUpdate ? !!(MY_LISTS[existing] && MY_LISTS[existing].is_public) : false;
+  var createToggle = document.getElementById('create-public-toggle');
+  var prevPublic = createToggle ? !!createToggle.checked : (isUpdate ? !!(MY_LISTS[existing] && MY_LISTS[existing].is_public) : true);
   var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic };
   if (isUpdate) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
   var dest = listOrigin;
