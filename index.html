@@ -268,7 +268,7 @@
           <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
           <div style="font-size:11px;color:#5F5E5A;margin-bottom:10px" id="prog-hint">Add your first item below</div>
           <div id="items-list"></div>
-          <div class="done-banner" id="done-banner">🎉 List complete! Drag items to reorder your ranking.</div>
+          <div class="done-banner" id="done-banner">🎉 List complete! <span id="done-banner-hint"></span></div>
           <div id="add-area">
             <div style="display:flex;gap:7px;margin-bottom:5px">
               <input type="text" id="item-inp" placeholder="Type to search or add an item..." oninput="onItemType(this.value)" onkeydown="if(event.key==='Enter')doAddItem()" style="margin-bottom:0;flex:1">
@@ -1115,6 +1115,7 @@ function moveItem(idx, dir) {
 
 var dragSrcIdx = null;
 var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+(function() { var h = document.getElementById('done-banner-hint'); if (h) h.textContent = IS_TOUCH ? 'Use ▲ ▼ arrows to reorder your ranking.' : 'Drag items to reorder your ranking.'; })();
 
 function renderItems() {
   isRanked = document.getElementById('ranked-tog') ? document.getElementById('ranked-tog').checked : true;
@@ -1201,7 +1202,7 @@ function updateProg() {
   var aa = document.getElementById('add-area');
   if (pf) pf.style.width = Math.round(n/10*100) + '%';
   if (pc) pc.textContent = n + '/10';
-  var hints = ['Add your first item below','Great start! Keep going...','Nice! ' + (10-n) + ' more to go...','Looking good! ' + (10-n) + ' left...','Halfway there!','More than halfway!','Almost there...','So close!','Just one more!','List complete! Drag to reorder.'];
+  var hints = ['Add your first item below','Great start! Keep going...','Nice! ' + (10-n) + ' more to go...','Looking good! ' + (10-n) + ' left...','Halfway there!','More than halfway!','Almost there...','So close!','Just one more!', IS_TOUCH ? 'List complete! Tap ▲▼ to reorder.' : 'List complete! Drag to reorder.'];
   if (ph) ph.textContent = hints[Math.min(n, 9)];
   if (db) db.style.display = n >= 10 ? 'block' : 'none';
   if (aa) aa.style.display = n >= 10 ? 'none' : 'block';
