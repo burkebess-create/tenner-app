@@ -1605,7 +1605,7 @@ async function openShareListModal(cat) {
         ? '<button class="add-btn" disabled style="opacity:.6">Shared ✓</button>'
         : '<button class="add-btn" id="share-group-btn-' + i + '" onclick="shareListWithGroup(' + i + ',\'' + cat.replace(/'/g,"\\'") + '\',this)">Send</button>';
       return '<div class="card" style="margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:8px">'
-        + '<div style="font-size:20px">' + (g.emoji || '👥') + '</div>'
+        + groupAvatarHtml(g, 32)
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + g.n + '</div>' + sub + '</div>'
         + btn
         + '</div></div>';
