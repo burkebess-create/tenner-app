@@ -2401,7 +2401,10 @@ async function saveProfile() {
   var name = (document.getElementById('profile-name-input') || {}).value || '';
   var bdMonth = (document.getElementById('profile-bday-month') || {}).value || '';
   var bdDay = (document.getElementById('profile-bday-day') || {}).value || '';
-  var birthday = (bdMonth && bdDay) ? (bdMonth + '-' + bdDay) : null;
+  // The profiles.birthday column is a Postgres `date`, which rejects a bare
+  // "MM-DD". Store with a fixed placeholder year (2000, a leap year so 02-29
+  // is valid). Read helpers handle the YYYY-MM-DD form and ignore the year.
+  var birthday = (bdMonth && bdDay) ? ('2000-' + bdMonth + '-' + bdDay) : null;
   var phone = (document.getElementById('profile-phone-input') || {}).value.trim() || null;
 
   // Handle: only settable if not already saved; locked once set
