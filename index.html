@@ -2035,11 +2035,15 @@ async function renderGroupDetail() {
       var btn = iFilled
         ? '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="openFillGroupList(\'' + cat.replace(/'/g,"\\'") + '\')">View / edit</button>'
         : '<button class="add-btn" style="font-size:10px;padding:4px 8px;background:#D85A30;color:#fff;border-color:#D85A30" onclick="openFillGroupList(\'' + cat.replace(/'/g,"\\'") + '\')">Fill out</button>';
+      var removeBtn = isAdmin
+        ? '<button class="back-btn" style="font-size:10px;padding:3px 8px;color:#A32D2D;border-color:#F09595;margin-left:4px" onclick="event.stopPropagation();confirmRemoveGroupList(\'' + cat.replace(/'/g,"\\'") + '\')">Remove</button>'
+        : '';
       return '<div class="card" style="margin-bottom:6px">'
         + '<div style="display:flex;align-items:center;gap:10px">'
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Top 10 ' + escapeHtml(cat) + '</div>'
         + '<div style="font-size:10px;color:#5F5E5A">Shared by ' + escapeHtml(nameForId(sl.shared_by)) + ' · ' + filled.length + ' of ' + totalMembers + ' filled out' + (iFilled ? '' : ' · not yet yours') + '</div></div>'
         + btn
+        + removeBtn
         + '</div></div>';
     }).join('');
   }
@@ -2420,6 +2424,26 @@ async function renderGroupSettings() {
         + '</div>';
     }).join('');
   } catch(e) { console.warn('Load members failed', e); membersEl.innerHTML = '<div style="font-size:11px;color:#888780">Could not load members.</div>'; }
+}
+
+function confirmRemoveGroupList(cat) {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g) return;
+  showConfirm(
+    'Remove "Top 10 ' + cat + '" from group?',
+    'This removes the list topic from the group. Everyone keeps their own individual list.',
+    'Remove from group', 'secondary',
+    async function() {
+      if (sbClient && g.id) {
+        try { await sbClient.from('group_lists').delete().eq('group_id', g.id).eq('category', cat); } catch(e) { console.warn('Remove group list failed', e); }
+      }
+      // Update local cache
+      if (GROUP_SHARED_LISTS[g.id]) {
+        GROUP_SHARED_LISTS[g.id] = GROUP_SHARED_LISTS[g.id].filter(function(sl){ return sl.category !== cat; });
+      }
+      renderGroupDetail();
+    }
+  );
 }
 
 async function toggleMemberAdmin(memberId, makeAdmin, btn) {
