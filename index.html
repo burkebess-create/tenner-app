@@ -1761,15 +1761,30 @@ async function shareListToGroup(groupId, category) {
 
 // Open the create flow to fill out a list for a category already shared with the group.
 // Pre-loads the user's existing list for that category if they have one.
-function openFillGroupList(cat) {
+async function openFillGroupList(cat) {
   selCat = cat;
   editingListIdx = -1;
   var existing = MY_LISTS.find(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
   items = existing ? (existing.items || []).slice() : [];
   isRanked = existing ? existing.ranked !== false : true;
-  selCatEmoji = (existing && existing.emoji) || getCatEmoji(cat);
   listOrigin = 's-gdetail';
-  pendingShareGroupId = (MY_GROUPS[selGroupIdx] && MY_GROUPS[selGroupIdx].id) || null;
+  var groupId = (MY_GROUPS[selGroupIdx] && MY_GROUPS[selGroupIdx].id) || null;
+  pendingShareGroupId = groupId;
+  // Use recipient's own emoji if they have one, else inherit from whoever shared to the group
+  if (existing && existing.emoji) {
+    selCatEmoji = existing.emoji;
+  } else {
+    selCatEmoji = getCatEmoji(cat);
+    if (sbClient && groupId) {
+      try {
+        var glRes = await sbClient.from('group_lists').select('shared_by').eq('group_id', groupId).eq('category', cat).maybeSingle();
+        if (glRes.data && glRes.data.shared_by) {
+          var sharerList = await sbClient.from('lists').select('emoji').eq('user_id', glRes.data.shared_by).eq('category', cat).maybeSingle();
+          if (sharerList.data && sharerList.data.emoji) selCatEmoji = sharerList.data.emoji;
+        }
+      } catch(e) {}
+    }
+  }
   go('s-create2');
 }
 
