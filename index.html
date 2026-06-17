@@ -1452,10 +1452,10 @@ function renderShareGroups() {
     } else {
       fe.innerHTML = accepted.map(function(f) {
         var name = f.profile.display_name || f.profile.handle || 'Friend';
-        return '<div class="member-row" style="margin-bottom:6px">'
+        return '<div class="member-row" style="margin-bottom:6px;cursor:pointer" onclick="shareCreateListToFriend(\'' + f.friendId + '\',this.querySelector(\'button\'))">'
           + '<div style="margin-right:8px">' + friendAvatarHtml(f.profile, 32) + '</div>'
           + '<div style="flex:1;font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div>'
-          + '<button class="add-btn" onclick="shareCreateListToFriend(\'' + f.friendId + '\',this)">Send</button>'
+          + '<button class="add-btn" onclick="event.stopPropagation();shareCreateListToFriend(\'' + f.friendId + '\',this)">Send</button>'
           + '</div>';
       }).join('');
     }
