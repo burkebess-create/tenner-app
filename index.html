@@ -2432,12 +2432,14 @@ async function saveProfile() {
     try {
       var res = await sbClient.from('profiles').upsert(myProfile);
       if (res && res.error) {
+        console.warn('Profile upsert error (retrying without photo):', res.error);
         // Fallback: retry without optional columns that may not exist yet (e.g. photo)
         var safe = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, updated_at: myProfile.updated_at };
         if (existingPhoto) safe.photo = existingPhoto;
-        await sbClient.from('profiles').upsert(safe);
+        var res2 = await sbClient.from('profiles').upsert(safe);
+        if (res2 && res2.error) console.warn('Profile fallback upsert error:', res2.error);
       }
-    } catch(e) { console.warn('Profile save failed', e); }
+    } catch(e) { console.warn('Profile save failed:', e); }
   }
   renderProfileHeader();
   var msg = document.getElementById('profile-save-msg');
