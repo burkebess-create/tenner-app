@@ -223,6 +223,7 @@
               </span>
             </label>
           </div>
+          <button class="btn-secondary" onclick="confirmDeleteList()" style="margin-top:12px;margin-bottom:0;color:#A32D2D;border-color:#F09595;font-size:12px">Delete list</button>
         </div>
       </div>
 
@@ -2084,6 +2085,22 @@ async function removeMemberFromGroup(friendId) {
 function sendListToNewMembers(cat) {
   selCat = cat;
   openListInviteModal();
+}
+
+function confirmDeleteList() {
+  var cat = _currentListCategory;
+  var idx = MY_LISTS.findIndex(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
+  if (idx < 0) return;
+  var l = MY_LISTS[idx];
+  showConfirm('Delete "' + l.n + '"?', 'This will permanently delete your list. This cannot be undone.', 'Delete list', 'danger', async function() {
+    MY_LISTS.splice(idx, 1);
+    saveState();
+    if (sbClient && userId && cat) {
+      try { await sbClient.from('lists').delete().eq('user_id', userId).eq('category', cat); } catch(e) { console.warn('Delete list failed', e); }
+    }
+    renderLists();
+    go('s-home');
+  });
 }
 
 function confirmDeleteGroup() {
