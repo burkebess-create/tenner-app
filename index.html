@@ -2059,11 +2059,10 @@ async function renderGroupDetail() {
   var editBtn = document.getElementById('gdetail-edit-btn');
   if (editBtn) editBtn.style.display = isAdmin ? '' : 'none';
 
-  var deleteHtml = g.createdBy === userId
-    ? '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmDeleteGroup()">Delete group</button>'
-    : isAdmin
-      ? '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmAdminLeaveGroup(' + selGroupIdx + ')">Leave group</button>'
-      : '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmLeaveGroup(' + selGroupIdx + ')">Leave group</button>';
+  var deleteHtml = isAdmin
+    ? '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmAdminLeaveGroup(' + selGroupIdx + ')">Leave group</button>'
+      + '<button class="btn-secondary" style="margin-top:6px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmDeleteGroup()">Delete group for everyone</button>'
+    : '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmLeaveGroup(' + selGroupIdx + ')">Leave group</button>';
 
   // Large avatar header
   var headerHtml = '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:16px">'
@@ -2122,9 +2121,9 @@ function confirmDeleteGroup() {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
   showConfirm(
-    'Delete "' + g.n + '"?',
-    'This will permanently delete the group for all members. This cannot be undone.',
-    'Delete group',
+    'Delete "' + g.n + '" for everyone?',
+    'This permanently removes the group for all ' + ((g.memberIds || []).length + 1) + ' members. If you just want to step away, use "Leave group" instead.',
+    'Delete for everyone',
     'danger',
     async function() {
       if (sbClient && g.id) {
