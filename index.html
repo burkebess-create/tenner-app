@@ -223,6 +223,18 @@
               </span>
             </label>
           </div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid #F1EFE8;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-size:12px;font-weight:600;color:#2C2C2A">Blind fill</div>
+              <div style="font-size:10px;color:#5F5E5A;margin-top:2px">Friends must fill out their own list before seeing yours</div>
+            </div>
+            <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;margin-left:12px">
+              <input type="checkbox" id="list-detail-blind-toggle" onchange="toggleListBlindFill(this.checked)" style="opacity:0;width:0;height:0;position:absolute">
+              <span id="list-detail-blind-track" style="position:absolute;inset:0;border-radius:99px;background:#D3D1C7;cursor:pointer;transition:background .2s">
+                <span id="list-detail-blind-thumb" style="position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s"></span>
+              </span>
+            </label>
+          </div>
           <button class="btn-secondary" onclick="confirmDeleteList()" style="margin-top:12px;margin-bottom:0;color:#A32D2D;border-color:#F09595;font-size:12px">Delete list</button>
         </div>
       </div>
@@ -322,9 +334,9 @@
             <div class="toggle-wrap" style="margin-bottom:3px">
               <div>
                 <div style="font-size:12px;font-weight:600;color:#2C2C2A">Blind fill</div>
-                <div style="font-size:10px;color:#5F5E5A;margin-top:2px">Friends fill before seeing yours</div>
+                <div style="font-size:10px;color:#5F5E5A;margin-top:2px">Friends must fill out their own list before seeing yours</div>
               </div>
-              <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+              <label class="toggle"><input type="checkbox" id="create-blind-fill-toggle"><span class="toggle-slider"></span></label>
             </div>
           </div>
           <div class="sec-label">Share with friends</div>
@@ -855,11 +867,11 @@ function go(id) {
   }
   if (id === 's-create3') {
     renderShareGroups();
+    var existing = MY_LISTS.find(function(l){ return (l.category || l.n.replace('Top 10 ','')) === selCat; });
     var ct = document.getElementById('create-public-toggle');
-    if (ct) {
-      var existing = MY_LISTS.find(function(l){ return (l.category || l.n.replace('Top 10 ','')) === selCat; });
-      ct.checked = existing ? !!existing.is_public : true;
-    }
+    if (ct) ct.checked = existing ? !!existing.is_public : true;
+    var bf = document.getElementById('create-blind-fill-toggle');
+    if (bf) bf.checked = existing ? !!existing.blind_fill : false;
   }
   if (id === 's-gsettings') renderGroupSettings();
   if (id === 's-match') {
@@ -1640,9 +1652,26 @@ async function toggleListPublic(checked) {
   var l = MY_LISTS.find(function(x){ return (x.category || x.n.replace('Top 10 ','')) === _currentListCategory; });
   if (l) l.is_public = checked;
   if (sbClient && userId && _currentListCategory) {
-    try {
-      await sbClient.from('lists').update({ is_public: checked }).eq('user_id', userId).eq('category', _currentListCategory);
-    } catch(e) { console.warn('Toggle public failed', e); }
+    try { await sbClient.from('lists').update({ is_public: checked }).eq('user_id', userId).eq('category', _currentListCategory); } catch(e) { console.warn('Toggle public failed', e); }
+  }
+}
+
+function setBlindToggleUI(checked) {
+  var tog = document.getElementById('list-detail-blind-toggle');
+  var track = document.getElementById('list-detail-blind-track');
+  var thumb = document.getElementById('list-detail-blind-thumb');
+  if (!tog) return;
+  tog.checked = checked;
+  if (track) track.style.background = checked ? '#D85A30' : '#D3D1C7';
+  if (thumb) thumb.style.transform = checked ? 'translateX(18px)' : 'translateX(0)';
+}
+
+async function toggleListBlindFill(checked) {
+  setBlindToggleUI(checked);
+  var l = MY_LISTS.find(function(x){ return (x.category || x.n.replace('Top 10 ','')) === _currentListCategory; });
+  if (l) l.blind_fill = checked;
+  if (sbClient && userId && _currentListCategory) {
+    try { await sbClient.from('lists').update({ blind_fill: checked }).eq('user_id', userId).eq('category', _currentListCategory); } catch(e) { console.warn('Toggle blind fill failed', e); }
   }
 }
 
@@ -1654,6 +1683,7 @@ function showListDetail(l) {
   document.getElementById('list-detail-title').textContent = l.n;
   document.getElementById('list-detail-meta').textContent = l.m;
   setPublicToggleUI(!!l.is_public);
+  setBlindToggleUI(!!l.blind_fill);
   var el = document.getElementById('list-detail-items');
   el.innerHTML = '';
   if (listItems.length === 0) {
@@ -3189,8 +3219,17 @@ function openFriendList(listData) {
   document.getElementById('friend-list-name').textContent = listData.name || ('Top 10 ' + cat);
   document.getElementById('friend-list-meta').textContent = meta;
 
+  var iHaveIt = MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
+  var isBlindLocked = !!listData.blind_fill && !iHaveIt;
+
   var el = document.getElementById('friend-list-items');
-  if (items.length === 0) {
+  if (isBlindLocked) {
+    el.innerHTML = '<div style="text-align:center;padding:28px 16px">'
+      + '<div style="font-size:32px;margin-bottom:10px">🔒</div>'
+      + '<div style="font-size:13px;font-weight:600;color:#2C2C2A;margin-bottom:6px">' + escapeHtml(friendName) + ' has blind fill on</div>'
+      + '<div style="font-size:11px;color:#5F5E5A">Fill out your own list first to unlock their picks.</div>'
+      + '</div>';
+  } else if (items.length === 0) {
     el.innerHTML = '<div style="font-size:12px;color:#888780;text-align:center;padding:20px">No items yet.</div>';
   } else {
     el.innerHTML = items.map(function(item, i) {
@@ -3798,6 +3837,7 @@ async function saveListToDb(listObj) {
       is_ranked: listObj.ranked !== false,
       emoji: listObj.emoji || '📋',
       is_public: !!listObj.is_public,
+      blind_fill: !!listObj.blind_fill,
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id,category' });
   } catch(e) { console.warn('List save to DB failed', e); }
@@ -3822,7 +3862,7 @@ async function loadState() {
 
       if (listsRes.data && listsRes.data.length > 0) {
         MY_LISTS = listsRes.data.map(function(l) {
-          return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category, emoji: l.emoji || getCatEmoji(l.category), is_public: !!l.is_public };
+          return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category, emoji: l.emoji || getCatEmoji(l.category), is_public: !!l.is_public, blind_fill: !!l.blind_fill };
         });
       } else {
         var l = localStorage.getItem('tenner_lists');
@@ -4336,7 +4376,9 @@ function saveList() {
   var isUpdate = existing >= 0;
   var createToggle = document.getElementById('create-public-toggle');
   var prevPublic = createToggle ? !!createToggle.checked : (isUpdate ? !!(MY_LISTS[existing] && MY_LISTS[existing].is_public) : true);
-  var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic };
+  var blindToggle = document.getElementById('create-blind-fill-toggle');
+  var prevBlind = blindToggle ? !!blindToggle.checked : (isUpdate ? !!(MY_LISTS[existing] && MY_LISTS[existing].blind_fill) : false);
+  var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic, blind_fill: prevBlind };
   if (isUpdate) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
   var dest = listOrigin;
   listOrigin = 's-home';
