@@ -1951,7 +1951,10 @@ async function renderGroupDetail() {
     + '<span style="font-size:16px;color:#D85A30">›</span>'
     + '</div></div>';
 
-  var deleteHtml = '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmDeleteGroup()">Delete group</button>';
+  var isOwner = g.createdBy === userId;
+  var deleteHtml = isOwner
+    ? '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmDeleteGroup()">Delete group</button>'
+    : '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmLeaveGroup(' + selGroupIdx + ')">Leave group</button>';
 
   // Large avatar header
   var headerHtml = '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:16px">'
@@ -2960,7 +2963,7 @@ function renderCircleFriends() {
       var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
       return '<div class="share-pick" style="cursor:pointer" onclick="openFriendDetail(\'' + f.friendId + '\')">' + friendAvatarHtml(f.profile, 32)
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>'
-        + '<button class="back-btn" style="font-size:10px;padding:3px 8px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();confirmUnfriend(\'' + f.id + '\',\'' + name.replace(/'/g,"\\'") + '\')">Remove</button></div>';
+        + '<span style="font-size:16px;color:#D3D1C7">›</span></div>';
     }).join('');
   } else if (sent.length > 0) {
     html = '<div style="font-size:11px;color:#888780;padding:8px 0">' + sent.length + ' request' + (sent.length>1?'s':'') + ' sent — waiting for them to accept.</div>';
@@ -3218,7 +3221,7 @@ function renderCircleGroups() {
       + '<div style="flex:1">'
       + '<div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(g.n) + '</div>'
       + '<div style="font-size:11px;color:#5F5E5A">' + (g.meta || '') + '</div></div>'
-      + '<button class="back-btn" style="font-size:10px;padding:3px 8px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();confirmLeaveGroup(' + i + ')">Leave</button>'
+      + '<span style="font-size:16px;color:#D3D1C7">›</span>'
       + '</div>';
   }).join('');
 }
@@ -3265,6 +3268,7 @@ function confirmLeaveGroup(idx) {
     MY_GROUPS.splice(idx, 1);
     renderCircleGroups();
     renderHome();
+    go('s-circle');
   });
 }
 
