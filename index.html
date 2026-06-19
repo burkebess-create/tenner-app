@@ -8,21 +8,40 @@
 <script src="config.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F1EFE8; display: flex; justify-content: center; padding: 20px; min-height: 100vh; }
-  .outer { display: flex; gap: 20px; align-items: flex-start; max-width: 900px; width: 100%; }
-  .phone { width: 320px; flex-shrink: 0; background: #1A0F0A; border-radius: 36px; padding: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-  .frame { border-radius: 26px; overflow: hidden; background: #fff; min-height: 600px; display: flex; flex-direction: column; }
-  .screen { display: none; flex-direction: column; min-height: 600px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #2C2C2A; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+  .outer { display: flex; gap: 32px; align-items: center; justify-content: center; }
+  .phone-wrap { position: relative; flex-shrink: 0; }
+  .phone { width: 375px; background: #1A0F0A; border-radius: 50px; padding: 16px; box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08); position: relative; }
+  .phone::before { content: ''; position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: 120px; height: 28px; background: #1A0F0A; border-radius: 0 0 20px 20px; z-index: 10; }
+  .phone::after { content: ''; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; background: #333; border-radius: 50%; z-index: 11; }
+  .frame { border-radius: 36px; overflow: hidden; background: #fff; height: 780px; display: flex; flex-direction: column; position: relative; }
+  .screen { display: none; flex-direction: column; height: 100%; }
   .screen.active { display: flex; }
   .topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; background: #fff; border-bottom: 1px solid #F1EFE8; flex-shrink: 0; }
   .logo { font-size: 20px; font-weight: 700; color: #D85A30; font-family: Georgia, serif; }
   .back-btn { font-size: 12px; color: #5F5E5A; cursor: pointer; padding: 5px 10px; border-radius: 8px; border: 1px solid #D3D1C7; background: none; }
   .back-btn:hover { background: #F1EFE8; }
   .content { flex: 1; overflow-y: auto; padding: 14px; background: #fff; }
-  .bnav { display: flex; background: #fff; border-top: 1px solid #F1EFE8; flex-shrink: 0; }
-  .ni { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 9px; color: #888780; cursor: pointer; padding: 8px 2px 6px; }
+  .bnav { display: flex; background: #fff; border-top: 1px solid #F1EFE8; flex-shrink: 0; padding-bottom: 8px; }
+  .ni { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 9px; color: #888780; cursor: pointer; padding: 8px 2px 4px; }
   .ni.active { color: #D85A30; }
   .ni svg { width: 20px; height: 20px; }
+  /* All overlays/modals constrained to the phone frame */
+  .phone-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; z-index: 100; border-radius: 36px; overflow: hidden; }
+  .phone-overlay.centered { align-items: center; }
+  /* Desktop sidebar */
+  .desktop-sidebar { display: none; width: 200px; flex-shrink: 0; }
+  @media (min-width: 700px) {
+    .desktop-sidebar { display: block; }
+  }
+  @media (max-width: 450px) {
+    body { padding: 0; background: #fff; }
+    .phone { width: 100%; border-radius: 0; padding: 0; box-shadow: none; background: transparent; }
+    .phone::before, .phone::after { display: none; }
+    .frame { border-radius: 0; height: 100vh; }
+    .outer { gap: 0; }
+    .bnav { padding-bottom: env(safe-area-inset-bottom, 8px); }
+  }
   .btn-primary { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #D85A30; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 8px; font-family: inherit; }
   .btn-primary:hover { background: #993C1D; }
   .btn-secondary { width: 100%; padding: 11px; border-radius: 10px; border: 1px solid #D3D1C7; background: #fff; color: #2C2C2A; font-size: 13px; cursor: pointer; margin-bottom: 8px; font-family: inherit; }
@@ -110,8 +129,14 @@
 </head>
 <body>
 <div class="outer">
+  <!-- Desktop sidebar -->
+  <div class="desktop-sidebar">
+    <div style="color:#F9F7F2;font-size:22px;font-weight:700;font-family:Georgia,serif;margin-bottom:8px">Tenner</div>
+    <div style="color:rgba(255,255,255,0.4);font-size:12px;line-height:1.6">Compare your top 10 lists with friends.</div>
+  </div>
 
   <!-- PHONE FRAME -->
+  <div class="phone-wrap">
   <div class="phone">
     <div class="frame">
 
@@ -694,7 +719,7 @@
       </div>
 
       <!-- CONFIRM MODAL -->
-      <div id="confirm-modal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end">
+      <div id="confirm-modal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end;border-radius:36px;overflow:hidden">
         <div style="background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%">
           <div id="confirm-title" style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:5px"></div>
           <div id="confirm-message" style="font-size:11px;color:#5F5E5A;margin-bottom:16px"></div>
@@ -705,9 +730,9 @@
 
     </div>
   </div>
+  </div><!-- end phone-wrap -->
 
-  <!-- SIDEBAR NAV removed: prototype-only navigation, no longer shown -->
-</div>
+</div><!-- end outer -->
 
 <script>
 var CATS = [
@@ -1943,7 +1968,7 @@ function openShareToGroupPicker() {
   if (prev) prev.remove();
   var overlay = document.createElement('div');
   overlay.id = 'share-to-group-modal';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center;z-index:1000';
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center;z-index:1000;border-radius:36px;overflow:hidden';
   overlay.onclick = function(e){ if (e.target === overlay) overlay.remove(); };
   var sheet = document.createElement('div');
   sheet.style.cssText = 'background:#fff;width:100%;max-width:420px;border-radius:16px 16px 0 0;padding:18px;max-height:70vh;overflow-y:auto';
@@ -1968,7 +1993,7 @@ function openShareToGroupPicker() {
   html += '<button class="btn-secondary" style="margin-top:6px;color:#888780" onclick="document.getElementById(\'share-to-group-modal\').remove()">Cancel</button>';
   sheet.innerHTML = html;
   overlay.appendChild(sheet);
-  document.body.appendChild(overlay);
+  (document.querySelector('.frame') || document.body).appendChild(overlay);
 }
 
 async function shareExistingListToGroup(cat) {
@@ -4618,9 +4643,9 @@ function notifyFriendsOfUpdate(name, category) {
   } catch(e) {}
   // Show a subtle confirmation to the user
   var banner = document.createElement('div');
-  banner.style.cssText = 'position:fixed;top:0;left:50%;transform:translateX(-50%);background:#2C2C2A;color:#fff;font-size:11px;padding:8px 14px;border-radius:0 0 10px 10px;z-index:999;max-width:320px;text-align:center';
+  banner.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#2C2C2A;color:#fff;font-size:11px;padding:8px 14px;border-radius:0 0 10px 10px;z-index:999;text-align:center';
   banner.textContent = '✓ List saved — your friends will be notified of your update';
-  document.body.appendChild(banner);
+  (document.querySelector('.frame') || document.body).appendChild(banner);
   setTimeout(function(){ banner.remove(); }, 3000);
 }
 
