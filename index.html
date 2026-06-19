@@ -561,6 +561,18 @@
         <div class="content" id="fdetail-content"></div>
       </div>
 
+      <!-- ═══ GROUP LIST DETAIL ═══ -->
+      <div class="screen" id="s-group-list">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-gdetail')">← Back</button>
+          <span id="group-list-title" style="font-size:13px;font-weight:600;color:#2C2C2A"></span>
+          <button id="group-list-fill-btn" class="add-btn" style="font-size:10px;padding:4px 10px" onclick="openGroupListFill()"></button>
+        </div>
+        <div class="content">
+          <div id="group-list-content"></div>
+        </div>
+      </div>
+
       <!-- ═══ GIFT IDEAS SCREEN ═══ -->
       <div class="screen" id="s-gift-ideas">
         <div class="topbar">
@@ -1956,6 +1968,137 @@ function openShareNewListToGroup() {
 }
 
 var GROUP_SHARED_LISTS = {}; // groupId -> [{category, shared_by}] cache for the share sheet
+var _groupListCat = '';
+
+function openGroupListFill() {
+  openFillGroupList(_groupListCat);
+}
+
+function openGroupListDetail(cat) {
+  _groupListCat = cat;
+  var titleEl = document.getElementById('group-list-title');
+  if (titleEl) titleEl.textContent = getCatEmoji(cat) + ' Top 10 ' + cat;
+  go('s-group-list');
+  renderGroupListDetail();
+}
+
+async function renderGroupListDetail() {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g || !_groupListCat) return;
+  var cat = _groupListCat;
+
+  // Fill button state
+  var fillBtn = document.getElementById('group-list-fill-btn');
+  var iHaveIt = MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
+  if (fillBtn) {
+    fillBtn.textContent = iHaveIt ? 'View / edit' : 'Fill out';
+    fillBtn.style.background = iHaveIt ? '' : '#D85A30';
+    fillBtn.style.color = iHaveIt ? '' : '#fff';
+    fillBtn.style.borderColor = iHaveIt ? '' : '#D85A30';
+  }
+
+  var el = document.getElementById('group-list-content');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:24px;color:#888780;font-size:12px">Loading…</div>';
+
+  // All member ids including self
+  var allMemberIds = [userId].concat(g.memberIds || []);
+
+  // Fetch all members' lists for this category
+  var listsByUser = {};
+  try {
+    var lRes = await sbClient.from('lists').select('user_id, items, emoji').in('user_id', allMemberIds).eq('category', cat);
+    (lRes.data || []).forEach(function(r){ listsByUser[r.user_id] = r; });
+  } catch(e) { console.warn('renderGroupListDetail fetch failed', e); }
+
+  var filled = allMemberIds.filter(function(uid){ return !!listsByUser[uid]; });
+  var totalMembers = allMemberIds.length;
+  var filledCount = filled.length;
+  var participationPct = totalMembers > 0 ? filledCount / totalMembers : 0;
+
+  // Helper: get display name for uid
+  function nameFor(uid) {
+    if (uid === userId) return (myProfile && myProfile.display_name) || 'You';
+    var f = myFriends.find(function(mf){ return mf.friendId === uid; });
+    return (f && f.profile && (f.profile.display_name || (f.profile.handle ? '@' + f.profile.handle : null))) || 'Member';
+  }
+  function initialsFor(uid) {
+    return nameFor(uid).split(' ').map(function(w){ return w[0] || ''; }).join('').toUpperCase().slice(0,2) || '?';
+  }
+  function avatarHtml(uid, size) {
+    size = size || 32;
+    return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:' + Math.round(size*0.38) + 'px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + initialsFor(uid) + '</div>';
+  }
+
+  // Progress bar
+  var progressHtml = '<div style="margin-bottom:16px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+    + '<div style="font-size:12px;font-weight:600;color:#2C2C2A">' + filledCount + ' of ' + totalMembers + ' filled out</div>'
+    + '</div>'
+    + '<div style="height:6px;border-radius:3px;background:#F1EFE8;overflow:hidden">'
+    + '<div style="height:100%;width:' + Math.round(participationPct * 100) + '%;background:#D85A30;border-radius:3px;transition:width 0.3s"></div>'
+    + '</div></div>';
+
+  var html = progressHtml;
+
+  if (participationPct < 0.5) {
+    // ── PARTICIPATION MODE ──
+    html += '<div class="sec-label">Who\'s filled it out</div>';
+    html += allMemberIds.map(function(uid) {
+      var listRow = listsByUser[uid];
+      var hasFilled = !!listRow;
+      var topPick = hasFilled && listRow.items && listRow.items[0] ? escapeHtml(listRow.items[0]) : null;
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F1EFE8">'
+        + avatarHtml(uid, 36)
+        + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(nameFor(uid)) + '</div>'
+        + (topPick ? '<div style="font-size:11px;color:#5F5E5A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🥇 ' + topPick + '</div>'
+                   : '<div style="font-size:11px;color:#A8A69E">Not yet</div>')
+        + '</div>'
+        + (hasFilled ? '<div style="color:#3B6D11;font-size:16px">✓</div>' : '<div style="color:#D3D1C7;font-size:14px">–</div>')
+        + '</div>';
+    }).join('');
+    if (!iHaveIt) {
+      html += '<button class="btn-secondary" style="width:100%;margin-top:16px;background:#D85A30;color:#fff;border-color:#D85A30;font-size:13px;font-weight:600" onclick="openGroupListFill()">Fill out yours →</button>';
+    }
+  } else {
+    // ── COMPARISON MODE ──
+    var colWidth = Math.max(80, Math.floor(280 / totalMembers));
+    var headerRow = '<div style="display:flex;gap:4px;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #F1EFE8">'
+      + '<div style="width:22px;flex-shrink:0"></div>'
+      + allMemberIds.map(function(uid) {
+          var hasFilled = !!listsByUser[uid];
+          return '<div style="width:' + colWidth + 'px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;opacity:' + (hasFilled ? '1' : '0.4') + '">'
+            + avatarHtml(uid, 28)
+            + '<div style="font-size:9px;color:#5F5E5A;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:' + colWidth + 'px">' + escapeHtml(nameFor(uid).split(' ')[0]) + '</div>'
+            + '</div>';
+        }).join('')
+      + '</div>';
+
+    var rows = '';
+    for (var i = 0; i < 10; i++) {
+      var rank = i + 1;
+      rows += '<div style="display:flex;gap:4px;align-items:flex-start;padding:6px 0;border-bottom:1px solid #F9F7F2">'
+        + '<div style="width:22px;flex-shrink:0;font-size:10px;font-weight:700;color:#D85A30;padding-top:2px">' + rank + '</div>'
+        + allMemberIds.map(function(uid) {
+            var listRow = listsByUser[uid];
+            var pick = listRow && listRow.items && listRow.items[i] ? listRow.items[i] : null;
+            return '<div style="width:' + colWidth + 'px;flex-shrink:0;font-size:10px;color:' + (pick ? '#2C2C2A' : '#D3D1C7') + ';line-height:1.3;word-break:break-word">'
+              + (pick ? escapeHtml(pick) : '—') + '</div>';
+          }).join('')
+        + '</div>';
+    }
+
+    html += '<div class="sec-label">Side by side</div>';
+    html += '<div style="overflow-x:auto">' + headerRow + rows + '</div>';
+
+    if (!iHaveIt) {
+      html += '<button class="btn-secondary" style="width:100%;margin-top:16px;background:#D85A30;color:#fff;border-color:#D85A30;font-size:13px;font-weight:600" onclick="openGroupListFill()">Fill out yours →</button>';
+    }
+  }
+
+  el.innerHTML = html;
+}
 
 async function renderGroupDetail() {
   var g = MY_GROUPS[selGroupIdx];
@@ -2063,17 +2206,19 @@ async function renderGroupDetail() {
       var filled = filledByCat[cat] || [];
       var iFilled = filled.indexOf(userId) >= 0;
       var btn = iFilled
-        ? '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="openFillGroupList(\'' + cat.replace(/'/g,"\\'") + '\')">View / edit</button>'
-        : '<button class="add-btn" style="font-size:10px;padding:4px 8px;background:#D85A30;color:#fff;border-color:#D85A30" onclick="openFillGroupList(\'' + cat.replace(/'/g,"\\'") + '\')">Fill out</button>';
+        ? '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="event.stopPropagation();openFillGroupList(\'' + cat.replace(/'/g,"\\'") + '\')">View / edit</button>'
+        : '<button class="add-btn" style="font-size:10px;padding:4px 8px;background:#D85A30;color:#fff;border-color:#D85A30" onclick="event.stopPropagation();openFillGroupList(\'' + cat.replace(/'/g,"\\'") + '\')">Fill out</button>';
       var removeBtn = isAdmin
         ? '<button class="back-btn" style="font-size:10px;padding:3px 8px;color:#A32D2D;border-color:#F09595;margin-left:4px" onclick="event.stopPropagation();confirmRemoveGroupList(\'' + cat.replace(/'/g,"\\'") + '\')">Remove</button>'
         : '';
-      return '<div class="card" style="margin-bottom:6px">'
+      return '<div class="card share-pick" style="margin-bottom:6px;cursor:pointer" onclick="openGroupListDetail(\'' + cat.replace(/'/g,"\\'") + '\')">'
         + '<div style="display:flex;align-items:center;gap:10px">'
+        + '<div style="font-size:22px">' + getCatEmoji(cat) + '</div>'
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Top 10 ' + escapeHtml(cat) + '</div>'
         + '<div style="font-size:10px;color:#5F5E5A">Shared by ' + escapeHtml(nameForId(sl.shared_by)) + ' · ' + filled.length + ' of ' + totalMembers + ' filled out' + (iFilled ? '' : ' · not yet yours') + '</div></div>'
         + btn
         + removeBtn
+        + '<span style="font-size:16px;color:#D85A30;margin-left:2px">›</span>'
         + '</div></div>';
     }).join('');
   }
