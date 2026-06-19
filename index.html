@@ -626,12 +626,19 @@
           </div>
           <div class="sec-label">Account</div>
           <div class="card no-hover" style="margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid #F1EFE8">
               <div>
                 <div style="font-size:11px;font-weight:600;color:#2C2C2A" id="profile-email">—</div>
                 <div style="font-size:10px;color:#5F5E5A;margin-top:2px">Signed in</div>
               </div>
               <button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="signOut()">Sign out</button>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px">
+              <div>
+                <div style="font-size:11px;font-weight:600;color:#2C2C2A">Password</div>
+                <div style="font-size:10px;color:#5F5E5A;margin-top:2px" id="profile-pw-status">••••••••</div>
+              </div>
+              <button class="back-btn" onclick="openChangePassword()">Change</button>
             </div>
           </div>
           <div class="sec-label">Profile Info</div>
@@ -884,7 +891,7 @@ function go(id) {
   }
   if (id === 's-circle') { renderCircleScreen(); renderGiftReminders(); }
   if (id === 's-notifications') { loadListShareInvites().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
-  if (id === 's-profile') { renderProfileHeader(); renderFriendsSection(); }
+  if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
 }
 
 function formatPhoneInput(input) {
@@ -2826,6 +2833,51 @@ async function signInWithGoogle() {
   });
 }
 
+function openChangePassword() {
+  var frame = document.querySelector('.frame') || document.body;
+  var hasPassword = (myProfile && myProfile._hasPassword);
+  var overlay = document.createElement('div');
+  overlay.className = 'phone-overlay centered';
+  overlay.id = 'pw-change-overlay';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:18px;padding:22px 18px;width:90%;max-width:320px;position:relative">' +
+    '<div style="font-size:14px;font-weight:700;color:#2C2C2A;margin-bottom:4px">🔐 ' + (hasPassword ? 'Change Password' : 'Set a Password') + '</div>' +
+    '<div style="font-size:11px;color:#5F5E5A;margin-bottom:14px">' + (hasPassword ? 'Enter your current password and choose a new one.' : 'Add a password to your account so you can sign in without a magic link.') + '</div>' +
+    (hasPassword ? '<div style="font-size:10px;color:#5F5E5A;margin-bottom:3px">Current password</div><input type="password" id="pw-current" placeholder="Current password" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:10px;font-family:inherit">' : '') +
+    '<div style="font-size:10px;color:#5F5E5A;margin-bottom:3px">New password</div>' +
+    '<input type="password" id="pw-new" placeholder="At least 6 characters" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:10px;font-family:inherit">' +
+    '<div style="font-size:10px;color:#5F5E5A;margin-bottom:3px">Confirm new password</div>' +
+    '<input type="password" id="pw-confirm" placeholder="Repeat new password" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:12px;font-family:inherit">' +
+    '<div id="pw-error" style="display:none;font-size:11px;color:#A32D2D;background:#FDF0EF;padding:7px 10px;border-radius:7px;margin-bottom:10px;border:1px solid #F09595"></div>' +
+    '<button class="btn-primary" style="margin-bottom:6px" onclick="submitChangePassword()">Save password</button>' +
+    '<button class="btn-secondary" style="margin-bottom:0" onclick="document.getElementById(\'pw-change-overlay\').remove()">Cancel</button>' +
+  '</div>';
+  frame.appendChild(overlay);
+  setTimeout(function(){ var el = document.getElementById(hasPassword ? 'pw-current' : 'pw-new'); if(el) el.focus(); }, 100);
+}
+
+async function submitChangePassword() {
+  var hasPassword = (myProfile && myProfile._hasPassword);
+  var newPw = (document.getElementById('pw-new') || {}).value || '';
+  var confirm = (document.getElementById('pw-confirm') || {}).value || '';
+  var errEl = document.getElementById('pw-error');
+  function showErr(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
+  errEl.style.display = 'none';
+  if (newPw.length < 6) { showErr('Password must be at least 6 characters.'); return; }
+  if (newPw !== confirm) { showErr('Passwords do not match.'); return; }
+  if (hasPassword) {
+    var currentPw = (document.getElementById('pw-current') || {}).value || '';
+    if (!currentPw) { showErr('Please enter your current password.'); return; }
+    var email = (myProfile && myProfile.email) || '';
+    var signInRes = await sbClient.auth.signInWithPassword({ email: email, password: currentPw });
+    if (signInRes.error) { showErr('Current password is incorrect.'); return; }
+  }
+  var res = await sbClient.auth.updateUser({ password: newPw });
+  if (res.error) { showErr(res.error.message || 'Could not update password.'); return; }
+  if (myProfile) myProfile._hasPassword = true;
+  document.getElementById('pw-change-overlay').remove();
+  showToast('Password updated!');
+}
+
 async function signOut() {
   if (sbClient) await sbClient.auth.signOut();
   userId = null;
@@ -2853,6 +2905,15 @@ async function loadProfile() {
     var res = await sbClient.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (res.data) myProfile = res.data;
   } catch(e) { console.warn('Profile load failed', e); }
+  try {
+    var userRes = await sbClient.auth.getUser();
+    var identities = (userRes.data && userRes.data.user && userRes.data.user.identities) || [];
+    var hasPassword = identities.some(function(i){ return i.provider === 'email'; });
+    if (myProfile) myProfile._hasPassword = hasPassword;
+    else myProfile = { _hasPassword: hasPassword };
+    var pwStatus = document.getElementById('profile-pw-status');
+    if (pwStatus) pwStatus.textContent = hasPassword ? '••••••••' : 'Not set — magic link only';
+  } catch(e) { console.warn('Auth user load failed', e); }
   try { renderProfileHeader(); } catch(e) { console.warn(e); }
 }
 
