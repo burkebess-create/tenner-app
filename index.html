@@ -2184,7 +2184,7 @@ async function finishGroup() {
       photo: groupPhotoData || null,
       meta: memberCount + ' member' + (memberCount !== 1 ? 's' : '') + ' · 0 lists compared',
       pill: 'New', pillClass: 'pill-blue',
-      memberIds: memberIds, isNew: true
+      memberIds: memberIds, isNew: true, isAdmin: true
     };
     if (sbClient && userId) {
       try {
