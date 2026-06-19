@@ -379,8 +379,12 @@
             <div class="step-dot active"></div>
             <div class="step-dot"></div>
           </div>
-          <div style="font-size:11px;color:#5F5E5A;margin-bottom:10px">Add Tenner friends or invite anyone via link</div>
-          <input type="text" placeholder="Search by name or @handle...">
+          <div style="font-size:11px;color:#5F5E5A;margin-bottom:10px">Add Tenner friends or search for anyone by @handle</div>
+          <div style="display:flex;gap:6px;margin-bottom:10px">
+            <input type="text" id="cg2-handle-search" placeholder="Search @handle…" style="margin-bottom:0;flex:1;font-size:12px;padding:7px 10px" onkeydown="if(event.key==='Enter')searchGroupMember()">
+            <button class="add-btn" style="padding:7px 12px;font-size:12px;flex-shrink:0" onclick="searchGroupMember()">Search</button>
+          </div>
+          <div id="cg2-search-result" style="margin-bottom:8px"></div>
           <div class="sec-label">Your Tenner friends</div>
           <div id="friends-list"></div>
           <div class="info-box">
@@ -792,6 +796,7 @@ var items = [];
 var isRanked = true;
 var selEmoji = 0;
 var addedFriends = new Set();
+var addedNonFriends = {}; // userId -> profile, for non-friends added to group
 var selList = -1;
 var fuzzyItemSug = '';
 var listOrigin = 's-home';
@@ -828,7 +833,7 @@ function go(id) {
   if (id === 's-fdetail' && selFriendId) renderFriendDetail();
   if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; }
   if (id === 's-create2') { renderItems(); updateProg(); }
-  if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
+  if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); addedNonFriends = {}; clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
   if (id === 's-cg3') renderListPicker();
   if (id === 's-create2') {
@@ -1477,11 +1482,53 @@ function renderFriendsList() {
   });
 }
 
+async function searchGroupMember() {
+  var inp = document.getElementById('cg2-handle-search');
+  var resultEl = document.getElementById('cg2-search-result');
+  if (!inp || !resultEl) return;
+  var q = inp.value.trim().replace(/^@/, '').toLowerCase();
+  if (!q) return;
+  resultEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:4px 0">Searching…</div>';
+  try {
+    var res = await sbClient.from('profiles').select('id, display_name, handle, photo').eq('handle', q).neq('id', userId).maybeSingle();
+    if (!res.data) {
+      resultEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:4px 0">No user found with that handle.</div>';
+      return;
+    }
+    var p = res.data;
+    var name = p.display_name || ('@' + p.handle) || 'User';
+    var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
+    var alreadyAdded = addedFriends.has(p.id) || !!addedNonFriends[p.id];
+    var isFriend = myFriends.some(function(f){ return f.friendId === p.id && f.status === 'accepted'; });
+    resultEl.innerHTML = '<div class="member-row" style="background:#fff;border:1px solid #E8E6DF;border-radius:10px;padding:8px 10px">'
+      + '<div style="width:32px;height:32px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:8px">' + initials + '</div>'
+      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '</div>'
+      + '<div style="font-size:10px;color:#888780">@' + escapeHtml(p.handle || '') + '</div></div>'
+      + '<button class="add-btn" id="cg2-add-btn" style="font-size:11px">' + (alreadyAdded ? 'Added ✓' : '+ Add') + '</button>'
+      + '</div>';
+    document.getElementById('cg2-add-btn').onclick = function() {
+      if (isFriend) {
+        if (addedFriends.has(p.id)) addedFriends.delete(p.id); else addedFriends.add(p.id);
+      } else {
+        if (addedNonFriends[p.id]) delete addedNonFriends[p.id]; else addedNonFriends[p.id] = p;
+      }
+      renderFriendsList();
+      renderAddedChips();
+      var btn = document.getElementById('cg2-add-btn');
+      var nowAdded = addedFriends.has(p.id) || !!addedNonFriends[p.id];
+      if (btn) btn.textContent = nowAdded ? 'Added ✓' : '+ Add';
+    };
+  } catch(e) {
+    resultEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:4px 0">Search failed. Try again.</div>';
+  }
+}
+
 function renderAddedChips() {
   var chips = document.getElementById('added-chips');
   var count = document.getElementById('added-count');
   if (!chips) return;
-  if (count) count.textContent = addedFriends.size;
+  var total = addedFriends.size + Object.keys(addedNonFriends).length;
+  if (count) count.textContent = total;
   chips.innerHTML = '';
   addedFriends.forEach(function(fid) {
     var f = myFriends.find(function(mf) { return mf.friendId === fid; });
@@ -1491,6 +1538,15 @@ function renderAddedChips() {
     chip.style.cssText = 'display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:99px;background:#E6F1FB;border:1px solid #185FA5;cursor:pointer';
     chip.innerHTML = '<span style="font-size:10px;font-weight:600;color:#185FA5">' + name.split(' ')[0] + '</span>'
       + '<span style="color:#185FA5;font-size:14px;cursor:pointer" onclick="addedFriends.delete(\'' + fid + '\');renderFriendsList();renderAddedChips()">×</span>';
+    chips.appendChild(chip);
+  });
+  Object.keys(addedNonFriends).forEach(function(uid) {
+    var p = addedNonFriends[uid];
+    var name = p.display_name || ('@' + p.handle) || 'User';
+    var chip = document.createElement('div');
+    chip.style.cssText = 'display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:99px;background:#F1EFE8;border:1px solid #D3D1C7;cursor:pointer';
+    chip.innerHTML = '<span style="font-size:10px;font-weight:600;color:#5F5E5A">' + name.split(' ')[0] + '</span>'
+      + '<span style="color:#888780;font-size:14px" onclick="delete addedNonFriends[\'' + uid + '\'];renderAddedChips()">×</span>';
     chips.appendChild(chip);
   });
 }
@@ -2284,7 +2340,7 @@ async function finishGroup() {
     var nameEl = document.getElementById('group-name');
     var groupName = nameEl ? nameEl.value.trim() : 'New Group';
     if (!groupName) groupName = 'New Group';
-    var memberIds = Array.from(addedFriends);
+    var memberIds = Array.from(addedFriends).concat(Object.keys(addedNonFriends));
     var memberCount = memberIds.length + 1;
     var localGroup = {
       n: groupName,
