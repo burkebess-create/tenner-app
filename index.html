@@ -2023,6 +2023,21 @@ async function renderGroupListDetail() {
   // All member ids including self
   var allMemberIds = [userId].concat(g.memberIds || []);
 
+  // Resolve profiles for all members (non-friends fetched from DB)
+  var groupMemberProfiles = {};
+  allMemberIds.forEach(function(fid) {
+    if (fid === userId) { groupMemberProfiles[fid] = myProfile; return; }
+    var f = myFriends.find(function(mf){ return mf.friendId === fid; });
+    if (f && f.profile) groupMemberProfiles[fid] = f.profile;
+  });
+  var nonFriendMemberIds = allMemberIds.filter(function(fid){ return fid !== userId && !groupMemberProfiles[fid]; });
+  if (nonFriendMemberIds.length > 0 && sbClient) {
+    try {
+      var pfRes2 = await sbClient.from('profiles').select('id, display_name, handle, photo').in('id', nonFriendMemberIds);
+      (pfRes2.data || []).forEach(function(p){ groupMemberProfiles[p.id] = p; });
+    } catch(e) { console.warn('Load group member profiles failed', e); }
+  }
+
   // Fetch all members' lists for this category
   var listsByUser = {};
   try {
@@ -2038,8 +2053,8 @@ async function renderGroupListDetail() {
   // Helper: get display name for uid
   function nameFor(uid) {
     if (uid === userId) return (myProfile && myProfile.display_name) || 'You';
-    var f = myFriends.find(function(mf){ return mf.friendId === uid; });
-    return (f && f.profile && (f.profile.display_name || (f.profile.handle ? '@' + f.profile.handle : null))) || 'Member';
+    var p = groupMemberProfiles[uid];
+    return (p && (p.display_name || (p.handle ? '@' + p.handle : null))) || 'Member';
   }
   function initialsFor(uid) {
     return nameFor(uid).split(' ').map(function(w){ return w[0] || ''; }).join('').toUpperCase().slice(0,2) || '?';
@@ -2141,8 +2156,24 @@ async function renderGroupDetail() {
   }
 
   var memberIds = g.memberIds || [];
+
+  // Resolve profiles: friends come from myFriends cache, non-friends fetched from DB
+  var memberProfiles = {}; // userId -> {display_name, handle, photo, ...}
+  memberIds.forEach(function(fid) {
+    var f = myFriends.find(function(mf) { return mf.friendId === fid; });
+    if (f && f.profile) memberProfiles[fid] = f.profile;
+  });
+  var nonFriendIds = memberIds.filter(function(fid) { return !memberProfiles[fid]; });
+  if (nonFriendIds.length > 0 && sbClient) {
+    try {
+      var pfRes = await sbClient.from('profiles').select('id, display_name, handle, photo').in('id', nonFriendIds);
+      (pfRes.data || []).forEach(function(p) { memberProfiles[p.id] = p; });
+    } catch(e) { console.warn('Load non-friend profiles failed', e); }
+  }
+
   var members = memberIds.map(function(fid) {
-    return myFriends.find(function(mf) { return mf.friendId === fid; });
+    var profile = memberProfiles[fid];
+    return profile ? { friendId: fid, profile: profile } : null;
   }).filter(Boolean);
   var memberCount = members.length + 1;
   var myName = (myProfile && myProfile.display_name) || 'You';
@@ -2210,8 +2241,8 @@ async function renderGroupDetail() {
 
   function nameForId(uid) {
     if (uid === userId) return 'you';
-    var f = myFriends.find(function(mf){ return mf.friendId === uid; });
-    if (f && f.profile) return (f.profile.display_name || (f.profile.handle ? '@' + f.profile.handle : 'a member'));
+    var p = memberProfiles[uid];
+    if (p) return (p.display_name || (p.handle ? '@' + p.handle : 'a member'));
     return 'a member';
   }
 
