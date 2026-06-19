@@ -541,16 +541,15 @@
       <div class="screen" id="s-gift-ideas">
         <div class="topbar">
           <button class="back-btn" onclick="go('s-circle')">← Back</button>
-          <span id="gift-ideas-title" style="font-size:13px;font-weight:600;color:#2C2C2A"></span>
+          <span style="font-size:13px;font-weight:600;color:#2C2C2A">Gift Ideas</span>
           <span style="width:52px"></span>
         </div>
         <div class="content">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:12px;background:#FFF8F6;border-radius:12px;border:1px solid #F4C9B8">
-            <div id="gift-ideas-avatar"></div>
-            <div>
-              <div id="gift-ideas-name" style="font-size:14px;font-weight:700;color:#993C1D"></div>
-              <div id="gift-ideas-bday" style="font-size:11px;color:#5F5E5A;margin-top:2px"></div>
-            </div>
+          <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 0 20px">
+            <div style="width:72px;height:72px;border-radius:50%;background:#FFF8F6;border:2px solid #F4C9B8;display:flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:10px">🎁</div>
+            <div id="gift-ideas-name" style="font-size:17px;font-weight:700;color:#2C2C2A;line-height:1.2"></div>
+            <div id="gift-ideas-bday" style="font-size:12px;color:#D85A30;font-weight:600;margin-top:4px"></div>
+            <div id="gift-ideas-avatar" style="display:none"></div>
           </div>
           <div id="gift-ideas-lists"></div>
         </div>
@@ -3793,10 +3792,8 @@ function openGiftIdeas(friendId, friendListsJson) {
   var lists = JSON.parse(friendListsJson);
   var myCats = MY_LISTS.map(function(l){ return l.category || l.n.replace('Top 10 ',''); });
 
-  document.getElementById('gift-ideas-title').textContent = name + '\'s Gift Ideas';
-  document.getElementById('gift-ideas-avatar').innerHTML = friendAvatarHtml(p, 42);
-  document.getElementById('gift-ideas-name').textContent = '🎂 ' + name + '\'s birthday — in ' + f._daysUntilBirthday + ' day' + (f._daysUntilBirthday !== 1 ? 's' : '');
-  document.getElementById('gift-ideas-bday').textContent = formatBirthday(p.birthday) || '';
+  document.getElementById('gift-ideas-name').textContent = name + '\'s Gift Ideas';
+  document.getElementById('gift-ideas-bday').textContent = '🎂 ' + (f._daysUntilBirthday === 0 ? 'Today!' : f._daysUntilBirthday === 1 ? 'Tomorrow' : 'in ' + f._daysUntilBirthday + ' days') + ' · ' + (formatBirthday(p.birthday) || '');
 
   document.getElementById('gift-ideas-lists').innerHTML = lists.map(function(l, idx) {
     var cat = l.category || (l.name || '').replace('Top 10 ','');
