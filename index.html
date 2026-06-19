@@ -191,7 +191,7 @@
       <!-- ═══ NOTIFICATIONS ═══ -->
       <div class="screen" id="s-notifications">
         <div class="topbar">
-          <button class="back-btn" onclick="go('s-home')">← Back</button>
+          <span style="width:52px"></span>
           <span style="font-size:13px;font-weight:600;color:#2C2C2A">Notifications</span>
           <button class="back-btn" onclick="loadListShareInvites().then(function(){renderNotifications();updateNotificationBadge();})" style="font-size:11px">↻</button>
         </div>
@@ -204,6 +204,7 @@
           <button class="back-btn" onclick="go('s-home')">← Back</button>
           <div style="display:flex;gap:6px;margin-left:auto">
             <button onclick="shareCurrentList()" title="Share" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#F1EFE8;border:none;color:#5F5E5A;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+            <button onclick="shareListAsImage(selListDetail)" title="Share as image" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#F1EFE8;border:none;font-size:16px;cursor:pointer">📸</button>
             <button id="list-detail-edit-btn" onclick="editCurrentList()" title="Edit" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#FAECE7;border:none;color:#D85A30;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
           </div>
         </div>
@@ -420,7 +421,7 @@
           </div>
           <div class="sec-label">Added to group (<span id="added-count">3</span>)</div>
           <div id="added-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
-          <button class="btn-primary" onclick="go('s-cg3')">Continue → Send a list</button>
+          <button class="btn-primary" onclick="goToCg3()">Continue → Send a list</button>
         </div>
       </div>
 
@@ -446,7 +447,7 @@
           <div class="card no-hover">
             <div class="toggle-wrap" style="margin-bottom:3px">
               <div>
-                <div style="font-size:12px;font-weight:600;color:#2C2C2A">Blind fill on</div>
+                <div style="font-size:12px;font-weight:600;color:#2C2C2A">Blind fill</div>
                 <div style="font-size:10px;color:#5F5E5A;margin-top:2px">Members fill before seeing anyone else's</div>
               </div>
               <label class="toggle"><input type="checkbox" id="cg3-blind-fill-toggle" checked><span class="toggle-slider"></span></label>
@@ -600,6 +601,7 @@
               <div id="friend-list-meta" style="font-size:11px;color:#5F5E5A;margin-top:3px"></div>
             </div>
           </div>
+          <div id="friend-list-reactions" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>
           <div id="friend-list-items"></div>
           <div id="friend-list-cta" style="margin-top:16px"></div>
         </div>
@@ -622,7 +624,7 @@
             <div id="profile-handle-display" style="font-size:11px;color:#5F5E5A;margin-top:2px">@—</div>
             <div id="profile-on-tenner" style="font-size:10px;color:#888780;margin-top:4px;display:none"></div>
             <div style="display:flex;justify-content:center;gap:20px;margin-top:12px">
-              <div style="text-align:center"><div id="profile-stat-lists" style="font-size:16px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9px;color:#5F5E5A">Lists</div></div>
+              <div style="text-align:center"><div id="profile-stat-lists" style="font-size:16px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9px;color:#5F5E5A">This month</div></div>
               <div style="text-align:center"><div id="profile-stat-friends" style="font-size:16px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9px;color:#5F5E5A">Friends</div></div>
               <div style="text-align:center"><div id="profile-stat-circles" style="font-size:16px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9px;color:#5F5E5A">Circles</div></div>
               <div style="text-align:center"><div id="profile-stat-match" style="font-size:16px;font-weight:700;color:#D85A30">—</div><div style="font-size:9px;color:#5F5E5A">Avg match</div></div>
@@ -656,6 +658,10 @@
               <input type="text" id="profile-handle-input" placeholder="@yourhandle" oninput="onHandleInput()" style="margin-bottom:4px;font-size:12px;padding:6px 8px">
               <div id="handle-status" style="font-size:10px;color:#888780"></div>
               <div id="handle-locked-msg" style="display:none;font-size:10px;color:#5F5E5A;background:#F7F6F2;padding:6px 8px;border-radius:6px;border:1px solid #E2DFD8">Your handle is set and cannot be changed.</div>
+            </div>
+            <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
+              <div style="font-size:10px;color:#5F5E5A;margin-bottom:3px">Bio (optional)</div>
+              <textarea id="profile-bio-input" placeholder="Write a short bio…" maxlength="160" style="width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;resize:none;height:64px;margin-bottom:0"></textarea>
             </div>
             <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
               <div style="font-size:10px;color:#5F5E5A;margin-bottom:3px">Phone number (optional)</div>
@@ -698,6 +704,21 @@
         <div class="ni" id="nav-alerts" onclick="go('s-notifications')" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>Alerts<span id="notif-badge" style="display:none;position:absolute;top:2px;right:14px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center"></span></div>
       </div>
 
+      <!-- ITEM COMMENTS MODAL -->
+      <div id="item-comments-modal" onclick="if(event.target===this)this.style.display='none'" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:flex-end;justify-content:center">
+        <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;padding:20px;max-height:70vh;display:flex;flex-direction:column">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div id="item-comments-title" style="font-size:14px;font-weight:700;color:#2C2C2A"></div>
+            <button onclick="document.getElementById('item-comments-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;padding:0 4px">×</button>
+          </div>
+          <div id="item-comments-list" style="flex:1;overflow-y:auto;margin-bottom:12px"></div>
+          <div style="display:flex;gap:8px">
+            <input id="item-comment-input" placeholder="Leave a quote or comment…" maxlength="280" style="flex:1;border:1px solid #E8E6DF;border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;margin-bottom:0" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitItemComment();}">
+            <button onclick="submitItemComment()" style="background:#D4622A;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">Post</button>
+          </div>
+        </div>
+      </div>
+
       <!-- SHARE LIST MODAL -->
       <div id="share-list-modal" onclick="if(event.target===this)closeShareListModal()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end">
         <div style="background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%;max-height:80vh;overflow-y:auto">
@@ -720,7 +741,7 @@
           <textarea id="invite-email" rows="2" placeholder="friend@example.com, 555-867-5309&#10;Add multiple, separated by commas" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:12px;font-family:inherit;resize:none;margin-bottom:10px;color:#2C2C2A"></textarea>
           <div style="font-size:11px;font-weight:600;color:#5F5E5A;margin-bottom:4px">Message (optional)</div>
           <textarea id="invite-message" rows="3" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:12px;font-family:inherit;resize:none;margin-bottom:12px;color:#2C2C2A"></textarea>
-          <button class="btn-primary" id="invite-share-btn" onclick="nativeShareInvite()" style="margin-bottom:8px">📤 Share invite</button>
+          <button class="btn-primary" id="invite-share-btn" onclick="nativeShareInvite()" style="margin-bottom:8px;display:none">📤 Share invite</button>
           <button class="btn-primary" onclick="sendInviteEmail()" style="margin-bottom:8px">✉️ Send invite email</button>
           <button class="btn-secondary" onclick="sendInviteText()" style="margin-bottom:8px">💬 Send text instead</button>
           <button class="btn-secondary" onclick="copyInviteLink()" style="margin-bottom:0">🔗 Copy link</button>
@@ -762,6 +783,18 @@ var ITEMS = {
 var FUZZY_CATS = {'moveis':'Movies','movie':'Movies','films':'Movies','film':'Movies','tv show':'TV Shows','television':'TV Shows','shows':'TV Shows','candy bar':'Candy Bars','chocolate':'Candy Bars','vacation':'Travel','travel spot':'Travel','soda':'Sodas','pop':'Sodas','book':'Books'};
 var FUZZY_ITEMS = {'mars':'Mars Bar','snicker':'Snickers','reeses':'Reese\'s Peanut Butter Cups','reese':'Reese\'s Peanut Butter Cups','kitkat':'Kit Kat','kit-kat':'Kit Kat','godfather':'The Godfather','dark knight':'The Dark Knight','matrix':'The Matrix'};
 var FRIENDS = [];
+/*
+ * Run in Supabase SQL editor to enable reactions & comments:
+ * CREATE TABLE IF NOT EXISTS list_reactions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), from_user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE, list_owner_id uuid REFERENCES auth.users(id) ON DELETE CASCADE, category text NOT NULL, emoji text NOT NULL, created_at timestamptz DEFAULT now(), UNIQUE(from_user_id, list_owner_id, category, emoji));
+ * CREATE TABLE IF NOT EXISTS list_item_comments (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), from_user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE, list_owner_id uuid REFERENCES auth.users(id) ON DELETE CASCADE, category text NOT NULL, item_name text NOT NULL, comment text NOT NULL, created_at timestamptz DEFAULT now());
+ * ALTER TABLE list_reactions ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY "Users manage own reactions" ON list_reactions FOR ALL USING (auth.uid() = from_user_id);
+ * CREATE POLICY "List owners see reactions" ON list_reactions FOR SELECT USING (auth.uid() = list_owner_id);
+ * ALTER TABLE list_item_comments ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY "Users manage own comments" ON list_item_comments FOR ALL USING (auth.uid() = from_user_id);
+ * CREATE POLICY "List owners see comments" ON list_item_comments FOR SELECT USING (auth.uid() = list_owner_id);
+ * ALTER TABLE profiles ADD COLUMN IF NOT EXISTS bio text;
+ */
 var MY_LISTS = [];
 var MY_GROUPS = [];
 var MY_PENDING_GROUP_INVITES = [];
@@ -1651,7 +1684,7 @@ async function renderShareGroups() {
 }
 
 async function shareCreateListToFriend(friendId, btn) {
-  await saveList(); // save first
+  await saveListDataOnly(); // save first
   if (sbClient && userId) {
     try {
       var res = await sbClient.from('list_share_invites').insert({ from_user_id: userId, to_user_id: friendId, category: selCat });
@@ -1662,7 +1695,7 @@ async function shareCreateListToFriend(friendId, btn) {
 }
 
 async function shareCreateListToGroup(groupIdx, btn) {
-  await saveList(); // save first
+  await saveListDataOnly(); // save first
   var g = MY_GROUPS[groupIdx];
   if (!g) return;
   await shareListToGroup(g.id, selCat);
@@ -1740,7 +1773,9 @@ async function toggleListBlindFill(checked) {
   }
 }
 
+var selListDetail = null;
 function showListDetail(l) {
+  selListDetail = l;
   var listItems = (l.items || []);
   var screen = document.getElementById('s-list-detail');
   _currentListCategory = l.category || l.n.replace('Top 10 ', '');
@@ -1990,6 +2025,12 @@ async function renderActivityFeed() {
   try {
     var res = await sbClient.from('lists').select('user_id, name, category, emoji, items, updated_at, is_ranked').in('user_id', friendIds).order('updated_at', { ascending: false }).limit(8);
     var recentLists = res.data || [];
+    var _myCats = MY_LISTS.map(function(l){ return l.category || l.n.replace('Top 10 ',''); });
+    recentLists = recentLists.filter(function(l){
+      if (!l.blind_fill) return true;
+      var cat = l.category || (l.name || '').replace('Top 10 ','');
+      return _myCats.indexOf(cat) >= 0;
+    });
     if (recentLists.length === 0) return;
     section.style.display = 'block';
     feedEl.innerHTML = recentLists.map(function(l) {
@@ -2460,7 +2501,7 @@ async function removeMemberFromGroup(friendId) {
   }
   g.memberIds = (g.memberIds || []).filter(function(id) { return id !== friendId; });
   var cnt = g.memberIds.length + 1;
-  g.meta = cnt + ' member' + (cnt !== 1 ? 's' : '') + (g.meta.replace(/^\d+ members?/, '') || ' · 0 lists compared');
+  g.meta = cnt + ' member' + (cnt !== 1 ? 's' : '') + ((g.meta || '').replace(/^\d+ members?/, '') || ' · 0 lists compared');
   renderGroupDetail();
 }
 
@@ -2565,79 +2606,6 @@ async function finishGroup(skip) {
   go('s-gdetail');
 }
 
-var MATCH_DATA = {
-  movies: {
-    title: 'Top 10 Movies · Ranked · 3 friends compared',
-    scores: [
-      {init:'SK',bg:'#E6F1FB',c:'#185FA5',name:'Sarah K.',detail:'8/10 same picks · 5 ranked similarly',pct:80},
-      {init:'BM',bg:'#E1F5EE',c:'#0F6E56',name:'Burke M.',detail:'7/10 same picks · 3 ranked similarly',pct:70},
-      {init:'JR',bg:'#FBEAF0',c:'#993356',name:'Jamie R.',detail:'5/10 same picks · 2 ranked similarly',pct:60}
-    ],
-    vsLabel:'You vs Sarah K.',
-    rows:[
-      ['The Godfather','The Godfather',true],['Inception','Inception',true],['Interstellar','Interstellar',true],
-      ['The Dark Knight','Avengers',false],['Pulp Fiction','Pulp Fiction',true]
-    ],
-    agrees:['The Godfather','Inception','Interstellar']
-  },
-  candy: {
-    title: 'Top 10 Candy Bars · Unranked · 2 friends compared',
-    scores: [
-      {init:'SK',bg:'#E6F1FB',c:'#185FA5',name:'Sarah K.',detail:'6/10 same picks',pct:60},
-      {init:'BM',bg:'#E1F5EE',c:'#0F6E56',name:'Burke M.',detail:'5/10 same picks',pct:50}
-    ],
-    vsLabel:'You vs Sarah K.',
-    rows:[
-      ["Reese's",'Reese\'s',true],['Snickers','Snickers',true],['Kit Kat','Twix',false],
-      ['Twix','Kit Kat',false],['100 Grand','Butterfinger',false]
-    ],
-    agrees:["Reese's",'Snickers']
-  },
-  travel: {
-    title: 'Top 10 Travel · Ranked · 3 friends compared',
-    scores: [
-      {init:'JR',bg:'#FBEAF0',c:'#993356',name:'Jamie R.',detail:'7/10 same picks · 4 ranked similarly',pct:75},
-      {init:'SK',bg:'#E6F1FB',c:'#185FA5',name:'Sarah K.',detail:'6/10 same picks · 2 ranked similarly',pct:65},
-      {init:'BM',bg:'#E1F5EE',c:'#0F6E56',name:'Burke M.',detail:'4/10 same picks · 1 ranked similarly',pct:45}
-    ],
-    vsLabel:'You vs Jamie R.',
-    rows:[
-      ['Costa Rica','Costa Rica',true],['Italy','Japan',false],['Japan','Italy',false],
-      ['New Zealand','New Zealand',true],['Portugal','Iceland',false]
-    ],
-    agrees:['Costa Rica','New Zealand']
-  }
-};
-
-function selectMatchList(btn, key) {
-  document.querySelectorAll('#s-match .list-sel-btn').forEach(function(b) { b.classList.remove('active'); });
-  btn.classList.add('active');
-  var d = MATCH_DATA[key];
-  if (!d) return;
-  var scoresHtml = d.scores.map(function(s) {
-    return '<div class="card no-hover"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
-      + '<div class="avatar" style="background:' + s.bg + ';color:' + s.c + '">' + s.init + '</div>'
-      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + s.name + '</div>'
-      + '<div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + s.detail + '</div></div>'
-      + '<div style="font-size:18px;font-weight:700;color:#D85A30">' + s.pct + '%</div></div>'
-      + '<div class="bar-bg"><div class="bar-fill" style="width:' + s.pct + '%"></div></div></div>';
-  }).join('');
-  var rowsHtml = d.rows.map(function(r) {
-    var match = r[2]; var bg = match ? '#EAF3DE' : '#F1EFE8'; var col = match ? '#3B6D11' : '#2C2C2A';
-    return '<div style="display:flex;gap:5px;margin-bottom:4px">'
-      + '<div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + r[0] + '</div>'
-      + '<div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + r[1] + '</div></div>';
-  }).join('');
-  var agreesHtml = d.agrees.map(function(a) { return '<span class="pill pill-green">' + a + '</span>'; }).join('');
-  document.getElementById('match-content').innerHTML =
-    '<div style="font-size:10px;color:#5F5E5A;margin-bottom:12px">' + d.title + '</div>'
-    + '<div class="sec-label">Match Scores</div>' + scoresHtml
-    + '<div class="sec-label">Side-by-side: ' + d.vsLabel + '</div>'
-    + '<div style="display:flex;gap:5px;margin-bottom:3px"><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">' + d.scores[0].name + '</div></div>'
-    + rowsHtml
-    + '<div class="sec-label">Everyone agrees on...</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + agreesHtml + '</div>';
-}
 
 function getListInviteUrl() {
   var base = 'https://burkebess-create.github.io/tenner-app/?fill=' + encodeURIComponent(selCat);
@@ -2767,7 +2735,7 @@ async function removeMemberById(friendId) {
   }
   g.memberIds = (g.memberIds || []).filter(function(id) { return id !== friendId; });
   var memberCount = g.memberIds.length + 1;
-  g.meta = memberCount + ' member' + (memberCount !== 1 ? 's' : '') + (g.meta.replace(/^\d+ members?/, '') || ' · 0 lists compared');
+  g.meta = memberCount + ' member' + (memberCount !== 1 ? 's' : '') + ((g.meta || '').replace(/^\d+ members?/, '') || ' · 0 lists compared');
   renderGroupSettings();
 }
 
@@ -3110,8 +3078,9 @@ async function saveProfile() {
     }
   }
 
+  var bio = (document.getElementById('profile-bio-input') || {}).value || '';
   var existingPhoto = myProfile && myProfile.photo;
-  myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, updated_at: new Date().toISOString() };
+  myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, bio: bio || null, updated_at: new Date().toISOString() };
   if (existingPhoto) myProfile.photo = existingPhoto;
   if (sbClient && userId) {
     try {
@@ -3187,7 +3156,13 @@ function renderProfileHeader() {
     bm.value = mm;
     populateDaySelect(bd, mm, dd);
   })();
-  var sl = document.getElementById('profile-stat-lists'); if (sl) sl.textContent = MY_LISTS.length;
+  var sl = document.getElementById('profile-stat-lists');
+  if (sl) {
+    var _now = new Date();
+    var _thisMonth = MY_LISTS.filter(function(l){ var d = new Date(l.updated_at || l.created_at || 0); return d.getFullYear() === _now.getFullYear() && d.getMonth() === _now.getMonth(); }).length;
+    sl.textContent = _thisMonth;
+  }
+  var bioInput = document.getElementById('profile-bio-input'); if (bioInput && !bioInput.value) bioInput.value = (myProfile && myProfile.bio) || '';
   var sf = document.getElementById('profile-stat-friends'); if (sf) sf.textContent = myFriends.filter(function(f) { return f.status === 'accepted'; }).length;
   var sc = document.getElementById('profile-stat-circles'); if (sc) sc.textContent = MY_GROUPS.length;
   var ot = document.getElementById('profile-on-tenner');
@@ -3208,7 +3183,7 @@ async function loadFriends() {
       var friendIds = rows.map(function(f) { return f.requester_id === userId ? f.addressee_id : f.requester_id; });
       var profileMap = {};
       try {
-        var pRes = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at').in('id', friendIds);
+        var pRes = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').in('id', friendIds);
         if (pRes.data) pRes.data.forEach(function(p) { profileMap[p.id] = p; });
       } catch(pe) { console.warn('Profile fetch failed', pe); }
       myFriends = rows.map(function(f) {
@@ -3264,10 +3239,10 @@ async function searchFriend() {
     var isPhone = /^\+/.test(query) || /^[\d\s\-().]{7,}$/.test(query);
     if (isPhone) {
       var normalized = query.replace(/\s/g, '');
-      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at').eq('phone', normalized).neq('id', userId).maybeSingle();
+      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('phone', normalized).neq('id', userId).maybeSingle();
     } else {
       var handle = query.replace(/^@/, '').toLowerCase();
-      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at').eq('handle', handle).neq('id', userId).maybeSingle();
+      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('handle', handle).neq('id', userId).maybeSingle();
     }
     if (!res.data) {
       var hint = isPhone ? 'No user found with that phone number.' : 'No user found with @' + query.replace(/^@/, '');
@@ -3375,7 +3350,7 @@ function renderFriendsSection() {
         + accepted.map(function(f) {
           var name = f.profile.display_name || f.profile.handle || 'Unknown';
           var handle = f.profile.handle ? '@' + f.profile.handle : '';
-          return '<div class="member-row"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div></div>';
+          return '<div class="member-row">' + friendAvatarHtml(f.profile || {}, 28) + '<div style="flex:1;margin-left:8px"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div></div>';
         }).join('');
     } else if (sent.length > 0) {
       html = '<div style="font-size:11px;color:#888780;padding:6px 0">' + sent.length + ' request' + (sent.length>1?'s':'') + ' sent — waiting for them to accept.</div>';
@@ -3393,6 +3368,7 @@ function renderCircleScreen() {
 }
 
 var MY_LIST_SHARE_INVITES = []; // incoming "fill out this list" invites from friends
+var pendingMatchFriendId = null;
 
 function updateNotificationBadge() {
   var badge = document.getElementById('notif-badge');
@@ -3417,7 +3393,7 @@ async function loadListShareInvites() {
     var fromIds = invites.map(function(r){ return r.from_user_id; });
     var profileMap = {};
     try {
-      var pRes = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at').in('id', fromIds);
+      var pRes = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').in('id', fromIds);
       (pRes.data || []).forEach(function(p){ profileMap[p.id] = p; });
     } catch(e) {}
     MY_LIST_SHARE_INVITES = invites.map(function(r) {
@@ -3460,7 +3436,7 @@ function renderNotifications() {
         + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
         + friendAvatarHtml(inv.profile, 38)
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + unreadDot + '</div>'
-        + '<div style="font-size:11px;color:#5F5E5A">' + (filled ? 'You filled out' : 'invited you to fill out') + ' <strong>Top 10 ' + escapeHtml(inv.category) + '</strong></div></div></div>'
+        + '<div style="font-size:11px;color:#5F5E5A">' + (filled ? 'You filled out <strong>Top 10 ' + escapeHtml(inv.category) + '</strong>' : 'Think you and <strong>' + escapeHtml(name) + '</strong> have the same taste in ' + escapeHtml(inv.category) + '? Fill out your list and see your match score') + '</div></div></div>'
         + '<div style="display:flex;gap:6px">' + actions + '</div></div>';
     }).join('');
 }
@@ -3484,15 +3460,16 @@ async function acceptListInvite(inviteId, cat) {
     selCatEmoji = existing.emoji;
   } else {
     selCatEmoji = getCatEmoji(cat);
-    if (sbClient && inv && inv.from_user_id) {
+    if (sbClient && inv && inv.fromId) {
       try {
-        var senderList = await sbClient.from('lists').select('emoji').eq('user_id', inv.from_user_id).eq('category', cat).maybeSingle();
+        var senderList = await sbClient.from('lists').select('emoji').eq('user_id', inv.fromId).eq('category', cat).maybeSingle();
         if (senderList.data && senderList.data.emoji) selCatEmoji = senderList.data.emoji;
       } catch(e) {}
     }
   }
   listOrigin = 's-home';
   pendingShareGroupId = null;
+  pendingMatchFriendId = inv ? (inv.fromId || null) : null;
   go('s-create2');
 }
 
@@ -3648,12 +3625,18 @@ function openFriendList(listData) {
   } else if (items.length === 0) {
     el.innerHTML = '<div style="font-size:12px;color:#888780;text-align:center;padding:20px">No items yet.</div>';
   } else {
+    var _ownerId = listData.user_id || selFriendId;
+    var _cat = cat;
     el.innerHTML = items.map(function(item, i) {
-      return '<div class="rank-item" style="margin-bottom:6px">'
+      var itemEsc = item.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      return '<div class="rank-item" style="margin-bottom:6px;cursor:pointer" onclick="openItemComments(\'' + escapeHtml(_ownerId || '') + '\',\'' + escapeHtml(_cat) + '\',\'' + itemEsc + '\')">'
         + (listData.is_ranked !== false ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>')
         + '<span style="flex:1;font-size:12px;color:#2C2C2A">' + escapeHtml(item) + '</span>'
+        + '<span style="font-size:14px;color:#888780;margin-left:6px">💬</span>'
         + '</div>';
     }).join('');
+    var reactionsEl = document.getElementById('friend-list-reactions');
+    if (reactionsEl && _ownerId) loadAndRenderReactions(_ownerId, _cat, reactionsEl);
   }
 
   // CTA: show "Fill out yours" only if user doesn't already have this list
@@ -4054,10 +4037,10 @@ async function circleSearchFriend() {
     var isPhone = /^\+/.test(query) || /^[\d\s\-().]{7,}$/.test(query);
     if (isPhone) {
       var normalized = query.replace(/\s/g, '');
-      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at').eq('phone', normalized).neq('id', userId).maybeSingle();
+      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('phone', normalized).neq('id', userId).maybeSingle();
     } else {
       var handle = query.replace(/^@/, '').toLowerCase();
-      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at').eq('handle', handle).neq('id', userId).maybeSingle();
+      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('handle', handle).neq('id', userId).maybeSingle();
     }
     if (!res.data) {
       var hint = isPhone ? 'No user found with that phone number.' : 'No user found with that handle.';
@@ -4092,6 +4075,15 @@ async function sendFriendReqFromCircle(addresseeId) {
   }
 }
 
+function goToCg3() {
+  var total = addedFriends.size + Object.keys(addedNonFriends).length;
+  if (total === 0) {
+    showToast('Add at least one member, or invite friends using the link below.');
+    return;
+  }
+  go('s-cg3');
+}
+
 function openCircleInviteModal() {
   var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
   var url = 'https://burkebess-create.github.io/tenner-app/' + (userId ? '?from=' + encodeURIComponent(userId) : '');
@@ -4100,6 +4092,8 @@ function openCircleInviteModal() {
   if (msgEl) msgEl.value = defaultMsg;
   var emailEl = document.getElementById('invite-email');
   if (emailEl) emailEl.value = '';
+  var shareBtn = document.getElementById('invite-share-btn');
+  if (shareBtn) shareBtn.style.display = navigator.share ? 'block' : 'none';
   document.getElementById('invite-modal').style.display = 'flex';
 }
 
@@ -4286,7 +4280,7 @@ async function loadState() {
 
       if (listsRes.data && listsRes.data.length > 0) {
         MY_LISTS = listsRes.data.map(function(l) {
-          return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category, emoji: l.emoji || getCatEmoji(l.category), is_public: !!l.is_public, blind_fill: !!l.blind_fill };
+          return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category, emoji: l.emoji || getCatEmoji(l.category), is_public: !!l.is_public, blind_fill: !!l.blind_fill, updated_at: l.updated_at, created_at: l.created_at };
         });
       } else {
         var l = localStorage.getItem('tenner_lists');
@@ -4792,6 +4786,20 @@ function goToCreateStep2() {
   go('s-create2');
 }
 
+async function saveListDataOnly() {
+  var listName = 'Top 10 ' + selCat;
+  var itemCount = items.filter(function(i){ return i.trim(); }).length;
+  var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
+  var existing = MY_LISTS.findIndex(function(l){ return (l.category || l.n.replace('Top 10 ','')) === selCat; });
+  var createToggle = document.getElementById('create-public-toggle');
+  var prevPublic = createToggle ? !!createToggle.checked : (existing >= 0 ? !!(MY_LISTS[existing] && MY_LISTS[existing].is_public) : true);
+  var blindToggle = document.getElementById('create-blind-fill-toggle');
+  var prevBlind = blindToggle ? !!blindToggle.checked : (existing >= 0 ? !!(MY_LISTS[existing] && MY_LISTS[existing].blind_fill) : false);
+  var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic, blind_fill: prevBlind };
+  if (existing >= 0) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
+  await saveListToDb(listObj);
+}
+
 function saveList() {
   var listName = 'Top 10 ' + selCat;
   var itemCount = items.filter(function(i) { return i.trim(); }).length;
@@ -4826,6 +4834,12 @@ function saveList() {
     })();
     return;
   }
+  if (pendingMatchFriendId) {
+    var _pmf = pendingMatchFriendId;
+    pendingMatchFriendId = null;
+    setTimeout(function(){ openMatchWithFriend(_pmf, 's-home'); }, 200);
+    return;
+  }
   if (dest === 's-list-detail') {
     showListDetail(listObj);
   } else if (dest === 's-friend-list') {
@@ -4854,15 +4868,6 @@ function notifyFriendsOfUpdate(name, category) {
   banner.textContent = '✓ List saved — your friends will be notified of your update';
   (document.querySelector('.frame') || document.body).appendChild(banner);
   setTimeout(function(){ banner.remove(); }, 3000);
-}
-
-function setGroupTab(n) {
-  for (var i = 0; i < 4; i++) {
-    var tab = document.getElementById('tab-' + i);
-    var content = document.getElementById('gtab-' + i);
-    if (tab) tab.className = 'tab-btn' + (i === n ? ' active' : '');
-    if (content) content.style.display = i === n ? 'block' : 'none';
-  }
 }
 
 document.addEventListener('click', function(e) {
@@ -4991,6 +4996,128 @@ function clearPendingInvite() {
     }
   });
 })();
+
+// ── Feature G: Share list as canvas image ──────────────────────────────────
+function shareListAsImage(listObj) {
+  if (!listObj) return;
+  var cat = listObj.category || (listObj.n || '').replace('Top 10 ', '');
+  var canvas = document.createElement('canvas');
+  canvas.width = 600; canvas.height = 700;
+  var ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#FDFCF8';
+  ctx.fillRect(0, 0, 600, 700);
+  ctx.fillStyle = '#D4622A';
+  ctx.fillRect(0, 0, 600, 80);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 28px sans-serif';
+  ctx.fillText('Tenner', 24, 52);
+  ctx.fillStyle = '#2C2C2A';
+  ctx.font = 'bold 24px sans-serif';
+  ctx.fillText((listObj.emoji || '📋') + '  Top 10 ' + cat, 24, 124);
+  var listItems = (listObj.items || []).slice(0, 10);
+  listItems.forEach(function(item, i) {
+    var y = 158 + i * 50;
+    ctx.fillStyle = i < 3 ? '#D4622A' : '#E8E6DF';
+    ctx.beginPath(); ctx.arc(34, y + 16, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = i < 3 ? '#fff' : '#2C2C2A';
+    ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(i + 1, 34, y + 21);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#2C2C2A';
+    ctx.font = (i < 3 ? 'bold ' : '') + '15px sans-serif';
+    ctx.fillText((item || '').slice(0, 44), 60, y + 22);
+  });
+  ctx.fillStyle = '#F5F3EE';
+  ctx.fillRect(0, 644, 600, 56);
+  ctx.fillStyle = '#888780'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Create your own Top 10 lists on Tenner', 300, 666);
+  ctx.fillText('burkebess-create.github.io/tenner-app', 300, 684);
+  canvas.toBlob(function(blob) {
+    var fname = 'top-10-' + cat.toLowerCase().replace(/\s+/g, '-') + '.png';
+    var file = new File([blob], fname, { type: 'image/png' });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'My Top 10 ' + cat }).catch(function(){});
+    } else {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a'); a.href = url; a.download = fname; a.click();
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    }
+  }, 'image/png');
+}
+
+// ── Feature D: Reactions + item comments ──────────────────────────────────
+var REACTION_EMOJIS = ['❤️','😂','🔥','🙌','😮'];
+var activeCommentListOwner = null, activeCommentCategory = null, activeCommentItem = null;
+
+async function loadAndRenderReactions(listOwnerId, category, containerEl) {
+  if (!sbClient || !containerEl) return;
+  try {
+    var res = await sbClient.from('list_reactions').select('from_user_id, emoji').eq('list_owner_id', listOwnerId).eq('category', category);
+    var reactions = res.data || [];
+    var counts = {}, myReactions = new Set();
+    reactions.forEach(function(r){ counts[r.emoji] = (counts[r.emoji] || 0) + 1; if (r.from_user_id === userId) myReactions.add(r.emoji); });
+    containerEl.innerHTML = REACTION_EMOJIS.map(function(e) {
+      var n = counts[e] || 0, active = myReactions.has(e);
+      return '<button onclick="toggleReaction(\'' + listOwnerId + '\',\'' + escapeHtml(category) + '\',\'' + e + '\',this)" style="background:' + (active?'#FAECE7':'#F5F3EE') + ';border:1px solid ' + (active?'#D4622A':'#E8E6DF') + ';border-radius:20px;padding:4px 10px;font-size:13px;cursor:pointer;margin:2px">' + e + (n?' '+n:'') + '</button>';
+    }).join('');
+  } catch(e) { console.warn('loadReactions', e); }
+}
+
+async function toggleReaction(listOwnerId, category, emoji, btn) {
+  if (!sbClient || !userId) return;
+  try {
+    var existing = await sbClient.from('list_reactions').select('id').eq('from_user_id', userId).eq('list_owner_id', listOwnerId).eq('category', category).eq('emoji', emoji).maybeSingle();
+    if (existing.data) { await sbClient.from('list_reactions').delete().eq('id', existing.data.id); }
+    else { await sbClient.from('list_reactions').insert({ from_user_id: userId, list_owner_id: listOwnerId, category: category, emoji: emoji }); }
+    loadAndRenderReactions(listOwnerId, category, btn.parentElement);
+  } catch(e) { console.warn('toggleReaction', e); }
+}
+
+function openItemComments(listOwnerId, category, itemName) {
+  activeCommentListOwner = listOwnerId; activeCommentCategory = category; activeCommentItem = itemName;
+  var modal = document.getElementById('item-comments-modal');
+  if (!modal) return;
+  document.getElementById('item-comments-title').textContent = '💬 ' + itemName;
+  document.getElementById('item-comments-list').innerHTML = '<div style="color:#888780;font-size:12px">Loading…</div>';
+  modal.style.display = 'flex';
+  loadItemComments(listOwnerId, category, itemName);
+}
+
+async function loadItemComments(listOwnerId, category, itemName) {
+  var el = document.getElementById('item-comments-list');
+  if (!sbClient || !el) return;
+  try {
+    var res = await sbClient.from('list_item_comments').select('from_user_id, comment, created_at').eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', itemName).order('created_at', { ascending: true });
+    var comments = res.data || [];
+    if (!comments.length) { el.innerHTML = '<div style="color:#888780;font-size:12px;padding:8px 0">No comments yet. Be the first!</div>'; return; }
+    el.innerHTML = comments.map(function(c) {
+      var f = myFriends.find(function(x){ return x.friendId === c.from_user_id; });
+      var name = (f && f.profile && f.profile.display_name) || (c.from_user_id === userId ? ((myProfile && myProfile.display_name) || 'You') : 'Friend');
+      return '<div style="padding:8px 0;border-bottom:1px solid #F5F3EE"><div style="font-size:11px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '</div><div style="font-size:13px;color:#444;margin-top:2px">' + escapeHtml(c.comment) + '</div></div>';
+    }).join('');
+  } catch(e) { el.innerHTML = '<div style="color:#A32D2D;font-size:12px">Failed to load.</div>'; }
+}
+
+async function submitItemComment() {
+  var inp = document.getElementById('item-comment-input');
+  if (!inp || !inp.value.trim() || !sbClient) return;
+  var text = inp.value.trim().slice(0, 280);
+  try {
+    await sbClient.from('list_item_comments').insert({ from_user_id: userId, list_owner_id: activeCommentListOwner, category: activeCommentCategory, item_name: activeCommentItem, comment: text });
+    inp.value = '';
+    loadItemComments(activeCommentListOwner, activeCommentCategory, activeCommentItem);
+  } catch(e) { showToast('Could not post comment.'); }
+}
+
+// ── Feature A: In-group recent activity ────────────────────────────────────
+function relativeTime(iso) {
+  var diff = Date.now() - new Date(iso).getTime();
+  var mins = Math.floor(diff / 60000);
+  if (mins < 60) return (mins || 1) + 'm ago';
+  var hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  return Math.floor(hrs / 24) + 'd ago';
+}
 </script>
 </body>
 </html>
