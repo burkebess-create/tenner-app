@@ -374,10 +374,13 @@
           </div>
           <div class="emoji-grid" id="emoji-grid"></div>
           <div style="margin-bottom:6px">
-            <button class="back-btn" style="font-size:12px;width:100%;text-align:center" onclick="document.getElementById('cg1-custom-emoji').style.display='block';document.getElementById('cg1-custom-emoji').focus();this.style.display='none'">Choose your own emoji</button>
-            <input type="text" id="cg1-custom-emoji" placeholder="Type or paste an emoji…" oninput="onCreateCustomEmojiInput(this.value)" style="display:none;margin-bottom:0;font-size:22px;text-align:center" autocomplete="off" autocorrect="off">
+            <button class="back-btn" id="cg1-choose-own-btn" style="font-size:12px;width:100%;text-align:center" onclick="document.getElementById('cg1-choose-own-panel').style.display='block';this.style.display='none';document.getElementById('cg1-custom-emoji').focus()">Choose your own emoji</button>
+            <div id="cg1-choose-own-panel" style="display:none">
+              <input type="text" id="cg1-custom-emoji" placeholder="Type or paste an emoji…" oninput="onCreateCustomEmojiInput(this.value)" style="margin-bottom:6px;font-size:22px;text-align:center" autocomplete="off" autocorrect="off">
+              <input type="text" id="emoji-search" placeholder="Search emoji (e.g. sports, food, heart…)" oninput="searchEmoji(this.value)" style="margin-bottom:4px;font-size:12px">
+              <div class="emoji-grid" id="emoji-search-results" style="display:none;margin-bottom:4px"></div>
+            </div>
           </div>
-          <div class="emoji-grid" id="emoji-search-results" style="display:none;margin-bottom:4px"></div>
           <div class="sec-label">Group name</div>
           <input type="text" id="group-name" placeholder="e.g. High School Friends">
           <button class="btn-primary" onclick="go('s-cg2')">Continue → Add members</button>
