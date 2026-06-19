@@ -3815,7 +3815,6 @@ function openGiftIdeas(friendId, friendListsJson) {
       + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(l.name || ('Top 10 ' + cat)) + '</div>'
       + (items[0] ? '<div style="font-size:11px;color:#5F5E5A">#1: ' + escapeHtml(items[0]) + '</div>' : '')
       + '</div>'
-      + (isMutual ? '<span class="pill pill-green" style="flex-shrink:0">You have this</span>' : '')
       + '<span id="gift-chevron-' + idx + '" style="font-size:14px;color:#888780;margin-left:4px;transition:transform .2s;display:inline-block">▼</span>'
       + '</div>'
       + '<div id="gift-expand-' + idx + '" style="display:none;margin-top:4px">' + itemsHtml + '</div>'
