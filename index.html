@@ -11,10 +11,10 @@
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F9F7F2; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
   .outer { display: flex; align-items: center; justify-content: center; }
   .phone-wrap { position: relative; flex-shrink: 0; }
-  .phone { width: 375px; background: #1A0F0A; border-radius: 50px; padding: 16px; box-shadow: 0 30px 80px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08); position: relative; }
-  .phone::before { content: ''; position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: 120px; height: 28px; background: #1A0F0A; border-radius: 0 0 20px 20px; z-index: 10; }
+  .phone { width: calc((100vh - 40px - 32px) * 0.462); max-width: 375px; min-width: 260px; background: #1A0F0A; border-radius: calc((100vh - 40px - 32px) * 0.065); padding: 16px; box-shadow: 0 30px 80px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08); position: relative; }
+  .phone::before { content: ''; position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: 32%; height: 28px; background: #1A0F0A; border-radius: 0 0 20px 20px; z-index: 10; }
   .phone::after { content: ''; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; background: #333; border-radius: 50%; z-index: 11; }
-  .frame { border-radius: 36px; overflow: hidden; background: #fff; height: calc(100vh - 40px - 32px); max-height: 780px; min-height: 500px; display: flex; flex-direction: column; position: relative; }
+  .frame { border-radius: calc((100vh - 40px - 32px) * 0.05); overflow: hidden; background: #fff; height: calc(100vh - 40px - 32px); max-height: 780px; min-height: 500px; display: flex; flex-direction: column; position: relative; }
   .screen { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
   .screen.active { display: flex; }
   .topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; background: #fff; border-bottom: 1px solid #F1EFE8; flex-shrink: 0; }
