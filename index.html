@@ -159,27 +159,6 @@
             <span style="font-size:12px;color:#888780">+ Create a new list</span>
           </div>
 
-          <div class="sec-label" style="display:none">Gift Reminders</div>
-          <div class="gift-card" style="display:none">
-            <div style="font-size:12px;font-weight:600;color:#993C1D;margin-bottom:10px">Burke's birthday is in 7 days!</div>
-            <div class="gift-row">
-              <span class="gift-icon">🍫</span>
-              <div style="flex:1">
-                <div style="font-size:12px;font-weight:600;color:#712B13">Butterfinger</div>
-                <div style="font-size:10px;color:#993C1D">from Favorite Candy Bars · #1 pick</div>
-              </div>
-              <button class="shop-btn" onclick="alert('Opens Amazon affiliate link for Butterfinger!')">Shop</button>
-            </div>
-            <div class="gift-row" style="margin-bottom:0">
-              <span class="gift-icon">🥤</span>
-              <div style="flex:1">
-                <div style="font-size:12px;font-weight:600;color:#712B13">Root Beer</div>
-                <div style="font-size:10px;color:#993C1D">from Favorite Sodas · #2 pick</div>
-              </div>
-              <button class="shop-btn" onclick="alert('Opens Amazon affiliate link for Root Beer!')">Shop</button>
-            </div>
-            <div style="margin-top:10px;font-size:11px;color:#D85A30;cursor:pointer;font-weight:600" onclick="go('s-gift')">See all gift ideas for Burke →</div>
-          </div>
         </div>
       </div>
 
@@ -505,22 +484,6 @@
         </div>
       </div>
 
-      <!-- ═══ GIFT ═══ -->
-      <div class="screen" id="s-gift">
-        <div class="topbar">
-          <button class="back-btn" onclick="go('s-home')">← Back</button>
-          <span style="font-size:13px;font-weight:600;color:#2C2C2A">Gift Ideas</span>
-          <span style="width:52px"></span>
-        </div>
-        <div class="content">
-          <div style="text-align:center;padding:40px 20px;color:#888780">
-            <div style="font-size:36px;margin-bottom:12px">🎁</div>
-            <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">Coming soon</div>
-            <div style="font-size:12px;line-height:1.5">Gift ideas based on your friends' lists will appear here once they've filled out their top 10s.</div>
-          </div>
-        </div>
-      </div>
-
       <!-- ═══ CIRCLE ═══ -->
       <div class="screen" id="s-circle">
         <div class="topbar">
@@ -545,10 +508,6 @@
             <span style="font-size:12px;color:#888780">+ Create a new group</span>
           </div>
 
-          <div class="sec-label" style="margin-top:4px">Gift Reminders</div>
-          <div id="gift-reminders-section">
-            <div style="font-size:11px;color:#888780;padding:8px 0">Add friends with birthdays to see gift reminders.</div>
-          </div>
         </div>
       </div>
 
@@ -571,25 +530,6 @@
         </div>
         <div class="content">
           <div id="group-list-content"></div>
-        </div>
-      </div>
-
-      <!-- ═══ GIFT IDEAS SCREEN ═══ -->
-      <div class="screen" id="s-gift-ideas">
-        <div class="topbar">
-          <button class="back-btn" onclick="go('s-circle')">← Back</button>
-          <span id="gift-ideas-title" style="font-size:13px;font-weight:600;color:#2C2C2A"></span>
-          <span style="width:52px"></span>
-        </div>
-        <div class="content">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:12px;background:#FFF8F6;border-radius:12px;border:1px solid #F4C9B8">
-            <div id="gift-ideas-avatar"></div>
-            <div>
-              <div id="gift-ideas-name" style="font-size:14px;font-weight:700;color:#993C1D"></div>
-              <div id="gift-ideas-bday" style="font-size:11px;color:#5F5E5A;margin-top:2px"></div>
-            </div>
-          </div>
-          <div id="gift-ideas-lists"></div>
         </div>
       </div>
 
@@ -855,7 +795,7 @@ function go(id) {
       's-cg1': 'nav-circle', 's-cg2': 'nav-circle', 's-cg3': 'nav-circle',
       's-gdetail': 'nav-circle', 's-groups': 'nav-circle', 's-gsettings': 'nav-circle',
       's-match': 'nav-match',
-      's-circle': 'nav-circle', 's-fdetail': 'nav-circle', 's-friend-list': 'nav-circle', 's-gift-ideas': 'nav-circle',
+      's-circle': 'nav-circle', 's-fdetail': 'nav-circle', 's-friend-list': 'nav-circle',
       's-profile': 'nav-profile',
       's-notifications': 'nav-alerts'
     }[id];
@@ -893,7 +833,7 @@ function go(id) {
     if (mbb) mbb.style.display = matchOrigin ? 'block' : 'none';
     renderMatch();
   }
-  if (id === 's-circle') { renderCircleScreen(); renderGiftReminders(); }
+  if (id === 's-circle') { renderCircleScreen(); }
   if (id === 's-notifications') { loadListShareInvites().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
   if (id === 's-profile') { renderProfileHeader(); renderFriendsSection(); }
 }
@@ -2952,7 +2892,6 @@ async function loadFriends() {
     }
   } catch(e) { console.warn('Friends load failed', e); }
   try { renderFriendsSection(); } catch(e) { console.warn(e); }
-  try { renderGiftReminders(); } catch(e) { console.warn(e); }
   try { renderCircleFriends(); } catch(e) {}
 }
 
@@ -3822,143 +3761,6 @@ function openCircleInviteModal() {
   document.getElementById('invite-modal').style.display = 'flex';
 }
 
-function openGiftIdeas(friendId, friendListsJson) {
-  var f = myFriends.find(function(x){ return x.friendId === friendId; });
-  if (!f) return;
-  var p = f.profile || {};
-  var name = p.display_name || p.handle || 'Friend';
-  var lists = JSON.parse(friendListsJson);
-  var myCats = MY_LISTS.map(function(l){ return l.category || l.n.replace('Top 10 ',''); });
-
-  document.getElementById('gift-ideas-title').textContent = name + '\'s Gift Ideas';
-  document.getElementById('gift-ideas-avatar').innerHTML = friendAvatarHtml(p, 42);
-  document.getElementById('gift-ideas-name').textContent = '🎂 ' + name + '\'s birthday — in ' + f._daysUntilBirthday + ' day' + (f._daysUntilBirthday !== 1 ? 's' : '');
-  document.getElementById('gift-ideas-bday').textContent = formatBirthday(p.birthday) || '';
-
-  document.getElementById('gift-ideas-lists').innerHTML = lists.map(function(l, idx) {
-    var cat = l.category || (l.name || '').replace('Top 10 ','');
-    var emoji = l.emoji || getCatEmoji(cat);
-    var items = l.items || [];
-    var isMutual = myCats.indexOf(cat) !== -1;
-    var itemsHtml = items.slice(0, 3).map(function(item, i) {
-      return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #F1EFE8">'
-        + '<div class="rank-badge" style="font-size:10px;width:18px;height:18px;min-width:18px">' + (i+1) + '</div>'
-        + '<span style="font-size:12px;color:#2C2C2A">' + escapeHtml(item) + '</span>'
-        + '</div>';
-    }).join('');
-    return '<div class="card no-hover" style="margin-bottom:8px">'
-      + '<div style="display:flex;align-items:center;gap:10px" onclick="toggleGiftList(' + idx + ')">'
-      + '<span style="font-size:20px">' + emoji + '</span>'
-      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(l.name || ('Top 10 ' + cat)) + '</div>'
-      + (items[0] ? '<div style="font-size:11px;color:#5F5E5A">#1: ' + escapeHtml(items[0]) + '</div>' : '')
-      + '</div>'
-      + (isMutual ? '<span class="pill pill-green" style="flex-shrink:0">You have this</span>' : '')
-      + '<span id="gift-chevron-' + idx + '" style="font-size:14px;color:#888780;margin-left:4px;transition:transform .2s;display:inline-block">▼</span>'
-      + '</div>'
-      + '<div id="gift-expand-' + idx + '" style="display:none;margin-top:4px">' + itemsHtml + '</div>'
-      + '</div>';
-  }).join('');
-
-  go('s-gift-ideas');
-}
-
-function toggleGiftList(idx) {
-  var panel = document.getElementById('gift-expand-' + idx);
-  var chevron = document.getElementById('gift-chevron-' + idx);
-  if (!panel) return;
-  var open = panel.style.display !== 'none';
-  panel.style.display = open ? 'none' : 'block';
-  if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
-}
-
-async function renderGiftReminders() {
-  var el = document.getElementById('gift-reminders-section');
-  if (!el) return;
-  var accepted = myFriends.filter(function(f) { return f.status === 'accepted' && f.profile && f.profile.birthday && parseBdayMonthDay(f.profile.birthday); });
-  if (accepted.length === 0) {
-    el.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">Add friends with birthdays to see gift reminders.</div>';
-    return;
-  }
-  var today = new Date();
-  var upcoming = accepted.filter(function(f) {
-    var md = parseBdayMonthDay(f.profile.birthday);
-    var next = new Date(today.getFullYear(), md[0], md[1]);
-    if (next < today) next.setFullYear(today.getFullYear() + 1);
-    var days = Math.round((next - today) / 86400000);
-    f._daysUntilBirthday = days;
-    return days <= 30;
-  }).sort(function(a, b) { return a._daysUntilBirthday - b._daysUntilBirthday; });
-  if (upcoming.length === 0) {
-    el.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No birthdays in the next 30 days.</div>';
-    return;
-  }
-  // Fetch lists for all upcoming-birthday friends in one query
-  var upcomingIds = upcoming.map(function(f) { return f.friendId; });
-  var friendListMap = {};
-  if (sbClient && upcomingIds.length) {
-    try {
-      var listsRes = await sbClient.from('lists').select('user_id, name, category, items, is_ranked, emoji, is_public').in('user_id', upcomingIds);
-      (listsRes.data || []).forEach(function(l) {
-        if (!friendListMap[l.user_id]) friendListMap[l.user_id] = [];
-        friendListMap[l.user_id].push(l);
-      });
-    } catch(e) { console.warn('Gift reminder list fetch failed', e); }
-  }
-
-  var myCats = MY_LISTS.map(function(l) { return l.category || l.n.replace('Top 10 ', ''); });
-
-  var html = '';
-  for (var i = 0; i < upcoming.length; i++) {
-    var f = upcoming[i];
-    var name = f.profile.display_name || f.profile.handle || 'Friend';
-    var days = f._daysUntilBirthday;
-    var when = days === 0 ? 'Today! 🎉' : days === 1 ? 'Tomorrow' : 'in ' + days + ' days';
-    var friendLists = friendListMap[f.friendId] || [];
-    // Show lists that are public OR mutual — these are the gift idea source
-    var visibleLists = friendLists.filter(function(l) {
-      var cat = l.category || (l.name || '').replace('Top 10 ', '');
-      return !!l.is_public || myCats.indexOf(cat) !== -1;
-    });
-
-    var giftHtml = '';
-    if (visibleLists.length === 0) {
-      giftHtml = '<div style="font-size:11px;color:#888780;margin-top:4px">No shared or public lists yet — gift ideas will appear here once they fill out a list.</div>';
-    } else {
-      // Show top #1 item from each visible list as a gift idea row
-      giftHtml = '<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">'
-        + visibleLists.slice(0, 3).map(function(l) {
-          var cat = l.category || (l.name || '').replace('Top 10 ', '');
-          var emoji = l.emoji || getCatEmoji(cat);
-          var topPick = (l.items && l.items[0]) ? l.items[0] : null;
-          return '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#2C2C2A">'
-            + '<span style="font-size:14px">' + emoji + '</span>'
-            + '<span style="flex:1"><strong>' + escapeHtml(l.name || ('Top 10 ' + cat)) + '</strong>'
-            + (topPick ? ' · #1: ' + escapeHtml(topPick) : '') + '</span>'
-            + '</div>';
-        }).join('')
-        + (visibleLists.length > 3 ? '<div style="font-size:10px;color:#888780">+ ' + (visibleLists.length - 3) + ' more lists</div>' : '')
-        + '</div>';
-    }
-
-    var listsJson = escapeHtml(JSON.stringify(visibleLists));
-    html += '<div class="share-pick" style="flex-direction:column;align-items:stretch;cursor:pointer;background:#FFF8F6;border-color:#F4C9B8" onclick="openGiftIdeas(\'' + f.friendId + '\',this.dataset.lists)" data-lists="' + listsJson + '">'
-      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
-      + friendAvatarHtml(f.profile, 28)
-      + '<div style="flex:1"><div style="font-size:12px;font-weight:700;color:#993C1D">' + escapeHtml(name) + '\'s birthday — ' + when + '</div>'
-      + '<div style="font-size:10px;color:#5F5E5A">' + (formatBirthday(f.profile.birthday) || '') + '</div></div>'
-      + '<span style="font-size:14px;color:#D85A30">›</span>'
-      + '</div>'
-      + giftHtml
-      + '</div>';
-  }
-  el.innerHTML = html;
-  var homeGift = document.querySelector('#s-home .gift-card');
-  var homeGiftLabel = document.querySelector('#s-home .sec-label[data-gift]');
-  if (upcoming.length > 0) {
-    if (homeGift) { homeGift.style.display = ''; homeGift.parentElement.previousElementSibling && (homeGift.parentElement.previousElementSibling.style.display = ''); }
-  }
-}
-
 async function saveState() {
   // Groups are persisted directly to DB — don't store in localStorage or tenner_state
   localStorage.setItem('tenner_lists', JSON.stringify(MY_LISTS));
@@ -4689,7 +4491,7 @@ function clearPendingInvite() {
         );
       }
     }
-    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderGiftReminders(); updateGroupMetaCounts(); }).catch(console.warn);
+    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); updateGroupMetaCounts(); }).catch(console.warn);
     loadProfile().catch(console.warn);
     loadFriends().catch(console.warn);
     refreshNotifications().catch(console.warn);
