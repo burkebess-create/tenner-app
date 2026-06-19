@@ -34,14 +34,16 @@
   @media (min-width: 700px) {
     .desktop-sidebar { display: block; }
   }
-  @media (max-width: 450px) {
-    body { padding: 0; background: #fff; align-items: flex-start; }
-    .phone { width: 100%; border-radius: 0; padding: 0; box-shadow: none; background: transparent; }
+  @media (hover: none) and (pointer: coarse) {
+    html, body { overflow: hidden; overscroll-behavior: none; }
+    body { padding: 0; background: #fff; align-items: flex-start; width: 100vw; }
+    .phone { width: 100vw; border-radius: 0; padding: 0; box-shadow: none; background: transparent; }
     .phone::before, .phone::after { display: none; }
-    .frame { border-radius: 0; height: 100dvh; }
-    .outer { gap: 0; }
+    .frame { border-radius: 0; height: 100dvh; max-height: none; }
+    .outer { gap: 0; width: 100vw; }
     .bnav { padding-bottom: env(safe-area-inset-bottom, 8px); }
     .desktop-sidebar { display: none !important; }
+    .content { -webkit-overflow-scrolling: touch; }
   }
   .btn-primary { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #D85A30; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 8px; font-family: inherit; }
   .btn-primary:hover { background: #993C1D; }
