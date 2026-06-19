@@ -2901,7 +2901,7 @@ async function loadFriends() {
       var friendIds = rows.map(function(f) { return f.requester_id === userId ? f.addressee_id : f.requester_id; });
       var profileMap = {};
       try {
-        var pRes = await sbClient.from('profiles').select('*').in('id', friendIds);
+        var pRes = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at').in('id', friendIds);
         if (pRes.data) pRes.data.forEach(function(p) { profileMap[p.id] = p; });
       } catch(pe) { console.warn('Profile fetch failed', pe); }
       myFriends = rows.map(function(f) {
@@ -2957,10 +2957,10 @@ async function searchFriend() {
     var isPhone = /^\+/.test(query) || /^[\d\s\-().]{7,}$/.test(query);
     if (isPhone) {
       var normalized = query.replace(/\s/g, '');
-      res = await sbClient.from('profiles').select('*').eq('phone', normalized).neq('id', userId).maybeSingle();
+      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at').eq('phone', normalized).neq('id', userId).maybeSingle();
     } else {
       var handle = query.replace(/^@/, '').toLowerCase();
-      res = await sbClient.from('profiles').select('*').eq('handle', handle).neq('id', userId).maybeSingle();
+      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at').eq('handle', handle).neq('id', userId).maybeSingle();
     }
     if (!res.data) {
       var hint = isPhone ? 'No user found with that phone number.' : 'No user found with @' + query.replace(/^@/, '');
@@ -3110,7 +3110,7 @@ async function loadListShareInvites() {
     var fromIds = invites.map(function(r){ return r.from_user_id; });
     var profileMap = {};
     try {
-      var pRes = await sbClient.from('profiles').select('*').in('id', fromIds);
+      var pRes = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at').in('id', fromIds);
       (pRes.data || []).forEach(function(p){ profileMap[p.id] = p; });
     } catch(e) {}
     MY_LIST_SHARE_INVITES = invites.map(function(r) {
@@ -3735,10 +3735,10 @@ async function circleSearchFriend() {
     var isPhone = /^\+/.test(query) || /^[\d\s\-().]{7,}$/.test(query);
     if (isPhone) {
       var normalized = query.replace(/\s/g, '');
-      res = await sbClient.from('profiles').select('*').eq('phone', normalized).neq('id', userId).maybeSingle();
+      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at').eq('phone', normalized).neq('id', userId).maybeSingle();
     } else {
       var handle = query.replace(/^@/, '').toLowerCase();
-      res = await sbClient.from('profiles').select('*').eq('handle', handle).neq('id', userId).maybeSingle();
+      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at').eq('handle', handle).neq('id', userId).maybeSingle();
     }
     if (!res.data) {
       var hint = isPhone ? 'No user found with that phone number.' : 'No user found with that handle.';
