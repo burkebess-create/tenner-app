@@ -172,7 +172,7 @@
       <div class="screen" id="s-home">
         <div class="topbar">
           <span class="logo">Tenner</span>
-          <span style="font-size:11px;color:#5F5E5A">My Lists</span>
+          <button class="back-btn" onclick="loadState().then(renderHome)" style="font-size:11px">↻</button>
         </div>
         <div class="content">
           <div class="sec-label">My Lists</div>
@@ -180,6 +180,10 @@
             <span style="font-size:12px;color:#888780">+ Create a new list</span>
           </div>
           <div id="lists-list"></div>
+<div id="activity-feed-section" style="display:none">
+  <div class="sec-label">Recent from your circle</div>
+  <div id="activity-feed"></div>
+</div>
 
         </div>
       </div>
@@ -189,7 +193,7 @@
         <div class="topbar">
           <button class="back-btn" onclick="go('s-home')">← Back</button>
           <span style="font-size:13px;font-weight:600;color:#2C2C2A">Notifications</span>
-          <span style="width:52px"></span>
+          <button class="back-btn" onclick="loadListShareInvites().then(function(){renderNotifications();updateNotificationBadge();})" style="font-size:11px">↻</button>
         </div>
         <div class="content" id="notifications-content"></div>
       </div>
@@ -384,7 +388,7 @@
           </div>
           <div class="sec-label">Group name</div>
           <input type="text" id="group-name" placeholder="e.g. High School Friends">
-          <button class="btn-primary" onclick="go('s-cg2')">Continue → Add members</button>
+          <button class="btn-primary" onclick="goToCg2()">Continue → Add members</button>
         </div>
       </div>
 
@@ -445,11 +449,11 @@
                 <div style="font-size:12px;font-weight:600;color:#2C2C2A">Blind fill on</div>
                 <div style="font-size:10px;color:#5F5E5A;margin-top:2px">Members fill before seeing anyone else's</div>
               </div>
-              <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+              <label class="toggle"><input type="checkbox" id="cg3-blind-fill-toggle" checked><span class="toggle-slider"></span></label>
             </div>
           </div>
           <button class="btn-primary" onclick="finishGroup()">Send to group &amp; finish</button>
-          <button class="btn-secondary" onclick="finishGroup()">Skip for now</button>
+          <button class="btn-secondary" onclick="finishGroup(true)">Skip for now</button>
         </div>
       </div>
 
@@ -514,7 +518,7 @@
       <div class="screen" id="s-circle">
         <div class="topbar">
           <span class="logo">Tenner</span>
-          <span style="font-size:11px;color:#5F5E5A">Circle</span>
+          <button class="back-btn" onclick="loadFriends().then(renderCircleScreen)" style="font-size:11px">↻</button>
         </div>
         <div class="content">
           <div class="sec-label">Friends</div>
@@ -688,14 +692,14 @@
       <div class="bnav" id="global-bnav">
         <div class="ni" id="nav-home" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>My Lists</div>
         <div class="ni" id="nav-create" onclick="go('s-create1')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Create</div>
-        <div class="ni" id="nav-circle" onclick="go('s-circle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Circle</div>
+        <div class="ni" id="nav-circle" style="position:relative" onclick="go('s-circle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg><span id="circle-badge" style="display:none;position:absolute;top:2px;right:8px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center"></span>Circle</div>
         <div class="ni" id="nav-match" onclick="matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
         <div class="ni" id="nav-profile" onclick="go('s-profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</div>
         <div class="ni" id="nav-alerts" onclick="go('s-notifications')" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>Alerts<span id="notif-badge" style="display:none;position:absolute;top:2px;right:14px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center"></span></div>
       </div>
 
       <!-- SHARE LIST MODAL -->
-      <div id="share-list-modal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end">
+      <div id="share-list-modal" onclick="if(event.target===this)closeShareListModal()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end">
         <div style="background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%;max-height:80vh;overflow-y:auto">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
             <div id="share-list-modal-title" style="font-size:14px;font-weight:600;color:#2C2C2A"></div>
@@ -706,7 +710,7 @@
       </div>
 
       <!-- INVITE MODAL -->
-      <div id="invite-modal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end">
+      <div id="invite-modal" onclick="if(event.target===this)closeInviteModal()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end">
         <div style="background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
             <div style="font-size:14px;font-weight:600;color:#2C2C2A">Invite someone</div>
@@ -716,6 +720,7 @@
           <textarea id="invite-email" rows="2" placeholder="friend@example.com, 555-867-5309&#10;Add multiple, separated by commas" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:12px;font-family:inherit;resize:none;margin-bottom:10px;color:#2C2C2A"></textarea>
           <div style="font-size:11px;font-weight:600;color:#5F5E5A;margin-bottom:4px">Message (optional)</div>
           <textarea id="invite-message" rows="3" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:12px;font-family:inherit;resize:none;margin-bottom:12px;color:#2C2C2A"></textarea>
+          <button class="btn-primary" id="invite-share-btn" onclick="nativeShareInvite()" style="margin-bottom:8px">📤 Share invite</button>
           <button class="btn-primary" onclick="sendInviteEmail()" style="margin-bottom:8px">✉️ Send invite email</button>
           <button class="btn-secondary" onclick="sendInviteText()" style="margin-bottom:8px">💬 Send text instead</button>
           <button class="btn-secondary" onclick="copyInviteLink()" style="margin-bottom:0">🔗 Copy link</button>
@@ -857,7 +862,7 @@ function go(id) {
     }[id];
     if (activeNav) document.getElementById(activeNav) && document.getElementById(activeNav).classList.add('active');
   }
-  if (id === 's-home') renderHome();
+  if (id === 's-home') { renderHome(); if (userId) showOnboardingIfNeeded(); }
   if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-fdetail' && selFriendId) renderFriendDetail();
   if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; }
@@ -1646,7 +1651,7 @@ async function renderShareGroups() {
 }
 
 async function shareCreateListToFriend(friendId, btn) {
-  saveList(); // save first
+  await saveList(); // save first
   if (sbClient && userId) {
     try {
       var res = await sbClient.from('list_share_invites').insert({ from_user_id: userId, to_user_id: friendId, category: selCat });
@@ -1657,7 +1662,7 @@ async function shareCreateListToFriend(friendId, btn) {
 }
 
 async function shareCreateListToGroup(groupIdx, btn) {
-  saveList(); // save first
+  await saveList(); // save first
   var g = MY_GROUPS[groupIdx];
   if (!g) return;
   await shareListToGroup(g.id, selCat);
@@ -1740,6 +1745,9 @@ function showListDetail(l) {
   var screen = document.getElementById('s-list-detail');
   _currentListCategory = l.category || l.n.replace('Top 10 ', '');
   document.getElementById('list-detail-emoji').textContent = (l.emoji || getCatEmoji(l.category));
+  document.getElementById('list-detail-emoji').onclick = function(){ openListEmojiPicker(); };
+  document.getElementById('list-detail-emoji').style.cursor = 'pointer';
+  document.getElementById('list-detail-emoji').title = 'Tap to change emoji';
   document.getElementById('list-detail-title').textContent = l.n;
   document.getElementById('list-detail-meta').textContent = l.m;
   setPublicToggleUI(!!l.is_public);
@@ -1841,7 +1849,7 @@ async function openShareListModal(cat) {
 
   // Invite new
   html += '<div class="sec-label">Invite someone new</div>';
-  html += '<button class="btn-secondary" style="margin-bottom:0" onclick="closeShareListModal();openListInviteModal()">✉ ✉️💬 Invite by email or text</button>';
+  html += '<button class="btn-secondary" style="margin-bottom:0" onclick="closeShareListModal();openListInviteModal()">🔗 Invite by email or text</button>';
 
   document.getElementById('share-list-modal-content').innerHTML = html;
   document.getElementById('share-list-modal').style.display = 'flex';
@@ -1919,8 +1927,110 @@ function editCurrentList() {
   go('s-create2');
 }
 
+function openListEmojiPicker() {
+  var frame = document.querySelector('.frame') || document.body;
+  var prev = document.getElementById('list-emoji-picker-overlay');
+  if (prev) prev.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'list-emoji-picker-overlay';
+  overlay.className = 'phone-overlay centered';
+  overlay.onclick = function(e){ if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = '<div style="background:#fff;border-radius:18px;padding:20px 16px;width:90%;max-width:320px">'
+    + '<div style="font-size:14px;font-weight:700;color:#2C2C2A;margin-bottom:12px">Change list emoji</div>'
+    + '<div class="emoji-grid" id="list-emoji-picker-grid"></div>'
+    + '<input type="text" placeholder="Search emoji or paste one…" oninput="onListEmojiSearch(this.value)" style="margin-top:8px;margin-bottom:6px;font-size:12px">'
+    + '<div class="emoji-grid" id="list-emoji-search-results" style="display:none;margin-bottom:8px"></div>'
+    + '<button class="btn-secondary" style="margin-bottom:0" onclick="document.getElementById(\'list-emoji-picker-overlay\').remove()">Cancel</button>'
+    + '</div>';
+  frame.appendChild(overlay);
+  var grid = document.getElementById('list-emoji-picker-grid');
+  CAT_EMOJI_DEFAULTS.forEach(function(em) {
+    var div = document.createElement('div');
+    div.className = 'emoji-opt';
+    div.textContent = em;
+    div.onclick = function() { applyListEmoji(em); };
+    grid.appendChild(div);
+  });
+}
+
+function onListEmojiSearch(val) {
+  var resultsEl = document.getElementById('list-emoji-search-results');
+  if (!resultsEl) return;
+  var q = (val || '').trim().toLowerCase();
+  if (!q) { resultsEl.style.display = 'none'; return; }
+  var firstChar = Array.from(val.trim())[0];
+  if (firstChar && !/[a-z0-9]/i.test(firstChar)) { applyListEmoji(firstChar); return; }
+  var matches = EMOJI_SEARCH_POOL.filter(function(e){ return e[1].toLowerCase().includes(q); }).slice(0, 24);
+  resultsEl.innerHTML = '';
+  matches.forEach(function(entry) {
+    var div = document.createElement('div');
+    div.className = 'emoji-opt';
+    div.textContent = entry[0];
+    div.onclick = function() { applyListEmoji(entry[0]); };
+    resultsEl.appendChild(div);
+  });
+  resultsEl.style.display = matches.length ? 'grid' : 'none';
+}
+
+async function applyListEmoji(em) {
+  document.getElementById('list-emoji-picker-overlay') && document.getElementById('list-emoji-picker-overlay').remove();
+  var emojiEl = document.getElementById('list-detail-emoji');
+  if (emojiEl) emojiEl.textContent = em;
+  var l = MY_LISTS.find(function(x){ return (x.category || x.n.replace('Top 10 ','')) === _currentListCategory; });
+  if (l) { l.emoji = em; saveListToDb(l); }
+}
+
+async function renderActivityFeed() {
+  var section = document.getElementById('activity-feed-section');
+  var feedEl = document.getElementById('activity-feed');
+  if (!section || !feedEl || !sbClient || !userId) return;
+  var accepted = myFriends.filter(function(f){ return f.status === 'accepted'; });
+  if (accepted.length === 0) return;
+  var friendIds = accepted.map(function(f){ return f.friendId; });
+  try {
+    var res = await sbClient.from('lists').select('user_id, name, category, emoji, items, updated_at, is_ranked').in('user_id', friendIds).order('updated_at', { ascending: false }).limit(8);
+    var recentLists = res.data || [];
+    if (recentLists.length === 0) return;
+    section.style.display = 'block';
+    feedEl.innerHTML = recentLists.map(function(l) {
+      var f = accepted.find(function(fr){ return fr.friendId === l.user_id; });
+      var p = (f && f.profile) || {};
+      var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
+      var cat = l.category || (l.name || '').replace('Top 10 ', '');
+      var emoji = l.emoji || getCatEmoji(cat);
+      var topItem = l.items && l.items[0] ? l.items[0] : null;
+      var when = timeOnTenner({ created_at: l.updated_at }) || '';
+      var dataAttr = 'data-list=\'' + escapeHtml(JSON.stringify(l)).replace(/'/g, '&#39;') + '\'';
+      return '<div class="share-pick" style="cursor:pointer" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
+        + friendAvatarHtml(p, 32)
+        + '<div style="flex:1;margin-left:4px"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '</div>'
+        + '<div style="font-size:10px;color:#5F5E5A">' + emoji + ' ' + escapeHtml(l.name || ('Top 10 ' + cat)) + (topItem ? ' · #1: ' + escapeHtml(topItem) : '') + '</div></div>'
+        + '<span style="font-size:10px;color:#888780;white-space:nowrap;flex-shrink:0">' + escapeHtml(when) + '</span>'
+        + '</div>';
+    }).join('');
+  } catch(e) { console.warn('Activity feed failed', e); }
+}
+
+function showOnboardingIfNeeded() {
+  if (localStorage.getItem('tenner_onboarded')) return;
+  if (MY_LISTS.length > 0 || myFriends.length > 0) { localStorage.setItem('tenner_onboarded','1'); return; }
+  var frame = document.querySelector('.frame') || document.body;
+  var overlay = document.createElement('div');
+  overlay.className = 'phone-overlay centered';
+  overlay.id = 'onboarding-overlay';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:20px;padding:28px 22px;width:90%;max-width:340px;text-align:center">'
+    + '<div style="font-size:40px;margin-bottom:10px">🏆</div>'
+    + '<div style="font-size:20px;font-weight:700;color:#D85A30;font-family:Georgia,serif;margin-bottom:8px">Welcome to Tenner</div>'
+    + '<div style="font-size:13px;color:#5F5E5A;line-height:1.6;margin-bottom:20px">Rank what you love.<br>Compare with people you know.<br><br>Make your first Top 10 list, then share it with friends to see how you match up.</div>'
+    + '<button class="btn-primary" style="margin-bottom:8px" onclick="localStorage.setItem(\'tenner_onboarded\',\'1\');document.getElementById(\'onboarding-overlay\').remove();go(\'s-create1\')">Make my first list →</button>'
+    + '<button class="btn-secondary" style="margin-bottom:0" onclick="localStorage.setItem(\'tenner_onboarded\',\'1\');document.getElementById(\'onboarding-overlay\').remove()">Explore first</button>'
+    + '</div>';
+  frame.appendChild(overlay);
+}
+
 function renderHome() {
   renderLists();
+  renderActivityFeed();
 }
 
 // Record that a list topic (category) has been shared with a group, so all
@@ -1972,7 +2082,7 @@ function openShareToGroupPicker() {
   if (prev) prev.remove();
   var overlay = document.createElement('div');
   overlay.id = 'share-to-group-modal';
-  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center;z-index:1000;border-radius:36px;overflow:hidden';
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center;z-index:1000';
   overlay.onclick = function(e){ if (e.target === overlay) overlay.remove(); };
   var sheet = document.createElement('div');
   sheet.style.cssText = 'background:#fff;width:100%;max-width:420px;border-radius:16px 16px 0 0;padding:18px;max-height:70vh;overflow-y:auto';
@@ -2022,10 +2132,10 @@ function openGroupListFill() {
   openFillGroupList(_groupListCat);
 }
 
-function openGroupListDetail(cat) {
+function openGroupListDetail(cat, emoji) {
   _groupListCat = cat;
   var titleEl = document.getElementById('group-list-title');
-  if (titleEl) titleEl.textContent = getCatEmoji(cat) + ' Top 10 ' + cat;
+  if (titleEl) titleEl.textContent = (emoji || getCatEmoji(cat)) + ' Top 10 ' + cat;
   go('s-group-list');
   renderGroupListDetail();
 }
@@ -2072,7 +2182,7 @@ async function renderGroupListDetail() {
   try {
     var lRes = await sbClient.from('lists').select('user_id, items, emoji').in('user_id', allMemberIds).eq('category', cat);
     (lRes.data || []).forEach(function(r){ listsByUser[r.user_id] = r; });
-  } catch(e) { console.warn('renderGroupListDetail fetch failed', e); }
+  } catch(e) { console.warn('renderGroupListDetail fetch failed', e); var errEl = document.getElementById('group-list-members'); if (errEl) errEl.innerHTML = '<div style="font-size:12px;color:#A32D2D;padding:12px 0">Could not load list data. Please try again.</div>'; return; }
 
   var filled = allMemberIds.filter(function(uid){ return !!listsByUser[uid]; });
   var totalMembers = allMemberIds.length;
@@ -2276,6 +2386,7 @@ async function renderGroupDetail() {
   }
 
   var totalMembers = memberIds.length + 1;
+  var isAdmin = !!g.isAdmin;
   var sharedListsHtml = '<div class="sec-label">Shared Lists</div>';
   if (sharedLists.length === 0) {
     sharedListsHtml += '<div style="font-size:11px;color:#888780;padding:8px 0">No lists shared with this group yet. Share one so everyone can fill it out and compare.</div>';
@@ -2312,7 +2423,6 @@ async function renderGroupDetail() {
     + '<span style="font-size:16px;color:#D85A30">›</span>'
     + '</div></div>';
 
-  var isAdmin = !!g.isAdmin;
   // Show/hide edit button based on admin status
   var editBtn = document.getElementById('gdetail-edit-btn');
   if (editBtn) editBtn.style.display = isAdmin ? '' : 'none';
@@ -2395,7 +2505,17 @@ function confirmDeleteGroup() {
   );
 }
 
-async function finishGroup() {
+function goToCg2() {
+  var nameEl = document.getElementById('group-name');
+  if (!nameEl || !nameEl.value.trim()) {
+    nameEl && nameEl.focus();
+    showToast('Please enter a group name first.');
+    return;
+  }
+  go('s-cg2');
+}
+
+async function finishGroup(skip) {
   if (creatingNewGroup) {
     var nameEl = document.getElementById('group-name');
     var groupName = nameEl ? nameEl.value.trim() : 'New Group';
@@ -2427,7 +2547,7 @@ async function finishGroup() {
         var mRes = await sbClient.from('group_members').insert(memberRows);
         if (mRes.error) throw mRes.error;
         // If a list was picked on the "Send a list" step, share it with the new group.
-        if (selList >= 0 && MY_LISTS[selList]) {
+        if (!skip && selList >= 0 && MY_LISTS[selList]) {
           var pickedCat = MY_LISTS[selList].category || MY_LISTS[selList].n.replace('Top 10 ', '');
           await shareListToGroup(gid, pickedCat);
         }
@@ -2546,6 +2666,8 @@ function openListInviteModal() {
   if (msgEl) msgEl.value = defaultMsg;
   var emailEl = document.getElementById('invite-email');
   if (emailEl) emailEl.value = '';
+  var shareBtn = document.getElementById('invite-share-btn');
+  if (shareBtn) shareBtn.style.display = navigator.share ? 'block' : 'none';
   document.getElementById('invite-modal').style.display = 'flex';
 }
 
@@ -2558,6 +2680,8 @@ function openInviteModalForGroup() {
   if (msgEl) msgEl.value = defaultMsg;
   var emailEl = document.getElementById('invite-email');
   if (emailEl) emailEl.value = '';
+  var shareBtn = document.getElementById('invite-share-btn');
+  if (shareBtn) shareBtn.style.display = navigator.share ? 'block' : 'none';
   document.getElementById('invite-modal').style.display = 'flex';
 }
 
@@ -2570,6 +2694,8 @@ function openInviteModal() {
   if (msgEl) msgEl.value = defaultMsg;
   var emailEl = document.getElementById('invite-email');
   if (emailEl) emailEl.value = '';
+  var shareBtn = document.getElementById('invite-share-btn');
+  if (shareBtn) shareBtn.style.display = navigator.share ? 'block' : 'none';
   document.getElementById('invite-modal').style.display = 'flex';
 }
 
@@ -2603,6 +2729,18 @@ function sendInviteText() {
   var sep = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? '&' : '?';
   window.location.href = 'sms:' + encodeURIComponent(numbers) + sep + 'body=' + body;
   closeInviteModal();
+}
+
+function nativeShareInvite() {
+  var message = (document.getElementById('invite-message') || {}).value || '';
+  var url = 'https://burkebess-create.github.io/tenner-app/';
+  if (navigator.share) {
+    navigator.share({ title: 'Join me on Tenner', text: message, url: url })
+      .then(function(){ closeInviteModal(); })
+      .catch(function(){});
+  } else {
+    copyInviteLink();
+  }
 }
 
 function copyInviteLink() {
@@ -3023,7 +3161,7 @@ function renderProfileHeader() {
   }
   var dn = document.getElementById('profile-display-name'); if (dn) dn.textContent = name;
   var hd = document.getElementById('profile-handle-display'); if (hd) hd.textContent = handle;
-  var ni = document.getElementById('profile-name-input'); if (ni && !ni.value) ni.value = p.display_name || '';
+  var ni = document.getElementById('profile-name-input'); if (ni) ni.value = p.display_name || '';
   var hi = document.getElementById('profile-handle-input');
   var hlocked = document.getElementById('handle-locked-msg');
   var hs = document.getElementById('handle-status');
@@ -3473,6 +3611,7 @@ function renderCircleFriends() {
     html = '<div style="font-size:11px;color:#888780;padding:8px 0">Search by @handle or phone number, or invite someone by email to add friends.</div>';
   }
   listEl.innerHTML = html;
+  updateCircleBadge();
 }
 
 var selFriendId = null;
@@ -3520,7 +3659,7 @@ function openFriendList(listData) {
   // CTA: show "Fill out yours" only if user doesn't already have this list
   var ctaEl = document.getElementById('friend-list-cta');
   if (ctaEl) {
-    var iHaveIt = MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
+    iHaveIt = MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
     if (iHaveIt) {
       ctaEl.innerHTML = '<button class="btn-secondary" onclick="(function(){'
         + 'selCat=\'' + cat.replace(/'/g,"\\'") + '\';'
@@ -3530,6 +3669,7 @@ function openFriendList(listData) {
         + 'isRanked=(editingListIdx>=0?MY_LISTS[editingListIdx].ranked!==false:true);'
         + 'listOrigin=\'s-friend-list\';renderCatGrid();renderItems();updateProg();go(\'s-create2\');'
         + '})()">Edit your list</button>';
+      ctaEl.innerHTML += '<button class="btn-primary" style="margin-top:6px;margin-bottom:0" onclick="openMatchWithFriend(\'' + selFriendId + '\',\'s-friend-list\')">📊 Compare with ' + escapeHtml(friendName.split(' ')[0]) + ' →</button>';
     } else {
       ctaEl.innerHTML = '<button class="btn-primary" onclick="'
         + 'selCat=\'' + cat.replace(/'/g,"\\'") + '\';'
@@ -3820,6 +3960,15 @@ function renderCircleGroups() {
       + '<span style="font-size:16px;color:#D3D1C7">›</span>'
       + '</div>';
   }).join('');
+  updateCircleBadge();
+}
+
+function updateCircleBadge() {
+  var badge = document.getElementById('circle-badge');
+  if (!badge) return;
+  var n = MY_PENDING_GROUP_INVITES.length + myFriends.filter(function(f){ return f.status === 'pending' && !f.isRequester; }).length;
+  if (n > 0) { badge.textContent = n > 9 ? '9+' : n; badge.style.display = 'block'; }
+  else { badge.style.display = 'none'; }
 }
 
 async function respondToGroupInvite(groupId, accept) {
@@ -3850,6 +3999,7 @@ async function unfriend(friendshipId) {
     await loadFriends();
     renderCircleFriends();
     renderFriendsSection();
+    selFriendId = null;
     if (document.getElementById('s-fdetail').classList.contains('active')) go('s-circle');
   } catch(e) { console.warn('Unfriend failed', e); }
 }
@@ -4765,6 +4915,7 @@ function clearPendingInvite() {
   }
 
   initSupabase();
+  authTab('login');
   renderCatGrid();
   renderEmojiGrid();
   renderFriendsList();
