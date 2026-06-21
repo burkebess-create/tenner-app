@@ -4238,7 +4238,7 @@ async function renderGiftReminders() {
           return '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#2C2C2A">'
             + '<span style="font-size:14px">' + emoji + '</span>'
             + '<span style="flex:1"><strong>' + escapeHtml(l.name || ('Top 10 ' + cat)) + '</strong>'
-            + (topPick ? ' · #1: ' + escapeHtml(topPick) : '') + '</span>'
+            + (topPick ? '<span style="display:inline-flex;align-items:center;gap:4px;margin-left:4px"><span class="rank-badge" style="font-size:9px;width:15px;height:15px;min-width:15px">1</span>' + escapeHtml(topPick) + '</span>' : '') + '</span>'
             + '</div>';
         }).join('')
         + (visibleLists.length > 3 ? '<div style="font-size:10px;color:#888780">+ ' + (visibleLists.length - 3) + ' more lists</div>' : '')
