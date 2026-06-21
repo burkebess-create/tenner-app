@@ -4276,10 +4276,10 @@ async function renderGiftReminders() {
 
     var listsJson = escapeHtml(JSON.stringify(visibleLists));
     html += '<div class="share-pick" style="flex-direction:column;align-items:stretch;cursor:pointer;background:#FFF8F6;border-color:#F4C9B8" onclick="openGiftIdeas(\'' + f.friendId + '\',this.dataset.lists)" data-lists="' + listsJson + '">'
-      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
       + friendAvatarHtml(f.profile, 28)
-      + '<div style="flex:1"><div style="font-size:12px;font-weight:700;color:#993C1D">' + escapeHtml(name) + '\'s birthday — ' + when + '</div>'
-      + '<div style="font-size:10px;color:#5F5E5A">' + (formatBirthday(f.profile.birthday) || '') + '</div></div>'
+      + '<div style="flex:1"><div style="font-size:13px;font-weight:700;color:#993C1D">' + escapeHtml(name) + '\'s Birthday — ' + when + '</div>'
+      + '<div style="font-size:11px;color:#D85A30;font-weight:500;margin-top:2px">Get Gift Inspiration from their Favorite Things</div></div>'
       + '<span style="font-size:14px;color:#D85A30">›</span>'
       + '</div>'
       + giftHtml
