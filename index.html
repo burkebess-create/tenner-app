@@ -150,19 +150,23 @@
       <div class="screen active" id="s-auth">
         <div class="content" style="justify-content:center;display:flex;flex-direction:column;padding:30px 20px">
           <div style="text-align:center;margin-bottom:32px">
-            <div class="tenner-app-icon">
-              <div class="icon-inner">
-                <svg viewBox="0 0 380 280">
-                  <defs><linearGradient id="coral" x1="0" x2="1"><stop offset="0%" stop-color="#eb6a55"/><stop offset="100%" stop-color="#e85d4a"/></linearGradient></defs>
-                  <text x="0" y="210" font-family="DM Serif Display" font-size="260" fill="url(#coral)">1</text>
-                  <circle cx="250" cy="135" r="105" fill="url(#coral)"/>
-                  <circle cx="190" cy="95" r="10" fill="white"/><circle cx="190" cy="135" r="10" fill="white"/><circle cx="190" cy="175" r="10" fill="white"/>
-                  <rect x="220" y="85" width="95" height="18" rx="9" fill="white"/><rect x="220" y="125" width="95" height="18" rx="9" fill="white"/><rect x="220" y="165" width="95" height="18" rx="9" fill="white"/>
-                </svg>
-              </div>
-              <div class="wordmark">Tenner</div>
-              <div class="tagline">TOP 10 LISTS • ALL IN ONE PLACE</div>
-            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="260" height="260" style="border-radius:16px;overflow:hidden">
+              <defs>
+                <linearGradient id="sqCoral" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ED6A57"/><stop offset="100%" stop-color="#E85D4A"/></linearGradient>
+                <filter id="sqCardShadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="18" stdDeviation="28" flood-opacity="0.08"/></filter>
+                <filter id="sqSoftShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.06"/></filter>
+              </defs>
+              <rect width="1024" height="1024" fill="#F1F1F1"/>
+              <rect x="80" y="80" width="864" height="864" rx="110" fill="#FAF8F5" filter="url(#sqCardShadow)"/>
+              <g filter="url(#sqSoftShadow)">
+                <text x="255" y="520" text-anchor="middle" font-family="DM Serif Display, Georgia, serif" font-size="310" fill="url(#sqCoral)">1</text>
+                <circle cx="560" cy="395" r="150" fill="url(#sqCoral)"/>
+                <circle cx="500" cy="335" r="12" fill="#FFF"/><circle cx="500" cy="395" r="12" fill="#FFF"/><circle cx="500" cy="455" r="12" fill="#FFF"/>
+                <rect x="535" y="323" width="120" height="24" rx="12" fill="#FFF"/><rect x="535" y="383" width="120" height="24" rx="12" fill="#FFF"/><rect x="535" y="443" width="120" height="24" rx="12" fill="#FFF"/>
+              </g>
+              <text x="512" y="700" text-anchor="middle" font-family="DM Serif Display, Georgia, serif" font-size="125" fill="#2F3740" letter-spacing="-2">Tenner</text>
+              <text x="512" y="780" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" letter-spacing="4" fill="#E85D4A">TOP 10 LISTS • ALL IN ONE PLACE</text>
+            </svg>
           </div>
           <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid #D3D1C7;border-radius:10px;overflow:hidden">
             <button id="tab-login" onclick="authTab('login')" style="flex:1;padding:10px;border:none;background:#FAECE7;color:#993C1D;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">Log in</button>
