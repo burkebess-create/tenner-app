@@ -2054,7 +2054,7 @@ async function renderActivityFeed() {
       var topItem = l.items && l.items[0] ? l.items[0] : null;
       var dataAttr = 'data-list=\'' + escapeHtml(JSON.stringify(l)).replace(/'/g, '&#39;') + '\'';
       var sentence = topItem
-        ? escapeHtml(name) + ' set <em>' + escapeHtml(topItem) + '</em> as their favorite ' + escapeHtml(singularize(cat))
+        ? escapeHtml(name) + ' shared that <em>' + escapeHtml(topItem) + '</em> is their favorite ' + escapeHtml(singularize(cat))
         : escapeHtml(name) + ' updated their ' + escapeHtml(singularize(cat)) + ' list';
       return '<div class="share-pick" style="cursor:pointer;align-items:flex-start" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
         + '<span style="font-size:18px;flex-shrink:0;margin-top:2px">' + emoji + '</span>'
