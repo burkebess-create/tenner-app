@@ -544,11 +544,11 @@
           <div id="circle-friends-list"></div>
 
           <div id="circle-group-invites"></div>
-          <div class="sec-label" style="margin-top:4px">Groups</div>
-          <div id="circle-groups-list"></div>
-          <div class="card" onclick="go('s-cg1')" style="border-style:dashed;text-align:center;padding:14px">
-            <span style="font-size:12px;color:#888780">+ Create a new group</span>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+            <div class="sec-label" style="margin-top:0;margin-bottom:0">Groups</div>
+            <button onclick="go('s-cg1')" style="font-size:11px;color:#D85A30;background:none;border:none;cursor:pointer;padding:0;font-weight:600">+ New group</button>
           </div>
+          <div id="circle-groups-list"></div>
 
           <div class="sec-label" style="margin-top:4px">Gift Reminders</div>
           <div id="gift-reminders-section">
@@ -3607,14 +3607,19 @@ function renderCircleFriends() {
   if (!listEl) return;
   var html = '';
   if (accepted.length > 0) {
-    html = accepted.map(function(f) {
+    var FRIENDS_PREVIEW = 3;
+    var friendRows = accepted.map(function(f) {
       var name = f.profile.display_name || f.profile.handle || 'Unknown';
       var handle = f.profile.handle ? '@' + f.profile.handle : '';
-      var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
       return '<div class="share-pick" style="cursor:pointer" onclick="openFriendDetail(\'' + f.friendId + '\')">' + friendAvatarHtml(f.profile, 32)
-        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:10px;color:#5F5E5A">' + handle + '</div></div>'
+        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '</div><div style="font-size:10px;color:#5F5E5A">' + escapeHtml(handle) + '</div></div>'
         + '<span style="font-size:16px;color:#D3D1C7">›</span></div>';
-    }).join('');
+    });
+    html = friendRows.slice(0, FRIENDS_PREVIEW).join('');
+    if (accepted.length > FRIENDS_PREVIEW) {
+      html += '<div id="circle-friends-extra" style="display:none">' + friendRows.slice(FRIENDS_PREVIEW).join('') + '</div>'
+        + '<button onclick="toggleCircleSection(\'friends\')" id="circle-friends-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:11px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show all ' + accepted.length + ' friends</button>';
+    }
   } else if (sent.length > 0) {
     html = '<div style="font-size:11px;color:#888780;padding:8px 0">' + sent.length + ' request' + (sent.length>1?'s':'') + ' sent — waiting for them to accept.</div>';
   } else {
@@ -3967,7 +3972,8 @@ function renderCircleGroups() {
   var el = document.getElementById('circle-groups-list');
   if (!el) return;
   if (MY_GROUPS.length === 0) { el.innerHTML = ''; return; }
-  el.innerHTML = MY_GROUPS.map(function(g, i) {
+  var GROUPS_PREVIEW = 2;
+  var groupRows = MY_GROUPS.map(function(g, i) {
     return '<div class="share-pick" style="cursor:pointer" onclick="selGroupIdx='+i+';go(\'s-gdetail\')">'
       + groupAvatarHtml(g, 42)
       + '<div style="flex:1">'
@@ -3975,8 +3981,31 @@ function renderCircleGroups() {
       + '<div style="font-size:11px;color:#5F5E5A">' + (g.meta || '') + '</div></div>'
       + '<span style="font-size:16px;color:#D3D1C7">›</span>'
       + '</div>';
-  }).join('');
+  });
+  var groupHtml = groupRows.slice(0, GROUPS_PREVIEW).join('');
+  if (MY_GROUPS.length > GROUPS_PREVIEW) {
+    groupHtml += '<div id="circle-groups-extra" style="display:none">' + groupRows.slice(GROUPS_PREVIEW).join('') + '</div>'
+      + '<button onclick="toggleCircleSection(\'groups\')" id="circle-groups-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:11px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show all ' + MY_GROUPS.length + ' groups</button>';
+  }
+  el.innerHTML = groupHtml;
   updateCircleBadge();
+}
+
+function toggleCircleSection(section) {
+  var extra = document.getElementById('circle-' + section + '-extra');
+  var btn = document.getElementById('circle-' + section + '-toggle');
+  if (!extra || !btn) return;
+  var expanded = extra.style.display !== 'none';
+  extra.style.display = expanded ? 'none' : 'block';
+  if (section === 'friends') {
+    var accepted = myFriends.filter(function(f) { return f.status === 'accepted'; });
+    btn.textContent = expanded ? '▼ Show all ' + accepted.length + ' friends' : '▲ Show fewer friends';
+  } else if (section === 'groups') {
+    btn.textContent = expanded ? '▼ Show all ' + MY_GROUPS.length + ' groups' : '▲ Show fewer groups';
+  } else if (section === 'gifts') {
+    var giftCount = btn.textContent.match(/\d+/);
+    btn.textContent = expanded ? '▼ Show all ' + (giftCount ? giftCount[0] : '') + ' gift reminders' : '▲ Show fewer gift reminders';
+  }
 }
 
 function updateCircleBadge() {
@@ -4255,6 +4284,20 @@ async function renderGiftReminders() {
       + '</div>'
       + giftHtml
       + '</div>';
+  }
+  var GIFTS_PREVIEW = 2;
+  if (upcoming.length > GIFTS_PREVIEW) {
+    var allHtml = html;
+    var previewHtml = '';
+    // re-slice: we need just the first GIFTS_PREVIEW cards worth of html
+    // simpler: wrap extras in a collapsible div using a marker
+    // We'll rebuild: split html into per-card chunks via a delimiter
+    var cards = html.split('<div class="share-pick"').filter(Boolean).map(function(c){ return '<div class="share-pick"' + c; });
+    previewHtml = cards.slice(0, GIFTS_PREVIEW).join('');
+    var extraHtml = cards.slice(GIFTS_PREVIEW).join('');
+    html = previewHtml
+      + '<div id="circle-gifts-extra" style="display:none">' + extraHtml + '</div>'
+      + '<button onclick="toggleCircleSection(\'gifts\')" id="circle-gifts-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:11px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show all ' + upcoming.length + ' gift reminders</button>';
   }
   el.innerHTML = html;
   var homeGift = document.querySelector('#s-home .gift-card');
