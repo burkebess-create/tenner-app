@@ -150,7 +150,7 @@
       <div class="screen active" id="s-auth">
         <div class="content" style="justify-content:center;display:flex;flex-direction:column;padding:30px 20px">
           <div style="text-align:center;margin-bottom:32px">
-            <img src="logo-square.png" alt="Tenner" style="width:320px;height:320px;object-fit:contain;border-radius:32px">
+            <img src="logo-square.png" alt="Tenner" style="width:400px;height:400px;object-fit:contain;border-radius:32px">
           </div>
           <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid #D3D1C7;border-radius:10px;overflow:hidden">
             <button id="tab-login" onclick="authTab('login')" style="flex:1;padding:10px;border:none;background:#FAECE7;color:#993C1D;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">Log in</button>
@@ -199,9 +199,12 @@
       <!-- ═══ NOTIFICATIONS ═══ -->
       <div class="screen" id="s-notifications">
         <div class="topbar">
-          <span style="width:52px"></span>
-          <span style="font-size:13px;font-weight:600;color:#2C2C2A">Notifications</span>
+          <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
           <button class="back-btn" onclick="loadListShareInvites().then(function(){renderNotifications();updateNotificationBadge();})" style="font-size:11px">↻</button>
+        </div>
+        <div style="display:flex;border-bottom:1px solid #E5E3DC;background:#FAF8F5">
+          <button id="notif-tab-invites" onclick="switchNotifTab('invites')" style="flex:1;padding:10px 0;font-size:12px;font-weight:600;border:none;background:none;cursor:pointer;color:#D85A30;border-bottom:2px solid #D85A30">Invites</button>
+          <button id="notif-tab-activity" onclick="switchNotifTab('activity')" style="flex:1;padding:10px 0;font-size:12px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Activity</button>
         </div>
         <div class="content" id="notifications-content"></div>
       </div>
@@ -3419,10 +3422,35 @@ async function markNotificationsRead() {
   }
 }
 
+var _notifTab = 'invites';
+
+function switchNotifTab(tab) {
+  _notifTab = tab;
+  var tabs = ['invites', 'activity'];
+  tabs.forEach(function(t) {
+    var btn = document.getElementById('notif-tab-' + t);
+    if (!btn) return;
+    if (t === tab) {
+      btn.style.color = '#D85A30';
+      btn.style.borderBottom = '2px solid #D85A30';
+    } else {
+      btn.style.color = '#888780';
+      btn.style.borderBottom = '2px solid transparent';
+    }
+  });
+  renderNotifications();
+}
+
 function renderNotifications() {
   var el = document.getElementById('notifications-content');
   if (!el) return;
   updateNotificationBadge();
+
+  if (_notifTab === 'activity') {
+    el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists you\'ll see it here.</div></div>';
+    return;
+  }
+
   if (MY_LIST_SHARE_INVITES.length === 0) {
     el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">🔕</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">You\'re all caught up</div><div style="font-size:12px;line-height:1.5">List invites and reminders from friends will show up here.</div></div>';
     return;
