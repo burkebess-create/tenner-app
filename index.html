@@ -4205,10 +4205,12 @@ function openGiftIdeas(friendId, friendListsJson) {
         + '<span style="font-size:12px;color:#2C2C2A">' + escapeHtml(item) + '</span>'
         + '</div>';
     }).join('');
-    return '<div class="card no-hover" style="margin-bottom:8px">'
+    var pluralLabel = escapeHtml(name) + '\'s Favorite ' + escapeHtml(cat);
+    var singularLabel = escapeHtml(name) + '\'s Favorite ' + escapeHtml(singularize(cat));
+    return '<div class="card no-hover" style="margin-bottom:8px" data-cat="' + escapeHtml(cat) + '" data-name="' + escapeHtml(name) + '">'
       + '<div style="display:flex;align-items:center;gap:10px" onclick="toggleGiftList(' + idx + ')">'
       + '<span style="font-size:20px">' + emoji + '</span>'
-      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '\'s Favorite ' + escapeHtml(singularize(cat)) + '</div>'
+      + '<div style="flex:1"><div id="gift-title-' + idx + '" style="font-size:12px;font-weight:600;color:#2C2C2A">' + singularLabel + '</div>'
       + (items[0] ? '<div style="display:flex;align-items:center;gap:6px;margin-top:2px"><div class="rank-badge" style="font-size:10px;width:18px;height:18px;min-width:18px">1</div><span style="font-size:11px;color:#5F5E5A">' + escapeHtml(items[0]) + '</span></div>' : '')
       + '</div>'
       + '<span id="gift-chevron-' + idx + '" style="font-size:14px;color:#888780;margin-left:4px;transition:transform .2s;display:inline-block">▼</span>'
@@ -4223,10 +4225,19 @@ function openGiftIdeas(friendId, friendListsJson) {
 function toggleGiftList(idx) {
   var panel = document.getElementById('gift-expand-' + idx);
   var chevron = document.getElementById('gift-chevron-' + idx);
+  var titleEl = document.getElementById('gift-title-' + idx);
   if (!panel) return;
   var open = panel.style.display !== 'none';
   panel.style.display = open ? 'none' : 'block';
   if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
+  if (titleEl) {
+    var card = titleEl.closest('[data-cat]');
+    var cat = card ? card.getAttribute('data-cat') : '';
+    var name = card ? card.getAttribute('data-name') : '';
+    titleEl.textContent = open
+      ? (name + '\'s Favorite ' + singularize(cat))
+      : (name + '\'s Favorite ' + cat);
+  }
 }
 
 async function renderGiftReminders() {
