@@ -188,10 +188,6 @@
             <span style="font-size:12px;color:#888780">+ Create a new list</span>
           </div>
           <div id="lists-list"></div>
-<div id="activity-feed-section" style="display:none">
-  <div class="sec-label">Recent from your circle</div>
-  <div id="activity-feed"></div>
-</div>
 
         </div>
       </div>
@@ -553,6 +549,11 @@
           <div class="sec-label" style="margin-top:4px">Gift Reminders</div>
           <div id="gift-reminders-section">
             <div style="font-size:11px;color:#888780;padding:8px 0">Add friends with birthdays to see gift reminders.</div>
+          </div>
+
+          <div id="activity-feed-section" style="display:none">
+            <div class="sec-label" style="margin-top:12px">Recent from your circle</div>
+            <div id="activity-feed"></div>
           </div>
         </div>
       </div>
@@ -2033,7 +2034,7 @@ async function renderActivityFeed() {
   if (accepted.length === 0) return;
   var friendIds = accepted.map(function(f){ return f.friendId; });
   try {
-    var res = await sbClient.from('lists').select('user_id, name, category, emoji, items, updated_at, is_ranked').in('user_id', friendIds).order('updated_at', { ascending: false }).limit(8);
+    var res = await sbClient.from('lists').select('user_id, name, category, emoji, items, updated_at, is_ranked').in('user_id', friendIds).order('updated_at', { ascending: false }).limit(20);
     var recentLists = res.data || [];
     var _myCats = MY_LISTS.map(function(l){ return l.category || l.n.replace('Top 10 ',''); });
     recentLists = recentLists.filter(function(l){
@@ -2043,22 +2044,29 @@ async function renderActivityFeed() {
     });
     if (recentLists.length === 0) return;
     section.style.display = 'block';
-    feedEl.innerHTML = recentLists.map(function(l) {
+    var FEED_PREVIEW = 3;
+    var rows = recentLists.map(function(l) {
       var f = accepted.find(function(fr){ return fr.friendId === l.user_id; });
       var p = (f && f.profile) || {};
       var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
       var cat = l.category || (l.name || '').replace('Top 10 ', '');
       var emoji = l.emoji || getCatEmoji(cat);
       var topItem = l.items && l.items[0] ? l.items[0] : null;
-      var when = timeOnTenner({ created_at: l.updated_at }) || '';
       var dataAttr = 'data-list=\'' + escapeHtml(JSON.stringify(l)).replace(/'/g, '&#39;') + '\'';
-      return '<div class="share-pick" style="cursor:pointer" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
-        + friendAvatarHtml(p, 32)
-        + '<div style="flex:1;margin-left:4px"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '</div>'
-        + '<div style="font-size:10px;color:#5F5E5A">' + emoji + ' ' + escapeHtml(l.name || ('Top 10 ' + cat)) + (topItem ? ' · #1: ' + escapeHtml(topItem) : '') + '</div></div>'
-        + '<span style="font-size:10px;color:#888780;white-space:nowrap;flex-shrink:0">' + escapeHtml(when) + '</span>'
+      var sentence = topItem
+        ? escapeHtml(name) + ' set <em>' + escapeHtml(topItem) + '</em> as their favorite ' + escapeHtml(singularize(cat))
+        : escapeHtml(name) + ' updated their ' + escapeHtml(singularize(cat)) + ' list';
+      return '<div class="share-pick" style="cursor:pointer;align-items:flex-start" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
+        + '<span style="font-size:18px;flex-shrink:0;margin-top:2px">' + emoji + '</span>'
+        + '<div style="flex:1;font-size:11px;color:#2C2C2A;line-height:1.5">' + sentence + '</div>'
         + '</div>';
-    }).join('');
+    });
+    var html = rows.slice(0, FEED_PREVIEW).join('');
+    if (recentLists.length > FEED_PREVIEW) {
+      html += '<div id="circle-feed-extra" style="display:none">' + rows.slice(FEED_PREVIEW).join('') + '</div>'
+        + '<button onclick="toggleCircleSection(\'feed\')" id="circle-feed-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:11px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show more</button>';
+    }
+    feedEl.innerHTML = html;
   } catch(e) { console.warn('Activity feed failed', e); }
 }
 
@@ -2081,7 +2089,6 @@ function showOnboardingIfNeeded() {
 
 function renderHome() {
   renderLists();
-  renderActivityFeed();
 }
 
 // Record that a list topic (category) has been shared with a group, so all
@@ -3371,8 +3378,9 @@ function renderFriendsSection() {
 
 function renderCircleScreen() {
   renderCircleFriends();
-  renderCircleGroups(); // renders immediately with whatever meta is cached
-  updateGroupMetaCounts(); // async — fetches real counts then re-renders
+  renderCircleGroups();
+  updateGroupMetaCounts();
+  renderActivityFeed();
 }
 
 var MY_LIST_SHARE_INVITES = []; // incoming "fill out this list" invites from friends
@@ -4029,6 +4037,8 @@ function toggleCircleSection(section) {
   } else if (section === 'gifts') {
     var giftCount = btn.textContent.match(/\d+/);
     btn.textContent = expanded ? '▼ Show all ' + (giftCount ? giftCount[0] : '') + ' gift reminders' : '▲ Show fewer gift reminders';
+  } else if (section === 'feed') {
+    btn.textContent = expanded ? '▼ Show more' : '▲ Show less';
   }
 }
 
