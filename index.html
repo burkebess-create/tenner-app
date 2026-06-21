@@ -210,6 +210,7 @@
         <div class="topbar">
           <button class="back-btn" onclick="go('s-home')">← Back</button>
           <div style="display:flex;gap:6px;margin-left:auto">
+            <button onclick="copyListInviteLink()" title="Copy link" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#F1EFE8;border:none;color:#5F5E5A;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
             <button onclick="shareCurrentList()" title="Share" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#F1EFE8;border:none;color:#5F5E5A;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
             <button onclick="shareListAsImage(selListDetail)" title="Share as image" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#F1EFE8;border:none;font-size:16px;cursor:pointer">📸</button>
             <button id="list-detail-edit-btn" onclick="editCurrentList()" title="Edit" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#FAECE7;border:none;color:#D85A30;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
@@ -511,7 +512,7 @@
         <div class="topbar">
           <button class="back-btn" id="match-back-btn" onclick="go(matchOrigin || 's-circle')" style="font-size:11px;display:none">← Back</button>
           <span id="match-topbar-debug" style="font-size:13px;font-weight:600;color:#2C2C2A">Match Scores</span>
-          <button class="back-btn" onclick="go('s-circle')" style="font-size:11px">+ Add friend</button>
+          <button class="back-btn" onclick="go('s-circle')" style="font-size:11px">Circle</button>
         </div>
         <div class="content" id="match-screen-content">
           <div style="text-align:center;padding:40px 20px;color:#888780">
@@ -571,7 +572,7 @@
       <!-- ═══ GROUP LIST DETAIL ═══ -->
       <div class="screen" id="s-group-list">
         <div class="topbar">
-          <button class="back-btn" onclick="go('s-gdetail')">← Back</button>
+          <button class="back-btn" id="group-list-back-btn" onclick="go(groupListOrigin||'s-gdetail')">← Back</button>
           <span id="group-list-title" style="font-size:13px;font-weight:600;color:#2C2C2A"></span>
           <button id="group-list-fill-btn" class="add-btn" style="font-size:10px;padding:4px 10px" onclick="openGroupListFill()"></button>
         </div>
@@ -601,7 +602,7 @@
       <!-- ═══ FRIEND LIST VIEW ═══ -->
       <div class="screen" id="s-friend-list">
         <div class="topbar">
-          <button class="back-btn" id="friend-list-back-btn" onclick="go('s-fdetail')">← Back</button>
+          <button class="back-btn" id="friend-list-back-btn" onclick="go(friendListOrigin||'s-fdetail')">← Back</button>
           <span id="friend-list-title" style="font-size:13px;font-weight:600;color:#2C2C2A"></span>
           <span style="width:52px"></span>
         </div>
@@ -951,11 +952,26 @@ function formatPhoneInput(input) {
   }
 }
 
+function showToast(msg, duration) {
+  var frame = document.querySelector('.frame') || document.body;
+  var existing = document.getElementById('toast-banner');
+  if (existing) existing.remove();
+  var banner = document.createElement('div');
+  banner.id = 'toast-banner';
+  banner.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#2C2C2A;color:#fff;font-size:11px;padding:10px 16px;border-radius:0 0 10px 10px;z-index:9999;text-align:center;pointer-events:none';
+  banner.textContent = msg;
+  frame.appendChild(banner);
+  setTimeout(function(){ if (banner.parentNode) banner.remove(); }, duration || 3000);
+}
+
 function showConfirm(title, message, okLabel, style, onOk) {
   document.getElementById('confirm-title').textContent = title;
   document.getElementById('confirm-message').textContent = message;
   var okBtn = document.getElementById('confirm-ok');
   okBtn.textContent = okLabel;
+  // always reset the cancel button text
+  var cancelBtn = document.querySelector('#confirm-modal .btn-secondary');
+  if (cancelBtn) cancelBtn.textContent = 'Cancel';
   if (style === 'danger') {
     okBtn.style.cssText = 'width:100%;padding:14px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px;color:#A32D2D;background:#fff;border:1px solid #F09595;';
   } else {
@@ -980,8 +996,6 @@ function checkListComplete() {
     okBtn.textContent = 'Continue anyway';
     okBtn.style.cssText = 'width:100%;padding:14px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px;color:#fff;background:#D85A30;border:none;';
     okBtn.onclick = function() { closeConfirm(); go('s-create3'); };
-    var cancelBtn = modal.querySelector('button.btn-secondary');
-    if (cancelBtn) cancelBtn.textContent = 'Add more items';
     modal.style.display = 'flex';
   } else {
     go('s-create3');
@@ -1113,7 +1127,7 @@ function useCatWarn() {
 
 function getItemPool() {
   var key = Object.keys(ITEMS).find(function(k) { return selCat.toLowerCase().includes(k.toLowerCase().split(' ')[0]); });
-  return ITEMS[key || 'Movies'] || [];
+  return key ? (ITEMS[key] || []) : [];
 }
 
 function onItemType(val) {
@@ -1197,7 +1211,26 @@ function onItemEditKey(e, idx) {
 function onItemEditBlur(idx, input) {
   var val = input.value.trim();
   if (!val) {
+    var removed = items[idx];
     removeItem(idx);
+    if (removed) {
+      var frame = document.querySelector('.frame') || document.body;
+      var toast = document.getElementById('toast-banner');
+      if (toast) toast.remove();
+      var undoBanner = document.createElement('div');
+      undoBanner.id = 'toast-banner';
+      undoBanner.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#2C2C2A;color:#fff;font-size:11px;padding:10px 16px;border-radius:0 0 10px 10px;z-index:9999;text-align:center;display:flex;align-items:center;justify-content:center;gap:10px';
+      var timer = setTimeout(function(){ if (undoBanner.parentNode) undoBanner.remove(); }, 3000);
+      undoBanner.innerHTML = '<span>Item removed</span><button style="border:none;background:#D85A30;color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-family:inherit">Undo</button>';
+      undoBanner.querySelector('button').onclick = function() {
+        clearTimeout(timer);
+        undoBanner.remove();
+        items.splice(idx, 0, removed);
+        renderItems();
+        updateProg();
+      };
+      frame.appendChild(undoBanner);
+    }
   } else {
     items[idx] = val;
     updateProg();
@@ -1761,7 +1794,15 @@ async function toggleListPublic(checked) {
   var l = MY_LISTS.find(function(x){ return (x.category || x.n.replace('Top 10 ','')) === _currentListCategory; });
   if (l) l.is_public = checked;
   if (sbClient && userId && _currentListCategory) {
-    try { await sbClient.from('lists').update({ is_public: checked }).eq('user_id', userId).eq('category', _currentListCategory); } catch(e) { console.warn('Toggle public failed', e); }
+    try {
+      var r = await sbClient.from('lists').update({ is_public: checked }).eq('user_id', userId).eq('category', _currentListCategory);
+      if (r.error) throw r.error;
+    } catch(e) {
+      console.warn('Toggle public failed', e);
+      setPublicToggleUI(!checked);
+      if (l) l.is_public = !checked;
+      showToast('Could not update setting. Try again.');
+    }
   }
 }
 
@@ -1780,7 +1821,15 @@ async function toggleListBlindFill(checked) {
   var l = MY_LISTS.find(function(x){ return (x.category || x.n.replace('Top 10 ','')) === _currentListCategory; });
   if (l) l.blind_fill = checked;
   if (sbClient && userId && _currentListCategory) {
-    try { await sbClient.from('lists').update({ blind_fill: checked }).eq('user_id', userId).eq('category', _currentListCategory); } catch(e) { console.warn('Toggle blind fill failed', e); }
+    try {
+      var r = await sbClient.from('lists').update({ blind_fill: checked }).eq('user_id', userId).eq('category', _currentListCategory);
+      if (r.error) throw r.error;
+    } catch(e) {
+      console.warn('Toggle blind fill failed', e);
+      setBlindToggleUI(!checked);
+      if (l) l.blind_fill = !checked;
+      showToast('Could not update setting. Try again.');
+    }
   }
 }
 
@@ -2165,7 +2214,9 @@ function openShareToGroupPicker() {
   html += '<button class="btn-secondary" style="margin-top:6px;color:#888780" onclick="document.getElementById(\'share-to-group-modal\').remove()">Cancel</button>';
   sheet.innerHTML = html;
   overlay.appendChild(sheet);
-  (document.querySelector('.frame') || document.body).appendChild(overlay);
+  var frame = document.querySelector('.frame');
+  if (!frame) return;
+  frame.appendChild(overlay);
 }
 
 async function shareExistingListToGroup(cat) {
@@ -2185,13 +2236,16 @@ function openShareNewListToGroup() {
 
 var GROUP_SHARED_LISTS = {}; // groupId -> [{category, shared_by}] cache for the share sheet
 var _groupListCat = '';
+var groupListOrigin = 's-gdetail';
+var friendListOrigin = 's-fdetail';
 
 function openGroupListFill() {
   openFillGroupList(_groupListCat);
 }
 
-function openGroupListDetail(cat, emoji) {
+function openGroupListDetail(cat, emoji, origin) {
   _groupListCat = cat;
+  groupListOrigin = origin || 's-gdetail';
   var titleEl = document.getElementById('group-list-title');
   if (titleEl) titleEl.textContent = (emoji || getCatEmoji(cat)) + ' Top 10 ' + cat;
   go('s-group-list');
@@ -2533,11 +2587,18 @@ function confirmDeleteList() {
   if (idx < 0) return;
   var l = MY_LISTS[idx];
   showConfirm('Delete "' + l.n + '"?', 'This will permanently delete your list. This cannot be undone.', 'Delete list', 'danger', async function() {
+    if (sbClient && userId && cat) {
+      try {
+        var dr = await sbClient.from('lists').delete().eq('user_id', userId).eq('category', cat);
+        if (dr.error) throw dr.error;
+      } catch(e) {
+        console.warn('Delete list failed', e);
+        showToast('Could not delete list. Try again.');
+        return;
+      }
+    }
     MY_LISTS.splice(idx, 1);
     saveState();
-    if (sbClient && userId && cat) {
-      try { await sbClient.from('lists').delete().eq('user_id', userId).eq('category', cat); } catch(e) { console.warn('Delete list failed', e); }
-    }
     renderLists();
     go('s-home');
   });
@@ -2595,8 +2656,9 @@ async function finishGroup(skip) {
           emoji: localGroup.emoji,
           photo: localGroup.photo,
           created_by: userId
-        }).select().single();
+        }).select().maybeSingle();
         if (gRes.error) throw gRes.error;
+        if (!gRes.data) throw new Error('Group was not created.');
         var gid = gRes.data.id;
         localGroup.id = gid;
         var memberRows = [{ group_id: gid, user_id: userId, status: 'accepted', role: 'admin' }].concat(
@@ -2611,7 +2673,8 @@ async function finishGroup(skip) {
         }
       } catch(e) {
         console.warn('Group save failed', e);
-        alert('Group save failed: ' + (e && (e.message || e.code || JSON.stringify(e))));
+        showToast('Group save failed — ' + (e && e.message ? e.message : 'please try again.'));
+        return;
       }
     }
     MY_GROUPS.push(localGroup);
@@ -2840,11 +2903,21 @@ async function saveGroupSettings() {
   if (!g) return;
   var nameInput = document.getElementById('gsettings-name');
   if (nameInput && nameInput.value.trim()) g.n = nameInput.value.trim();
+  var saveBtn = document.querySelector('#s-gsettings .btn-primary');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
   if (sbClient && g.id) {
     try {
-      await sbClient.from('groups').update({ name: g.n, emoji: g.emoji, photo: g.photo }).eq('id', g.id);
-    } catch(e) { console.warn('Group settings save failed', e); }
+      var r = await sbClient.from('groups').update({ name: g.n, emoji: g.emoji, photo: g.photo }).eq('id', g.id);
+      if (r.error) throw r.error;
+    } catch(e) {
+      console.warn('Group settings save failed', e);
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save changes'; }
+      showToast('Could not save group settings. Try again.');
+      return;
+    }
   }
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save changes'; }
+  showToast('Group saved!');
   go('s-gdetail');
 }
 
@@ -3323,6 +3396,7 @@ async function sendFriendRequest(addresseeId) {
     if (ires.error) throw ires.error;
     document.getElementById('friend-search-result').innerHTML = '<div style="font-size:11px;color:#27500A;background:#EAF3DE;padding:8px;border-radius:8px">Friend request sent!</div>';
     await loadFriends();
+    renderFriendsSection();
   } catch(e) { document.getElementById('friend-search-result').innerHTML = '<div style="font-size:11px;color:#A32D2D">Could not send request.</div>'; }
 }
 
@@ -3455,7 +3529,8 @@ function renderNotifications() {
   updateNotificationBadge();
 
   if (_notifTab === 'activity') {
-    el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists you\'ll see it here.</div></div>';
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:#888780;font-size:11px">Loading…</div>';
+    renderNotifActivity(el);
     return;
   }
 
@@ -3480,6 +3555,41 @@ function renderNotifications() {
         + '<div style="font-size:11px;color:#5F5E5A">' + (filled ? 'You filled out <strong>Top 10 ' + escapeHtml(inv.category) + '</strong>' : 'Think you and <strong>' + escapeHtml(name) + '</strong> have the same taste in ' + escapeHtml(inv.category) + '? Fill out your list and see your match score') + '</div></div></div>'
         + '<div style="display:flex;gap:6px">' + actions + '</div></div>';
     }).join('');
+}
+
+async function renderNotifActivity(el) {
+  if (!sbClient || !userId) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists you\'ll see it here.</div></div>'; return; }
+  var accepted = myFriends.filter(function(f){ return f.status === 'accepted'; });
+  if (accepted.length === 0) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">👋</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No friends yet</div><div style="font-size:12px;line-height:1.5">Add friends to see their list updates here.</div></div>'; return; }
+  var friendIds = accepted.map(function(f){ return f.friendId; });
+  try {
+    var res = await sbClient.from('lists').select('user_id, name, category, emoji, items, updated_at').in('user_id', friendIds).order('updated_at', { ascending: false }).limit(30);
+    var recentLists = res.data || [];
+    var _myCats = MY_LISTS.map(function(l){ return l.category || l.n.replace('Top 10 ',''); });
+    recentLists = recentLists.filter(function(l){
+      if (!l.blind_fill) return true;
+      var cat = l.category || (l.name || '').replace('Top 10 ','');
+      return _myCats.indexOf(cat) >= 0;
+    });
+    if (recentLists.length === 0) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists you\'ll see it here.</div></div>'; return; }
+    var rows = recentLists.map(function(l) {
+      var f = accepted.find(function(fr){ return fr.friendId === l.user_id; });
+      var p = (f && f.profile) || {};
+      var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
+      var cat = l.category || (l.name || '').replace('Top 10 ', '');
+      var emoji = l.emoji || getCatEmoji(cat);
+      var topItem = l.items && l.items[0] ? l.items[0] : null;
+      var dataAttr = 'data-list=\'' + escapeHtml(JSON.stringify(l)).replace(/'/g, '&#39;') + '\'';
+      var sentence = topItem
+        ? escapeHtml(name) + ' shared that <em>' + escapeHtml(topItem) + '</em> is their favorite ' + escapeHtml(singularize(cat))
+        : escapeHtml(name) + ' updated their ' + escapeHtml(singularize(cat)) + ' list';
+      return '<div class="share-pick" style="cursor:pointer;align-items:flex-start" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
+        + '<span style="font-size:18px;flex-shrink:0;margin-top:2px">' + emoji + '</span>'
+        + '<div style="flex:1;font-size:11px;color:#2C2C2A;line-height:1.5">' + sentence + '</div>'
+        + '</div>';
+    });
+    el.innerHTML = '<div class="sec-label" style="margin-top:0">Recent from your circle</div>' + rows.join('');
+  } catch(e) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists you\'ll see it here.</div></div>'; }
 }
 
 // "Fill it out" — mark the invite read (do NOT dismiss), then open the create flow.
@@ -3644,7 +3754,8 @@ function openFriendDetail(friendId) {
   go('s-fdetail');
 }
 
-function openFriendList(listData) {
+function openFriendList(listData, origin) {
+  friendListOrigin = origin || (document.getElementById('s-circle').classList.contains('active') ? 's-circle' : 's-fdetail');
   var f = myFriends.find(function(x){ return x.friendId === selFriendId; });
   var friendName = (f && (f.profile.display_name || f.profile.handle)) || 'Friend';
   var cat = listData.category || (listData.name || '').replace('Top 10 ', '');
@@ -3666,7 +3777,8 @@ function openFriendList(listData) {
     el.innerHTML = '<div style="text-align:center;padding:28px 16px">'
       + '<div style="font-size:32px;margin-bottom:10px">🔒</div>'
       + '<div style="font-size:13px;font-weight:600;color:#2C2C2A;margin-bottom:6px">' + escapeHtml(friendName) + ' has blind fill on</div>'
-      + '<div style="font-size:11px;color:#5F5E5A">Fill out your own list first to unlock their picks.</div>'
+      + '<div style="font-size:11px;color:#5F5E5A;margin-bottom:14px">Fill out your own list first to unlock their picks.</div>'
+      + '<button class="btn-primary" style="margin-bottom:0" onclick="selCat=\'' + cat.replace(/'/g,"\\'") + '\';selCatEmoji=\'' + emoji.replace(/'/g,"\\'") + '\';editingListIdx=-1;items=[];isRanked=true;listOrigin=\'s-friend-list\';renderCatGrid();renderItems();updateProg();go(\'s-create2\')">Fill it out now →</button>'
       + '</div>';
   } else if (items.length === 0) {
     el.innerHTML = '<div style="font-size:12px;color:#888780;text-align:center;padding:20px">No items yet.</div>';
@@ -4055,12 +4167,14 @@ async function respondToGroupInvite(groupId, accept) {
   try {
     if (accept) {
       await sbClient.from('group_members').update({ status: 'accepted' }).eq('group_id', groupId).eq('user_id', userId);
-      var inv = MY_PENDING_GROUP_INVITES.find(function(g) { return g.id === groupId; });
-      if (inv) { MY_GROUPS.push(inv); }
     } else {
       await sbClient.from('group_members').delete().eq('group_id', groupId).eq('user_id', userId);
     }
     MY_PENDING_GROUP_INVITES = MY_PENDING_GROUP_INVITES.filter(function(g) { return g.id !== groupId; });
+    if (accept) {
+      await loadState();
+      showToast('Joined group!');
+    }
     renderCircleGroups();
   } catch(e) { console.warn('Group invite response failed', e); }
 }
@@ -4379,7 +4493,7 @@ async function saveListToDb(listObj) {
       blind_fill: !!listObj.blind_fill,
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id,category' });
-  } catch(e) { console.warn('List save to DB failed', e); }
+  } catch(e) { console.warn('List save to DB failed', e); throw e; }
 }
 
 async function loadState() {
@@ -4921,7 +5035,7 @@ async function saveListDataOnly() {
   await saveListToDb(listObj);
 }
 
-function saveList() {
+async function saveList() {
   var listName = 'Top 10 ' + selCat;
   var itemCount = items.filter(function(i) { return i.trim(); }).length;
   var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
@@ -4938,7 +5052,7 @@ function saveList() {
   editingListIdx = -1;
   if (dest === 's-cg3') selList = existing >= 0 ? existing : MY_LISTS.length - 1;
   saveState();
-  saveListToDb(listObj);
+  try { await saveListToDb(listObj); } catch(e) { showToast('List saved locally — cloud sync failed. Try again.'); }
   // Notify friends of update
   if (isUpdate && myFriends.filter(function(f){return f.status==='accepted';}).length > 0) {
     var senderName = (myProfile && myProfile.display_name) || 'Someone';
@@ -4974,21 +5088,7 @@ function saveList() {
 }
 
 function notifyFriendsOfUpdate(name, category) {
-  // Store a notification in localStorage that friends will see on their next visit
-  // (In a real app this would be a push notification via Supabase realtime)
-  try {
-    var note = { from: name, fromId: userId, category: category, ts: Date.now() };
-    var existing = JSON.parse(localStorage.getItem('tenner_friend_updates') || '[]');
-    existing.unshift(note);
-    existing = existing.slice(0, 20); // keep last 20
-    localStorage.setItem('tenner_friend_updates', JSON.stringify(existing));
-  } catch(e) {}
-  // Show a subtle confirmation to the user
-  var banner = document.createElement('div');
-  banner.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#2C2C2A;color:#fff;font-size:11px;padding:8px 14px;border-radius:0 0 10px 10px;z-index:999;text-align:center';
-  banner.textContent = '✓ List saved — your friends will be notified of your update';
-  (document.querySelector('.frame') || document.body).appendChild(banner);
-  setTimeout(function(){ banner.remove(); }, 3000);
+  showToast('✓ List saved — friends can see your updated ' + singularize(category) + ' list');
 }
 
 document.addEventListener('click', function(e) {
