@@ -643,7 +643,7 @@
                 <div style="font-size:11px;font-weight:600;color:#2C2C2A">Password</div>
                 <div style="font-size:10px;color:#5F5E5A;margin-top:2px" id="profile-pw-status">••••••••</div>
               </div>
-              <button class="back-btn" onclick="openChangePassword()">Change</button>
+              <button class="back-btn" id="profile-pw-btn" onclick="openChangePassword()">Change</button>
             </div>
           </div>
           <div class="sec-label">Profile Info</div>
@@ -3019,6 +3019,8 @@ async function loadProfile() {
     else myProfile = { _hasPassword: hasPassword };
     var pwStatus = document.getElementById('profile-pw-status');
     if (pwStatus) pwStatus.textContent = hasPassword ? '••••••••' : (isGoogle ? 'Signed in with Google' : 'Not set — magic link only');
+    var pwBtn = document.getElementById('profile-pw-btn');
+    if (pwBtn) pwBtn.textContent = hasPassword ? 'Change' : 'Add password';
   } catch(e) { console.warn('Auth user load failed', e); }
   try { renderProfileHeader(); } catch(e) { console.warn(e); }
 }
