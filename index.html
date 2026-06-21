@@ -141,18 +141,17 @@
       <div class="screen active" id="s-auth">
         <div class="content" style="justify-content:center;display:flex;flex-direction:column;padding:30px 20px">
           <div style="text-align:center;margin-bottom:32px">
-            <div style="display:inline-flex;flex-direction:column;align-items:center;background:#FDFCF8;border-radius:24px;padding:20px 24px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:12px">
-              <svg width="100" height="72" viewBox="0 0 100 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- "1" -->
-                <text x="4" y="56" font-family="Georgia,serif" font-size="58" font-weight="700" fill="#D4622A">1</text>
-                <!-- Circle "0" with list lines -->
-                <circle cx="73" cy="34" r="27" fill="#D4622A"/>
-                <line x1="60" y1="24" x2="86" y2="24" stroke="white" stroke-width="4" stroke-linecap="round"/>
-                <line x1="60" y1="34" x2="86" y2="34" stroke="white" stroke-width="4" stroke-linecap="round"/>
-                <line x1="60" y1="44" x2="86" y2="44" stroke="white" stroke-width="4" stroke-linecap="round"/>
-              </svg>
-              <div style="font-family:Georgia,serif;font-size:28px;font-weight:700;color:#2C2C2A;line-height:1;margin-top:4px">Tenner</div>
-              <div style="font-size:9px;color:#888780;letter-spacing:0.08em;margin-top:5px;text-transform:uppercase">Top 10 Lists · All in One Place</div>
+            <div style="display:inline-flex;flex-direction:column;align-items:center;background:#FDFCF8;border-radius:24px;padding:24px 28px 20px;box-shadow:0 2px 16px rgba(0,0,0,0.09);margin-bottom:4px">
+              <div style="display:flex;align-items:center;gap:0;line-height:1;margin-bottom:10px">
+                <span style="font-family:Georgia,serif;font-size:72px;font-weight:700;color:#D4622A;line-height:0.85">1</span>
+                <span style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;width:62px;height:62px;border-radius:50%;background:#D4622A;flex-shrink:0">
+                  <span style="display:block;width:34px;height:4px;background:#fff;border-radius:2px"></span>
+                  <span style="display:block;width:34px;height:4px;background:#fff;border-radius:2px"></span>
+                  <span style="display:block;width:34px;height:4px;background:#fff;border-radius:2px"></span>
+                </span>
+              </div>
+              <div style="font-family:Georgia,serif;font-size:32px;font-weight:700;color:#2C2C2A;line-height:1">Tenner</div>
+              <div style="font-size:9px;color:#888780;letter-spacing:0.1em;margin-top:6px;text-transform:uppercase">Top 10 Lists · All in One Place</div>
             </div>
           </div>
           <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid #D3D1C7;border-radius:10px;overflow:hidden">
@@ -182,17 +181,7 @@
       <!-- ═══ HOME ═══ -->
       <div class="screen" id="s-home">
         <div class="topbar">
-          <span class="logo"><svg width="112" height="32" viewBox="0 0 112 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- "1" numeral -->
-  <text x="2" y="26" font-family="Georgia,serif" font-size="26" font-weight="700" fill="#D4622A">1</text>
-  <!-- Circle with list lines (the "0") -->
-  <circle cx="33" cy="16" r="13" fill="#D4622A"/>
-  <line x1="27" y1="11.5" x2="39" y2="11.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
-  <line x1="27" y1="16" x2="39" y2="16" stroke="white" stroke-width="2" stroke-linecap="round"/>
-  <line x1="27" y1="20.5" x2="39" y2="20.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
-  <!-- "Tenner" wordmark -->
-  <text x="52" y="24" font-family="Georgia,serif" font-size="20" font-weight="700" fill="#2C2C2A">Tenner</text>
-</svg></span>
+          <span class="logo" style="display:flex;align-items:center;gap:0;line-height:1"><span style="font-family:Georgia,serif;font-size:24px;font-weight:700;color:#D4622A;line-height:1">1</span><span style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:24px;height:24px;border-radius:50%;background:#D4622A;margin-right:7px;flex-shrink:0"><span style="display:block;width:13px;height:2px;background:#fff;border-radius:1px"></span><span style="display:block;width:13px;height:2px;background:#fff;border-radius:1px"></span><span style="display:block;width:13px;height:2px;background:#fff;border-radius:1px"></span></span><span style="font-family:Georgia,serif;font-size:20px;font-weight:700;color:#2C2C2A;line-height:1">Tenner</span></span>
           <button class="back-btn" onclick="loadState().then(renderHome)" style="font-size:11px">↻</button>
         </div>
         <div class="content">
@@ -539,17 +528,7 @@
       <!-- ═══ CIRCLE ═══ -->
       <div class="screen" id="s-circle">
         <div class="topbar">
-          <span class="logo"><svg width="112" height="32" viewBox="0 0 112 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- "1" numeral -->
-  <text x="2" y="26" font-family="Georgia,serif" font-size="26" font-weight="700" fill="#D4622A">1</text>
-  <!-- Circle with list lines (the "0") -->
-  <circle cx="33" cy="16" r="13" fill="#D4622A"/>
-  <line x1="27" y1="11.5" x2="39" y2="11.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
-  <line x1="27" y1="16" x2="39" y2="16" stroke="white" stroke-width="2" stroke-linecap="round"/>
-  <line x1="27" y1="20.5" x2="39" y2="20.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
-  <!-- "Tenner" wordmark -->
-  <text x="52" y="24" font-family="Georgia,serif" font-size="20" font-weight="700" fill="#2C2C2A">Tenner</text>
-</svg></span>
+          <span class="logo" style="display:flex;align-items:center;gap:0;line-height:1"><span style="font-family:Georgia,serif;font-size:24px;font-weight:700;color:#D4622A;line-height:1">1</span><span style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:24px;height:24px;border-radius:50%;background:#D4622A;margin-right:7px;flex-shrink:0"><span style="display:block;width:13px;height:2px;background:#fff;border-radius:1px"></span><span style="display:block;width:13px;height:2px;background:#fff;border-radius:1px"></span><span style="display:block;width:13px;height:2px;background:#fff;border-radius:1px"></span></span><span style="font-family:Georgia,serif;font-size:20px;font-weight:700;color:#2C2C2A;line-height:1">Tenner</span></span>
           <button class="back-btn" onclick="loadFriends().then(renderCircleScreen)" style="font-size:11px">↻</button>
         </div>
         <div class="content">
@@ -641,17 +620,7 @@
       <!-- ═══ PROFILE ═══ -->
       <div class="screen" id="s-profile">
         <div class="topbar">
-          <span class="logo"><svg width="112" height="32" viewBox="0 0 112 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- "1" numeral -->
-  <text x="2" y="26" font-family="Georgia,serif" font-size="26" font-weight="700" fill="#D4622A">1</text>
-  <!-- Circle with list lines (the "0") -->
-  <circle cx="33" cy="16" r="13" fill="#D4622A"/>
-  <line x1="27" y1="11.5" x2="39" y2="11.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
-  <line x1="27" y1="16" x2="39" y2="16" stroke="white" stroke-width="2" stroke-linecap="round"/>
-  <line x1="27" y1="20.5" x2="39" y2="20.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
-  <!-- "Tenner" wordmark -->
-  <text x="52" y="24" font-family="Georgia,serif" font-size="20" font-weight="700" fill="#2C2C2A">Tenner</text>
-</svg></span>
+          <span class="logo" style="display:flex;align-items:center;gap:0;line-height:1"><span style="font-family:Georgia,serif;font-size:24px;font-weight:700;color:#D4622A;line-height:1">1</span><span style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:24px;height:24px;border-radius:50%;background:#D4622A;margin-right:7px;flex-shrink:0"><span style="display:block;width:13px;height:2px;background:#fff;border-radius:1px"></span><span style="display:block;width:13px;height:2px;background:#fff;border-radius:1px"></span><span style="display:block;width:13px;height:2px;background:#fff;border-radius:1px"></span></span><span style="font-family:Georgia,serif;font-size:20px;font-weight:700;color:#2C2C2A;line-height:1">Tenner</span></span>
           <span style="font-size:11px;color:#5F5E5A">Profile</span>
         </div>
         <div class="content">
