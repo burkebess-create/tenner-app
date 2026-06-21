@@ -4155,7 +4155,7 @@ function openGiftIdeas(friendId, friendListsJson) {
     return '<div class="card no-hover" style="margin-bottom:8px">'
       + '<div style="display:flex;align-items:center;gap:10px" onclick="toggleGiftList(' + idx + ')">'
       + '<span style="font-size:20px">' + emoji + '</span>'
-      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(l.name || ('Top 10 ' + cat)) + '</div>'
+      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '\'s Favorite ' + escapeHtml(cat.replace(/s$/i,'') + 's') + '</div>'
       + (items[0] ? '<div style="display:flex;align-items:center;gap:6px;margin-top:2px"><div class="rank-badge" style="font-size:10px;width:18px;height:18px;min-width:18px">1</div><span style="font-size:11px;color:#5F5E5A">' + escapeHtml(items[0]) + '</span></div>' : '')
       + '</div>'
       + '<span id="gift-chevron-' + idx + '" style="font-size:14px;color:#888780;margin-left:4px;transition:transform .2s;display:inline-block">▼</span>'
@@ -4237,7 +4237,7 @@ async function renderGiftReminders() {
           var topPick = (l.items && l.items[0]) ? l.items[0] : null;
           return '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#2C2C2A">'
             + '<span style="font-size:14px">' + emoji + '</span>'
-            + '<span style="flex:1"><strong>' + escapeHtml(l.name || ('Top 10 ' + cat)) + '</strong>'
+            + '<span style="flex:1"><strong>' + escapeHtml(name) + '\'s Favorite ' + escapeHtml(cat) + '</strong>'
             + (topPick ? '<span style="display:inline-flex;align-items:center;gap:4px;margin-left:4px"><span class="rank-badge" style="font-size:9px;width:15px;height:15px;min-width:15px">1</span>' + escapeHtml(topPick) + '</span>' : '') + '</span>'
             + '</div>';
         }).join('')
