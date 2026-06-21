@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tenner — Prototype</title>
+<title>Tenner — Top 10 Lists</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <style>
@@ -18,7 +18,7 @@
   .screen { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
   .screen.active { display: flex; }
   .topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; background: #fff; border-bottom: 1px solid #F1EFE8; flex-shrink: 0; }
-  .logo { font-size: 20px; font-weight: 700; color: #D85A30; font-family: Georgia, serif; }
+  .logo { display:flex; align-items:center; gap:0; line-height:1; }
   .back-btn { font-size: 12px; color: #5F5E5A; cursor: pointer; padding: 5px 10px; border-radius: 8px; border: 1px solid #D3D1C7; background: none; }
   .back-btn:hover { background: #F1EFE8; }
   .content { flex: 1; overflow-y: auto; padding: 14px; background: #fff; min-height: 0; }
@@ -141,8 +141,19 @@
       <div class="screen active" id="s-auth">
         <div class="content" style="justify-content:center;display:flex;flex-direction:column;padding:30px 20px">
           <div style="text-align:center;margin-bottom:32px">
-            <div style="font-size:36px;font-weight:700;color:#D85A30;font-family:Georgia,serif;margin-bottom:6px">Tenner</div>
-            <div style="font-size:12px;color:#5F5E5A">Rank what you love. Compare with people you know.</div>
+            <div style="display:inline-flex;flex-direction:column;align-items:center;background:#FDFCF8;border-radius:24px;padding:20px 24px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:12px">
+              <svg width="100" height="72" viewBox="0 0 100 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- "1" -->
+                <text x="4" y="56" font-family="Georgia,serif" font-size="58" font-weight="700" fill="#D4622A">1</text>
+                <!-- Circle "0" with list lines -->
+                <circle cx="73" cy="34" r="27" fill="#D4622A"/>
+                <line x1="60" y1="24" x2="86" y2="24" stroke="white" stroke-width="4" stroke-linecap="round"/>
+                <line x1="60" y1="34" x2="86" y2="34" stroke="white" stroke-width="4" stroke-linecap="round"/>
+                <line x1="60" y1="44" x2="86" y2="44" stroke="white" stroke-width="4" stroke-linecap="round"/>
+              </svg>
+              <div style="font-family:Georgia,serif;font-size:28px;font-weight:700;color:#2C2C2A;line-height:1;margin-top:4px">Tenner</div>
+              <div style="font-size:9px;color:#888780;letter-spacing:0.08em;margin-top:5px;text-transform:uppercase">Top 10 Lists · All in One Place</div>
+            </div>
           </div>
           <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid #D3D1C7;border-radius:10px;overflow:hidden">
             <button id="tab-login" onclick="authTab('login')" style="flex:1;padding:10px;border:none;background:#FAECE7;color:#993C1D;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">Log in</button>
@@ -171,7 +182,17 @@
       <!-- ═══ HOME ═══ -->
       <div class="screen" id="s-home">
         <div class="topbar">
-          <span class="logo">Tenner</span>
+          <span class="logo"><svg width="112" height="32" viewBox="0 0 112 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- "1" numeral -->
+  <text x="2" y="26" font-family="Georgia,serif" font-size="26" font-weight="700" fill="#D4622A">1</text>
+  <!-- Circle with list lines (the "0") -->
+  <circle cx="33" cy="16" r="13" fill="#D4622A"/>
+  <line x1="27" y1="11.5" x2="39" y2="11.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <line x1="27" y1="16" x2="39" y2="16" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <line x1="27" y1="20.5" x2="39" y2="20.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <!-- "Tenner" wordmark -->
+  <text x="52" y="24" font-family="Georgia,serif" font-size="20" font-weight="700" fill="#2C2C2A">Tenner</text>
+</svg></span>
           <button class="back-btn" onclick="loadState().then(renderHome)" style="font-size:11px">↻</button>
         </div>
         <div class="content">
@@ -518,7 +539,17 @@
       <!-- ═══ CIRCLE ═══ -->
       <div class="screen" id="s-circle">
         <div class="topbar">
-          <span class="logo">Tenner</span>
+          <span class="logo"><svg width="112" height="32" viewBox="0 0 112 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- "1" numeral -->
+  <text x="2" y="26" font-family="Georgia,serif" font-size="26" font-weight="700" fill="#D4622A">1</text>
+  <!-- Circle with list lines (the "0") -->
+  <circle cx="33" cy="16" r="13" fill="#D4622A"/>
+  <line x1="27" y1="11.5" x2="39" y2="11.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <line x1="27" y1="16" x2="39" y2="16" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <line x1="27" y1="20.5" x2="39" y2="20.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <!-- "Tenner" wordmark -->
+  <text x="52" y="24" font-family="Georgia,serif" font-size="20" font-weight="700" fill="#2C2C2A">Tenner</text>
+</svg></span>
           <button class="back-btn" onclick="loadFriends().then(renderCircleScreen)" style="font-size:11px">↻</button>
         </div>
         <div class="content">
@@ -610,7 +641,17 @@
       <!-- ═══ PROFILE ═══ -->
       <div class="screen" id="s-profile">
         <div class="topbar">
-          <span class="logo">Tenner</span>
+          <span class="logo"><svg width="112" height="32" viewBox="0 0 112 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- "1" numeral -->
+  <text x="2" y="26" font-family="Georgia,serif" font-size="26" font-weight="700" fill="#D4622A">1</text>
+  <!-- Circle with list lines (the "0") -->
+  <circle cx="33" cy="16" r="13" fill="#D4622A"/>
+  <line x1="27" y1="11.5" x2="39" y2="11.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <line x1="27" y1="16" x2="39" y2="16" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <line x1="27" y1="20.5" x2="39" y2="20.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <!-- "Tenner" wordmark -->
+  <text x="52" y="24" font-family="Georgia,serif" font-size="20" font-weight="700" fill="#2C2C2A">Tenner</text>
+</svg></span>
           <span style="font-size:11px;color:#5F5E5A">Profile</span>
         </div>
         <div class="content">
@@ -2060,7 +2101,7 @@ function showOnboardingIfNeeded() {
   overlay.id = 'onboarding-overlay';
   overlay.innerHTML = '<div style="background:#fff;border-radius:20px;padding:28px 22px;width:90%;max-width:340px;text-align:center">'
     + '<div style="font-size:40px;margin-bottom:10px">🏆</div>'
-    + '<div style="font-size:20px;font-weight:700;color:#D85A30;font-family:Georgia,serif;margin-bottom:8px">Welcome to Tenner</div>'
+    + '<div style="font-size:20px;font-weight:700;color:#2C2C2A;font-family:Georgia,serif;margin-bottom:8px">Welcome to Tenner</div>'
     + '<div style="font-size:13px;color:#5F5E5A;line-height:1.6;margin-bottom:20px">Rank what you love.<br>Compare with people you know.<br><br>Make your first Top 10 list, then share it with friends to see how you match up.</div>'
     + '<button class="btn-primary" style="margin-bottom:8px" onclick="localStorage.setItem(\'tenner_onboarded\',\'1\');document.getElementById(\'onboarding-overlay\').remove();go(\'s-create1\')">Make my first list →</button>'
     + '<button class="btn-secondary" style="margin-bottom:0" onclick="localStorage.setItem(\'tenner_onboarded\',\'1\');document.getElementById(\'onboarding-overlay\').remove()">Explore first</button>'
