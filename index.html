@@ -5038,8 +5038,8 @@ function showMatchTab(btn, cat) {
 }
 
 // Match scoring (v2):
-// Each shared item earns 5 points just for being on both lists, plus up to
-// 5 more points based on how close the two rankings are. Same rank = +5,
+// Each shared item earns 8 points just for being on both lists, plus up to
+// 2 more points based on how close the two rankings are. Same rank = +2,
 // opposite ends of the list (#1 vs #10) = +0. Score is the total, capped at 100.
 function computeMatch(myItems, theirItems, ranked) {
   var my = myItems.map(function(x){return x.toLowerCase().trim();});
@@ -5050,7 +5050,7 @@ function computeMatch(myItems, theirItems, ranked) {
     var r2 = their.indexOf(item);
     if (r2 === -1) return;
     var closeness = (ranked && maxGap > 0) ? (1 - Math.abs(r1 - r2) / maxGap) : 1;
-    total += 5 + 5 * closeness;
+    total += 8 + 2 * closeness;
   });
   return Math.min(100, Math.round(total));
 }
