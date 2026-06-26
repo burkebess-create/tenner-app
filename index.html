@@ -156,6 +156,23 @@
 </style>
 </head>
 <body>
+<script>
+  // First-visit redirect to the explainer page (about.html)
+  (function() {
+    try {
+      var seen = localStorage.getItem('tenner_seen_about');
+      var hasSession = false;
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('supabase.auth') === 0) { hasSession = true; break; }
+      }
+      var fromAbout = document.referrer && document.referrer.indexOf('about.html') >= 0;
+      if (!seen && !hasSession && !fromAbout && location.search.indexOf('skipIntro') < 0) {
+        location.replace('about.html');
+      }
+    } catch (e) {}
+  })();
+</script>
 <div class="outer">
   <!-- PHONE FRAME -->
   <div class="phone-wrap">
@@ -189,6 +206,9 @@
             Continue with Google
           </button>
           <div id="auth-success" style="display:none;text-align:center;background:#EAF3DE;color:#27500A;font-size:11px;padding:10px;border-radius:8px;margin-top:10px;border:1px solid #97C459"></div>
+          <div style="text-align:center;margin-top:16px;font-size:12px;color:#888780">
+            New to Tenner? <a href="about.html" style="color:#D85A30;text-decoration:none;font-weight:600">Learn more</a>
+          </div>
         </div>
       </div>
 

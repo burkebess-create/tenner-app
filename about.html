@@ -38,7 +38,7 @@
   <div class="hero">
     <img src="logo-square.png" alt="Tenner logo">
     <p class="tagline">Rank what you love. Compare with people you know.</p>
-    <a href="index.html" class="cta">Launch Tenner</a>
+    <a href="index.html" class="cta" onclick="try{localStorage.setItem('tenner_seen_about','1')}catch(e){}">Launch Tenner</a>
   </div>
 
   <main>
@@ -81,7 +81,7 @@
 
     <section>
       <h2>Get started</h2>
-      <p>Tenner is currently in beta. <a href="index.html">Launch Tenner</a> to sign up and create your first list.</p>
+      <p>Tenner is currently in beta. <a href="index.html" onclick="try{localStorage.setItem('tenner_seen_about','1')}catch(e){}">Launch Tenner</a> to sign up and create your first list.</p>
     </section>
   </main>
 
