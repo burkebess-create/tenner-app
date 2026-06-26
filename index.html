@@ -5037,24 +5037,22 @@ function showMatchTab(btn, cat) {
   });
 }
 
+// Match scoring (v2):
+// Each shared item earns 5 points just for being on both lists, plus up to
+// 5 more points based on how close the two rankings are. Same rank = +5,
+// opposite ends of the list (#1 vs #10) = +0. Score is the total, capped at 100.
 function computeMatch(myItems, theirItems, ranked) {
   var my = myItems.map(function(x){return x.toLowerCase().trim();});
   var their = theirItems.map(function(x){return x.toLowerCase().trim();});
-  var intersection = my.filter(function(x){return their.indexOf(x)!==-1;});
-  var union = my.concat(their.filter(function(x){return my.indexOf(x)===-1;}));
-  var overlapScore = union.length > 0 ? intersection.length / union.length : 0;
-  if (ranked && intersection.length > 1) {
-    var n = intersection.length;
-    var d2 = 0;
-    intersection.forEach(function(item) {
-      var r1 = my.indexOf(item); var r2 = their.indexOf(item);
-      d2 += (r1 - r2) * (r1 - r2);
-    });
-    var spearman = 1 - (6 * d2) / (n * (n * n - 1));
-    var rankScore = (spearman + 1) / 2;
-    return Math.round((overlapScore * 0.6 + rankScore * 0.4) * 100);
-  }
-  return Math.round(overlapScore * 100);
+  var maxGap = Math.max(my.length, their.length) - 1;
+  var total = 0;
+  my.forEach(function(item, r1) {
+    var r2 = their.indexOf(item);
+    if (r2 === -1) return;
+    var closeness = (ranked && maxGap > 0) ? (1 - Math.abs(r1 - r2) / maxGap) : 1;
+    total += 5 + 5 * closeness;
+  });
+  return Math.min(100, Math.round(total));
 }
 
 // Open an existing list (by MY_LISTS index) in the editor.
