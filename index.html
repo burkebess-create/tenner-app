@@ -4793,6 +4793,14 @@ async function loadGroupPhotos(gids) {
 }
 
 var _matchOverallExpanded = false;
+var _matchByListExpanded = {};
+function toggleMatchByList(catKey, total) {
+  _matchByListExpanded[catKey] = !_matchByListExpanded[catKey];
+  var more = document.getElementById('match-cat-more-' + catKey);
+  var btn  = document.getElementById('match-cat-toggle-' + catKey);
+  if (more) more.style.display = _matchByListExpanded[catKey] ? 'block' : 'none';
+  if (btn)  btn.textContent = _matchByListExpanded[catKey] ? 'Show top 3 only' : 'Show all ' + total;
+}
 function toggleMatchOverall() {
   _matchOverallExpanded = !_matchOverallExpanded;
   var more = document.getElementById('match-overall-more');
@@ -4958,14 +4966,26 @@ async function renderMatch() {
     var tabsHtml = overallHtml + '<div class="list-selector" style="margin-bottom:12px">' + cats.map(function(cat, i) { return '<button class="list-sel-btn' + (i===0?' active':'') + '" onclick="showMatchTab(this,\'' + cat.replace(/'/g,"\\'") + '\')">' + cat + '</button>'; }).join('') + '</div>';
     var panelsHtml = cats.map(function(cat, i) {
       var comps = byCategory[cat];
-      var scoresHtml = comps.map(function(c) {
+      var globalMatchTab = !friendCtx && groupCtx < 0;
+      var renderComp = function(c) {
         var fname = (c.friend.profile && c.friend.profile.display_name) || (c.friend.profile && c.friend.profile.handle ? '@'+c.friend.profile.handle : 'Friend');
         var myItems = c.myList.items.map(function(x){return x.toLowerCase().trim();});
         var theirItems = c.friendList.items.map(function(x){return x.toLowerCase().trim();});
         var shared = myItems.filter(function(x){return theirItems.indexOf(x)!==-1;});
         var detail = shared.length + '/' + Math.max(myItems.length, theirItems.length) + ' same picks';
         return '<div class="card no-hover"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">' + friendAvatarHtml(c.friend.profile, 32) + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div><div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div><div style="font-size:18px;font-weight:700;color:#D85A30">' + c.score + '%</div></div><div class="bar-bg"><div class="bar-fill" style="width:' + c.score + '%"></div></div></div>';
-      }).join('');
+      };
+      var sortedComps = comps.slice().sort(function(a,b){ return b.score - a.score; });
+      var scoresHtml;
+      if (globalMatchTab && sortedComps.length > 3) {
+        var catKey = cat.replace(/[^a-z0-9]+/gi,'-').toLowerCase();
+        var startExpanded = !!_matchByListExpanded[catKey];
+        scoresHtml = sortedComps.slice(0, 3).map(renderComp).join('')
+          + '<div id="match-cat-more-' + catKey + '" style="display:' + (startExpanded ? 'block' : 'none') + '">' + sortedComps.slice(3).map(renderComp).join('') + '</div>'
+          + '<button id="match-cat-toggle-' + catKey + '" onclick="toggleMatchByList(\'' + catKey + '\',' + sortedComps.length + ')" class="btn-secondary" style="margin-bottom:8px">' + (startExpanded ? 'Show top 3 only' : 'Show all ' + sortedComps.length) + '</button>';
+      } else {
+        scoresHtml = sortedComps.map(renderComp).join('');
+      }
 
       // Build a unified item map: key (lowercase) -> { display, myRank, friendEntries: [{fname, rank}] }
       var itemMap = {};
