@@ -1088,7 +1088,7 @@ function renderCatGrid() {
   CATS.forEach(function(cat) {
     var div = document.createElement('div');
     div.className = 'cat-card' + (selCat === cat.n ? ' selected' : '');
-    div.innerHTML = '<div class="cat-icon">' + cat.e + '</div><div class="cat-name">' + cat.n + '</div>';
+    div.innerHTML = '<div class="cat-icon">' + renderCatEmoji(cat.e, 22) + '</div><div class="cat-name">' + cat.n + '</div>';
     div.onclick = function() { selCat = cat.n; selCatEmoji = cat.e; renderCatGrid(); document.getElementById('cat-inp').value = ''; document.getElementById('cat-warn').style.display = 'none'; document.getElementById('cat-sugs').style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; };
     grid.appendChild(div);
   });
@@ -1851,7 +1851,7 @@ function renderLists() {
   MY_LISTS.forEach(function(l, i) {
     var card = document.createElement('div');
     card.className = 'card';
-    card.innerHTML = '<div style="display:flex;align-items:center;gap:10px"><div style="font-size:22px;width:36px;text-align:center">' + (l.emoji || getCatEmoji(l.category)) + '</div><div style="flex:1"><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + l.n + '</div><div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + l.m + '</div></div><span style="font-size:18px;color:#D3D1C7">›</span></div>';
+    card.innerHTML = '<div style="display:flex;align-items:center;gap:10px"><div style="width:36px;text-align:center;display:flex;align-items:center;justify-content:center">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 22) + '</div><div style="flex:1"><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + l.n + '</div><div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + l.m + '</div></div><span style="font-size:18px;color:#D3D1C7">›</span></div>';
     card.onclick = (function(list) { return function() { showListDetail(list); }; })(l);
     container.appendChild(card);
   });
@@ -1919,7 +1919,7 @@ function showListDetail(l) {
   var listItems = (l.items || []);
   var screen = document.getElementById('s-list-detail');
   _currentListCategory = l.category || l.n.replace('Top 10 ', '');
-  document.getElementById('list-detail-emoji').textContent = (l.emoji || getCatEmoji(l.category));
+  document.getElementById('list-detail-emoji').innerHTML = renderCatEmoji(l.emoji || getCatEmoji(l.category), 30);
   document.getElementById('list-detail-emoji').onclick = function(){ openListEmojiPicker(); };
   document.getElementById('list-detail-emoji').style.cursor = 'pointer';
   document.getElementById('list-detail-emoji').title = 'Tap to change emoji';
@@ -5135,6 +5135,18 @@ function showMatchTab(btn, cat) {
 
 var _adminTab = 'cats';
 var _adminSelectedCatId = null;
+var _adminEditingCat = null;   // holds {id?, name, emoji, is_seasonal, active_from, active_to} while editing
+var _adminEmojiPreview = '📋'; // current emoji value in the editor (unicode or data URL)
+
+// Returns HTML that renders either a text emoji or an <img> if `val` is a data URL.
+function renderCatEmoji(val, sizePx) {
+  var s = sizePx || 22;
+  var v = val || '📋';
+  if (typeof v === 'string' && v.indexOf('data:image') === 0) {
+    return '<img src="' + v + '" style="width:' + s + 'px;height:' + s + 'px;object-fit:contain;vertical-align:middle" alt="">';
+  }
+  return '<span style="font-size:' + s + 'px;line-height:1;vertical-align:middle">' + escapeHtml(v) + '</span>';
+}
 
 async function submitFeedback() {
   if (!sbClient || !userId) { showToast('You must be signed in.'); return; }
@@ -5184,7 +5196,7 @@ async function renderAdminCats(el) {
   var rows = (res.data || []).map(function(c) {
     var seasonBadge = c.is_seasonal ? '<span style="font-size:9px;background:#FAECE7;color:#993C1D;padding:2px 6px;border-radius:99px;margin-left:6px">Seasonal ' + escapeHtml(c.active_from || '?') + ' → ' + escapeHtml(c.active_to || '?') + '</span>' : '';
     return '<div class="card no-hover" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
-      + '<div><span style="font-size:18px;margin-right:6px">' + escapeHtml(c.emoji||'📋') + '</span><strong style="font-size:13px">' + escapeHtml(c.name) + '</strong>' + seasonBadge + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px"><span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center">' + renderCatEmoji(c.emoji, 22) + '</span><strong style="font-size:13px">' + escapeHtml(c.name) + '</strong>' + seasonBadge + '</div>'
       + '<div><button class="back-btn" onclick="editAdminCat(\'' + c.id + '\')" style="margin-right:4px">Edit</button>'
       + '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')">Delete</button></div>'
       + '</div>';
@@ -5197,23 +5209,113 @@ async function renderAdminCats(el) {
 
 function editAdminCat(id) {
   var existing = id ? (CATS_FULL || []).find(function(c){ return c.id === id; }) : null;
-  var name  = prompt('Category name:', existing ? existing.name : ''); if (name === null) return;
-  name = name.trim(); if (!name) return;
-  var emoji = prompt('Emoji:', existing ? existing.emoji : '📋'); if (emoji === null) return;
-  emoji = emoji.trim() || '📋';
-  var seasonal = confirm('Is this a seasonal category (only show during a specific date range)?');
+  _adminEditingCat = existing ? Object.assign({}, existing) : { name:'', emoji:'📋', is_seasonal:false, active_from:'', active_to:'' };
+  _adminEmojiPreview = _adminEditingCat.emoji || '📋';
+  var frame = document.querySelector('.frame') || document.body;
+  var existingModal = document.getElementById('admin-cat-modal');
+  if (existingModal) existingModal.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'admin-cat-modal';
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px';
+  overlay.innerHTML = ''
+    + '<div style="background:#fff;border-radius:12px;padding:16px;width:100%;max-width:340px;max-height:90%;overflow-y:auto">'
+    +   '<div style="font-size:15px;font-weight:700;margin-bottom:10px">' + (existing ? 'Edit category' : 'New category') + '</div>'
+    +   '<div style="font-size:11px;color:#5F5E5A;margin-bottom:3px">Name</div>'
+    +   '<input type="text" id="ac-name" value="' + escapeHtml(_adminEditingCat.name || '') + '" placeholder="Movies, Costumes, …" style="margin-bottom:10px">'
+    +   '<div style="font-size:11px;color:#5F5E5A;margin-bottom:3px">Icon</div>'
+    +   '<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">'
+    +     '<div id="ac-emoji-preview" style="width:52px;height:52px;border-radius:12px;background:#FAECE7;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + renderCatEmoji(_adminEmojiPreview, 30) + '</div>'
+    +     '<div style="flex:1">'
+    +       '<input type="text" id="ac-emoji-text" value="' + (typeof _adminEditingCat.emoji === 'string' && _adminEditingCat.emoji.indexOf('data:') === 0 ? '' : escapeHtml(_adminEditingCat.emoji || '')) + '" placeholder="Type an emoji, e.g. 🎃" oninput="onAdminEmojiText(this.value)" style="margin-bottom:6px;font-size:16px;text-align:center">'
+    +       '<label class="btn-secondary" style="display:block;text-align:center;margin-bottom:0;padding:8px;font-size:12px;cursor:pointer">Upload image<input type="file" accept="image/*" onchange="onAdminEmojiUpload(this)" style="display:none"></label>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div style="font-size:10px;color:#888780;margin-bottom:12px">Emoji shows crisply at any size. Uploaded images are best as square PNGs with transparent backgrounds.</div>'
+    +   '<label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;color:#2C2C2A">'
+    +     '<input type="checkbox" id="ac-seasonal" ' + (_adminEditingCat.is_seasonal ? 'checked' : '') + ' onchange="document.getElementById(\'ac-season-range\').style.display=this.checked?\'block\':\'none\'"> Seasonal (only shows during a date range)'
+    +   '</label>'
+    +   '<div id="ac-season-range" style="display:' + (_adminEditingCat.is_seasonal ? 'block' : 'none') + ';margin-bottom:12px">'
+    +     '<div style="display:flex;gap:6px">'
+    +       '<div style="flex:1"><div style="font-size:10px;color:#5F5E5A">Active from (MM-DD)</div><input type="text" id="ac-from" value="' + escapeHtml(_adminEditingCat.active_from || '') + '" placeholder="10-01" style="font-size:13px;margin-bottom:0"></div>'
+    +       '<div style="flex:1"><div style="font-size:10px;color:#5F5E5A">Active to (MM-DD)</div><input type="text" id="ac-to"   value="' + escapeHtml(_adminEditingCat.active_to   || '') + '" placeholder="10-31" style="font-size:13px;margin-bottom:0"></div>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div style="display:flex;gap:8px;margin-top:6px">'
+    +     '<button class="btn-secondary" onclick="closeAdminCatModal()" style="margin-bottom:0">Cancel</button>'
+    +     '<button class="btn-primary" onclick="saveAdminCat()" style="margin-bottom:0">Save</button>'
+    +   '</div>'
+    + '</div>';
+  frame.appendChild(overlay);
+}
+
+function closeAdminCatModal() {
+  var m = document.getElementById('admin-cat-modal');
+  if (m) m.remove();
+  _adminEditingCat = null;
+}
+
+function onAdminEmojiText(val) {
+  _adminEmojiPreview = (val && val.trim()) ? val.trim() : '📋';
+  var p = document.getElementById('ac-emoji-preview');
+  if (p) p.innerHTML = renderCatEmoji(_adminEmojiPreview, 30);
+}
+
+function onAdminEmojiUpload(input) {
+  var f = input.files && input.files[0];
+  if (!f) return;
+  if (f.size > 500 * 1024) { alert('Image too large. Please use one under 500 KB.'); input.value = ''; return; }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    // Resize to max 128×128 to keep the data URL small
+    var img = new Image();
+    img.onload = function() {
+      var maxDim = 128;
+      var w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        var scale = Math.min(maxDim / w, maxDim / h);
+        w = Math.round(w * scale); h = Math.round(h * scale);
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      _adminEmojiPreview = canvas.toDataURL('image/png');
+      var p = document.getElementById('ac-emoji-preview');
+      if (p) p.innerHTML = renderCatEmoji(_adminEmojiPreview, 30);
+      var tx = document.getElementById('ac-emoji-text');
+      if (tx) tx.value = '';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(f);
+  input.value = '';
+}
+
+function saveAdminCat() {
+  var name = (document.getElementById('ac-name').value || '').trim();
+  if (!name) { alert('Name is required.'); return; }
+  var seasonal = document.getElementById('ac-seasonal').checked;
   var active_from = null, active_to = null;
   if (seasonal) {
-    active_from = prompt('Start date (MM-DD, e.g. 10-01 for Oct 1):', existing ? (existing.active_from || '') : '');
-    active_to   = prompt('End date (MM-DD, e.g. 10-31 for Oct 31):',   existing ? (existing.active_to   || '') : '');
-    if (!active_from || !active_to) { alert('Both dates required.'); return; }
+    active_from = (document.getElementById('ac-from').value || '').trim();
+    active_to   = (document.getElementById('ac-to').value   || '').trim();
+    if (!/^\d{2}-\d{2}$/.test(active_from) || !/^\d{2}-\d{2}$/.test(active_to)) {
+      alert('Dates must be MM-DD (e.g. 10-31).'); return;
+    }
   }
-  var payload = { name: name, emoji: emoji, is_seasonal: seasonal, active_from: active_from, active_to: active_to };
+  var payload = {
+    name: name,
+    emoji: _adminEmojiPreview || '📋',
+    is_seasonal: seasonal,
+    active_from: active_from,
+    active_to: active_to
+  };
+  var id = _adminEditingCat && _adminEditingCat.id;
   var q = id
     ? sbClient.from('categories').update(payload).eq('id', id)
     : sbClient.from('categories').insert(payload);
   q.then(function(r) {
     if (r.error) { alert('Error: ' + r.error.message); return; }
+    closeAdminCatModal();
     showToast('Saved');
     loadCategoriesFromDb().then(renderAdmin);
   });
