@@ -5506,10 +5506,11 @@ async function renderAdminItems(el) {
   el.innerHTML = '<div style="padding:12px">'
     + '<div style="font-size:10px;color:#5F5E5A;margin-bottom:3px">Category</div>'
     + '<select onchange="_adminSelectedCatId=this.value;renderAdmin()" style="margin-bottom:10px;font-size:13px;padding:6px 8px">' + opts + '</select>'
-    + '<div style="display:flex;gap:6px;margin-bottom:10px">'
+    + '<div style="display:flex;gap:6px;margin-bottom:6px">'
     + '<input type="text" id="admin-new-item" placeholder="New item text…" style="flex:1;margin-bottom:0;font-size:13px">'
     + '<button class="btn-primary" style="width:auto;padding:9px 16px;margin-bottom:0" onclick="addAdminItem()">Add</button>'
     + '</div>'
+    + '<button class="btn-secondary" onclick="openBulkAddItems()" style="margin-bottom:10px">Bulk add (paste list or upload CSV)</button>'
     + (itemRows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No items yet.</div>')
     + '</div>';
 }
@@ -5524,6 +5525,90 @@ function addAdminItem() {
       loadCategoriesFromDb().then(renderAdmin);
     });
   });
+}
+
+function openBulkAddItems() {
+  if (!_adminSelectedCatId) { alert('Pick a category first.'); return; }
+  var cat = (CATS_FULL || []).find(function(c){ return c.id === _adminSelectedCatId; });
+  var catName = cat ? cat.name : '';
+  var frame = document.querySelector('.frame') || document.body;
+  var existing = document.getElementById('bulk-add-modal');
+  if (existing) existing.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'bulk-add-modal';
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px';
+  overlay.innerHTML = ''
+    + '<div style="background:#fff;border-radius:12px;padding:16px;width:100%;max-width:340px;max-height:90%;overflow-y:auto">'
+    +   '<div style="font-size:15px;font-weight:700;margin-bottom:4px">Bulk add items</div>'
+    +   '<div style="font-size:11px;color:#5F5E5A;margin-bottom:10px">Adding to <strong>' + escapeHtml(catName) + '</strong></div>'
+    +   '<div style="font-size:11px;color:#5F5E5A;margin-bottom:3px">Paste one item per line</div>'
+    +   '<textarea id="bulk-add-text" placeholder="The Godfather&#10;The Dark Knight&#10;Inception&#10;…" style="width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;height:180px;margin-bottom:8px"></textarea>'
+    +   '<div style="font-size:10px;color:#888780;text-align:center;margin:6px 0">— or —</div>'
+    +   '<label class="btn-secondary" style="display:block;text-align:center;padding:9px;font-size:12px;cursor:pointer;margin-bottom:12px">Upload CSV / text file<input type="file" accept=".csv,.txt,text/*" onchange="onBulkAddFile(this)" style="display:none"></label>'
+    +   '<label style="display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:12px"><input type="checkbox" id="bulk-add-dedupe" checked> Skip duplicates (case-insensitive)</label>'
+    +   '<div style="display:flex;gap:8px">'
+    +     '<button class="btn-secondary" onclick="closeBulkAddModal()" style="margin-bottom:0">Cancel</button>'
+    +     '<button class="btn-primary"   onclick="submitBulkAddItems()" style="margin-bottom:0">Add all</button>'
+    +   '</div>'
+    + '</div>';
+  frame.appendChild(overlay);
+}
+
+function closeBulkAddModal() {
+  var m = document.getElementById('bulk-add-modal');
+  if (m) m.remove();
+}
+
+function onBulkAddFile(input) {
+  var f = input.files && input.files[0];
+  if (!f) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    // Handle both plain-text one-per-line and simple CSV (take first column)
+    var text = e.target.result || '';
+    var lines = text.split(/\r?\n/).map(function(line) {
+      // If CSV-ish, take first field. Strip surrounding quotes.
+      var first = line.split(',')[0] || '';
+      return first.replace(/^\s*"|"\s*$/g, '').trim();
+    }).filter(Boolean);
+    document.getElementById('bulk-add-text').value = lines.join('\n');
+  };
+  reader.readAsText(f);
+  input.value = '';
+}
+
+async function submitBulkAddItems() {
+  if (!_adminSelectedCatId) return;
+  var text = (document.getElementById('bulk-add-text').value || '').trim();
+  if (!text) { alert('Nothing to add.'); return; }
+  var dedupe = document.getElementById('bulk-add-dedupe').checked;
+  var lines = text.split(/\r?\n/).map(function(x){ return x.trim(); }).filter(Boolean);
+  if (!lines.length) { alert('Nothing to add.'); return; }
+  // Fetch existing items so we can determine next sort_order and dedupe
+  var exRes = await sbClient.from('category_items').select('item_text, sort_order').eq('category_id', _adminSelectedCatId);
+  if (exRes.error) { alert('Error: ' + exRes.error.message); return; }
+  var existing = exRes.data || [];
+  var existingLower = new Set(existing.map(function(r){ return (r.item_text||'').toLowerCase(); }));
+  var maxOrder = existing.reduce(function(m, r){ return Math.max(m, r.sort_order || 0); }, 0);
+  var toInsert = [];
+  var skipped = 0;
+  lines.forEach(function(line) {
+    if (dedupe && existingLower.has(line.toLowerCase())) { skipped++; return; }
+    existingLower.add(line.toLowerCase()); // avoid dupes within the paste too
+    maxOrder++;
+    toInsert.push({ category_id: _adminSelectedCatId, item_text: line, sort_order: maxOrder });
+  });
+  if (!toInsert.length) { alert('All items were duplicates. Nothing added.'); return; }
+  // Insert in chunks of 100 to avoid huge payloads
+  var chunks = [];
+  for (var i = 0; i < toInsert.length; i += 100) chunks.push(toInsert.slice(i, i+100));
+  for (var j = 0; j < chunks.length; j++) {
+    var r = await sbClient.from('category_items').insert(chunks[j]);
+    if (r.error) { alert('Error after ' + (j*100) + ' rows: ' + r.error.message); break; }
+  }
+  closeBulkAddModal();
+  showToast('Added ' + toInsert.length + (skipped ? ' (' + skipped + ' duplicates skipped)' : ''));
+  loadCategoriesFromDb().then(renderAdmin);
 }
 
 function editAdminItem(id) {
