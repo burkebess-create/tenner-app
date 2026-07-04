@@ -222,7 +222,7 @@
         </div>
         <div class="content">
           <div class="sec-label">My Lists</div>
-          <button class="btn-primary" onclick="go('s-create1')" style="margin-bottom:12px;font-size:13px;padding:12px">+ Create a new list</button>
+          <button class="btn-primary" onclick="_createFromHome=true;go('s-create1')" style="margin-bottom:12px;font-size:13px;padding:12px">+ Create a new list</button>
           <div id="lists-list"></div>
 
         </div>
@@ -292,7 +292,7 @@
       <!-- ═══ CREATE LIST S1 ═══ -->
       <div class="screen" id="s-create1">
         <div class="topbar">
-          <button class="back-btn" onclick="go('s-home')">← Back</button>
+          <button class="back-btn" id="create1-back-btn" onclick="go('s-home')" style="display:none">← Back</button>
           <span style="font-size:13px;font-weight:600;color:#2C2C2A">New List</span>
           <span style="width:52px"></span>
         </div>
@@ -951,6 +951,7 @@ var addedNonFriends = {}; // userId -> profile, for non-friends added to group
 var selList = -1;
 var fuzzyItemSug = '';
 var listOrigin = 's-home';
+var _createFromHome = false;
 var selGroupIdx = 0;
 var creatingNewGroup = false;
 var pendingShareGroupId = null; // group to share a list with after it's saved
@@ -982,7 +983,7 @@ function go(id) {
   if (id === 's-home') { renderHome(); if (userId) showOnboardingIfNeeded(); }
   if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-fdetail' && selFriendId) renderFriendDetail();
-  if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; }
+  if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
   if (id === 's-create2') { renderItems(); updateProg(); }
   if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); addedNonFriends = {}; clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
