@@ -5337,7 +5337,8 @@ async function renderAdminItems(el) {
   CATS_FULL = cats;
   if (!_adminSelectedCatId && cats.length) _adminSelectedCatId = cats[0].id;
   var opts = cats.map(function(c) {
-    return '<option value="' + c.id + '"' + (c.id === _adminSelectedCatId ? ' selected' : '') + '>' + escapeHtml(c.emoji + ' ' + c.name) + '</option>';
+    var label = (typeof c.emoji === 'string' && c.emoji.indexOf('data:') === 0) ? ('🖼️ ' + c.name) : ((c.emoji || '📋') + ' ' + c.name);
+    return '<option value="' + c.id + '"' + (c.id === _adminSelectedCatId ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
   }).join('');
   var itemsRes = await sbClient.from('category_items').select('*').eq('category_id', _adminSelectedCatId).order('sort_order');
   if (itemsRes.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(itemsRes.error.message) + '</div>'; return; }
