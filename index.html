@@ -80,7 +80,8 @@
   .share-pick:hover { background: #F1EFE8; border-color: #D85A30; }
   .share-pick.disabled { cursor: default; opacity: .7; }
   .share-pick.disabled:hover { background: #fff; border-color: #E8E6DF; }
-  .sec-label { font-size: 13px; font-weight: 700; color: #4A4A47; letter-spacing: .05em; text-transform: uppercase; margin: 14px 0 8px; }
+  .sec-label { font-size: 13px; font-weight: 700; color: #4A4A47; letter-spacing: .05em; text-transform: uppercase; margin: 26px 0 12px; }
+  .sec-label:first-child { margin-top: 8px; }
   input[type=text], input[type=email], input[type=password], input[type=date] { width: 100%; border: 1px solid #D3D1C7; border-radius: 8px; padding: 9px 11px; font-size: 13px; background: #fff; color: #2C2C2A; font-family: inherit; margin-bottom: 8px; }
   input:focus { outline: none; border-color: #D85A30; box-shadow: 0 0 0 3px rgba(216,90,48,0.1); }
   .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
@@ -258,14 +259,14 @@
             <div id="list-detail-emoji" style="width:48px;height:48px;border-radius:12px;background:#FAECE7;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0"></div>
             <div style="flex:1;min-width:0">
               <div id="list-detail-title" style="font-size:17px;font-weight:700;color:#2C2C2A;line-height:1.2"></div>
-              <div id="list-detail-meta" style="font-size:12px;color:#5F5E5A;margin-top:3px"></div>
+              <div id="list-detail-meta" style="font-size:13.5px;color:#5F5E5A;margin-top:3px"></div>
             </div>
           </div>
           <div id="list-detail-items"></div>
           <div style="margin-top:14px;padding-top:12px;border-top:1px solid #F1EFE8;display:flex;align-items:center;justify-content:space-between">
             <div>
               <div style="font-size:14px;font-weight:700;color:#2C2C2A">Visible to friends</div>
-              <div style="font-size:12px;color:#5F5E5A;margin-top:2px">Friends can see this list even if they haven't filled it out</div>
+              <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Friends can see this list even if they haven't filled it out</div>
             </div>
             <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;margin-left:12px">
               <input type="checkbox" id="list-detail-public-toggle" onchange="toggleListPublic(this.checked)" style="opacity:0;width:0;height:0;position:absolute">
@@ -277,7 +278,7 @@
           <div style="margin-top:10px;padding-top:10px;border-top:1px solid #F1EFE8;display:flex;align-items:center;justify-content:space-between">
             <div>
               <div style="font-size:14px;font-weight:700;color:#2C2C2A">Blind fill</div>
-              <div style="font-size:12px;color:#5F5E5A;margin-top:2px">Friends must fill out their own list before seeing yours</div>
+              <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Friends must fill out their own list before seeing yours</div>
             </div>
             <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;margin-left:12px">
               <input type="checkbox" id="list-detail-blind-toggle" onchange="toggleListBlindFill(this.checked)" style="opacity:0;width:0;height:0;position:absolute">
@@ -304,11 +305,11 @@
             <div class="step-dot"></div>
           </div>
           <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:3px">Choose a category</div>
-          <div style="font-size:12px;color:#5F5E5A;margin-bottom:12px">Pick one or type your own</div>
+          <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:12px">Pick one or type your own</div>
           <div class="cat-grid" id="cat-grid"></div>
           <input type="text" id="cat-inp" placeholder="Or type a custom category..." oninput="onCatType(this.value)">
           <div id="cat-emoji-row" style="display:none;margin-bottom:8px">
-            <div style="font-size:12px;color:#5F5E5A;margin-bottom:5px">Pick an emoji for your list</div>
+            <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:5px">Pick an emoji for your list</div>
             <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
               <div id="cat-emoji-current" style="font-size:22px;width:34px;height:34px;border-radius:8px;background:#FAECE7;display:flex;align-items:center;justify-content:center;flex-shrink:0">📋</div>
               <input type="text" id="cat-emoji-search" placeholder="Search emoji (e.g. sports, food) or paste one…" oninput="onCatEmojiSearch(this.value)" style="margin-bottom:0;flex:1;font-size:12px">
@@ -321,7 +322,7 @@
             Similar category already exists: <strong id="cat-warn-name"></strong> — tap to use it instead
           </div>
           <div class="toggle-wrap">
-            <span style="font-size:12px;color:#2C2C2A">Ranked list (1 = favorite)</span>
+            <span style="font-size:13.5px;color:#2C2C2A">Ranked list (1 = favorite)</span>
             <label class="toggle"><input type="checkbox" id="ranked-tog" checked><span class="toggle-slider"></span></label>
           </div>
           <button class="btn-primary" onclick="goToCreateStep2()">Continue →</button>
@@ -342,7 +343,7 @@
             <div class="step-dot"></div>
           </div>
           <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
-          <div style="font-size:12px;color:#5F5E5A;margin-bottom:10px" id="prog-hint">Add your first item below</div>
+          <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:10px" id="prog-hint">Add your first item below</div>
           <div id="items-list"></div>
           <div class="done-banner" id="done-banner">🎉 List complete! <span id="done-banner-hint"></span></div>
           <div id="add-area">
@@ -376,7 +377,7 @@
             <div class="toggle-wrap" style="margin-bottom:3px">
               <div>
                 <div style="font-size:14px;font-weight:700;color:#2C2C2A">Visible to friends</div>
-                <div style="font-size:12px;color:#5F5E5A;margin-top:2px">Friends can see this list even if they haven't filled it out</div>
+                <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Friends can see this list even if they haven't filled it out</div>
               </div>
               <label class="toggle"><input type="checkbox" id="create-public-toggle" checked><span class="toggle-slider"></span></label>
             </div>
@@ -385,7 +386,7 @@
             <div class="toggle-wrap" style="margin-bottom:3px">
               <div>
                 <div style="font-size:14px;font-weight:700;color:#2C2C2A">Blind fill</div>
-                <div style="font-size:12px;color:#5F5E5A;margin-top:2px">Friends must fill out their own list before seeing yours</div>
+                <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Friends must fill out their own list before seeing yours</div>
               </div>
               <label class="toggle"><input type="checkbox" id="create-blind-fill-toggle" checked><span class="toggle-slider"></span></label>
             </div>
@@ -414,11 +415,11 @@
             <div class="step-dot"></div>
           </div>
           <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:3px">Name your group</div>
-          <div style="font-size:12px;color:#5F5E5A;margin-bottom:12px">Pick an emoji and give it a name</div>
+          <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:12px">Pick an emoji and give it a name</div>
           <div class="sec-label">Choose a group avatar</div>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
             <div id="cg1-avatar-preview" style="width:48px;height:48px;border-radius:12px;background:#F1EFE8;display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden;flex-shrink:0">🎉</div>
-            <label style="display:inline-block;padding:6px 12px;border:1px solid #D3D1C7;border-radius:8px;font-size:12px;color:#5F5E5A;cursor:pointer;background:#fff">
+            <label style="display:inline-block;padding:6px 12px;border:1px solid #D3D1C7;border-radius:8px;font-size:13.5px;color:#5F5E5A;cursor:pointer;background:#fff">
               Upload a photo instead
               <input type="file" accept="image/*" onchange="onGroupPhotoUploadCreate(this)" style="display:none">
             </label>
@@ -451,7 +452,7 @@
             <div class="step-dot active"></div>
             <div class="step-dot"></div>
           </div>
-          <div style="font-size:12px;color:#5F5E5A;margin-bottom:10px">Add Tenner friends or search for anyone by @handle</div>
+          <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:10px">Add Tenner friends or search for anyone by @handle</div>
           <div style="display:flex;gap:6px;margin-bottom:10px">
             <input type="text" id="cg2-handle-search" placeholder="Search @handle…" style="margin-bottom:0;flex:1;font-size:12px;padding:7px 10px" onkeydown="if(event.key==='Enter')searchGroupMember()">
             <button class="add-btn" style="padding:7px 12px;font-size:12px;flex-shrink:0" onclick="searchGroupMember()">Search</button>
@@ -461,7 +462,7 @@
           <div id="friends-list"></div>
           <div class="info-box">
             <div style="font-size:14px;font-weight:700;color:#2C2C2A;margin-bottom:3px">Invite non-users via link</div>
-            <div style="font-size:12px;color:#5F5E5A;margin-bottom:8px">Anyone with the link can join this group</div>
+            <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:8px">Anyone with the link can join this group</div>
             <button class="btn-secondary" style="padding:8px;font-size:11px;margin-bottom:0" onclick="openInviteModal()">✉️💬 Invite by email or text</button>
           </div>
           <div class="sec-label">Added to group (<span id="added-count">3</span>)</div>
@@ -483,7 +484,7 @@
             <div class="step-dot done"></div>
             <div class="step-dot active"></div>
           </div>
-          <div style="font-size:12px;color:#5F5E5A;margin-bottom:12px">Choose a list to share with the group. Everyone fills their own version — then you compare.</div>
+          <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:12px">Choose a list to share with the group. Everyone fills their own version — then you compare.</div>
           <div class="sec-label">My lists</div>
           <div id="list-picker"></div>
           <div class="card" style="border-style:dashed;text-align:center;padding:12px" onclick="listOrigin='s-cg3';go('s-create1')">
@@ -493,7 +494,7 @@
             <div class="toggle-wrap" style="margin-bottom:3px">
               <div>
                 <div style="font-size:14px;font-weight:700;color:#2C2C2A">Blind fill</div>
-                <div style="font-size:12px;color:#5F5E5A;margin-top:2px">Members fill before seeing anyone else's</div>
+                <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Members fill before seeing anyone else's</div>
               </div>
               <label class="toggle"><input type="checkbox" id="cg3-blind-fill-toggle" checked><span class="toggle-slider"></span></label>
             </div>
@@ -526,7 +527,7 @@
             <div id="gsettings-avatar-preview" style="width:56px;height:56px;border-radius:14px;background:#F1EFE8;display:flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;flex-shrink:0"></div>
             <div style="flex:1">
               <div style="font-size:11px;font-weight:600;color:#2C2C2A;margin-bottom:4px">Upload a photo</div>
-              <label style="display:inline-block;padding:6px 12px;border:1px solid #D3D1C7;border-radius:8px;font-size:12px;color:#5F5E5A;cursor:pointer;background:#fff">
+              <label style="display:inline-block;padding:6px 12px;border:1px solid #D3D1C7;border-radius:8px;font-size:13.5px;color:#5F5E5A;cursor:pointer;background:#fff">
                 Choose photo
                 <input type="file" accept="image/*" onchange="onGroupPhotoUpload(this)" style="display:none">
               </label>
@@ -643,7 +644,7 @@
             <div id="friend-list-emoji" style="width:48px;height:48px;border-radius:12px;background:#FAECE7;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0"></div>
             <div style="flex:1;min-width:0">
               <div id="friend-list-name" style="font-size:17px;font-weight:700;color:#2C2C2A;line-height:1.2"></div>
-              <div id="friend-list-meta" style="font-size:12px;color:#5F5E5A;margin-top:3px"></div>
+              <div id="friend-list-meta" style="font-size:13.5px;color:#5F5E5A;margin-top:3px"></div>
             </div>
           </div>
           <div id="friend-list-reactions" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>
@@ -656,7 +657,7 @@
       <div class="screen" id="s-profile">
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
-          <span style="font-size:12px;color:#5F5E5A">Profile</span>
+          <span style="font-size:13.5px;color:#5F5E5A">Profile</span>
         </div>
         <div class="content">
           <div style="text-align:center;padding:16px 0 18px">
@@ -666,7 +667,7 @@
               <input type="file" accept="image/*" onchange="onProfilePhotoUpload(this)" style="display:none">
             </label>
             <div id="profile-display-name" style="font-size:15px;font-weight:700;color:#2C2C2A">—</div>
-            <div id="profile-handle-display" style="font-size:12px;color:#5F5E5A;margin-top:2px">@—</div>
+            <div id="profile-handle-display" style="font-size:13.5px;color:#5F5E5A;margin-top:2px">@—</div>
             <div id="profile-on-tenner" style="font-size:10px;color:#888780;margin-top:4px;display:none"></div>
             <div style="display:flex;justify-content:center;gap:20px;margin-top:12px">
               <div style="text-align:center"><div id="profile-stat-lists" style="font-size:16px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9px;color:#5F5E5A">Lists</div></div>
@@ -679,14 +680,14 @@
             <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid #F1EFE8">
               <div>
                 <div style="font-size:11px;font-weight:600;color:#2C2C2A" id="profile-email">—</div>
-                <div style="font-size:12px;color:#5F5E5A;margin-top:2px">Signed in</div>
+                <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Signed in</div>
               </div>
               <button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="signOut()">Sign out</button>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px">
               <div>
                 <div style="font-size:11px;font-weight:600;color:#2C2C2A">Password</div>
-                <div style="font-size:12px;color:#5F5E5A;margin-top:2px" id="profile-pw-status">••••••••</div>
+                <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px" id="profile-pw-status">••••••••</div>
               </div>
               <button class="back-btn" id="profile-pw-btn" onclick="openChangePassword()">Change</button>
             </div>
@@ -694,26 +695,26 @@
           <div class="sec-label">Profile Info</div>
           <div class="card no-hover">
             <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
-              <div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">Display name</div>
+              <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Display name</div>
               <input type="text" id="profile-name-input" placeholder="Your name" style="margin-bottom:0;font-size:12px;padding:6px 8px">
             </div>
             <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
-              <div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">Handle (for friends to find you)</div>
+              <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Handle (for friends to find you)</div>
               <input type="text" id="profile-handle-input" placeholder="@yourhandle" oninput="onHandleInput()" style="margin-bottom:4px;font-size:12px;padding:6px 8px">
               <div id="handle-status" style="font-size:10px;color:#888780"></div>
-              <div id="handle-locked-msg" style="display:none;font-size:12px;color:#5F5E5A;background:#F7F6F2;padding:6px 8px;border-radius:6px;border:1px solid #E2DFD8">Your handle is set and cannot be changed.</div>
+              <div id="handle-locked-msg" style="display:none;font-size:13.5px;color:#5F5E5A;background:#F7F6F2;padding:6px 8px;border-radius:6px;border:1px solid #E2DFD8">Your handle is set and cannot be changed.</div>
             </div>
             <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
-              <div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">Bio (optional)</div>
+              <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Bio (optional)</div>
               <textarea id="profile-bio-input" placeholder="Write a short bio…" maxlength="160" style="width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;resize:none;height:64px;margin-bottom:0"></textarea>
             </div>
             <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
-              <div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">Phone number (optional)</div>
+              <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Phone number (optional)</div>
               <input type="tel" id="profile-phone-input" placeholder="(555) 555-5555" onblur="formatPhoneInput(this)" style="margin-bottom:4px;font-size:12px;padding:6px 8px">
               <div style="font-size:10px;color:#888780;line-height:1.4">Friends can find you by phone number to send you a friend request.</div>
             </div>
             <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
-              <div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">Birthday (month &amp; day)</div>
+              <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Birthday (month &amp; day)</div>
               <div style="display:flex;gap:6px">
                 <select id="profile-bday-month" onchange="onBdayMonthChange()" style="flex:1;margin-bottom:0;font-size:12px;padding:6px 8px">
                   <option value="">Month</option>
@@ -728,8 +729,8 @@
               </div>
             </div>
             <div style="padding:6px 0;display:flex;justify-content:space-between;align-items:center">
-              <span style="font-size:12px;color:#5F5E5A">Email</span>
-              <span style="font-size:12px;color:#2C2C2A" id="profile-email-info">—</span>
+              <span style="font-size:13.5px;color:#5F5E5A">Email</span>
+              <span style="font-size:13.5px;color:#2C2C2A" id="profile-email-info">—</span>
             </div>
           </div>
           <button class="btn-primary" onclick="saveProfile()" style="margin-top:10px">Save profile</button>
@@ -737,7 +738,7 @@
 
           <div class="sec-label" style="margin-top:16px">Feedback</div>
           <div class="card no-hover" style="margin-bottom:12px">
-            <div style="font-size:12px;color:#5F5E5A;margin-bottom:8px">Found a bug or have an idea? Let us know.</div>
+            <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:8px">Found a bug or have an idea? Let us know.</div>
             <select id="feedback-category" style="margin-bottom:6px;font-size:12px;padding:6px 8px">
               <option value="idea">Idea / suggestion</option>
               <option value="bug">Bug report</option>
@@ -830,7 +831,7 @@
       <div id="confirm-modal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end;border-radius:36px;overflow:hidden">
         <div style="background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%">
           <div id="confirm-title" style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:5px"></div>
-          <div id="confirm-message" style="font-size:12px;color:#5F5E5A;margin-bottom:16px"></div>
+          <div id="confirm-message" style="font-size:13.5px;color:#5F5E5A;margin-bottom:16px"></div>
           <button id="confirm-ok" class="btn-primary" style="margin-bottom:8px"></button>
           <button class="btn-secondary" style="margin-bottom:0" onclick="closeConfirm()">Cancel</button>
         </div>
@@ -1387,7 +1388,7 @@ function renderItems() {
       : '';
     var dragHandle = IS_TOUCH ? '' : '<span style="font-size:14px;color:#C8C6BE;cursor:grab;padding:0 4px;flex-shrink:0">⠿</span>';
     div.innerHTML = badge
-      + '<input type="text" value="' + item.replace(/"/g,'&quot;') + '" id="item-edit-inp-' + i + '" oninput="onItemEditType(this.value,' + i + ')" onkeydown="onItemEditKey(event,' + i + ')" onblur="onItemEditBlur(' + i + ',this)" style="flex:1;font-size:12px;color:#2C2C2A;border:none;background:transparent;outline:none;padding:0;min-width:0">'
+      + '<input type="text" value="' + item.replace(/"/g,'&quot;') + '" id="item-edit-inp-' + i + '" oninput="onItemEditType(this.value,' + i + ')" onkeydown="onItemEditKey(event,' + i + ')" onblur="onItemEditBlur(' + i + ',this)" style="flex:1;font-size:13.5px;color:#2C2C2A;border:none;background:transparent;outline:none;padding:0;min-width:0">'
       + moveBtns
       + dragHandle
       + '<button onmousedown="removeItem(' + i + ')" style="background:none;border:none;color:#888780;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0">×</button>'
@@ -1663,7 +1664,7 @@ function renderFriendsList() {
     var row = document.createElement('div');
     row.className = 'member-row';
     row.innerHTML = '<div style="margin-right:8px">' + friendAvatarHtml(f.profile, 32) + '</div>'
-      + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + name + '</div><div style="font-size:12px;color:#5F5E5A">' + handle + '</div></div>';
+      + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + name + '</div><div style="font-size:13.5px;color:#5F5E5A">' + handle + '</div></div>';
     var btn = document.createElement('button');
     btn.className = isAdded ? 'added-btn' : 'add-btn';
     btn.textContent = isAdded ? 'Added ✓' : '+ Add';
@@ -1838,7 +1839,7 @@ function renderListPicker() {
     var card = document.createElement('div');
     card.className = 'card';
     if (selList === i) card.style.borderColor = '#D85A30';
-    card.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:12px;font-weight:600;color:' + (selList===i?'#993C1D':'#2C2C2A') + '">' + l.n + '</div><div style="font-size:12px;color:#5F5E5A">' + l.m + '</div></div>' + (selList===i ? '<span class="pill pill-coral">Selected ✓</span>' : '') + '</div>';
+    card.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:12px;font-weight:600;color:' + (selList===i?'#993C1D':'#2C2C2A') + '">' + l.n + '</div><div style="font-size:13.5px;color:#5F5E5A">' + l.m + '</div></div>' + (selList===i ? '<span class="pill pill-coral">Selected ✓</span>' : '') + '</div>';
     card.onclick = function() { selList = i; renderListPicker(); };
     picker.appendChild(card);
   });
@@ -1855,7 +1856,7 @@ function renderLists() {
   MY_LISTS.forEach(function(l, i) {
     var card = document.createElement('div');
     card.className = 'card';
-    card.innerHTML = '<div style="display:flex;align-items:center;gap:10px"><div style="width:36px;text-align:center;display:flex;align-items:center;justify-content:center">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 22) + '</div><div style="flex:1"><div style="font-size:15px;font-weight:700;color:#2C2C2A">' + l.n + '</div><div style="font-size:12px;color:#5F5E5A;margin-top:1px">' + l.m + '</div></div><span style="font-size:18px;color:#D3D1C7">›</span></div>';
+    card.innerHTML = '<div style="display:flex;align-items:center;gap:10px"><div style="width:36px;text-align:center;display:flex;align-items:center;justify-content:center">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 22) + '</div><div style="flex:1"><div style="font-size:15px;font-weight:700;color:#2C2C2A">' + l.n + '</div><div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + l.m + '</div></div><span style="font-size:18px;color:#D3D1C7">›</span></div>';
     card.onclick = (function(list) { return function() { showListDetail(list); }; })(l);
     container.appendChild(card);
   });
@@ -1940,7 +1941,7 @@ function showListDetail(l) {
       var row = document.createElement('div');
       row.className = 'rank-item';
       row.style.marginBottom = '6px';
-      row.innerHTML = (l.ranked ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>') + '<span style="flex:1;font-size:12px;color:#2C2C2A">' + item + '</span>';
+      row.innerHTML = (l.ranked ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>') + '<span style="flex:1;font-size:13.5px;color:#2C2C2A">' + item + '</span>';
       el.appendChild(row);
     });
   }
@@ -2009,8 +2010,8 @@ async function openShareListModal(cat) {
       var inv = friendInvites[f.friendId];
       var seenLabel = inv && inv.read_at ? ' · <span style="color:#3B6D11">Seen ✓</span>' : (inv ? ' · Not opened yet' : '');
       var sub = inv
-        ? '<div style="font-size:12px;color:#5F5E5A">Shared ' + fmtShareDate(inv.created_at) + seenLabel + '</div>'
-        : '<div style="font-size:12px;color:#5F5E5A">' + handle + '</div>';
+        ? '<div style="font-size:13.5px;color:#5F5E5A">Shared ' + fmtShareDate(inv.created_at) + seenLabel + '</div>'
+        : '<div style="font-size:13.5px;color:#5F5E5A">' + handle + '</div>';
       var fn = inv ? 'remindListInvite' : 'shareListWithFriend';
       var btn = '<button class="add-btn" id="share-friend-btn-' + f.friendId + '" onclick="event.stopPropagation();' + fn + '(\'' + f.friendId + '\',\'' + cat.replace(/'/g,"\\'") + '\',this)">' + (inv ? 'Remind' : 'Send') + '</button>';
       return '<div class="share-pick" onclick="' + fn + '(\'' + f.friendId + '\',\'' + cat.replace(/'/g,"\\'") + '\',this.querySelector(\'button\'))">'
@@ -2205,13 +2206,13 @@ async function renderActivityFeed() {
         : escapeHtml(name) + ' updated their ' + escapeHtml(singularize(cat)) + ' list';
       return '<div class="share-pick" style="cursor:pointer;align-items:flex-start" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
         + '<span style="font-size:18px;flex-shrink:0;margin-top:2px">' + emoji + '</span>'
-        + '<div style="flex:1;font-size:12px;color:#2C2C2A;line-height:1.5">' + sentence + '</div>'
+        + '<div style="flex:1;font-size:13.5px;color:#2C2C2A;line-height:1.5">' + sentence + '</div>'
         + '</div>';
     });
     var html = rows.slice(0, FEED_PREVIEW).join('');
     if (recentLists.length > FEED_PREVIEW) {
       html += '<div id="circle-feed-extra" style="display:none">' + rows.slice(FEED_PREVIEW).join('') + '</div>'
-        + '<button onclick="toggleCircleSection(\'feed\')" id="circle-feed-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:12px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show more</button>';
+        + '<button onclick="toggleCircleSection(\'feed\')" id="circle-feed-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:13.5px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show more</button>';
     }
     feedEl.innerHTML = html;
   } catch(e) { console.warn('Activity feed failed', e); }
@@ -2293,7 +2294,7 @@ function openShareToGroupPicker() {
   sheet.style.cssText = 'background:#fff;width:100%;max-width:420px;border-radius:16px 16px 0 0;padding:18px;max-height:70vh;overflow-y:auto';
   var alreadyShared = (GROUP_SHARED_LISTS[g.id] || []).map(function(s){ return s.category; });
   var html = '<div style="font-size:15px;font-weight:700;color:#2C2C2A;margin-bottom:4px">Share a list with ' + escapeHtml(g.n) + '</div>'
-    + '<div style="font-size:12px;color:#5F5E5A;margin-bottom:12px">Members will be asked to fill out the same list so you can compare.</div>';
+    + '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:12px">Members will be asked to fill out the same list so you can compare.</div>';
   var shareable = MY_LISTS.filter(function(l){ return alreadyShared.indexOf(l.category || l.n.replace('Top 10 ','')) < 0; });
   if (shareable.length > 0) {
     html += '<div class="sec-label">Your lists</div>';
@@ -2301,7 +2302,7 @@ function openShareToGroupPicker() {
       var cat = l.category || l.n.replace('Top 10 ','');
       return '<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
         + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + escapeHtml(l.n) + '</div>'
-        + '<div style="font-size:12px;color:#5F5E5A">' + escapeHtml(l.m || '') + '</div></div>'
+        + '<div style="font-size:13.5px;color:#5F5E5A">' + escapeHtml(l.m || '') + '</div></div>'
         + '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="shareExistingListToGroup(\'' + cat.replace(/'/g,"\\'") + '\')">Share</button>'
         + '</div>';
     }).join('');
@@ -2435,7 +2436,7 @@ async function renderGroupListDetail() {
         + avatarHtml(uid, 36)
         + '<div style="flex:1;min-width:0">'
         + '<div style="font-size:14px;font-weight:700;color:#2C2C2A">' + escapeHtml(nameFor(uid)) + '</div>'
-        + (topPick ? '<div style="font-size:12px;color:#5F5E5A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🥇 ' + topPick + '</div>'
+        + (topPick ? '<div style="font-size:13.5px;color:#5F5E5A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🥇 ' + topPick + '</div>'
                    : '<div style="font-size:11px;color:#A8A69E">Not yet</div>')
         + '</div>'
         + (hasFilled ? '<div style="color:#3B6D11;font-size:16px">✓</div>' : '<div style="color:#D3D1C7;font-size:14px">–</div>')
@@ -2552,12 +2553,12 @@ async function renderGroupDetail() {
   var membersCardHtml = '<div class="card" onclick="toggleGroupMembers()" style="cursor:pointer;margin-bottom:8px">'
     + '<div style="display:flex;align-items:center;justify-content:space-between">'
     + '<div><div style="font-size:15px;font-weight:700;color:#2C2C2A">Group Members</div>'
-    + '<div style="font-size:12px;color:#5F5E5A;margin-top:2px">' + memberCount + ' member' + (memberCount !== 1 ? 's' : '') + '</div></div>'
+    + '<div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">' + memberCount + ' member' + (memberCount !== 1 ? 's' : '') + '</div></div>'
     + '<span id="members-chevron" style="font-size:16px;color:#888780">›</span>'
     + '</div>'
     + '<div id="group-members-panel" style="display:none;margin-top:12px">'
     + '<div class="member-row" style="margin-bottom:6px"><div style="margin-right:8px">' + (myProfile && myProfile.photo ? '<img src="' + myProfile.photo + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">' : '<div class="avatar" style="background:#FAECE7;color:#993C1D;flex-shrink:0">' + myInitials + '</div>') + '</div>'
-    + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + myName + '</div><div style="font-size:12px;color:#5F5E5A">Admin</div></div>'
+    + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + myName + '</div><div style="font-size:13.5px;color:#5F5E5A">Admin</div></div>'
     + '<span class="pill pill-coral">You</span></div>'
     + members.map(function(f) {
         var name = f.profile.display_name || f.profile.handle || 'Friend';
@@ -2565,7 +2566,7 @@ async function renderGroupDetail() {
         var fid = f.friendId;
         var isPending = memberStatuses[fid] === 'pending';
         return '<div class="member-row" style="margin-bottom:6px"><div style="margin-right:8px">' + friendAvatarHtml(f.profile, 32) + '</div>'
-          + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + name + (isPending ? ' <span class="pill pill-amber" style="font-size:9px">Pending</span>' : '') + '</div><div style="font-size:12px;color:#5F5E5A">' + handle + '</div></div>'
+          + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + name + (isPending ? ' <span class="pill pill-amber" style="font-size:9px">Pending</span>' : '') + '</div><div style="font-size:13.5px;color:#5F5E5A">' + handle + '</div></div>'
           + '<button class="back-btn" style="font-size:10px;padding:3px 7px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();showConfirm(\'Remove ' + name.replace(/'/g,"\\'") + '?\',\'They will lose access to this group.\',\'Remove\',\'danger\',function(){removeMemberFromGroup(\'' + fid + '\')})">Remove</button></div>';
       }).join('')
     + '<div style="display:flex;gap:6px;margin-top:10px">'
@@ -2623,7 +2624,7 @@ async function renderGroupDetail() {
         + '<div style="display:flex;align-items:center;gap:10px">'
         + '<div style="width:26px;display:flex;align-items:center;justify-content:center">' + renderCatEmoji(getCatEmoji(cat), 22) + '</div>'
         + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">Top 10 ' + escapeHtml(cat) + '</div>'
-        + '<div style="font-size:12px;color:#5F5E5A">Shared by ' + escapeHtml(nameForId(sl.shared_by)) + ' · ' + filled.length + ' of ' + totalMembers + ' filled out' + (iFilled ? '' : ' · not yet yours') + '</div></div>'
+        + '<div style="font-size:13.5px;color:#5F5E5A">Shared by ' + escapeHtml(nameForId(sl.shared_by)) + ' · ' + filled.length + ' of ' + totalMembers + ' filled out' + (iFilled ? '' : ' · not yet yours') + '</div></div>'
         + btn
         + removeBtn
         + '<span style="font-size:16px;color:#D85A30;margin-left:2px">›</span>'
@@ -2637,7 +2638,7 @@ async function renderGroupDetail() {
     + '<div style="display:flex;align-items:center;gap:10px">'
     + '<div style="font-size:22px">📊</div>'
     + '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#993C1D">View Group Match Scores</div>'
-    + '<div style="font-size:12px;color:#5F5E5A;margin-top:2px">See how everyone compares across all lists</div></div>'
+    + '<div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">See how everyone compares across all lists</div></div>'
     + '<span style="font-size:16px;color:#D85A30">›</span>'
     + '</div></div>';
 
@@ -2654,7 +2655,7 @@ async function renderGroupDetail() {
   var headerHtml = '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:16px">'
     + groupAvatarHtml(g, 88)
     + '<div style="font-size:17px;font-weight:700;color:#2C2C2A;margin-top:10px">' + g.n + '</div>'
-    + '<div style="font-size:12px;color:#5F5E5A;margin-top:2px">' + memberCount + ' member' + (memberCount !== 1 ? 's' : '') + '</div>'
+    + '<div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">' + memberCount + ' member' + (memberCount !== 1 ? 's' : '') + '</div>'
     + '</div>';
 
   var el = document.getElementById('gdetail-content');
@@ -3143,11 +3144,11 @@ function openChangePassword() {
   overlay.id = 'pw-change-overlay';
   overlay.innerHTML = '<div style="background:#fff;border-radius:18px;padding:22px 18px;width:90%;max-width:320px;position:relative">' +
     '<div style="font-size:14px;font-weight:700;color:#2C2C2A;margin-bottom:4px">🔐 ' + (hasPassword ? 'Change Password' : 'Set a Password') + '</div>' +
-    '<div style="font-size:12px;color:#5F5E5A;margin-bottom:14px">' + (hasPassword ? 'Enter your current password and choose a new one.' : 'Add a password to your account so you can sign in without a magic link.') + '</div>' +
-    (hasPassword ? '<div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">Current password</div><input type="password" id="pw-current" placeholder="Current password" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:10px;font-family:inherit">' : '') +
-    '<div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">New password</div>' +
+    '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:14px">' + (hasPassword ? 'Enter your current password and choose a new one.' : 'Add a password to your account so you can sign in without a magic link.') + '</div>' +
+    (hasPassword ? '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Current password</div><input type="password" id="pw-current" placeholder="Current password" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:10px;font-family:inherit">' : '') +
+    '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">New password</div>' +
     '<input type="password" id="pw-new" placeholder="At least 6 characters" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:10px;font-family:inherit">' +
-    '<div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">Confirm new password</div>' +
+    '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Confirm new password</div>' +
     '<input type="password" id="pw-confirm" placeholder="Repeat new password" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:12px;font-family:inherit">' +
     '<div id="pw-error" style="display:none;font-size:11px;color:#A32D2D;background:#FDF0EF;padding:7px 10px;border-radius:7px;margin-bottom:10px;border:1px solid #F09595"></div>' +
     '<button class="btn-primary" style="margin-bottom:6px" onclick="submitChangePassword()">Save password</button>' +
@@ -3450,7 +3451,7 @@ async function searchFriend() {
     var alreadyFriend = myFriends.some(function(f) { return f.friendId === res.data.id; });
     var name = res.data.display_name || ('@' + res.data.handle);
     if (alreadyFriend) {
-      resultEl.innerHTML = '<div class="member-row"><div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + '</div><div style="font-size:12px;color:#5F5E5A">@' + escapeHtml(res.data.handle) + '</div></div><span class="pill pill-green">Already friends</span></div>';
+      resultEl.innerHTML = '<div class="member-row"><div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + '</div><div style="font-size:13.5px;color:#5F5E5A">@' + escapeHtml(res.data.handle) + '</div></div><span class="pill pill-green">Already friends</span></div>';
     } else {
       renderFoundUserCard(res.data, 'req-note', 'sendFriendRequest', resultEl);
     }
@@ -3482,7 +3483,7 @@ function renderFoundUserCard(p, noteId, sendFn, resultEl) {
     + '<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
     + friendAvatarHtml(p, 32)
     + '<div style="flex:1;min-width:0;margin-left:9px"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + newBadge + '</div>'
-    + '<div style="font-size:12px;color:#5F5E5A">' + escapeHtml(metaLine) + '</div>'
+    + '<div style="font-size:13.5px;color:#5F5E5A">' + escapeHtml(metaLine) + '</div>'
     + '<div id="' + noteId + '-mutual" style="font-size:10px;color:#3B6D11;margin-top:3px;display:none"></div>'
     + '</div></div>'
     + '<input type="text" id="' + noteId + '" maxlength="140" placeholder="Add a note so they know who you are (optional)" style="margin-bottom:8px;font-size:12px;padding:7px 9px">'
@@ -3547,7 +3548,7 @@ function renderFriendsSection() {
         + pending.map(function(f) {
           var name = f.profile.display_name || f.profile.handle || 'Unknown';
           var handle = f.profile.handle ? '@' + f.profile.handle : '';
-          return '<div class="member-row"><div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + name + '</div><div style="font-size:12px;color:#5F5E5A">' + handle + '</div></div>'
+          return '<div class="member-row"><div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + name + '</div><div style="font-size:13.5px;color:#5F5E5A">' + handle + '</div></div>'
             + '<button class="add-btn" onclick="respondToFriendRequest(\'' + f.id + '\',true)" style="margin-right:4px">Accept</button>'
             + '<button class="back-btn" onclick="respondToFriendRequest(\'' + f.id + '\',false)" style="font-size:10px;padding:3px 7px">Decline</button></div>';
         }).join('');
@@ -3561,14 +3562,14 @@ function renderFriendsSection() {
         + accepted.map(function(f) {
           var name = f.profile.display_name || f.profile.handle || 'Unknown';
           var handle = f.profile.handle ? '@' + f.profile.handle : '';
-          return '<div class="member-row">' + friendAvatarHtml(f.profile || {}, 28) + '<div style="flex:1;margin-left:8px"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + name + '</div><div style="font-size:12px;color:#5F5E5A">' + handle + '</div></div></div>';
+          return '<div class="member-row">' + friendAvatarHtml(f.profile || {}, 28) + '<div style="flex:1;margin-left:8px"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + name + '</div><div style="font-size:13.5px;color:#5F5E5A">' + handle + '</div></div></div>';
         }).join('');
     } else if (sent.length > 0) {
       html = '<div class="sec-label" style="margin-top:8px">Sent requests (' + sent.length + ')</div>'
         + sent.map(function(f) {
           var name = f.profile.display_name || f.profile.handle || 'Unknown';
           var handle = f.profile.handle ? '@' + f.profile.handle : '';
-          return '<div class="member-row"><div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + name + '</div><div style="font-size:12px;color:#5F5E5A">' + handle + ' · Pending</div></div>'
+          return '<div class="member-row"><div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + name + '</div><div style="font-size:13.5px;color:#5F5E5A">' + handle + ' · Pending</div></div>'
             + '<button class="back-btn" style="font-size:10px;padding:3px 7px;color:#A32D2D;border-color:#F09595" onclick="withdrawFriendRequest(\'' + f.id + '\',\'' + escapeHtml(name) + '\')">Withdraw</button></div>';
         }).join('');
     } else {
@@ -3679,7 +3680,7 @@ function renderNotifications() {
         + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
         + friendAvatarHtml(inv.profile, 38)
         + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + unreadDot + '</div>'
-        + '<div style="font-size:12px;color:#5F5E5A">' + (filled ? 'You filled out <strong>Top 10 ' + escapeHtml(inv.category) + '</strong>' : 'Think you and <strong>' + escapeHtml(name) + '</strong> have the same taste in ' + escapeHtml(inv.category) + '? Fill out your list and see your match score') + '</div></div></div>'
+        + '<div style="font-size:13.5px;color:#5F5E5A">' + (filled ? 'You filled out <strong>Top 10 ' + escapeHtml(inv.category) + '</strong>' : 'Think you and <strong>' + escapeHtml(name) + '</strong> have the same taste in ' + escapeHtml(inv.category) + '? Fill out your list and see your match score') + '</div></div></div>'
         + '<div style="display:flex;gap:6px">' + actions + '</div></div>';
     }).join('');
 }
@@ -3712,7 +3713,7 @@ async function renderNotifActivity(el) {
         : escapeHtml(name) + ' updated their ' + escapeHtml(singularize(cat)) + ' list';
       return '<div class="share-pick" style="cursor:pointer;align-items:flex-start" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
         + '<span style="font-size:18px;flex-shrink:0;margin-top:2px">' + emoji + '</span>'
-        + '<div style="flex:1;font-size:12px;color:#2C2C2A;line-height:1.5">' + sentence + '</div>'
+        + '<div style="flex:1;font-size:13.5px;color:#2C2C2A;line-height:1.5">' + sentence + '</div>'
         + '</div>';
     });
     el.innerHTML = '<div class="sec-label" style="margin-top:0">Recent from your circle</div>' + rows.join('');
@@ -3832,13 +3833,13 @@ function renderCircleFriends() {
           var since = timeOnTenner(p);
           var newBadge = isNewAccount(p) ? '<span class="pill pill-amber" style="margin-left:6px;font-size:9px">New account</span>' : '';
           var metaLine = (handle ? escapeHtml(handle) : '') + (since ? (handle ? ' · ' : '') + since : '');
-          var noteHtml = f.message ? '<div style="font-size:12px;color:#5F5E5A;font-style:italic;background:#F1EFE8;border-radius:6px;padding:5px 8px;margin-top:6px">“' + escapeHtml(f.message) + '”</div>' : '';
+          var noteHtml = f.message ? '<div style="font-size:13.5px;color:#5F5E5A;font-style:italic;background:#F1EFE8;border-radius:6px;padding:5px 8px;margin-top:6px">“' + escapeHtml(f.message) + '”</div>' : '';
           var mutualHtml = '<div id="mutual-' + f.id + '" style="font-size:10px;color:#3B6D11;margin-top:5px;display:none"></div>';
           return '<div class="card no-hover" style="margin-bottom:8px;cursor:pointer" onclick="openFriendDetail(\'' + f.friendId + '\')">'
             + '<div style="display:flex;align-items:center;gap:9px">'
             + friendAvatarHtml(p, 32)
             + '<div style="flex:1;min-width:0;margin-left:9px"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + newBadge + '</div>'
-            + '<div style="font-size:12px;color:#5F5E5A">' + metaLine + '</div></div>'
+            + '<div style="font-size:13.5px;color:#5F5E5A">' + metaLine + '</div></div>'
             + '<button class="add-btn" onclick="event.stopPropagation();respondToFriendRequest(\'' + f.id + '\',true)" style="margin-right:4px">Accept</button>'
             + '<button class="back-btn" onclick="event.stopPropagation();respondToFriendRequest(\'' + f.id + '\',false)" style="font-size:10px;padding:3px 7px">Decline</button>'
             + '</div>' + mutualHtml + noteHtml + '</div>';
@@ -3857,13 +3858,13 @@ function renderCircleFriends() {
       var name = f.profile.display_name || f.profile.handle || 'Unknown';
       var handle = f.profile.handle ? '@' + f.profile.handle : '';
       return '<div class="share-pick" style="cursor:pointer" onclick="openFriendDetail(\'' + f.friendId + '\')">' + friendAvatarHtml(f.profile, 32)
-        + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + '</div><div style="font-size:12px;color:#5F5E5A">' + escapeHtml(handle) + '</div></div>'
+        + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + '</div><div style="font-size:13.5px;color:#5F5E5A">' + escapeHtml(handle) + '</div></div>'
         + '<span style="font-size:16px;color:#D3D1C7">›</span></div>';
     });
     html = friendRows.slice(0, FRIENDS_PREVIEW).join('');
     if (accepted.length > FRIENDS_PREVIEW) {
       html += '<div id="circle-friends-extra" style="display:none">' + friendRows.slice(FRIENDS_PREVIEW).join('') + '</div>'
-        + '<button onclick="toggleCircleSection(\'friends\')" id="circle-friends-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:12px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show all ' + accepted.length + ' friends</button>';
+        + '<button onclick="toggleCircleSection(\'friends\')" id="circle-friends-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:13.5px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show all ' + accepted.length + ' friends</button>';
     }
   } else if (sent.length > 0) {
     html = '<div style="font-size:11px;color:#888780;padding:8px 0">' + sent.length + ' request' + (sent.length>1?'s':'') + ' sent — waiting for them to accept.</div>';
@@ -3904,7 +3905,7 @@ function openFriendList(listData, origin) {
     el.innerHTML = '<div style="text-align:center;padding:28px 16px">'
       + '<div style="font-size:32px;margin-bottom:10px">🔒</div>'
       + '<div style="font-size:15px;font-weight:700;color:#2C2C2A;margin-bottom:6px">' + escapeHtml(friendName) + ' has blind fill on</div>'
-      + '<div style="font-size:12px;color:#5F5E5A;margin-bottom:14px">Fill out your own list first to unlock their picks.</div>'
+      + '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:14px">Fill out your own list first to unlock their picks.</div>'
       + '<button class="btn-primary" style="margin-bottom:0" onclick="selCat=\'' + cat.replace(/'/g,"\\'") + '\';selCatEmoji=\'' + emoji.replace(/'/g,"\\'") + '\';editingListIdx=-1;items=[];isRanked=true;listOrigin=\'s-friend-list\';renderCatGrid();renderItems();updateProg();go(\'s-create2\')">Fill it out now →</button>'
       + '</div>';
   } else if (items.length === 0) {
@@ -3916,7 +3917,7 @@ function openFriendList(listData, origin) {
       var itemEsc = item.replace(/'/g,"\\'").replace(/"/g,'&quot;');
       return '<div class="rank-item" style="margin-bottom:6px;cursor:pointer" onclick="openItemComments(\'' + escapeHtml(_ownerId || '') + '\',\'' + escapeHtml(_cat) + '\',\'' + itemEsc + '\')">'
         + (listData.is_ranked !== false ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>')
-        + '<span style="flex:1;font-size:12px;color:#2C2C2A">' + escapeHtml(item) + '</span>'
+        + '<span style="flex:1;font-size:13.5px;color:#2C2C2A">' + escapeHtml(item) + '</span>'
         + '<span style="font-size:14px;color:#888780;margin-left:6px">💬</span>'
         + '</div>';
     }).join('');
@@ -4099,7 +4100,7 @@ async function renderFriendDetail() {
   var headerHtml = '<div style="text-align:center;padding:12px 0 16px">'
     + avatarWrapped
     + '<div style="font-size:16px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + newBadge + '</div>'
-    + (handle ? '<div style="font-size:12px;color:#5F5E5A;margin-top:2px">' + escapeHtml(handle) + '</div>' : '')
+    + (handle ? '<div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">' + escapeHtml(handle) + '</div>' : '')
     + (since ? '<div style="font-size:10px;color:#888780;margin-top:4px">' + since + '</div>' : '')
     + '<div style="display:flex;justify-content:center;gap:20px;margin-top:12px">'
     + '<div style="text-align:center"><div id="fdetail-stat-lists" style="font-size:16px;font-weight:700;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A">Lists</div></div>'
@@ -4110,7 +4111,7 @@ async function renderFriendDetail() {
     + '</div>';
 
   // Intro note (pending inbound)
-  var noteHtml = (isPendingInbound && f.message) ? '<div class="card no-hover" style="margin-bottom:12px;background:#FFF8F6;border-color:#F4C9B8"><div style="font-size:10px;font-weight:600;color:#888780;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Their note</div><div style="font-size:12px;color:#2C2C2A;font-style:italic">“' + escapeHtml(f.message) + '”</div></div>' : '';
+  var noteHtml = (isPendingInbound && f.message) ? '<div class="card no-hover" style="margin-bottom:12px;background:#FFF8F6;border-color:#F4C9B8"><div style="font-size:10px;font-weight:600;color:#888780;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Their note</div><div style="font-size:13.5px;color:#2C2C2A;font-style:italic">“' + escapeHtml(f.message) + '”</div></div>' : '';
 
   // Mutual friends (async fill)
   var mutualHtml = '<div id="fdetail-mutual" style="display:none;margin-bottom:12px"></div>';
@@ -4118,7 +4119,7 @@ async function renderFriendDetail() {
   // Birthday chip
   var bday = formatBirthday(p.birthday);
   var infoHtml = bday ? '<div class="card no-hover" style="margin-bottom:12px;padding:2px 12px">'
-    + '<div style="display:flex;align-items:center;gap:10px;padding:10px 0"><span style="font-size:18px">🎂</span><div><div style="font-size:14px;font-weight:700;color:#2C2C2A">Birthday</div><div style="font-size:12px;color:#5F5E5A">' + bday + '</div></div></div>'
+    + '<div style="display:flex;align-items:center;gap:10px;padding:10px 0"><span style="font-size:18px">🎂</span><div><div style="font-size:14px;font-weight:700;color:#2C2C2A">Birthday</div><div style="font-size:13.5px;color:#5F5E5A">' + bday + '</div></div></div>'
     + '</div>' : '';
 
   // Match link (only when connected)
@@ -4126,7 +4127,7 @@ async function renderFriendDetail() {
     + '<div style="display:flex;align-items:center;gap:10px">'
     + '<div style="font-size:22px">📊</div>'
     + '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#993C1D">View match scores</div>'
-    + '<div style="font-size:12px;color:#5F5E5A;margin-top:2px">See how your top 10s compare</div></div>'
+    + '<div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">See how your top 10s compare</div></div>'
     + '<span style="font-size:16px;color:#D85A30">›</span></div></div>' : '';
 
   // Shared lists (loaded async)
@@ -4173,7 +4174,7 @@ async function renderFriendDetail() {
     if (!mEl) return;
     var summary = mutualSummary(names);
     if (summary) {
-      mEl.innerHTML = '<div class="card no-hover" style="background:#EAF3DE;border-color:#97C459"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:18px">🤝</span><div><div style="font-size:12px;font-weight:600;color:#3B6D11">' + names.length + ' mutual friend' + (names.length !== 1 ? 's' : '') + '</div><div style="font-size:12px;color:#5F5E5A">' + escapeHtml(summary) + '</div></div></div></div>';
+      mEl.innerHTML = '<div class="card no-hover" style="background:#EAF3DE;border-color:#97C459"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:18px">🤝</span><div><div style="font-size:12px;font-weight:600;color:#3B6D11">' + names.length + ' mutual friend' + (names.length !== 1 ? 's' : '') + '</div><div style="font-size:13.5px;color:#5F5E5A">' + escapeHtml(summary) + '</div></div></div></div>';
       mEl.style.display = 'block';
     }
   });
@@ -4207,7 +4208,7 @@ async function renderFriendDetail() {
       return '<div class="share-pick" style="cursor:pointer" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
         + '<div style="font-size:20px;width:30px;text-align:center;flex-shrink:0">' + emoji + '</div>'
         + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + escapeHtml(l.name || ('Top 10 ' + cat)) + '</div>'
-        + '<div style="font-size:12px;color:#5F5E5A">' + (l.is_ranked !== false ? 'Ranked' : 'Unranked') + ' · ' + count + ' item' + (count !== 1 ? 's' : '') + '</div></div>'
+        + '<div style="font-size:13.5px;color:#5F5E5A">' + (l.is_ranked !== false ? 'Ranked' : 'Unranked') + ' · ' + count + ' item' + (count !== 1 ? 's' : '') + '</div></div>'
         + (isMutual ? '<span class="pill pill-green">You have this</span>' : '<span class="pill" style="background:#F1EFE8;color:#5F5E5A;white-space:nowrap">Their pick</span>')
         + '<span style="font-size:16px;color:#D3D1C7;margin-left:4px">›</span>'
         + '</div>';
@@ -4228,7 +4229,7 @@ function renderCircleGroups() {
             + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
             + groupAvatarHtml(g, 38)
             + '<div style="flex:1"><div style="font-size:15px;font-weight:700;color:#2C2C2A">' + escapeHtml(g.n) + '</div>'
-            + '<div style="font-size:12px;color:#5F5E5A">You\'ve been invited to join this group</div></div></div>'
+            + '<div style="font-size:13.5px;color:#5F5E5A">You\'ve been invited to join this group</div></div></div>'
             + '<div style="display:flex;gap:8px">'
             + '<button class="btn-primary" style="flex:1;margin-bottom:0;font-size:12px;padding:8px" onclick="respondToGroupInvite(\'' + g.id + '\',true)">Accept</button>'
             + '<button class="btn-secondary" style="flex:1;margin-bottom:0;font-size:12px;padding:8px" onclick="respondToGroupInvite(\'' + g.id + '\',false)">Decline</button>'
@@ -4249,14 +4250,14 @@ function renderCircleGroups() {
       + groupAvatarHtml(g, 42)
       + '<div style="flex:1">'
       + '<div style="font-size:15px;font-weight:700;color:#2C2C2A">' + escapeHtml(g.n) + '</div>'
-      + '<div style="font-size:12px;color:#5F5E5A">' + (g.meta || '') + '</div></div>'
+      + '<div style="font-size:13.5px;color:#5F5E5A">' + (g.meta || '') + '</div></div>'
       + '<span style="font-size:16px;color:#D3D1C7">›</span>'
       + '</div>';
   });
   var groupHtml = groupRows.slice(0, GROUPS_PREVIEW).join('');
   if (MY_GROUPS.length > GROUPS_PREVIEW) {
     groupHtml += '<div id="circle-groups-extra" style="display:none">' + groupRows.slice(GROUPS_PREVIEW).join('') + '</div>'
-      + '<button onclick="toggleCircleSection(\'groups\')" id="circle-groups-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:12px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show all ' + MY_GROUPS.length + ' groups</button>';
+      + '<button onclick="toggleCircleSection(\'groups\')" id="circle-groups-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:13.5px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show all ' + MY_GROUPS.length + ' groups</button>';
   }
   el.innerHTML = groupHtml;
   updateCircleBadge();
@@ -4453,7 +4454,7 @@ function openGiftIdeas(friendId, friendListsJson) {
     var itemsHtml = items.slice(1, 3).map(function(item, i) {
       return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #F1EFE8">'
         + '<div class="rank-badge" style="font-size:10px;width:18px;height:18px;min-width:18px">' + (i+2) + '</div>'
-        + '<span style="font-size:12px;color:#2C2C2A">' + escapeHtml(item) + '</span>'
+        + '<span style="font-size:13.5px;color:#2C2C2A">' + escapeHtml(item) + '</span>'
         + '</div>';
     }).join('');
     var pluralLabel = escapeHtml(name) + '\'s Favorite ' + escapeHtml(cat);
@@ -4462,7 +4463,7 @@ function openGiftIdeas(friendId, friendListsJson) {
       + '<div style="display:flex;align-items:center;gap:10px" onclick="toggleGiftList(' + idx + ')">'
       + '<span style="font-size:20px">' + emoji + '</span>'
       + '<div style="flex:1"><div id="gift-title-' + idx + '" style="font-size:14px;font-weight:700;color:#2C2C2A">' + singularLabel + '</div>'
-      + (items[0] ? '<div style="display:flex;align-items:center;gap:6px;margin-top:2px"><div class="rank-badge" style="font-size:10px;width:18px;height:18px;min-width:18px">1</div><span style="font-size:12px;color:#5F5E5A">' + escapeHtml(items[0]) + '</span></div>' : '')
+      + (items[0] ? '<div style="display:flex;align-items:center;gap:6px;margin-top:2px"><div class="rank-badge" style="font-size:10px;width:18px;height:18px;min-width:18px">1</div><span style="font-size:13.5px;color:#5F5E5A">' + escapeHtml(items[0]) + '</span></div>' : '')
       + '</div>'
       + '<span id="gift-chevron-' + idx + '" style="font-size:14px;color:#888780;margin-left:4px;transition:transform .2s;display:inline-block">▼</span>'
       + '</div>'
@@ -4550,7 +4551,7 @@ async function renderGiftReminders() {
           var cat = l.category || (l.name || '').replace('Top 10 ', '');
           var emoji = l.emoji || getCatEmoji(cat);
           var topPick = (l.items && l.items[0]) ? l.items[0] : null;
-          return '<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#2C2C2A">'
+          return '<div style="display:flex;align-items:center;gap:8px;font-size:13.5px;color:#2C2C2A">'
             + '<span style="font-size:14px">' + emoji + '</span>'
             + '<span style="flex:1"><strong>' + escapeHtml(name) + '\'s Favorite ' + escapeHtml(singularize(cat)) + '</strong>'
             + (topPick ? ' is <span style="font-style:italic">' + escapeHtml(topPick) + '</span>' : '') + '</span>'
@@ -4583,7 +4584,7 @@ async function renderGiftReminders() {
     var extraHtml = cards.slice(GIFTS_PREVIEW).join('');
     html = previewHtml
       + '<div id="circle-gifts-extra" style="display:none">' + extraHtml + '</div>'
-      + '<button onclick="toggleCircleSection(\'gifts\')" id="circle-gifts-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:12px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show all ' + upcoming.length + ' gift reminders</button>';
+      + '<button onclick="toggleCircleSection(\'gifts\')" id="circle-gifts-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:13.5px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show all ' + upcoming.length + ' gift reminders</button>';
   }
   el.innerHTML = html;
   var homeGift = document.querySelector('#s-home .gift-card');
@@ -4933,7 +4934,7 @@ async function renderMatch() {
           + '<span style="font-size:18px;width:24px;text-align:center">' + medal + '</span>'
           + friendAvatarHtml(entry.friend.profile, 32)
           + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + fname + '</div>'
-          + '<div style="font-size:12px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
+          + '<div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
           + '<div style="font-size:18px;font-weight:700;color:#D85A30">' + entry.avg + '%</div></div>'
           + '<div class="bar-bg"><div class="bar-fill" style="width:' + entry.avg + '%"></div></div></div>';
       };
@@ -4952,7 +4953,7 @@ async function renderMatch() {
         var least = overallRanked[overallRanked.length-1];
         var mostName = (most.friend.profile && most.friend.profile.display_name) || 'Friend';
         var leastName = (least.friend.profile && least.friend.profile.display_name) || 'Friend';
-        overallHtml += '<div class="info-box" style="margin-bottom:4px"><div style="font-size:12px;color:#2C2C2A"><strong>' + mostName + '</strong> is your closest match overall · <strong>' + leastName + '</strong> is your most different</div></div>';
+        overallHtml += '<div class="info-box" style="margin-bottom:4px"><div style="font-size:13.5px;color:#2C2C2A"><strong>' + mostName + '</strong> is your closest match overall · <strong>' + leastName + '</strong> is your most different</div></div>';
       }
     }
     overallHtml += '<div class="sec-label" style="margin-top:4px">By List</div>';
@@ -4973,7 +4974,7 @@ async function renderMatch() {
         var theirItems = c.friendList.items.map(function(x){return x.toLowerCase().trim();});
         var shared = myItems.filter(function(x){return theirItems.indexOf(x)!==-1;});
         var detail = shared.length + '/' + Math.max(myItems.length, theirItems.length) + ' same picks';
-        return '<div class="card no-hover"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">' + friendAvatarHtml(c.friend.profile, 32) + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + fname + '</div><div style="font-size:12px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div><div style="font-size:18px;font-weight:700;color:#D85A30">' + c.score + '%</div></div><div class="bar-bg"><div class="bar-fill" style="width:' + c.score + '%"></div></div></div>';
+        return '<div class="card no-hover"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">' + friendAvatarHtml(c.friend.profile, 32) + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A">' + fname + '</div><div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div><div style="font-size:18px;font-weight:700;color:#D85A30">' + c.score + '%</div></div><div class="bar-bg"><div class="bar-fill" style="width:' + c.score + '%"></div></div></div>';
       };
       var sortedComps = comps.slice().sort(function(a,b){ return b.score - a.score; });
       var scoresHtml;
@@ -5130,7 +5131,7 @@ async function renderMatch() {
       }
 
       return '<div id="match-panel-' + i + '" style="display:' + (i===0?'block':'none') + '">'
-        + '<div style="font-size:12px;color:#5F5E5A;margin-bottom:12px">Top 10 ' + escapeHtml(cat) + ' · ' + comps.length + ' friend' + (comps.length>1?'s':'') + ' compared</div>'
+        + '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:12px">Top 10 ' + escapeHtml(cat) + ' · ' + comps.length + ' friend' + (comps.length>1?'s':'') + ' compared</div>'
         + '<div class="sec-label">Match Scores</div>' + scoresHtml
         + '<div class="sec-label">' + sideLabel + '</div>'
         + sideBodyHtml
@@ -5280,7 +5281,7 @@ async function renderAdminUsers(el) {
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
       +   '<div style="flex:1;min-width:0">'
       +     '<div style="font-size:14px;font-weight:700;color:#2C2C2A;word-wrap:break-word">' + escapeHtml(u.display_name || '—') + bannedTag + '</div>'
-      +     '<div style="font-size:12px;color:#5F5E5A;word-wrap:break-word">' + escapeHtml(u.email || '') + '</div>'
+      +     '<div style="font-size:13.5px;color:#5F5E5A;word-wrap:break-word">' + escapeHtml(u.email || '') + '</div>'
       +     '<div style="font-size:10px;color:#888780;margin-top:2px">' + (u.handle ? '@' + escapeHtml(u.handle) : '') + (u.handle && u.phone ? ' · ' : '') + escapeHtml(u.phone || '') + '</div>'
       +   '</div>'
       + '</div>'
@@ -5358,7 +5359,7 @@ async function renderAdminLists(el) {
       + '<div style="display:flex;justify-content:space-between;gap:8px">'
       +   '<div style="flex:1;min-width:0">'
       +     '<div style="font-size:14px;font-weight:700;color:#2C2C2A">' + escapeHtml(l.name || 'Untitled') + '</div>'
-      +     '<div style="font-size:12px;color:#5F5E5A">by ' + escapeHtml(owner.display_name || owner.email || 'unknown') + ' · ' + (l.items || []).length + ' items' + (l.is_public ? ' · public' : '') + '</div>'
+      +     '<div style="font-size:13.5px;color:#5F5E5A">by ' + escapeHtml(owner.display_name || owner.email || 'unknown') + ' · ' + (l.items || []).length + ' items' + (l.is_public ? ' · public' : '') + '</div>'
       +     '<div style="font-size:10px;color:#888780;margin-top:2px;word-wrap:break-word">' + itemsPreview + (l.items && l.items.length > 3 ? '…' : '') + '</div>'
       +   '</div>'
       + '</div>'
@@ -5423,9 +5424,9 @@ function editAdminCat(id) {
   overlay.innerHTML = ''
     + '<div style="background:#fff;border-radius:12px;padding:16px;width:100%;max-width:340px;max-height:90%;overflow-y:auto">'
     +   '<div style="font-size:15px;font-weight:700;margin-bottom:10px">' + (existing ? 'Edit category' : 'New category') + '</div>'
-    +   '<div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">Name</div>'
+    +   '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Name</div>'
     +   '<input type="text" id="ac-name" value="' + escapeHtml(_adminEditingCat.name || '') + '" placeholder="Movies, Costumes, …" style="margin-bottom:10px">'
-    +   '<div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">Icon</div>'
+    +   '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Icon</div>'
     +   '<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">'
     +     '<div id="ac-emoji-preview" style="width:52px;height:52px;border-radius:12px;background:#FAECE7;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + renderCatEmoji(_adminEmojiPreview, 30) + '</div>'
     +     '<div style="flex:1">'
@@ -5434,13 +5435,13 @@ function editAdminCat(id) {
     +     '</div>'
     +   '</div>'
     +   '<div style="font-size:10px;color:#888780;margin-bottom:12px">Emoji shows crisply at any size. Uploaded images are best as square PNGs with transparent backgrounds.</div>'
-    +   '<label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;color:#2C2C2A">'
+    +   '<label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13.5px;color:#2C2C2A">'
     +     '<input type="checkbox" id="ac-seasonal" ' + (_adminEditingCat.is_seasonal ? 'checked' : '') + ' onchange="document.getElementById(\'ac-season-range\').style.display=this.checked?\'block\':\'none\'"> Seasonal (only shows during a date range)'
     +   '</label>'
     +   '<div id="ac-season-range" style="display:' + (_adminEditingCat.is_seasonal ? 'block' : 'none') + ';margin-bottom:12px">'
     +     '<div style="display:flex;gap:6px">'
-    +       '<div style="flex:1"><div style="font-size:12px;color:#5F5E5A">Active from (MM-DD)</div><input type="text" id="ac-from" value="' + escapeHtml(_adminEditingCat.active_from || '') + '" placeholder="10-01" style="font-size:13px;margin-bottom:0"></div>'
-    +       '<div style="flex:1"><div style="font-size:12px;color:#5F5E5A">Active to (MM-DD)</div><input type="text" id="ac-to"   value="' + escapeHtml(_adminEditingCat.active_to   || '') + '" placeholder="10-31" style="font-size:13px;margin-bottom:0"></div>'
+    +       '<div style="flex:1"><div style="font-size:13.5px;color:#5F5E5A">Active from (MM-DD)</div><input type="text" id="ac-from" value="' + escapeHtml(_adminEditingCat.active_from || '') + '" placeholder="10-01" style="font-size:13px;margin-bottom:0"></div>'
+    +       '<div style="flex:1"><div style="font-size:13.5px;color:#5F5E5A">Active to (MM-DD)</div><input type="text" id="ac-to"   value="' + escapeHtml(_adminEditingCat.active_to   || '') + '" placeholder="10-31" style="font-size:13px;margin-bottom:0"></div>'
     +     '</div>'
     +   '</div>'
     +   '<div style="display:flex;gap:8px;margin-top:6px">'
@@ -5553,7 +5554,7 @@ async function renderAdminItems(el) {
       + '</div>';
   }).join('');
   el.innerHTML = '<div style="padding:12px">'
-    + '<div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">Category</div>'
+    + '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Category</div>'
     + '<select onchange="_adminSelectedCatId=this.value;renderAdmin()" style="margin-bottom:10px;font-size:13px;padding:6px 8px">' + opts + '</select>'
     + '<div style="display:flex;gap:6px;margin-bottom:6px">'
     + '<input type="text" id="admin-new-item" placeholder="New item text…" style="flex:1;margin-bottom:0;font-size:13px">'
@@ -5590,8 +5591,8 @@ function openBulkAddItems() {
   overlay.innerHTML = ''
     + '<div style="background:#fff;border-radius:12px;padding:16px;width:100%;max-width:340px;max-height:90%;overflow-y:auto">'
     +   '<div style="font-size:15px;font-weight:700;margin-bottom:4px">Bulk add items</div>'
-    +   '<div style="font-size:12px;color:#5F5E5A;margin-bottom:10px">Adding to <strong>' + escapeHtml(catName) + '</strong></div>'
-    +   '<div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">Paste one item per line</div>'
+    +   '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:10px">Adding to <strong>' + escapeHtml(catName) + '</strong></div>'
+    +   '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Paste one item per line</div>'
     +   '<textarea id="bulk-add-text" placeholder="The Godfather&#10;The Dark Knight&#10;Inception&#10;…" style="width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;height:180px;margin-bottom:8px"></textarea>'
     +   '<div style="font-size:10px;color:#888780;text-align:center;margin:6px 0">— or —</div>'
     +   '<label class="btn-secondary" style="display:block;text-align:center;padding:9px;font-size:12px;cursor:pointer;margin-bottom:12px">Upload CSV / text file<input type="file" accept=".csv,.txt,text/*" onchange="onBulkAddFile(this)" style="display:none"></label>'
@@ -5677,16 +5678,16 @@ function openTmdbImport() {
   overlay.innerHTML = ''
     + '<div style="background:#fff;border-radius:12px;padding:16px;width:100%;max-width:340px;max-height:90%;overflow-y:auto">'
     +   '<div style="font-size:15px;font-weight:700;margin-bottom:4px">Import from TMDB</div>'
-    +   '<div style="font-size:12px;color:#5F5E5A;margin-bottom:10px">Adding to <strong>' + escapeHtml(catName) + '</strong></div>'
-    +   '<div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">TMDB API key (v3)</div>'
+    +   '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:10px">Adding to <strong>' + escapeHtml(catName) + '</strong></div>'
+    +   '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">TMDB API key (v3)</div>'
     +   '<input type="text" id="tmdb-key" value="' + escapeHtml(savedKey) + '" placeholder="Paste your free API key" style="margin-bottom:4px;font-size:12px;padding:6px 8px">'
     +   '<div style="font-size:10px;color:#888780;margin-bottom:10px">Get one free at <a href="https://www.themoviedb.org/settings/api" target="_blank" style="color:#D85A30">themoviedb.org/settings/api</a>. Saved locally for next time.</div>'
-    +   '<div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">Content type</div>'
+    +   '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Content type</div>'
     +   '<select id="tmdb-type" style="margin-bottom:10px;font-size:13px;padding:6px 8px">'
     +     '<option value="movie">Movies</option>'
     +     '<option value="tv">TV Shows</option>'
     +   '</select>'
-    +   '<div style="font-size:12px;color:#5F5E5A;margin-bottom:3px">How many to import (approx.)</div>'
+    +   '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">How many to import (approx.)</div>'
     +   '<select id="tmdb-count" style="margin-bottom:10px;font-size:13px;padding:6px 8px">'
     +     '<option value="500">Top 500 (fast, ~5s)</option>'
     +     '<option value="1000" selected>Top 1,000 (~15s)</option>'
@@ -5696,7 +5697,7 @@ function openTmdbImport() {
     +   '</select>'
     +   '<label style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:12px"><input type="checkbox" id="tmdb-skip-adult" checked> Skip adult content</label>'
     +   '<label style="display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:12px"><input type="checkbox" id="tmdb-dedupe" checked> Skip items already in this category</label>'
-    +   '<div id="tmdb-progress" style="display:none;font-size:12px;color:#5F5E5A;margin-bottom:8px;padding:8px;background:#F7F6F2;border-radius:6px"></div>'
+    +   '<div id="tmdb-progress" style="display:none;font-size:13.5px;color:#5F5E5A;margin-bottom:8px;padding:8px;background:#F7F6F2;border-radius:6px"></div>'
     +   '<div style="display:flex;gap:8px">'
     +     '<button class="btn-secondary" onclick="closeTmdbImportModal()" style="margin-bottom:0">Cancel</button>'
     +     '<button class="btn-primary"   id="tmdb-import-btn" onclick="runTmdbImport()" style="margin-bottom:0">Start import</button>'
@@ -5847,7 +5848,7 @@ async function renderAdminFeedback(el) {
       + '<span>' + escapeHtml(f.user_email || 'anonymous') + ' · ' + escapeHtml(f.category || '') + '</span>'
       + '<span style="color:' + statusColor + ';font-weight:600">' + escapeHtml(f.status || 'new') + '</span>'
       + '</div>'
-      + '<div style="font-size:12px;color:#2C2C2A;white-space:pre-wrap">' + escapeHtml(f.message) + '</div>'
+      + '<div style="font-size:13.5px;color:#2C2C2A;white-space:pre-wrap">' + escapeHtml(f.message) + '</div>'
       + '<div style="font-size:9px;color:#888780;margin-top:4px">' + escapeHtml(when) + '</div>'
       + '<div style="display:flex;gap:4px;margin-top:6px">'
       + '<button class="back-btn" onclick="setFeedbackStatus(\'' + f.id + '\',\'in_progress\')">Working on it</button>'
