@@ -5283,7 +5283,7 @@ function sendUserPasswordReset(email) {
 // --- Lists tab ---
 var _adminListSearch = '';
 async function renderAdminLists(el) {
-  var res = await sbClient.from('lists').select('id, name, category, items, user_id, is_public, created_at, updated_at').order('created_at', {ascending:false}).limit(300);
+  var res = await sbClient.from('lists').select('id, name, category, items, user_id, is_public, updated_at').order('updated_at', {ascending:false}).limit(300);
   if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(res.error.message) + '</div>'; return; }
   var lists = res.data || [];
   // Enrich with owner names
