@@ -5263,7 +5263,7 @@ function onAdminEmojiText(val) {
 function onAdminEmojiUpload(input) {
   var f = input.files && input.files[0];
   if (!f) return;
-  if (f.size > 500 * 1024) { alert('Image too large. Please use one under 500 KB.'); input.value = ''; return; }
+  if (f.size > 10 * 1024 * 1024) { alert('Image too large. Please use one under 10 MB.'); input.value = ''; return; }
   var reader = new FileReader();
   reader.onload = function(e) {
     // Resize to max 128×128 to keep the data URL small
