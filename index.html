@@ -2619,7 +2619,7 @@ async function renderGroupDetail() {
         : '';
       return '<div class="card share-pick" style="margin-bottom:6px;cursor:pointer" onclick="openGroupListDetail(\'' + cat.replace(/'/g,"\\'") + '\')">'
         + '<div style="display:flex;align-items:center;gap:10px">'
-        + '<div style="font-size:22px">' + getCatEmoji(cat) + '</div>'
+        + '<div style="width:26px;display:flex;align-items:center;justify-content:center">' + renderCatEmoji(getCatEmoji(cat), 22) + '</div>'
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Top 10 ' + escapeHtml(cat) + '</div>'
         + '<div style="font-size:10px;color:#5F5E5A">Shared by ' + escapeHtml(nameForId(sl.shared_by)) + ' · ' + filled.length + ' of ' + totalMembers + ' filled out' + (iFilled ? '' : ' · not yet yours') + '</div></div>'
         + btn
