@@ -760,10 +760,12 @@
           <span style="font-size:12px;font-weight:600;color:#2C2C2A">Admin</span>
           <span style="width:60px"></span>
         </div>
-        <div style="display:flex;border-bottom:1px solid #E5E3DC;background:#FAF8F5">
-          <button id="admin-tab-cats"     onclick="switchAdminTab('cats')"     style="flex:1;padding:10px 0;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#D85A30;border-bottom:2px solid #D85A30">Categories</button>
-          <button id="admin-tab-items"    onclick="switchAdminTab('items')"    style="flex:1;padding:10px 0;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Items</button>
-          <button id="admin-tab-feedback" onclick="switchAdminTab('feedback')" style="flex:1;padding:10px 0;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Feedback</button>
+        <div style="display:flex;border-bottom:1px solid #E5E3DC;background:#FAF8F5;overflow-x:auto">
+          <button id="admin-tab-cats"     onclick="switchAdminTab('cats')"     style="flex:1;min-width:70px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#D85A30;border-bottom:2px solid #D85A30">Categories</button>
+          <button id="admin-tab-items"    onclick="switchAdminTab('items')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Items</button>
+          <button id="admin-tab-users"    onclick="switchAdminTab('users')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Users</button>
+          <button id="admin-tab-lists"    onclick="switchAdminTab('lists')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Lists</button>
+          <button id="admin-tab-feedback" onclick="switchAdminTab('feedback')" style="flex:1;min-width:70px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Feedback</button>
         </div>
         <div class="content" id="admin-content"></div>
       </div>
@@ -4661,10 +4663,28 @@ async function checkAdminStatus() {
   } catch (e) { IS_ADMIN = false; }
 }
 
+async function checkIfBanned() {
+  if (!sbClient || !userId) return false;
+  try {
+    var res = await sbClient.from('profiles').select('is_banned, banned_reason').eq('id', userId).maybeSingle();
+    if (res.data && res.data.is_banned) {
+      var reason = res.data.banned_reason ? '\n\nReason: ' + res.data.banned_reason : '';
+      alert('Your account has been suspended.' + reason + '\n\nContact burkebess@gmail.com if you believe this is a mistake.');
+      await sbClient.auth.signOut();
+      location.reload();
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
 async function loadState() {
   if (sbClient && userId) {
     try {
       console.time('loadState:total');
+      // Ban check runs first — if banned, this signs the user out and reloads
+      var banned = await checkIfBanned();
+      if (banned) return;
       // Kick off admin + categories fetch in the background (don't block main data)
       checkAdminStatus();
       loadCategoriesFromDb();
@@ -5171,7 +5191,7 @@ async function submitFeedback() {
 
 function switchAdminTab(tab) {
   _adminTab = tab;
-  ['cats','items','feedback'].forEach(function(t) {
+  ['cats','items','users','lists','feedback'].forEach(function(t) {
     var b = document.getElementById('admin-tab-' + t);
     if (!b) return;
     if (t === tab) { b.style.color = '#D85A30'; b.style.borderBottomColor = '#D85A30'; }
@@ -5187,7 +5207,141 @@ async function renderAdmin() {
   el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
   if (_adminTab === 'cats') return renderAdminCats(el);
   if (_adminTab === 'items') return renderAdminItems(el);
+  if (_adminTab === 'users') return renderAdminUsers(el);
+  if (_adminTab === 'lists') return renderAdminLists(el);
   if (_adminTab === 'feedback') return renderAdminFeedback(el);
+}
+
+// --- Users tab ---
+var _adminUserSearch = '';
+async function renderAdminUsers(el) {
+  var q = sbClient.from('profiles').select('id, email, display_name, handle, phone, is_banned, banned_at, banned_reason, created_at').order('created_at', {ascending:false}).limit(200);
+  var res = await q;
+  if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(res.error.message) + '</div>'; return; }
+  var all = res.data || [];
+  var term = (_adminUserSearch || '').toLowerCase();
+  var users = term ? all.filter(function(u) {
+    return (u.email || '').toLowerCase().indexOf(term) >= 0
+        || (u.display_name || '').toLowerCase().indexOf(term) >= 0
+        || (u.handle || '').toLowerCase().indexOf(term) >= 0;
+  }) : all;
+  var rows = users.map(function(u) {
+    var bannedTag = u.is_banned ? '<span style="font-size:9px;background:#F5C4B3;color:#712B13;padding:2px 6px;border-radius:99px;margin-left:6px">Banned</span>' : '';
+    return '<div class="card no-hover" style="margin-bottom:8px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+      +   '<div style="flex:1;min-width:0">'
+      +     '<div style="font-size:12px;font-weight:600;color:#2C2C2A;word-wrap:break-word">' + escapeHtml(u.display_name || '—') + bannedTag + '</div>'
+      +     '<div style="font-size:10px;color:#5F5E5A;word-wrap:break-word">' + escapeHtml(u.email || '') + '</div>'
+      +     '<div style="font-size:10px;color:#888780;margin-top:2px">' + (u.handle ? '@' + escapeHtml(u.handle) : '') + (u.handle && u.phone ? ' · ' : '') + escapeHtml(u.phone || '') + '</div>'
+      +   '</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">'
+      +   (u.is_banned
+          ? '<button class="back-btn" onclick="unbanUser(\'' + u.id + '\')">Unban</button>'
+          : '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="banUser(\'' + u.id + '\',\'' + escapeHtml(u.display_name||u.email||'').replace(/\'/g,"\\'") + '\')">Ban</button>')
+      +   '<button class="back-btn" onclick="sendUserPasswordReset(\'' + escapeHtml(u.email||'').replace(/\'/g,"\\'") + '\')">Send password reset</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+  el.innerHTML = '<div style="padding:12px">'
+    + '<input type="text" placeholder="Search by name, email, or handle" value="' + escapeHtml(_adminUserSearch) + '" oninput="_adminUserSearch=this.value;renderAdmin()" style="margin-bottom:10px;font-size:12px;padding:6px 8px">'
+    + '<div style="font-size:10px;color:#888780;margin-bottom:8px">' + users.length + ' of ' + all.length + ' users</div>'
+    + (rows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No users match.</div>')
+    + '</div>';
+}
+
+function banUser(uid, name) {
+  var reason = prompt('Reason for banning ' + name + ' (optional):', '');
+  if (reason === null) return;
+  sbClient.from('profiles').update({ is_banned: true, banned_at: new Date().toISOString(), banned_reason: reason || null }).eq('id', uid).then(function(r) {
+    if (r.error) { alert('Error: ' + r.error.message); return; }
+    showToast('User banned');
+    renderAdmin();
+  });
+}
+
+function unbanUser(uid) {
+  showConfirm('Unban this user?', 'They will regain access on next reload.', 'Unban', 'primary', function() {
+    sbClient.from('profiles').update({ is_banned: false, banned_at: null, banned_reason: null }).eq('id', uid).then(function(r) {
+      if (r.error) { alert('Error: ' + r.error.message); return; }
+      showToast('User unbanned');
+      renderAdmin();
+    });
+  });
+}
+
+function sendUserPasswordReset(email) {
+  if (!email) { alert('No email on file for this user.'); return; }
+  showConfirm('Send password reset link?', 'An email will be sent to ' + email + ' with a link to set a new password.', 'Send', 'primary', function() {
+    sbClient.auth.resetPasswordForEmail(email).then(function(r) {
+      if (r.error) { alert('Error: ' + r.error.message); return; }
+      showToast('Reset link sent to ' + email);
+    });
+  });
+}
+
+// --- Lists tab ---
+var _adminListSearch = '';
+async function renderAdminLists(el) {
+  var res = await sbClient.from('lists').select('id, name, category, items, user_id, is_public, created_at, updated_at').order('created_at', {ascending:false}).limit(300);
+  if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(res.error.message) + '</div>'; return; }
+  var lists = res.data || [];
+  // Enrich with owner names
+  var userIds = Array.from(new Set(lists.map(function(l){return l.user_id;}).filter(Boolean)));
+  var profilesMap = {};
+  if (userIds.length) {
+    var pr = await sbClient.from('profiles').select('id, display_name, email, handle').in('id', userIds);
+    (pr.data || []).forEach(function(p) { profilesMap[p.id] = p; });
+  }
+  var term = (_adminListSearch || '').toLowerCase();
+  var filtered = term ? lists.filter(function(l) {
+    var owner = profilesMap[l.user_id] || {};
+    return (l.name || '').toLowerCase().indexOf(term) >= 0
+        || (l.category || '').toLowerCase().indexOf(term) >= 0
+        || (owner.email || '').toLowerCase().indexOf(term) >= 0
+        || (owner.display_name || '').toLowerCase().indexOf(term) >= 0
+        || (l.items || []).some(function(it){ return (it||'').toLowerCase().indexOf(term) >= 0; });
+  }) : lists;
+  var rows = filtered.map(function(l) {
+    var owner = profilesMap[l.user_id] || {};
+    var itemsPreview = (l.items || []).slice(0, 3).map(function(x, i){ return (i+1) + '. ' + escapeHtml(x); }).join(' · ');
+    return '<div class="card no-hover" style="margin-bottom:8px">'
+      + '<div style="display:flex;justify-content:space-between;gap:8px">'
+      +   '<div style="flex:1;min-width:0">'
+      +     '<div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(l.name || 'Untitled') + '</div>'
+      +     '<div style="font-size:10px;color:#5F5E5A">by ' + escapeHtml(owner.display_name || owner.email || 'unknown') + ' · ' + (l.items || []).length + ' items' + (l.is_public ? ' · public' : '') + '</div>'
+      +     '<div style="font-size:10px;color:#888780;margin-top:2px;word-wrap:break-word">' + itemsPreview + (l.items && l.items.length > 3 ? '…' : '') + '</div>'
+      +   '</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:4px;margin-top:8px">'
+      +   '<button class="back-btn" onclick="viewAdminListDetail(\'' + l.id + '\')">View all items</button>'
+      +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminList(\'' + l.id + '\',\'' + escapeHtml(l.name||'').replace(/\'/g,"\\'") + '\')">Delete</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+  el.innerHTML = '<div style="padding:12px">'
+    + '<input type="text" placeholder="Search by list name, category, owner, or item" value="' + escapeHtml(_adminListSearch) + '" oninput="_adminListSearch=this.value;renderAdmin()" style="margin-bottom:10px;font-size:12px;padding:6px 8px">'
+    + '<div style="font-size:10px;color:#888780;margin-bottom:8px">' + filtered.length + ' of ' + lists.length + ' lists</div>'
+    + (rows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No lists match.</div>')
+    + '</div>';
+}
+
+async function viewAdminListDetail(id) {
+  var res = await sbClient.from('lists').select('*').eq('id', id).maybeSingle();
+  if (res.error || !res.data) { alert('Could not load list.'); return; }
+  var l = res.data;
+  var body = (l.items || []).map(function(x, i){ return (i+1) + '. ' + x; }).join('\n');
+  alert(l.name + '\n\n' + body);
+}
+
+function deleteAdminList(id, name) {
+  showConfirm('Delete list "' + (name || 'Untitled') + '"?', 'This permanently removes the list from the owner\'s account. This cannot be undone.', 'Delete', 'danger', function() {
+    sbClient.from('lists').delete().eq('id', id).then(function(r) {
+      if (r.error) { alert('Error: ' + r.error.message); return; }
+      showToast('List deleted');
+      renderAdmin();
+    });
+  });
 }
 
 async function renderAdminCats(el) {
