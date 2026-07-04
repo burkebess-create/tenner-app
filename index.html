@@ -4792,6 +4792,20 @@ async function loadGroupPhotos(gids) {
   } catch(e) { console.warn('Group photo load failed', e); }
 }
 
+var _matchOverallExpanded = false;
+function toggleMatchOverall() {
+  _matchOverallExpanded = !_matchOverallExpanded;
+  var more = document.getElementById('match-overall-more');
+  var btn  = document.getElementById('match-overall-toggle');
+  if (more) more.style.display = _matchOverallExpanded ? 'block' : 'none';
+  if (btn) {
+    var totalMatch = /Show all (\d+)/.exec(btn.textContent) || /Show top 3 only/.exec(btn.textContent);
+    // Determine full count from the DOM
+    var full = document.querySelectorAll('#match-overall-more .card').length + 3;
+    btn.textContent = _matchOverallExpanded ? 'Show top 3 only' : 'Show all ' + full;
+  }
+}
+
 async function renderMatch() {
   var el = document.getElementById('match-screen-content');
   if (!el) return;
@@ -4899,7 +4913,10 @@ async function renderMatch() {
     if (overallRanked.length === 0) {
       overallHtml += '<div style="font-size:11px;color:#888780;padding:8px 0">No shared lists yet.</div>';
     } else {
-      overallHtml += overallRanked.map(function(entry, rank) {
+      // On the global Match tab (no friend/group context) collapse to top 3 by default
+      var globalMatchTab = !friendCtx && groupCtx < 0;
+      var collapseCount = 3;
+      var renderEntry = function(entry, rank) {
         var fname = (entry.friend.profile && entry.friend.profile.display_name) || (entry.friend.profile && entry.friend.profile.handle ? '@'+entry.friend.profile.handle : 'Friend');
         var medals = ['🥇','🥈','🥉'];
         var medal = medals[rank] || '';
@@ -4911,7 +4928,17 @@ async function renderMatch() {
           + '<div style="font-size:10px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
           + '<div style="font-size:18px;font-weight:700;color:#D85A30">' + entry.avg + '%</div></div>'
           + '<div class="bar-bg"><div class="bar-fill" style="width:' + entry.avg + '%"></div></div></div>';
-      }).join('');
+      };
+      if (globalMatchTab && overallRanked.length > collapseCount) {
+        var visible = overallRanked.slice(0, collapseCount).map(renderEntry).join('');
+        var hidden = overallRanked.slice(collapseCount).map(function(e, i) { return renderEntry(e, i + collapseCount); }).join('');
+        var startExpanded = !!_matchOverallExpanded;
+        overallHtml += visible;
+        overallHtml += '<div id="match-overall-more" style="display:' + (startExpanded ? 'block' : 'none') + '">' + hidden + '</div>';
+        overallHtml += '<button id="match-overall-toggle" onclick="toggleMatchOverall()" class="btn-secondary" style="margin-bottom:8px">' + (startExpanded ? 'Show top 3 only' : 'Show all ' + overallRanked.length) + '</button>';
+      } else {
+        overallHtml += overallRanked.map(renderEntry).join('');
+      }
       if (overallRanked.length >= 2) {
         var most = overallRanked[0];
         var least = overallRanked[overallRanked.length-1];
