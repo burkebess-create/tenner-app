@@ -58,7 +58,9 @@
   }
   @media (hover: none) and (pointer: coarse) {
     html, body { overflow: hidden; overscroll-behavior: none; }
-    body { padding: 0; background: #fff; align-items: flex-start; width: 100vw; }
+    body { padding: 0; background: #fff; align-items: flex-start; width: 100vw; min-height: 100dvh; }
+    .outer { align-items: stretch; min-height: 100dvh; }
+    .phone-wrap { flex: 1; }
     .phone { width: 100vw; border-radius: 0; padding: 0; box-shadow: none; background: transparent; }
     .phone::before, .phone::after { display: none; }
     .frame { border-radius: 0; height: 100dvh; max-height: none; }
