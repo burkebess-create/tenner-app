@@ -733,7 +733,39 @@
           <button class="btn-primary" onclick="saveProfile()" style="margin-top:10px">Save profile</button>
           <div id="profile-save-msg" style="display:none;font-size:11px;color:#27500A;background:#EAF3DE;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #97C459">Profile saved!</div>
 
+          <div class="sec-label" style="margin-top:16px">Feedback</div>
+          <div class="card no-hover" style="margin-bottom:12px">
+            <div style="font-size:11px;color:#5F5E5A;margin-bottom:8px">Found a bug or have an idea? Let us know.</div>
+            <select id="feedback-category" style="margin-bottom:6px;font-size:12px;padding:6px 8px">
+              <option value="idea">Idea / suggestion</option>
+              <option value="bug">Bug report</option>
+              <option value="other">Other</option>
+            </select>
+            <textarea id="feedback-message" placeholder="Tell us what's on your mind…" maxlength="1000" style="width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;resize:none;height:80px;margin-bottom:6px"></textarea>
+            <button class="btn-primary" onclick="submitFeedback()" style="margin-bottom:0">Submit feedback</button>
+          </div>
+
+          <div id="profile-admin-section" style="display:none">
+            <div class="sec-label" style="margin-top:16px">Admin</div>
+            <button class="btn-secondary" onclick="go('s-admin')" style="margin-bottom:0">Open admin panel</button>
+          </div>
+
         </div>
+      </div>
+
+      <!-- ═══ ADMIN ═══ -->
+      <div class="screen" id="s-admin">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-profile')">← Back</button>
+          <span style="font-size:12px;font-weight:600;color:#2C2C2A">Admin</span>
+          <span style="width:60px"></span>
+        </div>
+        <div style="display:flex;border-bottom:1px solid #E5E3DC;background:#FAF8F5">
+          <button id="admin-tab-cats"     onclick="switchAdminTab('cats')"     style="flex:1;padding:10px 0;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#D85A30;border-bottom:2px solid #D85A30">Categories</button>
+          <button id="admin-tab-items"    onclick="switchAdminTab('items')"    style="flex:1;padding:10px 0;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Items</button>
+          <button id="admin-tab-feedback" onclick="switchAdminTab('feedback')" style="flex:1;padding:10px 0;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Feedback</button>
+        </div>
+        <div class="content" id="admin-content"></div>
       </div>
 
       <!-- GLOBAL BOTTOM NAV -->
@@ -807,11 +839,17 @@
 </div><!-- end outer -->
 
 <script>
+var ADMIN_EMAILS = ['burkebess@gmail.com'];
+var IS_ADMIN = false;  // set after login/DB check
+var DB_CATS_LOADED = false; // set true after remote fetch succeeds
+function isAdmin() { return IS_ADMIN; }
 var CATS = [
   {n:'Movies',e:'🎬'},{n:'Candy Bars',e:'🍫'},{n:'Travel',e:'✈️'},
   {n:'TV Shows',e:'📺'},{n:'Restaurants',e:'🍽️'},{n:'Sodas',e:'🥤'},
   {n:'Songs',e:'🎵'},{n:'Books',e:'📚'}
 ];
+// Full DB-backed category records (for admin editing). Not used by the app rendering path directly.
+var CATS_FULL = [];
 var ITEMS = {
   'Movies':['The Godfather','The Dark Knight','Inception','Interstellar','Pulp Fiction','Forrest Gump','The Shawshank Redemption','Goodfellas','The Matrix','Fight Club','Titanic','Avengers: Endgame','Jurassic Park','Star Wars'],
   'Candy Bars':['Snickers','Reese\'s Peanut Butter Cups','Kit Kat','Butterfinger','Twix','M&Ms','Milky Way','Mars Bar','Baby Ruth','Crunch Bar','Almond Joy','100 Grand'],
@@ -972,6 +1010,7 @@ function go(id) {
   if (id === 's-circle') { renderCircleScreen(); renderGiftReminders(); }
   if (id === 's-notifications') { loadListShareInvites().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
+  if (id === 's-admin') { renderAdmin(); }
 }
 
 function formatPhoneInput(input) {
@@ -3160,6 +3199,10 @@ function onSignedIn(session) {
 
 async function loadProfile() {
   if (!sbClient || !userId) return;
+  // Refresh admin flag & show/hide admin section
+  await checkAdminStatus();
+  var adminSec = document.getElementById('profile-admin-section');
+  if (adminSec) adminSec.style.display = IS_ADMIN ? 'block' : 'none';
   try {
     var res = await sbClient.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (res.data) myProfile = res.data;
@@ -4576,10 +4619,55 @@ async function saveListToDb(listObj) {
   } catch(e) { console.warn('List save to DB failed', e); throw e; }
 }
 
+async function loadCategoriesFromDb() {
+  if (!sbClient || !userId) return;
+  try {
+    var res = await sbClient.from('categories').select('*').order('sort_order');
+    if (res.error || !res.data || res.data.length === 0) return;
+    var itemsRes = await sbClient.from('category_items').select('*').order('sort_order');
+    if (itemsRes.error) return;
+    var itemsByCat = {};
+    (itemsRes.data || []).forEach(function(it) {
+      (itemsByCat[it.category_id] = itemsByCat[it.category_id] || []).push(it);
+    });
+    CATS_FULL = res.data;
+    // Filter to active (seasonal date range check)
+    var today = new Date();
+    var mmdd = String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var active = res.data.filter(function(c) {
+      if (!c.is_seasonal) return true;
+      if (!c.active_from || !c.active_to) return true;
+      // Handle year-wrap ranges (e.g. Dec-Jan)
+      if (c.active_from <= c.active_to) {
+        return mmdd >= c.active_from && mmdd <= c.active_to;
+      }
+      return mmdd >= c.active_from || mmdd <= c.active_to;
+    });
+    CATS = active.map(function(c) { return { n: c.name, e: c.emoji }; });
+    ITEMS = {};
+    active.forEach(function(c) {
+      var arr = (itemsByCat[c.id] || []).map(function(it) { return it.item_text; });
+      ITEMS[c.name] = arr;
+    });
+    DB_CATS_LOADED = true;
+  } catch (e) { console.warn('loadCategoriesFromDb failed', e); }
+}
+
+async function checkAdminStatus() {
+  if (!sbClient || !userId) { IS_ADMIN = false; return; }
+  try {
+    var res = await sbClient.from('admins').select('user_id').eq('user_id', userId).maybeSingle();
+    IS_ADMIN = !!(res.data);
+  } catch (e) { IS_ADMIN = false; }
+}
+
 async function loadState() {
   if (sbClient && userId) {
     try {
       console.time('loadState:total');
+      // Kick off admin + categories fetch in the background (don't block main data)
+      checkAdminStatus();
+      loadCategoriesFromDb();
       // Run the independent lists + group-membership queries in parallel
       console.time('loadState:lists+memberships');
       var results = await Promise.all([
@@ -5041,6 +5129,192 @@ function showMatchTab(btn, cat) {
 // Each shared item earns 8 points just for being on both lists, plus up to
 // 2 more points based on how close the two rankings are. Same rank = +2,
 // opposite ends of the list (#1 vs #10) = +0. Score is the total, capped at 100.
+// ═══════════════════════════════════════════════════════════════
+// ADMIN + FEEDBACK
+// ═══════════════════════════════════════════════════════════════
+
+var _adminTab = 'cats';
+var _adminSelectedCatId = null;
+
+async function submitFeedback() {
+  if (!sbClient || !userId) { showToast('You must be signed in.'); return; }
+  var msg = (document.getElementById('feedback-message').value || '').trim();
+  var cat = document.getElementById('feedback-category').value || 'other';
+  if (!msg) { showToast('Please enter a message.'); return; }
+  try {
+    var email = (myProfile && myProfile.email) || '';
+    if (!email) {
+      var u = await sbClient.auth.getUser();
+      email = (u.data && u.data.user && u.data.user.email) || '';
+    }
+    var res = await sbClient.from('feedback').insert({ user_id: userId, user_email: email, message: msg, category: cat });
+    if (res.error) throw res.error;
+    document.getElementById('feedback-message').value = '';
+    showToast('Thanks — feedback sent! 💌');
+  } catch (e) {
+    console.warn(e);
+    showToast('Could not send feedback. Try again.');
+  }
+}
+
+function switchAdminTab(tab) {
+  _adminTab = tab;
+  ['cats','items','feedback'].forEach(function(t) {
+    var b = document.getElementById('admin-tab-' + t);
+    if (!b) return;
+    if (t === tab) { b.style.color = '#D85A30'; b.style.borderBottomColor = '#D85A30'; }
+    else           { b.style.color = '#888780'; b.style.borderBottomColor = 'transparent'; }
+  });
+  renderAdmin();
+}
+
+async function renderAdmin() {
+  var el = document.getElementById('admin-content');
+  if (!el) return;
+  if (!IS_ADMIN) { el.innerHTML = '<div style="padding:20px;text-align:center;color:#888">Not authorized.</div>'; return; }
+  el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
+  if (_adminTab === 'cats') return renderAdminCats(el);
+  if (_adminTab === 'items') return renderAdminItems(el);
+  if (_adminTab === 'feedback') return renderAdminFeedback(el);
+}
+
+async function renderAdminCats(el) {
+  var res = await sbClient.from('categories').select('*').order('sort_order');
+  if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">Error: ' + escapeHtml(res.error.message) + '</div>'; return; }
+  var rows = (res.data || []).map(function(c) {
+    var seasonBadge = c.is_seasonal ? '<span style="font-size:9px;background:#FAECE7;color:#993C1D;padding:2px 6px;border-radius:99px;margin-left:6px">Seasonal ' + escapeHtml(c.active_from || '?') + ' → ' + escapeHtml(c.active_to || '?') + '</span>' : '';
+    return '<div class="card no-hover" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+      + '<div><span style="font-size:18px;margin-right:6px">' + escapeHtml(c.emoji||'📋') + '</span><strong style="font-size:13px">' + escapeHtml(c.name) + '</strong>' + seasonBadge + '</div>'
+      + '<div><button class="back-btn" onclick="editAdminCat(\'' + c.id + '\')" style="margin-right:4px">Edit</button>'
+      + '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')">Delete</button></div>'
+      + '</div>';
+  }).join('');
+  el.innerHTML = '<div style="padding:12px">'
+    + '<button class="btn-primary" onclick="editAdminCat(null)" style="margin-bottom:12px">+ New category</button>'
+    + (rows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No categories yet.</div>')
+    + '</div>';
+}
+
+function editAdminCat(id) {
+  var existing = id ? (CATS_FULL || []).find(function(c){ return c.id === id; }) : null;
+  var name  = prompt('Category name:', existing ? existing.name : ''); if (name === null) return;
+  name = name.trim(); if (!name) return;
+  var emoji = prompt('Emoji:', existing ? existing.emoji : '📋'); if (emoji === null) return;
+  emoji = emoji.trim() || '📋';
+  var seasonal = confirm('Is this a seasonal category (only show during a specific date range)?');
+  var active_from = null, active_to = null;
+  if (seasonal) {
+    active_from = prompt('Start date (MM-DD, e.g. 10-01 for Oct 1):', existing ? (existing.active_from || '') : '');
+    active_to   = prompt('End date (MM-DD, e.g. 10-31 for Oct 31):',   existing ? (existing.active_to   || '') : '');
+    if (!active_from || !active_to) { alert('Both dates required.'); return; }
+  }
+  var payload = { name: name, emoji: emoji, is_seasonal: seasonal, active_from: active_from, active_to: active_to };
+  var q = id
+    ? sbClient.from('categories').update(payload).eq('id', id)
+    : sbClient.from('categories').insert(payload);
+  q.then(function(r) {
+    if (r.error) { alert('Error: ' + r.error.message); return; }
+    showToast('Saved');
+    loadCategoriesFromDb().then(renderAdmin);
+  });
+}
+
+function deleteAdminCat(id, name) {
+  showConfirm('Delete "' + name + '"?', 'This removes the category and all of its autofill items. Existing user lists in this category are NOT deleted.', 'Delete', 'danger', function() {
+    sbClient.from('categories').delete().eq('id', id).then(function(r) {
+      if (r.error) { alert('Error: ' + r.error.message); return; }
+      showToast('Deleted');
+      loadCategoriesFromDb().then(renderAdmin);
+    });
+  });
+}
+
+async function renderAdminItems(el) {
+  // Pick a category
+  var cats = CATS_FULL.length ? CATS_FULL : (await sbClient.from('categories').select('*').order('sort_order')).data || [];
+  CATS_FULL = cats;
+  if (!_adminSelectedCatId && cats.length) _adminSelectedCatId = cats[0].id;
+  var opts = cats.map(function(c) {
+    return '<option value="' + c.id + '"' + (c.id === _adminSelectedCatId ? ' selected' : '') + '>' + escapeHtml(c.emoji + ' ' + c.name) + '</option>';
+  }).join('');
+  var itemsRes = await sbClient.from('category_items').select('*').eq('category_id', _adminSelectedCatId).order('sort_order');
+  if (itemsRes.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(itemsRes.error.message) + '</div>'; return; }
+  var itemRows = (itemsRes.data || []).map(function(it) {
+    return '<div class="card no-hover" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding:8px 10px">'
+      + '<span style="font-size:12px">' + escapeHtml(it.item_text) + '</span>'
+      + '<div><button class="back-btn" onclick="editAdminItem(\'' + it.id + '\')" style="margin-right:4px">Edit</button>'
+      + '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminItem(\'' + it.id + '\')">×</button></div>'
+      + '</div>';
+  }).join('');
+  el.innerHTML = '<div style="padding:12px">'
+    + '<div style="font-size:10px;color:#5F5E5A;margin-bottom:3px">Category</div>'
+    + '<select onchange="_adminSelectedCatId=this.value;renderAdmin()" style="margin-bottom:10px;font-size:13px;padding:6px 8px">' + opts + '</select>'
+    + '<div style="display:flex;gap:6px;margin-bottom:10px">'
+    + '<input type="text" id="admin-new-item" placeholder="New item text…" style="flex:1;margin-bottom:0;font-size:13px">'
+    + '<button class="btn-primary" style="width:auto;padding:9px 16px;margin-bottom:0" onclick="addAdminItem()">Add</button>'
+    + '</div>'
+    + (itemRows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No items yet.</div>')
+    + '</div>';
+}
+
+function addAdminItem() {
+  var v = (document.getElementById('admin-new-item').value || '').trim();
+  if (!v || !_adminSelectedCatId) return;
+  sbClient.from('category_items').select('sort_order').eq('category_id', _adminSelectedCatId).order('sort_order', {ascending:false}).limit(1).then(function(r) {
+    var next = ((r.data && r.data[0] && r.data[0].sort_order) || 0) + 1;
+    sbClient.from('category_items').insert({ category_id: _adminSelectedCatId, item_text: v, sort_order: next }).then(function(r2) {
+      if (r2.error) { alert('Error: ' + r2.error.message); return; }
+      loadCategoriesFromDb().then(renderAdmin);
+    });
+  });
+}
+
+function editAdminItem(id) {
+  var v = prompt('Edit item text:'); if (v === null) return;
+  v = v.trim(); if (!v) return;
+  sbClient.from('category_items').update({ item_text: v }).eq('id', id).then(function(r) {
+    if (r.error) { alert('Error: ' + r.error.message); return; }
+    loadCategoriesFromDb().then(renderAdmin);
+  });
+}
+
+function deleteAdminItem(id) {
+  sbClient.from('category_items').delete().eq('id', id).then(function(r) {
+    if (r.error) { alert('Error: ' + r.error.message); return; }
+    loadCategoriesFromDb().then(renderAdmin);
+  });
+}
+
+async function renderAdminFeedback(el) {
+  var res = await sbClient.from('feedback').select('*').order('created_at', {ascending:false}).limit(200);
+  if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(res.error.message) + '</div>'; return; }
+  var rows = (res.data || []).map(function(f) {
+    var when = f.created_at ? new Date(f.created_at).toLocaleString() : '';
+    var statusColor = f.status === 'resolved' ? '#27500A' : (f.status === 'in_progress' ? '#993C1D' : '#5F5E5A');
+    return '<div class="card no-hover" style="margin-bottom:8px">'
+      + '<div style="display:flex;justify-content:space-between;font-size:10px;color:#888780;margin-bottom:4px">'
+      + '<span>' + escapeHtml(f.user_email || 'anonymous') + ' · ' + escapeHtml(f.category || '') + '</span>'
+      + '<span style="color:' + statusColor + ';font-weight:600">' + escapeHtml(f.status || 'new') + '</span>'
+      + '</div>'
+      + '<div style="font-size:12px;color:#2C2C2A;white-space:pre-wrap">' + escapeHtml(f.message) + '</div>'
+      + '<div style="font-size:9px;color:#888780;margin-top:4px">' + escapeHtml(when) + '</div>'
+      + '<div style="display:flex;gap:4px;margin-top:6px">'
+      + '<button class="back-btn" onclick="setFeedbackStatus(\'' + f.id + '\',\'in_progress\')">Working on it</button>'
+      + '<button class="back-btn" onclick="setFeedbackStatus(\'' + f.id + '\',\'resolved\')">Resolve</button>'
+      + '<button class="back-btn" onclick="setFeedbackStatus(\'' + f.id + '\',\'new\')">Reopen</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+  el.innerHTML = '<div style="padding:12px">' + (rows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No feedback yet.</div>') + '</div>';
+}
+
+function setFeedbackStatus(id, status) {
+  sbClient.from('feedback').update({ status: status }).eq('id', id).then(function(r) {
+    if (r.error) { alert('Error: ' + r.error.message); return; }
+    renderAdmin();
+  });
+}
+
 function computeMatch(myItems, theirItems, ranked) {
   var my = myItems.map(function(x){return x.toLowerCase().trim();});
   var their = theirItems.map(function(x){return x.toLowerCase().trim();});
