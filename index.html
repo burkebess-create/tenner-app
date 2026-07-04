@@ -985,7 +985,7 @@ function go(id) {
   if (id === 's-cg3') renderListPicker();
   if (id === 's-create2') {
     var t = document.getElementById('create2-title');
-    if (t) t.textContent = (selCatEmoji || '📋') + ' Top 10 ' + selCat;
+    if (t) t.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle">' + renderCatEmoji(selCatEmoji, 22) + '<span>Top 10 ' + escapeHtml(selCat) + '</span></span>';
     var backBtn = document.querySelector('#s-create2 .back-btn');
     if (backBtn) backBtn.onclick = editingListIdx >= 0 ? function(){ go('s-list-detail'); } : function(){ go('s-create1'); };
     var contBtn = document.querySelector('#s-create2 .btn-primary');
@@ -1112,7 +1112,7 @@ function renderCatEmojiPicker() {
   if (!row || !grid) return;
   row.style.display = 'block';
   var cur = document.getElementById('cat-emoji-current');
-  if (cur) cur.textContent = selCatEmoji || '📋';
+  if (cur) cur.innerHTML = renderCatEmoji(selCatEmoji, 22);
   grid.innerHTML = '';
   CAT_EMOJI_DEFAULTS.forEach(function(em) {
     var div = document.createElement('div');
