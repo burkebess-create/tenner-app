@@ -1124,30 +1124,50 @@ function doRefresh(btn, asyncFn) {
   });
 }
 
-// Local (browser-only) memory of which match scores you've already revealed.
-// Structure: { "friendId_category": scoreAtTimeOfReveal }
-var MATCH_SEEN_KEY = 'tenner_match_seen';
-function getMatchSeen() {
-  try { return JSON.parse(localStorage.getItem(MATCH_SEEN_KEY) || '{}') || {}; }
-  catch(e) { return {}; }
-}
-function saveMatchSeen(map) {
-  try { localStorage.setItem(MATCH_SEEN_KEY, JSON.stringify(map)); } catch(e) {}
-}
+// Which match scores this user has revealed. Synced with the `match_reveals` table
+// so the state follows users across devices. In-memory map keyed by "friendId__category".
+var MY_MATCH_REVEALS = {};
+
 function matchSeenKey(friendId, categoryLabel) {
   return (friendId || 'unknown') + '__' + (categoryLabel || 'overall');
 }
+
+// Batched load: fetched once on login and cached in memory. Called from loadState.
+async function loadMatchReveals() {
+  if (!sbClient || !userId) return;
+  try {
+    var res = await sbClient.from('match_reveals').select('friend_id, category, score').eq('user_id', userId);
+    if (res.error) { console.warn('loadMatchReveals failed', res.error); return; }
+    var map = {};
+    (res.data || []).forEach(function(r) {
+      map[matchSeenKey(r.friend_id, r.category)] = r.score;
+    });
+    MY_MATCH_REVEALS = map;
+  } catch(e) { console.warn('loadMatchReveals threw', e); }
+}
+
 // A match is "new" if never revealed OR the score has moved ≥5 points since last reveal.
 function isMatchNew(friendId, categoryLabel, currentScore) {
-  var seen = getMatchSeen();
   var k = matchSeenKey(friendId, categoryLabel);
-  if (!(k in seen)) return true;
-  return Math.abs((seen[k] || 0) - currentScore) >= 5;
+  if (!(k in MY_MATCH_REVEALS)) return true;
+  return Math.abs((MY_MATCH_REVEALS[k] || 0) - currentScore) >= 5;
 }
+
 function markMatchSeen(friendId, categoryLabel, score) {
-  var seen = getMatchSeen();
-  seen[matchSeenKey(friendId, categoryLabel)] = score;
-  saveMatchSeen(seen);
+  if (!friendId) return;
+  var k = matchSeenKey(friendId, categoryLabel);
+  MY_MATCH_REVEALS[k] = score; // update memory immediately for snappy UI
+  // Persist to Supabase in the background — do not block on it
+  if (!sbClient || !userId) return;
+  sbClient.from('match_reveals').upsert({
+    user_id: userId,
+    friend_id: friendId,
+    category: categoryLabel || 'overall',
+    score: score,
+    revealed_at: new Date().toISOString()
+  }).then(function(r) {
+    if (r && r.error) console.warn('match_reveals upsert failed', r.error);
+  });
 }
 
 function closeMatchReveal() {
@@ -5033,9 +5053,10 @@ async function loadState() {
       // Ban check runs first — if banned, this signs the user out and reloads
       var banned = await checkIfBanned();
       if (banned) return;
-      // Kick off admin + categories fetch in the background (don't block main data)
+      // Kick off admin + categories + match-reveal fetch in the background (don't block main data)
       checkAdminStatus();
       loadCategoriesFromDb();
+      loadMatchReveals();
       // Run the independent lists + group-membership queries in parallel
       console.time('loadState:lists+memberships');
       var results = await Promise.all([
