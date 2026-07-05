@@ -351,7 +351,11 @@
           <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:3px">Choose a category</div>
           <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:12px">Pick one or type your own</div>
           <div class="cat-grid" id="cat-grid"></div>
-          <input type="text" id="cat-inp" placeholder="Or type a custom category..." oninput="onCatType(this.value)">
+          <div style="display:flex;align-items:stretch;border:1px solid #D3D1C7;border-radius:8px;background:#fff;margin-bottom:2px;overflow:hidden">
+            <div style="display:flex;align-items:center;padding:0 10px;background:#F1EFE8;color:#5F5E5A;font-size:13px;font-weight:600;border-right:1px solid #E8E6DF;white-space:nowrap">Top 10</div>
+            <input type="text" id="cat-inp" placeholder="Star Wars movies" oninput="onCatType(this.value)" style="border:none;flex:1;margin:0;font-size:13px;padding:9px 11px;background:transparent" autocomplete="off" autocorrect="off">
+          </div>
+          <div id="cat-inp-hint" style="display:none;font-size:11px;color:#B57F0F;background:#FFF3D6;border:1px solid #F5B534;border-radius:8px;padding:6px 10px;margin-bottom:8px"></div>
           <div id="cat-emoji-row" style="display:none;margin-bottom:8px">
             <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:5px">Pick an emoji for your list</div>
             <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
@@ -1358,6 +1362,18 @@ function onCatType(val) {
   var lv = val.toLowerCase().trim();
   var warn = document.getElementById('cat-warn');
   var sugs = document.getElementById('cat-sugs');
+  // Detect and softly nudge users who type redundant prefix words
+  var hintEl = document.getElementById('cat-inp-hint');
+  if (hintEl) {
+    var redundantMatch = lv.match(/^(top\s*10|top\s*ten|top|best|greatest|favou?rite|my\s+favou?rite)\s+(.+)/i);
+    if (redundantMatch) {
+      var cleaned = redundantMatch[2];
+      hintEl.textContent = '💡 We already add "Top 10" for you — try just "' + cleaned + '"';
+      hintEl.style.display = 'block';
+    } else {
+      hintEl.style.display = 'none';
+    }
+  }
   if (!lv) {
     warn.style.display = 'none';
     sugs.style.display = 'none';
