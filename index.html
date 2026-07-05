@@ -302,7 +302,7 @@
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
             <div id="list-detail-emoji" style="width:48px;height:48px;border-radius:12px;background:#FAECE7;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0"></div>
             <div style="flex:1;min-width:0">
-              <div id="list-detail-title" style="font-size:17px;font-weight:700;color:#2C2C2A;line-height:1.2"></div>
+              <div id="list-detail-title" style="font-family:'DM Serif Display',Georgia,serif;font-size:22px;font-weight:400;letter-spacing:-0.02em;color:#1A0F0A;line-height:1.15"></div>
               <div id="list-detail-meta" style="font-size:13.5px;color:#5F5E5A;margin-top:3px"></div>
             </div>
           </div>
@@ -1143,7 +1143,7 @@ function showMatchReveal(friendProfile, score, categoryLabel) {
     + '<div class="pop-in" style="background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:320px;text-align:center;position:relative">'
     +   '<button onclick="document.getElementById(\'match-reveal-modal\').remove()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:22px;color:#888780;cursor:pointer">×</button>'
     +   '<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#888780;margin-bottom:4px">' + escapeHtml(categoryLabel || 'Overall Match') + '</div>'
-    +   '<div style="font-size:15px;font-weight:600;color:#2C2C2A;margin-bottom:18px">You & ' + escapeHtml(name) + '</div>'
+    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.02em;color:#1A0F0A;margin-bottom:18px">You & ' + escapeHtml(name) + '</div>'
     +   '<div style="position:relative;width:180px;height:180px;margin:0 auto 18px">'
     +     '<svg width="180" height="180" viewBox="0 0 180 180" style="transform:rotate(-90deg)">'
     +       '<circle cx="90" cy="90" r="78" fill="none" stroke="#F1EFE8" stroke-width="12"/>'
@@ -1223,7 +1223,7 @@ function showListCompleteModal(cat) {
   overlay.innerHTML = ''
     + '<div class="pop-in" style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:320px;text-align:center">'
     +   '<div style="font-size:56px;margin-bottom:8px">🎉</div>'
-    +   '<div style="font-size:18px;font-weight:700;color:#2C2C2A;margin-bottom:6px">Your Top 10 ' + escapeHtml(cat) + ' is live!</div>'
+    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;letter-spacing:-0.02em;color:#1A0F0A;margin-bottom:6px;line-height:1.15">Your Top 10 ' + escapeHtml(cat) + ' is live!</div>'
     +   '<div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">See who matches your taste — head to the Match tab to compare.</div>'
     +   '<button class="btn-primary" onclick="document.getElementById(\'list-complete-modal\').remove();matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go(\'s-match\')" style="margin-bottom:8px">Reveal my matches →</button>'
     +   '<button class="btn-secondary" onclick="document.getElementById(\'list-complete-modal\').remove()" style="margin-bottom:0">Maybe later</button>'
@@ -6215,7 +6215,7 @@ async function openGiftGuide(friendUserId) {
   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var header = '<div style="text-align:center;margin-bottom:14px">'
     + friendAvatarHtml(profile, 72)
-    + '<div style="font-size:16px;font-weight:700;color:#2C2C2A;margin-top:8px">' + escapeHtml(name) + '</div>'
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;letter-spacing:-0.02em;color:#1A0F0A;margin-top:10px">' + escapeHtml(name) + '</div>'
     + (bday ? '<div style="font-size:12px;color:#D85A30;font-weight:600;margin-top:2px">🎂 ' + months[bday.getMonth()] + ' ' + bday.getDate() + (days !== null ? ' · in ' + days + ' days' : '') + '</div>' : '')
     + '</div>';
 
