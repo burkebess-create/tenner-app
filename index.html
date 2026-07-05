@@ -1124,8 +1124,49 @@ function doRefresh(btn, asyncFn) {
   });
 }
 
+// Local (browser-only) memory of which match scores you've already revealed.
+// Structure: { "friendId_category": scoreAtTimeOfReveal }
+var MATCH_SEEN_KEY = 'tenner_match_seen';
+function getMatchSeen() {
+  try { return JSON.parse(localStorage.getItem(MATCH_SEEN_KEY) || '{}') || {}; }
+  catch(e) { return {}; }
+}
+function saveMatchSeen(map) {
+  try { localStorage.setItem(MATCH_SEEN_KEY, JSON.stringify(map)); } catch(e) {}
+}
+function matchSeenKey(friendId, categoryLabel) {
+  return (friendId || 'unknown') + '__' + (categoryLabel || 'overall');
+}
+// A match is "new" if never revealed OR the score has moved ≥5 points since last reveal.
+function isMatchNew(friendId, categoryLabel, currentScore) {
+  var seen = getMatchSeen();
+  var k = matchSeenKey(friendId, categoryLabel);
+  if (!(k in seen)) return true;
+  return Math.abs((seen[k] || 0) - currentScore) >= 5;
+}
+function markMatchSeen(friendId, categoryLabel, score) {
+  var seen = getMatchSeen();
+  seen[matchSeenKey(friendId, categoryLabel)] = score;
+  saveMatchSeen(seen);
+}
+
+function closeMatchReveal() {
+  var m = document.getElementById('match-reveal-modal');
+  if (m) m.remove();
+  var ctx = window._matchRevealCtx;
+  if (ctx && ctx.friendId) {
+    markMatchSeen(ctx.friendId, ctx.categoryLabel, ctx.score);
+  }
+  window._matchRevealCtx = null;
+  // If we're on the Match screen, re-render so the newly-seen score displays normally
+  var matchScreen = document.getElementById('s-match');
+  if (matchScreen && matchScreen.classList.contains('active') && typeof renderMatch === 'function') {
+    renderMatch();
+  }
+}
+
 // Full-screen match-reveal ceremony: dimmed overlay, count-up %, color-graded ring, verdict.
-function showMatchReveal(friendProfile, score, categoryLabel) {
+function showMatchReveal(friendProfile, score, categoryLabel, friendId) {
   var frame = document.querySelector('.frame') || document.body;
   var existing = document.getElementById('match-reveal-modal');
   if (existing) existing.remove();
@@ -1135,13 +1176,15 @@ function showMatchReveal(friendProfile, score, categoryLabel) {
   else if (score >= 70) { ring = '#2F9E8F'; verdict = 'Dangerously aligned 🎯';    verdictColor = '#1F7268'; bgAccent = '#D6F0EA'; }
   else if (score >= 40) { ring = '#D85A30'; verdict = 'You\'ve got common ground 👍'; verdictColor = '#993C1D'; bgAccent = '#FAECE7'; }
   else                  { ring = '#5F5E5A'; verdict = 'Opposites attract 🔀';       verdictColor = '#5F5E5A'; bgAccent = '#F1EFE8'; }
+  // Remember what we're revealing so closing the modal can mark it seen
+  window._matchRevealCtx = { friendId: friendId, categoryLabel: categoryLabel, score: score };
   var overlay = document.createElement('div');
   overlay.id = 'match-reveal-modal';
-  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  overlay.onclick = function(e) { if (e.target === overlay) closeMatchReveal(); };
   overlay.style.cssText = 'position:absolute;inset:0;background:rgba(20,10,4,0.85);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px';
   overlay.innerHTML = ''
     + '<div class="pop-in" style="background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:320px;text-align:center;position:relative">'
-    +   '<button onclick="document.getElementById(\'match-reveal-modal\').remove()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:22px;color:#888780;cursor:pointer">×</button>'
+    +   '<button onclick="closeMatchReveal()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:22px;color:#888780;cursor:pointer">×</button>'
     +   '<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#888780;margin-bottom:4px">' + escapeHtml(categoryLabel || 'Overall Match') + '</div>'
     +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.02em;color:#1A0F0A;margin-bottom:18px">You & ' + escapeHtml(name) + '</div>'
     +   '<div style="position:relative;width:180px;height:180px;margin:0 auto 18px">'
@@ -1152,7 +1195,7 @@ function showMatchReveal(friendProfile, score, categoryLabel) {
     +     '<div id="match-reveal-num" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:800;color:' + ring + '">0%</div>'
     +   '</div>'
     +   '<div class="slide-up" style="background:' + bgAccent + ';color:' + verdictColor + ';border-radius:12px;padding:12px 14px;font-size:14px;font-weight:600">' + verdict + '</div>'
-    +   '<button class="btn-secondary" onclick="document.getElementById(\'match-reveal-modal\').remove()" style="margin-top:14px;margin-bottom:0">See the details</button>'
+    +   '<button class="btn-secondary" onclick="closeMatchReveal()" style="margin-top:14px;margin-bottom:0">See the details</button>'
     + '</div>';
   frame.appendChild(overlay);
   // Trigger the ring & count-up animation on next frame
@@ -5232,17 +5275,23 @@ async function renderMatch() {
         var medals = ['🥇','🥈','🥉'];
         var medal = medals[rank] || '';
         var detail = entry.cats.length + ' list' + (entry.cats.length!==1?'s':'') + ' · ' + entry.cats.join(', ');
-        // Encode friend profile so we can re-inflate it in the reveal handler
         var encoded = encodeURIComponent(JSON.stringify(entry.friend.profile || {}));
+        var fid = entry.friend.friendId || '';
+        var isNew = isMatchNew(fid, 'Overall', entry.avg);
+        var scoreDisplay = isNew
+          ? '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + entry.avg + ',\'Overall\',\'' + fid + '\')" style="background:#D85A30;color:#fff;border:none;border-radius:99px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">✨ Tap to reveal</button>'
+          : '<div style="font-size:18px;font-weight:700;color:#D85A30">' + entry.avg + '%</div>'
+            + '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + entry.avg + ',\'Overall\',\'' + fid + '\')" style="background:none;border:none;color:#888780;font-size:10px;cursor:pointer;padding:2px 0">↻ replay</button>';
+        var barFill = isNew
+          ? '<div class="bar-bg"><div class="bar-fill" style="width:100%;background:repeating-linear-gradient(45deg,#F1EFE8,#F1EFE8 6px,#E8E6DF 6px,#E8E6DF 12px)"></div></div>'
+          : '<div class="bar-bg"><div class="bar-fill" style="width:' + entry.avg + '%"></div></div>';
         return '<div class="card no-hover" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
           + '<span style="font-size:18px;width:24px;text-align:center">' + medal + '</span>'
           + friendAvatarHtml(entry.friend.profile, 32)
           + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div>'
           + '<div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
-          + '<div style="text-align:right"><div style="font-size:18px;font-weight:700;color:#D85A30">' + entry.avg + '%</div>'
-          + '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + entry.avg + ',\'Overall\')" style="background:none;border:none;color:#2F9E8F;font-size:11px;font-weight:600;cursor:pointer;padding:2px 0">✨ Reveal</button>'
-          + '</div></div>'
-          + '<div class="bar-bg"><div class="bar-fill" style="width:' + entry.avg + '%"></div></div></div>';
+          + '<div style="text-align:right">' + scoreDisplay + '</div></div>'
+          + barFill + '</div>';
       };
       if (globalMatchTab && overallRanked.length > collapseCount) {
         var visible = overallRanked.slice(0, collapseCount).map(renderEntry).join('');
@@ -5282,12 +5331,20 @@ async function renderMatch() {
         var detail = shared.length + '/' + Math.max(myItems.length, theirItems.length) + ' same picks';
         var encoded = encodeURIComponent(JSON.stringify(c.friend.profile || {}));
         var catLabel = encodeURIComponent(c.category || '');
+        var fid = c.friend.friendId || '';
+        var isNew = isMatchNew(fid, c.category, c.score);
+        var scoreDisplay = isNew
+          ? '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + c.score + ',decodeURIComponent(\'' + catLabel + '\'),\'' + fid + '\')" style="background:#D85A30;color:#fff;border:none;border-radius:99px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">✨ Tap to reveal</button>'
+          : '<div style="font-size:18px;font-weight:700;color:#D85A30">' + c.score + '%</div>'
+            + '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + c.score + ',decodeURIComponent(\'' + catLabel + '\'),\'' + fid + '\')" style="background:none;border:none;color:#888780;font-size:10px;cursor:pointer;padding:2px 0">↻ replay</button>';
+        var barFill = isNew
+          ? '<div class="bar-bg"><div class="bar-fill" style="width:100%;background:repeating-linear-gradient(45deg,#F1EFE8,#F1EFE8 6px,#E8E6DF 6px,#E8E6DF 12px)"></div></div>'
+          : '<div class="bar-bg"><div class="bar-fill" style="width:' + c.score + '%"></div></div>';
         return '<div class="card no-hover"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
           + friendAvatarHtml(c.friend.profile, 32)
           + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div><div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
-          + '<div style="text-align:right"><div style="font-size:18px;font-weight:700;color:#D85A30">' + c.score + '%</div>'
-          + '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + c.score + ',decodeURIComponent(\'' + catLabel + '\'))" style="background:none;border:none;color:#2F9E8F;font-size:11px;font-weight:600;cursor:pointer;padding:2px 0">✨ Reveal</button>'
-          + '</div></div><div class="bar-bg"><div class="bar-fill" style="width:' + c.score + '%"></div></div></div>';
+          + '<div style="text-align:right">' + scoreDisplay + '</div></div>'
+          + barFill + '</div>';
       };
       var sortedComps = comps.slice().sort(function(a,b){ return b.score - a.score; });
       var scoresHtml;
