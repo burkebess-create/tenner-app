@@ -267,7 +267,6 @@
           </div>
         </div>
         <div class="content">
-          <div id="home-feed-section"></div>
           <div class="sec-label">My Lists</div>
           <button class="btn-primary" onclick="_createFromHome=true;go('s-create1')" style="margin-bottom:12px;font-size:13px;padding:12px">+ Create a new list</button>
           <div id="lists-list"></div>
@@ -613,6 +612,7 @@
           <button class="back-btn" onclick="doRefresh(this,function(){return loadFriends().then(renderCircleScreen);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
         </div>
         <div class="content">
+          <div id="home-feed-section"></div>
           <div class="sec-label">Friends</div>
           <div style="display:flex;gap:6px;margin-bottom:6px">
             <input type="text" id="circle-friend-search" placeholder="Find friends by @handle or phone number" style="margin-bottom:0;flex:1;font-size:12px;padding:7px 10px">
@@ -1094,7 +1094,7 @@ function go(id) {
     if (mbb) mbb.style.display = matchOrigin ? 'block' : 'none';
     renderMatch();
   }
-  if (id === 's-circle') { renderCircleScreen(); renderGiftReminders(); }
+  if (id === 's-circle') { renderCircleScreen(); renderGiftReminders(); renderHomeFeed(); }
   if (id === 's-notifications') { loadListShareInvites().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
   if (id === 's-admin') { renderAdmin(); }
@@ -2427,7 +2427,6 @@ function showOnboardingIfNeeded() {
 
 function renderHome() {
   renderLists();
-  renderHomeFeed();
 }
 
 async function renderHomeFeed() {
