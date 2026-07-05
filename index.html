@@ -155,6 +155,49 @@
   .list-sel-btn.active { background: #FAECE7; color: #993C1D; border-color: #D85A30; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   .spinning { display: inline-block; animation: spin 0.7s linear infinite; }
+
+  /* --- Accent palette additions --- */
+  /* Teal (social/friend/match) */
+  .accent-teal   { color: #2F9E8F !important; }
+  .bg-teal-soft  { background: #D6F0EA !important; }
+  /* Gold (celebration/#1 spots) */
+  .accent-gold   { color: #B57F0F !important; }
+  .bg-gold-soft  { background: #FFF3D6 !important; }
+
+  /* --- Celebration animations --- */
+  @keyframes tenner-confetti-fall {
+    0%   { transform: translate(0,0) rotate(0deg);    opacity: 1; }
+    100% { transform: translate(var(--dx,0),120vh) rotate(720deg); opacity: 0; }
+  }
+  .confetti-piece {
+    position: absolute; top: -20px; width: 10px; height: 14px; border-radius: 2px;
+    pointer-events: none; animation: tenner-confetti-fall 1.6s ease-in forwards;
+  }
+  @keyframes frame-flash-glow {
+    0%   { box-shadow: inset 0 0 0 0 rgba(216,90,48,0); }
+    30%  { box-shadow: inset 0 0 30px 8px rgba(216,90,48,0.35); }
+    100% { box-shadow: inset 0 0 0 0 rgba(216,90,48,0); }
+  }
+  .frame-flash { animation: frame-flash-glow 0.9s ease-out; }
+  @keyframes pop-in {
+    0%   { transform: scale(0.7); opacity: 0; }
+    60%  { transform: scale(1.06); opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+  .pop-in { animation: pop-in 0.45s cubic-bezier(0.25,1.5,0.55,1); }
+  @keyframes slide-up {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .slide-up { animation: slide-up 0.35s ease-out; }
+  @keyframes gold-shimmer {
+    0%,100% { filter: drop-shadow(0 0 0 rgba(245,181,52,0)); }
+    50%     { filter: drop-shadow(0 0 8px rgba(245,181,52,0.9)); }
+  }
+  .gold-shimmer { animation: gold-shimmer 2s ease-in-out infinite; }
+
+  /* Rank #1 highlight — subtle gold treatment */
+  .rank-badge.rank-1 { background: linear-gradient(135deg,#F5B534,#E08F00); color: #fff; box-shadow: 0 2px 6px rgba(245,181,52,0.4); }
 </style>
 </head>
 <body>
@@ -224,6 +267,7 @@
           </div>
         </div>
         <div class="content">
+          <div id="home-feed-section"></div>
           <div class="sec-label">My Lists</div>
           <button class="btn-primary" onclick="_createFromHome=true;go('s-create1')" style="margin-bottom:12px;font-size:13px;padding:12px">+ Create a new list</button>
           <div id="lists-list"></div>
@@ -1074,6 +1118,113 @@ function doRefresh(btn, asyncFn) {
     btn.disabled = false;
     if (svg) svg.classList.remove('spinning');
   });
+}
+
+// Full-screen match-reveal ceremony: dimmed overlay, count-up %, color-graded ring, verdict.
+function showMatchReveal(friendProfile, score, categoryLabel) {
+  var frame = document.querySelector('.frame') || document.body;
+  var existing = document.getElementById('match-reveal-modal');
+  if (existing) existing.remove();
+  var name = (friendProfile && (friendProfile.display_name || (friendProfile.handle ? '@' + friendProfile.handle : ''))) || 'Friend';
+  var ring, verdict, verdictColor, bgAccent;
+  if (score >= 90)      { ring = '#F5B534'; verdict = 'Twins separated at birth 🌟'; verdictColor = '#B57F0F'; bgAccent = '#FFF3D6'; }
+  else if (score >= 70) { ring = '#2F9E8F'; verdict = 'Dangerously aligned 🎯';    verdictColor = '#1F7268'; bgAccent = '#D6F0EA'; }
+  else if (score >= 40) { ring = '#D85A30'; verdict = 'You\'ve got common ground 👍'; verdictColor = '#993C1D'; bgAccent = '#FAECE7'; }
+  else                  { ring = '#5F5E5A'; verdict = 'Opposites attract 🔀';       verdictColor = '#5F5E5A'; bgAccent = '#F1EFE8'; }
+  var overlay = document.createElement('div');
+  overlay.id = 'match-reveal-modal';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(20,10,4,0.85);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px';
+  overlay.innerHTML = ''
+    + '<div class="pop-in" style="background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:320px;text-align:center;position:relative">'
+    +   '<button onclick="document.getElementById(\'match-reveal-modal\').remove()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:22px;color:#888780;cursor:pointer">×</button>'
+    +   '<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#888780;margin-bottom:4px">' + escapeHtml(categoryLabel || 'Overall Match') + '</div>'
+    +   '<div style="font-size:15px;font-weight:600;color:#2C2C2A;margin-bottom:18px">You & ' + escapeHtml(name) + '</div>'
+    +   '<div style="position:relative;width:180px;height:180px;margin:0 auto 18px">'
+    +     '<svg width="180" height="180" viewBox="0 0 180 180" style="transform:rotate(-90deg)">'
+    +       '<circle cx="90" cy="90" r="78" fill="none" stroke="#F1EFE8" stroke-width="12"/>'
+    +       '<circle id="match-reveal-ring" cx="90" cy="90" r="78" fill="none" stroke="' + ring + '" stroke-width="12" stroke-dasharray="490" stroke-dashoffset="490" stroke-linecap="round" style="transition:stroke-dashoffset 1.4s cubic-bezier(0.2,0.9,0.3,1)"/>'
+    +     '</svg>'
+    +     '<div id="match-reveal-num" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:800;color:' + ring + '">0%</div>'
+    +   '</div>'
+    +   '<div class="slide-up" style="background:' + bgAccent + ';color:' + verdictColor + ';border-radius:12px;padding:12px 14px;font-size:14px;font-weight:600">' + verdict + '</div>'
+    +   '<button class="btn-secondary" onclick="document.getElementById(\'match-reveal-modal\').remove()" style="margin-top:14px;margin-bottom:0">See the details</button>'
+    + '</div>';
+  frame.appendChild(overlay);
+  // Trigger the ring & count-up animation on next frame
+  requestAnimationFrame(function() {
+    var ringEl = document.getElementById('match-reveal-ring');
+    if (ringEl) {
+      var offset = 490 - (490 * (Math.min(100, Math.max(0, score)) / 100));
+      ringEl.setAttribute('stroke-dashoffset', offset);
+    }
+    var start = performance.now();
+    var duration = 1400;
+    var numEl = document.getElementById('match-reveal-num');
+    function tick(now) {
+      if (!numEl) return;
+      var t = Math.min(1, (now - start) / duration);
+      var eased = 1 - Math.pow(1 - t, 3);
+      numEl.textContent = Math.round(score * eased) + '%';
+      if (t < 1) requestAnimationFrame(tick);
+      else {
+        numEl.textContent = score + '%';
+        if (score >= 70) celebrateConfetti(score >= 90 ? 80 : 40);
+      }
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+// Confetti burst inside the phone frame
+function celebrateConfetti(pieces) {
+  var frame = document.querySelector('.frame');
+  if (!frame) return;
+  var colors = ['#D85A30','#F5B534','#2F9E8F','#993C1D','#FFD57A','#66C2B3'];
+  var count = pieces || 60;
+  var host = document.createElement('div');
+  host.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:9999';
+  for (var i = 0; i < count; i++) {
+    var p = document.createElement('div');
+    p.className = 'confetti-piece';
+    var left = Math.random() * 100;
+    var dx = (Math.random() - 0.5) * 240;
+    var delay = Math.random() * 0.2;
+    var dur = 1.2 + Math.random() * 0.8;
+    var bg = colors[Math.floor(Math.random() * colors.length)];
+    p.style.cssText = 'left:' + left + '%;background:' + bg + ';--dx:' + dx + 'px;animation-delay:' + delay + 's;animation-duration:' + dur + 's;transform:rotate(' + (Math.random()*360) + 'deg)';
+    host.appendChild(p);
+  }
+  frame.appendChild(host);
+  frame.classList.add('frame-flash');
+  setTimeout(function() { frame.classList.remove('frame-flash'); }, 900);
+  setTimeout(function() { if (host.parentNode) host.remove(); }, 2500);
+}
+
+// Post-completion modal that offers a match reveal if any friends share this list
+function showListCompleteModal(cat) {
+  var frame = document.querySelector('.frame') || document.body;
+  var friendsWithList = 0;
+  try {
+    (myFriends || []).filter(function(f){ return f.status === 'accepted'; }).forEach(function(f) {
+      // We don't have their lists inline here without a fetch; leave 0 and let the modal
+      // gracefully phrase it without a specific count if unknown.
+    });
+  } catch(e) {}
+  var existing = document.getElementById('list-complete-modal');
+  if (existing) existing.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'list-complete-modal';
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px';
+  overlay.innerHTML = ''
+    + '<div class="pop-in" style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:320px;text-align:center">'
+    +   '<div style="font-size:56px;margin-bottom:8px">🎉</div>'
+    +   '<div style="font-size:18px;font-weight:700;color:#2C2C2A;margin-bottom:6px">Your Top 10 ' + escapeHtml(cat) + ' is live!</div>'
+    +   '<div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">See who matches your taste — head to the Match tab to compare.</div>'
+    +   '<button class="btn-primary" onclick="document.getElementById(\'list-complete-modal\').remove();matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go(\'s-match\')" style="margin-bottom:8px">Reveal my matches →</button>'
+    +   '<button class="btn-secondary" onclick="document.getElementById(\'list-complete-modal\').remove()" style="margin-bottom:0">Maybe later</button>'
+    + '</div>';
+  frame.appendChild(overlay);
 }
 
 function showToast(msg, duration) {
@@ -2276,6 +2427,80 @@ function showOnboardingIfNeeded() {
 
 function renderHome() {
   renderLists();
+  renderHomeFeed();
+}
+
+async function renderHomeFeed() {
+  var el = document.getElementById('home-feed-section');
+  if (!el) return;
+  var acceptedFriends = (myFriends || []).filter(function(f){ return f.status === 'accepted'; });
+  if (!acceptedFriends.length) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = '<div class="sec-label">What\'s new</div><div id="home-feed-list" style="margin-bottom:12px"><div style="font-size:11px;color:#888780;padding:6px 0">Loading…</div></div>';
+  var friendIds = acceptedFriends.map(function(f){ return f.friendId; }).filter(Boolean);
+  var items = [];
+  try {
+    var listRes = await sbClient.from('lists')
+      .select('user_id, name, category, emoji, updated_at, is_public')
+      .in('user_id', friendIds)
+      .order('updated_at', { ascending: false })
+      .limit(15);
+    (listRes.data || []).forEach(function(l) {
+      if (!l.is_public) return;
+      items.push({ type: 'list', at: l.updated_at, user_id: l.user_id, category: l.category, emoji: l.emoji });
+    });
+  } catch(e) {}
+  // Sort newest first, cap to 5
+  items.sort(function(a,b){ return (b.at||'').localeCompare(a.at||''); });
+  items = items.slice(0, 5);
+  var profilesById = {};
+  acceptedFriends.forEach(function(f) { if (f.profile) profilesById[f.friendId] = f.profile; });
+  var listEl = document.getElementById('home-feed-list');
+  if (!listEl) return;
+  if (!items.length) {
+    listEl.innerHTML = '<div class="card no-hover" style="text-align:center;padding:16px;color:#5F5E5A;font-size:12px">No new activity from your circle yet. Check back later.</div>';
+    return;
+  }
+  listEl.innerHTML = items.map(function(it) {
+    var p = profilesById[it.user_id] || {};
+    var name = p.display_name || (p.handle ? '@'+p.handle : 'A friend');
+    var when = timeAgo(it.at);
+    var line = '<strong>' + escapeHtml(name) + '</strong> updated their <strong>Top 10 ' + escapeHtml(it.category || '') + '</strong>';
+    return '<div class="card" onclick="openFriendListByCat(\'' + it.user_id + '\',\'' + (it.category||'').replace(/\'/g,"\\'") + '\')" style="margin-bottom:6px">'
+      + '<div style="display:flex;align-items:center;gap:10px">'
+      +   friendAvatarHtml(p, 32)
+      +   '<div style="flex:1;min-width:0">'
+      +     '<div style="font-size:12px;color:#2C2C2A;line-height:1.35">' + line + '</div>'
+      +     '<div style="font-size:10px;color:#888780;margin-top:2px">' + when + '</div>'
+      +   '</div>'
+      +   '<div style="width:28px;text-align:center">' + renderCatEmoji(it.emoji || getCatEmoji(it.category), 20) + '</div>'
+      +   '<span style="font-size:16px;color:#D85A30">›</span>'
+      + '</div></div>';
+  }).join('');
+}
+
+function timeAgo(iso) {
+  if (!iso) return '';
+  var d = new Date(iso);
+  var s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 60)     return 'just now';
+  if (s < 3600)   return Math.floor(s/60) + 'm ago';
+  if (s < 86400)  return Math.floor(s/3600) + 'h ago';
+  if (s < 604800) return Math.floor(s/86400) + 'd ago';
+  return d.toLocaleDateString();
+}
+
+async function openFriendListByCat(friendUserId, category) {
+  var friend = (myFriends || []).find(function(f){ return f.friendId === friendUserId; });
+  if (!friend) return;
+  try {
+    var r = await sbClient.from('lists').select('*').eq('user_id', friendUserId).eq('category', category).maybeSingle();
+    if (!r.data) { showToast('That list isn\'t available anymore.'); return; }
+    var listData = { user_id: friendUserId, name: r.data.name, category: r.data.category, emoji: r.data.emoji, items: r.data.items, ranked: r.data.is_ranked, profile: friend.profile };
+    openFriendList(listData, 's-home');
+  } catch(e) { console.warn(e); }
 }
 
 // Record that a list topic (category) has been shared with a group, so all
@@ -4992,12 +5217,16 @@ async function renderMatch() {
         var medals = ['🥇','🥈','🥉'];
         var medal = medals[rank] || '';
         var detail = entry.cats.length + ' list' + (entry.cats.length!==1?'s':'') + ' · ' + entry.cats.join(', ');
+        // Encode friend profile so we can re-inflate it in the reveal handler
+        var encoded = encodeURIComponent(JSON.stringify(entry.friend.profile || {}));
         return '<div class="card no-hover" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
           + '<span style="font-size:18px;width:24px;text-align:center">' + medal + '</span>'
           + friendAvatarHtml(entry.friend.profile, 32)
           + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div>'
           + '<div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
-          + '<div style="font-size:18px;font-weight:700;color:#D85A30">' + entry.avg + '%</div></div>'
+          + '<div style="text-align:right"><div style="font-size:18px;font-weight:700;color:#D85A30">' + entry.avg + '%</div>'
+          + '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + entry.avg + ',\'Overall\')" style="background:none;border:none;color:#2F9E8F;font-size:11px;font-weight:600;cursor:pointer;padding:2px 0">✨ Reveal</button>'
+          + '</div></div>'
           + '<div class="bar-bg"><div class="bar-fill" style="width:' + entry.avg + '%"></div></div></div>';
       };
       if (globalMatchTab && overallRanked.length > collapseCount) {
@@ -5036,7 +5265,14 @@ async function renderMatch() {
         var theirItems = c.friendList.items.map(function(x){return x.toLowerCase().trim();});
         var shared = myItems.filter(function(x){return theirItems.indexOf(x)!==-1;});
         var detail = shared.length + '/' + Math.max(myItems.length, theirItems.length) + ' same picks';
-        return '<div class="card no-hover"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">' + friendAvatarHtml(c.friend.profile, 32) + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div><div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div><div style="font-size:18px;font-weight:700;color:#D85A30">' + c.score + '%</div></div><div class="bar-bg"><div class="bar-fill" style="width:' + c.score + '%"></div></div></div>';
+        var encoded = encodeURIComponent(JSON.stringify(c.friend.profile || {}));
+        var catLabel = encodeURIComponent(c.category || '');
+        return '<div class="card no-hover"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
+          + friendAvatarHtml(c.friend.profile, 32)
+          + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div><div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
+          + '<div style="text-align:right"><div style="font-size:18px;font-weight:700;color:#D85A30">' + c.score + '%</div>'
+          + '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + c.score + ',decodeURIComponent(\'' + catLabel + '\'))" style="background:none;border:none;color:#2F9E8F;font-size:11px;font-weight:600;cursor:pointer;padding:2px 0">✨ Reveal</button>'
+          + '</div></div><div class="bar-bg"><div class="bar-fill" style="width:' + c.score + '%"></div></div></div>';
       };
       var sortedComps = comps.slice().sort(function(a,b){ return b.score - a.score; });
       var scoresHtml;
@@ -6087,6 +6323,7 @@ async function saveList() {
   var prevBlind = blindToggle ? !!blindToggle.checked : (isUpdate ? !!(MY_LISTS[existing] && MY_LISTS[existing].blind_fill) : false);
   var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic, blind_fill: prevBlind };
   if (isUpdate) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
+  var isFreshComplete = !isUpdate && itemCount === 10;
   var dest = listOrigin;
   listOrigin = 's-home';
   editingListIdx = -1;
@@ -6124,6 +6361,9 @@ async function saveList() {
     go('s-friend-list');
   } else {
     go(dest);
+  }
+  if (isFreshComplete) {
+    setTimeout(function() { celebrateConfetti(70); showListCompleteModal(selCat); }, 250);
   }
 }
 
