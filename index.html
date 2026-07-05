@@ -218,7 +218,10 @@
       <div class="screen" id="s-home">
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
-          <button class="back-btn" id="home-refresh-btn" onclick="doRefresh(this,function(){return loadState().then(renderHome);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg id="home-refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+          <div style="display:flex;gap:6px">
+            <button class="back-btn" onclick="go('s-notifications')" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
+            <button class="back-btn" id="home-refresh-btn" onclick="doRefresh(this,function(){return loadState().then(renderHome);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg id="home-refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+          </div>
         </div>
         <div class="content">
           <div class="sec-label">My Lists</div>
@@ -732,6 +735,15 @@
               <span style="font-size:13.5px;color:#2C2C2A" id="profile-email-info">—</span>
             </div>
           </div>
+
+          <div class="sec-label">🎁 Wishlist visibility</div>
+          <div class="card no-hover" style="margin-bottom:12px">
+            <div style="font-size:11px;color:#5F5E5A;margin-bottom:8px">Which of your lists should show up as gift ideas when friends look at your birthday?</div>
+            <div id="wishlist-categories" style="display:flex;flex-wrap:wrap;gap:6px">
+              <div style="font-size:11px;color:#888780">Create a list first, then come back to pick which ones can show up.</div>
+            </div>
+          </div>
+
           <button class="btn-primary" onclick="saveProfile()" style="margin-top:10px">Save profile</button>
           <div id="profile-save-msg" style="display:none;font-size:11px;color:#27500A;background:#EAF3DE;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #97C459">Profile saved!</div>
 
@@ -772,6 +784,31 @@
         <div class="content" id="admin-content"></div>
       </div>
 
+      <!-- ═══ GIFTS ═══ -->
+      <div class="screen" id="s-gifts">
+        <div class="topbar">
+          <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
+          <button class="back-btn" onclick="doRefresh(this,function(){return loadFriends().then(renderGifts);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+        </div>
+        <div class="content" id="gifts-content">
+          <div style="text-align:center;padding:40px 20px;color:#888780">
+            <div style="font-size:36px;margin-bottom:12px">🎁</div>
+            <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No gift reminders yet</div>
+            <div style="font-size:12px;line-height:1.5">Add friends with birthdays to get gift ideas curated from their top 10 lists.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ GIFT GUIDE ═══ -->
+      <div class="screen" id="s-gift-guide">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-gifts')">← Back</button>
+          <span id="gift-guide-title" style="font-size:13px;font-weight:600;color:#2C2C2A">Gift Guide</span>
+          <span style="width:52px"></span>
+        </div>
+        <div class="content" id="gift-guide-content"></div>
+      </div>
+
       <!-- GLOBAL BOTTOM NAV -->
       <div class="bnav" id="global-bnav">
         <div class="ni" id="nav-home" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>My Lists</div>
@@ -779,7 +816,7 @@
         <div class="ni" id="nav-circle" style="position:relative" onclick="go('s-circle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg><span id="circle-badge" style="display:none;position:absolute;top:2px;right:8px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center"></span>Circle</div>
         <div class="ni" id="nav-match" onclick="matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
         <div class="ni" id="nav-profile" onclick="go('s-profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</div>
-        <div class="ni" id="nav-alerts" onclick="go('s-notifications')" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>Alerts<span id="notif-badge" style="display:none;position:absolute;top:2px;right:14px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center"></span></div>
+        <div class="ni" id="nav-gifts" onclick="go('s-gifts')" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>Gifts<span id="gifts-badge" style="display:none;position:absolute;top:2px;right:14px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center"></span></div>
       </div>
 
       <!-- ITEM COMMENTS MODAL -->
@@ -965,7 +1002,7 @@ function go(id) {
   var bnav = document.getElementById('global-bnav');
   if (bnav) {
     bnav.style.display = (id === 's-auth') ? 'none' : 'flex';
-    ['nav-home','nav-create','nav-circle','nav-match','nav-profile','nav-alerts'].forEach(function(nid) {
+    ['nav-home','nav-create','nav-circle','nav-match','nav-profile','nav-gifts'].forEach(function(nid) {
       document.getElementById(nid) && document.getElementById(nid).classList.remove('active');
     });
     var activeNav = {
@@ -974,9 +1011,10 @@ function go(id) {
       's-cg1': 'nav-circle', 's-cg2': 'nav-circle', 's-cg3': 'nav-circle',
       's-gdetail': 'nav-circle', 's-groups': 'nav-circle', 's-gsettings': 'nav-circle',
       's-match': 'nav-match',
+      's-gifts': 'nav-gifts', 's-gift-guide': 'nav-gifts',
       's-circle': 'nav-circle', 's-fdetail': 'nav-circle', 's-friend-list': 'nav-circle', 's-gift-ideas': 'nav-circle',
       's-profile': 'nav-profile',
-      's-notifications': 'nav-alerts'
+      's-notifications': 'nav-home'
     }[id];
     if (activeNav) document.getElementById(activeNav) && document.getElementById(activeNav).classList.add('active');
   }
@@ -1016,6 +1054,7 @@ function go(id) {
   if (id === 's-notifications') { loadListShareInvites().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
   if (id === 's-admin') { renderAdmin(); }
+  if (id === 's-gifts') { renderGifts(); }
 }
 
 function formatPhoneInput(input) {
@@ -3284,7 +3323,10 @@ async function saveProfile() {
 
   var bio = (document.getElementById('profile-bio-input') || {}).value || '';
   var existingPhoto = myProfile && myProfile.photo;
-  myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, bio: bio || null, updated_at: new Date().toISOString() };
+  // Collect wishlist visibility (which of my list categories can show up in friends' gift guides)
+  var visibleCats = [];
+  document.querySelectorAll('input[name="wishlist-cat"]:checked').forEach(function(cb) { visibleCats.push(cb.value); });
+  myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, bio: bio || null, gift_visible_categories: visibleCats, updated_at: new Date().toISOString() };
   if (existingPhoto) myProfile.photo = existingPhoto;
   if (sbClient && userId) {
     try {
@@ -3362,6 +3404,26 @@ function renderProfileHeader() {
   })();
   var sl = document.getElementById('profile-stat-lists'); if (sl) sl.textContent = MY_LISTS.length;
   var bioInput = document.getElementById('profile-bio-input'); if (bioInput && !bioInput.value) bioInput.value = (myProfile && myProfile.bio) || '';
+  // Render wishlist visibility toggles from user's list categories
+  (function() {
+    var wc = document.getElementById('wishlist-categories');
+    if (!wc) return;
+    if (!MY_LISTS.length) {
+      wc.innerHTML = '<div style="font-size:11px;color:#888780">Create a list first, then come back to pick which ones can show up.</div>';
+      return;
+    }
+    var savedVis = (myProfile && myProfile.gift_visible_categories) || [];
+    // If user has never set preferences, default all to checked
+    var initialCats = savedVis.length ? savedVis : MY_LISTS.map(function(l){ return l.category || l.n.replace('Top 10 ',''); });
+    wc.innerHTML = MY_LISTS.map(function(l) {
+      var cat = l.category || l.n.replace('Top 10 ','');
+      var checked = initialCats.indexOf(cat) >= 0 ? 'checked' : '';
+      return '<label style="display:inline-flex;align-items:center;gap:5px;background:#F1EFE8;padding:6px 10px;border-radius:99px;font-size:11px;cursor:pointer;user-select:none">'
+        + '<input type="checkbox" name="wishlist-cat" value="' + escapeHtml(cat) + '" ' + checked + ' style="margin:0"> '
+        + renderCatEmoji(l.emoji || getCatEmoji(cat), 14) + ' ' + escapeHtml(cat)
+        + '</label>';
+    }).join('');
+  })();
   var sf = document.getElementById('profile-stat-friends'); if (sf) sf.textContent = myFriends.filter(function(f) { return f.status === 'accepted'; }).length;
   var sc = document.getElementById('profile-stat-circles'); if (sc) sc.textContent = MY_GROUPS.length;
   var ot = document.getElementById('profile-on-tenner');
@@ -5706,6 +5768,239 @@ function setFeedbackStatus(id, status) {
     if (r.error) { alert('Error: ' + r.error.message); return; }
     renderAdmin();
   });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GIFT REMINDERS + GIFT GUIDES
+// ═══════════════════════════════════════════════════════════════
+
+var AMAZON_AFFILIATE_TAG = ''; // TODO: set once you have your Amazon Associates tag, e.g. 'tenner-20'
+var GIFT_CATEGORY_SUFFIX = {
+  'Movies': 'movie', 'TV Shows': 'tv series', 'Books': 'book',
+  'Songs': 'vinyl', 'Restaurants': 'cookbook',
+  'Travel': 'travel guide', 'Candy Bars': 'candy', 'Sodas': ''
+};
+function amazonSearchUrl(query, category) {
+  var suffix = GIFT_CATEGORY_SUFFIX[category] || '';
+  var q = (query + ' ' + suffix).trim();
+  var url = 'https://www.amazon.com/s?k=' + encodeURIComponent(q);
+  if (AMAZON_AFFILIATE_TAG) url += '&tag=' + AMAZON_AFFILIATE_TAG;
+  return url;
+}
+
+function daysUntilBirthday(birthdayStr) {
+  if (!birthdayStr) return null;
+  // birthday format: YYYY-MM-DD; we only care about month/day
+  var parts = birthdayStr.split('-');
+  if (parts.length < 3) return null;
+  var m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+  if (!m || !d) return null;
+  var today = new Date();
+  var year = today.getFullYear();
+  var target = new Date(year, m - 1, d);
+  var msPerDay = 24 * 60 * 60 * 1000;
+  var todayMidnight = new Date(year, today.getMonth(), today.getDate());
+  var diff = Math.round((target - todayMidnight) / msPerDay);
+  if (diff < 0) {
+    target = new Date(year + 1, m - 1, d);
+    diff = Math.round((target - todayMidnight) / msPerDay);
+  }
+  return diff;
+}
+
+async function renderGifts() {
+  var el = document.getElementById('gifts-content');
+  if (!el) return;
+  if (!myFriends || !myFriends.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#888780">'
+      + '<div style="font-size:36px;margin-bottom:12px">🎁</div>'
+      + '<div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No gift reminders yet</div>'
+      + '<div style="font-size:12px;line-height:1.5">Add friends from your Circle to get gift ideas curated from their top 10 lists.</div>'
+      + '</div>';
+    return;
+  }
+  el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
+
+  // Fetch birthdays for all friends
+  var acceptedFriends = myFriends.filter(function(f) { return f.status === 'accepted'; });
+  var friendIds = acceptedFriends.map(function(f) { return f.friendId; }).filter(Boolean);
+  if (!friendIds.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#888780">'
+      + '<div style="font-size:36px;margin-bottom:12px">🎁</div>'
+      + '<div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No accepted friends yet</div>'
+      + '<div style="font-size:12px;line-height:1.5">Send friend requests from your Circle to build your gift reminder list.</div>'
+      + '</div>';
+    return;
+  }
+  var pr = await sbClient.from('profiles').select('id, display_name, handle, photo, birthday, gift_visible_categories').in('id', friendIds);
+  var byId = {};
+  (pr.data || []).forEach(function(p) { byId[p.id] = p; });
+
+  // Also fetch their lists so we can preview them
+  var listRes = await sbClient.from('lists').select('user_id, category, emoji, items').in('user_id', friendIds);
+  var listsByUser = {};
+  (listRes.data || []).forEach(function(l) {
+    (listsByUser[l.user_id] = listsByUser[l.user_id] || []).push(l);
+  });
+
+  // Build friend cards with birthday countdown
+  var withBdays = [];
+  var withoutBdays = [];
+  acceptedFriends.forEach(function(f) {
+    var p = byId[f.friendId];
+    if (!p) return;
+    var days = daysUntilBirthday(p.birthday);
+    var entry = { friend: f, profile: p, daysUntil: days, lists: listsByUser[p.id] || [] };
+    if (days === null) withoutBdays.push(entry); else withBdays.push(entry);
+  });
+  withBdays.sort(function(a,b){ return a.daysUntil - b.daysUntil; });
+
+  var upcoming = withBdays.filter(function(e){ return e.daysUntil <= 90; });
+  var later    = withBdays.filter(function(e){ return e.daysUntil > 90; });
+
+  function friendGiftCard(entry) {
+    var p = entry.profile;
+    var f = entry.friend;
+    var name = p.display_name || (p.handle ? '@' + p.handle : 'Friend');
+    var avatar = friendAvatarHtml(p, 44);
+    var daysLabel;
+    if (entry.daysUntil === 0)      daysLabel = '🎂 Today!';
+    else if (entry.daysUntil === 1) daysLabel = '🎂 Tomorrow';
+    else                            daysLabel = '🎂 in ' + entry.daysUntil + ' days';
+    var bday = new Date(p.birthday + 'T00:00:00');
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var dateLabel = months[bday.getMonth()] + ' ' + bday.getDate();
+    var listCount = entry.lists.length;
+    var visibleCats = Array.isArray(p.gift_visible_categories) && p.gift_visible_categories.length
+      ? p.gift_visible_categories
+      : entry.lists.map(function(l){ return l.category; }); // default: all shown if user hasn't opted in/out
+    var visibleLists = entry.lists.filter(function(l){ return visibleCats.indexOf(l.category) >= 0; });
+    var previewChips = visibleLists.slice(0, 3).map(function(l) {
+      return '<span style="display:inline-block;background:#FAECE7;color:#993C1D;font-size:10px;padding:3px 8px;border-radius:99px;margin-right:4px;margin-top:4px">' + escapeHtml(l.category) + '</span>';
+    }).join('');
+    var ctaBtn, subtitle;
+    if (visibleLists.length === 0) {
+      subtitle = 'No shared lists yet';
+      ctaBtn = '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin-bottom:0;font-size:12px">Ask for a list →</button>';
+    } else {
+      subtitle = 'Ideas from ' + visibleLists.length + ' list' + (visibleLists.length !== 1 ? 's' : '');
+      ctaBtn = '<button class="btn-primary" style="width:auto;padding:8px 14px;margin-bottom:0;font-size:12px" onclick="openGiftGuide(\'' + p.id + '\')">See gifts →</button>';
+    }
+    var accent = entry.daysUntil <= 14 ? '#D85A30' : '#5F5E5A';
+    return '<div class="card no-hover" style="margin-bottom:8px;border-left:3px solid ' + accent + '">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+      +   avatar
+      +   '<div style="flex:1;min-width:0">'
+      +     '<div style="font-size:13.5px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + '</div>'
+      +     '<div style="font-size:11px;color:' + accent + ';font-weight:600;margin-top:1px">' + daysLabel + ' · ' + dateLabel + '</div>'
+      +     '<div style="font-size:11px;color:#5F5E5A;margin-top:1px">' + subtitle + '</div>'
+      +   '</div>'
+      + '</div>'
+      + (previewChips ? '<div style="margin-bottom:8px">' + previewChips + '</div>' : '')
+      + '<div style="text-align:right">' + ctaBtn + '</div>'
+      + '</div>';
+  }
+
+  var html = '';
+  if (upcoming.length) {
+    html += '<div class="sec-label">Coming up</div>';
+    html += upcoming.map(friendGiftCard).join('');
+  }
+  if (later.length) {
+    html += '<div class="sec-label">Later in the year</div>';
+    html += later.map(friendGiftCard).join('');
+  }
+  if (withoutBdays.length) {
+    html += '<div class="sec-label">Friends without a birthday on file</div>';
+    html += withoutBdays.map(function(entry) {
+      var p = entry.profile;
+      var name = p.display_name || (p.handle ? '@' + p.handle : 'Friend');
+      return '<div class="card no-hover" style="margin-bottom:6px">'
+        + '<div style="display:flex;align-items:center;gap:10px">'
+        +   friendAvatarHtml(p, 36)
+        +   '<div style="flex:1"><div style="font-size:13.5px;color:#2C2C2A">' + escapeHtml(name) + '</div>'
+        +   '<div style="font-size:11px;color:#888780">Ask them to add a birthday for gift reminders.</div></div>'
+        + '</div></div>';
+    }).join('');
+  }
+  if (!html) {
+    html = '<div style="text-align:center;padding:40px 20px;color:#888780">'
+      + '<div style="font-size:36px;margin-bottom:12px">🎁</div>'
+      + '<div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">Nothing to show yet</div>'
+      + '<div style="font-size:12px;line-height:1.5">Your friends haven\'t added birthdays yet.</div>'
+      + '</div>';
+  }
+  el.innerHTML = html;
+  updateGiftsBadge(upcoming);
+}
+
+function updateGiftsBadge(upcoming) {
+  var badge = document.getElementById('gifts-badge');
+  if (!badge) return;
+  var soon = upcoming.filter(function(e){ return e.daysUntil <= 14; }).length;
+  if (soon > 0) { badge.style.display = 'flex'; badge.textContent = soon; }
+  else          { badge.style.display = 'none'; }
+}
+
+async function openGiftGuide(friendUserId) {
+  go('s-gift-guide');
+  var el = document.getElementById('gift-guide-content');
+  var titleEl = document.getElementById('gift-guide-title');
+  if (el) el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
+  var pr = await sbClient.from('profiles').select('id, display_name, handle, photo, birthday, gift_visible_categories').eq('id', friendUserId).maybeSingle();
+  if (!pr.data) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">Could not load friend.</div>'; return; }
+  var profile = pr.data;
+  var lr = await sbClient.from('lists').select('user_id, category, emoji, items, is_ranked').eq('user_id', friendUserId);
+  var lists = lr.data || [];
+  var visibleCats = Array.isArray(profile.gift_visible_categories) && profile.gift_visible_categories.length
+    ? profile.gift_visible_categories
+    : lists.map(function(l){ return l.category; });
+  var visibleLists = lists.filter(function(l){ return visibleCats.indexOf(l.category) >= 0; });
+  var name = profile.display_name || (profile.handle ? '@' + profile.handle : 'Friend');
+  if (titleEl) titleEl.textContent = 'Gifts for ' + name;
+
+  var days = daysUntilBirthday(profile.birthday);
+  var bday = profile.birthday ? new Date(profile.birthday + 'T00:00:00') : null;
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var header = '<div style="text-align:center;margin-bottom:14px">'
+    + friendAvatarHtml(profile, 72)
+    + '<div style="font-size:16px;font-weight:700;color:#2C2C2A;margin-top:8px">' + escapeHtml(name) + '</div>'
+    + (bday ? '<div style="font-size:12px;color:#D85A30;font-weight:600;margin-top:2px">🎂 ' + months[bday.getMonth()] + ' ' + bday.getDate() + (days !== null ? ' · in ' + days + ' days' : '') + '</div>' : '')
+    + '</div>';
+
+  if (visibleLists.length === 0) {
+    el.innerHTML = header
+      + '<div style="text-align:center;padding:20px;color:#888780;font-size:12px">' + escapeHtml(name) + ' hasn\'t shared any lists you can shop from yet.</div>';
+    return;
+  }
+
+  var basedOn = '<div class="sec-label">Based on</div>'
+    + '<div style="margin-bottom:12px">'
+    + visibleLists.map(function(l) {
+        return '<span style="display:inline-block;background:#F1EFE8;color:#2C2C2A;font-size:11px;padding:5px 10px;border-radius:99px;margin-right:6px;margin-bottom:4px">' + (l.emoji || '📋') + ' ' + escapeHtml(l.category) + '</span>';
+      }).join('')
+    + '</div>';
+
+  var picksHtml = '<div class="sec-label">Top picks</div>';
+  visibleLists.forEach(function(l) {
+    var topItems = (l.items || []).slice(0, 5);
+    topItems.forEach(function(item, idx) {
+      var url = amazonSearchUrl(item, l.category);
+      picksHtml += '<div class="card no-hover" style="margin-bottom:6px">'
+        + '<div style="display:flex;align-items:center;gap:10px">'
+        +   '<div style="width:36px;height:36px;border-radius:8px;background:#FAECE7;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 20) + '</div>'
+        +   '<div style="flex:1;min-width:0">'
+        +     '<div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(item) + '</div>'
+        +     '<div style="font-size:11px;color:#5F5E5A">Her #' + (idx+1) + ' ' + escapeHtml(l.category) + '</div>'
+        +   '</div>'
+        +   '<a href="' + url + '" target="_blank" rel="noopener nofollow" class="btn-primary" style="width:auto;padding:7px 12px;font-size:11px;text-decoration:none;display:inline-block;margin-bottom:0">Shop →</a>'
+        + '</div></div>';
+    });
+  });
+
+  var footer = '<div style="font-size:9px;color:#888780;text-align:center;padding:16px 8px;line-height:1.5">Shop links may earn Tenner a small commission at no cost to you.</div>';
+
+  el.innerHTML = header + basedOn + picksHtml + footer;
 }
 
 function computeMatch(myItems, theirItems, ranked) {
