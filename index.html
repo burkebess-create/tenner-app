@@ -850,6 +850,16 @@
         </div>
       </div>
 
+      <!-- ═══ ALL OF TENNER ═══ -->
+      <div class="screen" id="s-all-tenner">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-circle')">← Back</button>
+          <span id="all-tenner-title" style="font-size:13px;font-weight:600;color:#2C2C2A">All of Tenner</span>
+          <span style="width:52px"></span>
+        </div>
+        <div class="content" id="all-tenner-content"></div>
+      </div>
+
       <!-- ═══ GIFT GUIDE ═══ -->
       <div class="screen" id="s-gift-guide">
         <div class="topbar">
@@ -1063,6 +1073,7 @@ function go(id) {
       's-gdetail': 'nav-circle', 's-groups': 'nav-circle', 's-gsettings': 'nav-circle',
       's-match': 'nav-match',
       's-gifts': 'nav-gifts', 's-gift-guide': 'nav-gifts',
+      's-all-tenner': 'nav-circle',
       's-circle': 'nav-circle', 's-fdetail': 'nav-circle', 's-friend-list': 'nav-circle', 's-gift-ideas': 'nav-circle',
       's-profile': 'nav-profile',
       's-notifications': 'nav-home'
@@ -6226,6 +6237,19 @@ async function loadWeeklyLists() {
   } catch(e) { console.warn(e); }
 }
 
+// Cached participation counts per weekly_list.id (lightweight — one COUNT query per hero render)
+var WEEKLY_PARTICIPATION = {};
+
+async function loadWeeklyParticipation(weeklyList) {
+  if (!weeklyList || !sbClient) return 0;
+  try {
+    var res = await sbClient.from('lists').select('user_id', { count: 'exact', head: true }).eq('category', weeklyList.category);
+    var n = res.count || 0;
+    WEEKLY_PARTICIPATION[weeklyList.id] = n;
+    return n;
+  } catch(e) { return 0; }
+}
+
 // The "current" weekly list = the one whose week_start is today's Monday (or the most recent past one still before its reveal)
 function getCurrentWeeklyList() {
   if (!WEEKLY_LISTS.length) return null;
@@ -6246,7 +6270,7 @@ function userHasListInCategory(cat) {
   });
 }
 
-function renderWeeklyHeroCard() {
+async function renderWeeklyHeroCard() {
   var el = document.getElementById('weekly-hero-card');
   if (!el) return;
   var wk = getCurrentWeeklyList();
@@ -6257,24 +6281,174 @@ function renderWeeklyHeroCard() {
   var hasIt = userHasListInCategory(wk.category);
   var revealFmt = reveal.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + ' · ' + reveal.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZoneName:'short' });
   var bg = revealed ? 'linear-gradient(135deg,#F5B534,#E08F00)' : 'linear-gradient(135deg,#D85A30,#993C1D)';
+  // Kick off (or reuse) participation count query
+  var count = WEEKLY_PARTICIPATION[wk.id];
+  if (count == null) { loadWeeklyParticipation(wk).then(function(){ renderWeeklyHeroCard(); }); count = null; }
+  var participationLine = count != null
+    ? '<div style="font-size:11px;color:#fff;opacity:0.85;margin-top:6px">👥 ' + count + ' Tenner user' + (count!==1?'s':'') + ' ' + (revealed ? 'took part' : 'have joined so far') + '</div>'
+    : '';
   var stateLine, cta;
   if (revealed) {
     stateLine = '<div style="font-size:12px;color:#fff;opacity:0.9">🎊 The reveal is live!</div>';
-    cta = '<button onclick="matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go(\'s-match\')" style="background:#fff;color:#B57F0F;border:none;border-radius:99px;padding:9px 18px;font-weight:700;font-size:13px;cursor:pointer">See how you compared →</button>';
+    cta = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">'
+        + '<button onclick="matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go(\'s-match\')" style="background:#fff;color:#B57F0F;border:none;border-radius:99px;padding:9px 16px;font-weight:700;font-size:12px;cursor:pointer">Compare with friends →</button>'
+        + '<button onclick="openAllOfTenner(\'' + wk.id + '\')" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:99px;padding:9px 16px;font-weight:600;font-size:12px;cursor:pointer">🌎 See all of Tenner</button>'
+        + '</div>';
   } else if (hasIt) {
     stateLine = '<div style="font-size:12px;color:#fff;opacity:0.9">✓ You\'re in · Reveals ' + revealFmt + '</div>';
-    cta = '<button onclick="openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:99px;padding:8px 16px;font-weight:600;font-size:12px;cursor:pointer">Review or update →</button>';
+    cta = '<div style="margin-top:12px"><button onclick="openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:99px;padding:8px 16px;font-weight:600;font-size:12px;cursor:pointer">Review or update →</button></div>';
   } else {
     stateLine = '<div style="font-size:12px;color:#fff;opacity:0.9">Reveals ' + revealFmt + '</div>';
-    cta = '<button onclick="openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:#fff;color:#D85A30;border:none;border-radius:99px;padding:9px 18px;font-weight:700;font-size:13px;cursor:pointer">Make my Top 10 →</button>';
+    cta = '<div style="margin-top:12px"><button onclick="openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:#fff;color:#D85A30;border:none;border-radius:99px;padding:9px 18px;font-weight:700;font-size:13px;cursor:pointer">Make my Top 10 →</button></div>';
   }
   el.innerHTML = '<div style="background:' + bg + ';border-radius:16px;padding:16px 18px;margin-bottom:16px;color:#fff">'
     + '<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#fff;opacity:0.85;margin-bottom:4px">This week on Tenner</div>'
     + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.01em;line-height:1.1;margin-bottom:6px">' + (wk.emoji||'📋') + ' Top 10 ' + escapeHtml(wk.category) + '</div>'
     + (wk.description ? '<div style="font-size:12px;color:#fff;opacity:0.9;margin-bottom:10px">' + escapeHtml(wk.description) + '</div>' : '')
     + stateLine
-    + '<div style="margin-top:12px">' + cta + '</div>'
+    + participationLine
+    + cta
     + '</div>';
+  // Check whether we should fire the one-time reveal celebration
+  maybeShowRevealCelebration(wk);
+}
+
+// --- Reveal-moment celebration (once per user per weekly list) ---
+function maybeShowRevealCelebration(wk) {
+  if (!wk) return;
+  var now = new Date();
+  var reveal = new Date(wk.reveal_at);
+  if (now < reveal) return;
+  var hoursSince = (now - reveal) / (1000 * 60 * 60);
+  if (hoursSince > 48) return; // don't celebrate if reveal was more than 2 days ago
+  var flagKey = 'tenner_wk_celebrated_' + wk.id;
+  try { if (localStorage.getItem(flagKey)) return; localStorage.setItem(flagKey, '1'); }
+  catch(e) {}
+  showRevealCelebration(wk);
+}
+
+function showRevealCelebration(wk) {
+  var frame = document.querySelector('.frame') || document.body;
+  var existing = document.getElementById('weekly-reveal-modal');
+  if (existing) existing.remove();
+  var hasIt = userHasListInCategory(wk.category);
+  var overlay = document.createElement('div');
+  overlay.id = 'weekly-reveal-modal';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(20,10,4,0.85);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px';
+  var cta = hasIt
+    ? '<button onclick="document.getElementById(\'weekly-reveal-modal\').remove();openAllOfTenner(\'' + wk.id + '\')" class="btn-primary" style="margin-bottom:8px">🌎 See all of Tenner</button>'
+      + '<button onclick="document.getElementById(\'weekly-reveal-modal\').remove();matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go(\'s-match\')" class="btn-secondary" style="margin-bottom:0">Compare with friends</button>'
+    : '<button onclick="document.getElementById(\'weekly-reveal-modal\').remove();openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" class="btn-primary" style="margin-bottom:8px">Make my Top 10 →</button>'
+      + '<button onclick="document.getElementById(\'weekly-reveal-modal\').remove();openAllOfTenner(\'' + wk.id + '\')" class="btn-secondary" style="margin-bottom:0">🌎 See all of Tenner</button>';
+  overlay.innerHTML = ''
+    + '<div class="pop-in" style="background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:320px;text-align:center">'
+    +   '<div style="font-size:56px;margin-bottom:6px">🎊</div>'
+    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;color:#1A0F0A;margin-bottom:6px;line-height:1.15">The reveal is live!</div>'
+    +   '<div style="font-size:14px;color:#5F5E5A;margin-bottom:6px">' + (wk.emoji||'📋') + ' Top 10 ' + escapeHtml(wk.category) + '</div>'
+    +   '<div style="font-size:12px;color:#888780;margin-bottom:18px">See how your picks stack up against all of Tenner — and against your circle.</div>'
+    +   cta
+    + '</div>';
+  frame.appendChild(overlay);
+  setTimeout(function() { celebrateConfetti(80); }, 100);
+}
+
+// --- All-of-Tenner comparison view for a revealed weekly list ---
+async function openAllOfTenner(weeklyId) {
+  var wk = WEEKLY_LISTS.find(function(w){ return w.id === weeklyId; });
+  if (!wk) { showToast('Weekly list not found.'); return; }
+  go('s-all-tenner');
+  var el = document.getElementById('all-tenner-content');
+  var titleEl = document.getElementById('all-tenner-title');
+  if (titleEl) titleEl.textContent = (wk.emoji || '📋') + ' Top 10 ' + wk.category;
+  if (el) el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading the wisdom of the crowd…</div>';
+  try {
+    // Pull every list for this category — for beta scale this is fine; add pagination if it grows
+    var res = await sbClient.from('lists').select('user_id, items').eq('category', wk.category).limit(5000);
+    if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(res.error.message) + '</div>'; return; }
+    var rows = res.data || [];
+    if (!rows.length) {
+      el.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#888780">'
+        + '<div style="font-size:36px;margin-bottom:10px">🌎</div>'
+        + '<div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:4px">No submissions yet</div>'
+        + '<div style="font-size:12px">Be the first to fill out this week\'s list.</div>'
+        + '</div>';
+      return;
+    }
+    // Borda-style aggregate: item at rank 1 scores 10, rank 10 scores 1
+    var itemScores = {}; var itemDisplay = {}; var totalUsers = rows.length;
+    rows.forEach(function(row) {
+      (row.items || []).slice(0, 10).forEach(function(it, idx) {
+        var key = (it || '').toLowerCase().trim();
+        if (!key) return;
+        var pts = 10 - idx;
+        itemScores[key] = (itemScores[key] || 0) + pts;
+        if (!itemDisplay[key]) itemDisplay[key] = it;
+      });
+    });
+    var aggregate = Object.keys(itemScores).map(function(k) {
+      return { key: k, display: itemDisplay[k], score: itemScores[k] };
+    }).sort(function(a,b){ return b.score - a.score; });
+    var top10 = aggregate.slice(0, 10);
+
+    // My list for comparison
+    var myList = MY_LISTS.find(function(l) {
+      return (l.category || l.n.replace('Top 10 ','')).toLowerCase() === wk.category.toLowerCase();
+    });
+    var myKeys = myList ? myList.items.map(function(x){ return x.toLowerCase().trim(); }) : [];
+    var crowdKeys = top10.map(function(x){ return x.key; });
+    var matchScore = myList ? computeMatch(myList.items, top10.map(function(x){ return x.display; }), true) : null;
+
+    var scoreCard = '';
+    if (myList && matchScore !== null) {
+      scoreCard = '<div class="card no-hover" style="margin-bottom:14px;text-align:center;background:linear-gradient(135deg,#FAECE7,#FDF0EB)">'
+        + '<div style="font-size:11px;color:#5F5E5A;letter-spacing:.1em;text-transform:uppercase">Your match to the crowd</div>'
+        + '<div style="font-size:40px;font-weight:800;color:#D85A30;line-height:1;margin:6px 0">' + matchScore + '%</div>'
+        + '<div style="font-size:11px;color:#5F5E5A">based on ' + totalUsers + ' Tenner list' + (totalUsers!==1?'s':'') + '</div>'
+        + '</div>';
+    }
+
+    var listHtml = top10.map(function(item, idx) {
+      var myRank = myKeys.indexOf(item.key);
+      var myLabel = '';
+      if (myRank >= 0) {
+        myLabel = '<span style="font-size:10px;background:#D6F0EA;color:#1F7268;padding:3px 8px;border-radius:99px;font-weight:600">You had it #' + (myRank+1) + '</span>';
+      } else if (myList) {
+        myLabel = '<span style="font-size:10px;color:#888780">Not on your list</span>';
+      }
+      var pctPickedIt = ''; // approx: score / (10 * totalUsers) as popularity heuristic
+      return '<div class="card no-hover" style="margin-bottom:6px">'
+        + '<div style="display:flex;align-items:center;gap:10px">'
+        +   '<div style="width:32px;height:32px;border-radius:8px;background:' + (idx===0 ? 'linear-gradient(135deg,#F5B534,#E08F00)' : '#FAECE7') + ';color:' + (idx===0 ? '#fff' : '#993C1D') + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px">' + (idx+1) + '</div>'
+        +   '<div style="flex:1;min-width:0">'
+        +     '<div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(item.display) + '</div>'
+        +     (myLabel ? '<div style="margin-top:3px">' + myLabel + '</div>' : '')
+        +   '</div>'
+        + '</div></div>';
+    }).join('');
+
+    var uniqueHtml = '';
+    if (myList) {
+      var uniquePicks = (myList.items || []).filter(function(it) {
+        return crowdKeys.indexOf(it.toLowerCase().trim()) === -1;
+      });
+      if (uniquePicks.length) {
+        uniqueHtml = '<div class="sec-label">Your unique picks</div>'
+          + uniquePicks.map(function(p) {
+              return '<div class="card no-hover" style="margin-bottom:4px;padding:8px 10px"><div style="font-size:12px;color:#2C2C2A">' + escapeHtml(p) + '</div><div style="font-size:10px;color:#888780;margin-top:1px">Not in the crowd\'s top 10 — the outlier is you.</div></div>';
+            }).join('');
+      }
+    }
+
+    el.innerHTML = scoreCard
+      + '<div class="sec-label">The Tenner Top 10</div>'
+      + listHtml
+      + uniqueHtml
+      + '<div style="font-size:10px;color:#888780;text-align:center;padding:16px 8px">Aggregated across ' + totalUsers + ' Tenner user' + (totalUsers!==1?'s':'') + ' · rank-weighted scoring (top of list counts more)</div>';
+  } catch(e) {
+    console.warn(e);
+    el.innerHTML = '<div style="padding:20px;color:#A32D2D">Could not load: ' + escapeHtml(e.message || String(e)) + '</div>';
+  }
 }
 
 function openWeeklyListFlow(cat, emoji) {
