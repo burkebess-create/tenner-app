@@ -350,6 +350,7 @@
           </div>
           <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:3px">Choose a category</div>
           <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:12px">Pick one or type your own</div>
+          <div id="past-weekly-section" style="margin-bottom:12px"></div>
           <div class="cat-grid" id="cat-grid"></div>
           <div style="display:flex;align-items:stretch;border:1px solid #D3D1C7;border-radius:8px;background:#fff;margin-bottom:2px;overflow:hidden">
             <div style="display:flex;align-items:center;padding:0 10px;background:#F1EFE8;color:#5F5E5A;font-size:13px;font-weight:600;border-right:1px solid #E8E6DF;white-space:nowrap">Top 10</div>
@@ -616,6 +617,7 @@
           <button class="back-btn" onclick="doRefresh(this,function(){return loadFriends().then(renderCircleScreen);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
         </div>
         <div class="content">
+          <div id="weekly-hero-card"></div>
           <div id="home-feed-section"></div>
           <div class="sec-label">Friends</div>
           <div style="display:flex;gap:6px;margin-bottom:6px">
@@ -825,6 +827,7 @@
         <div style="display:flex;border-bottom:1px solid #E5E3DC;background:#FAF8F5;overflow-x:auto">
           <button id="admin-tab-cats"     onclick="switchAdminTab('cats')"     style="flex:1;min-width:70px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#D85A30;border-bottom:2px solid #D85A30">Categories</button>
           <button id="admin-tab-items"    onclick="switchAdminTab('items')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Items</button>
+          <button id="admin-tab-weekly"   onclick="switchAdminTab('weekly')"   style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Weekly</button>
           <button id="admin-tab-users"    onclick="switchAdminTab('users')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Users</button>
           <button id="admin-tab-lists"    onclick="switchAdminTab('lists')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Lists</button>
           <button id="admin-tab-feedback" onclick="switchAdminTab('feedback')" style="flex:1;min-width:70px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Feedback</button>
@@ -1069,7 +1072,7 @@ function go(id) {
   if (id === 's-home') { renderHome(); if (userId) showOnboardingIfNeeded(); }
   if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-fdetail' && selFriendId) renderFriendDetail();
-  if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
+  if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); renderCreatePastWeekly(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
   if (id === 's-create2') { renderItems(); updateProg(); }
   if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); addedNonFriends = {}; clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
@@ -1098,7 +1101,7 @@ function go(id) {
     if (mbb) mbb.style.display = matchOrigin ? 'block' : 'none';
     renderMatch();
   }
-  if (id === 's-circle') { renderCircleScreen(); renderGiftReminders(); renderHomeFeed(); }
+  if (id === 's-circle') { renderCircleScreen(); renderGiftReminders(); renderHomeFeed(); renderWeeklyHeroCard(); }
   if (id === 's-notifications') { loadListShareInvites().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
   if (id === 's-admin') { renderAdmin(); }
@@ -5053,10 +5056,11 @@ async function loadState() {
       // Ban check runs first — if banned, this signs the user out and reloads
       var banned = await checkIfBanned();
       if (banned) return;
-      // Kick off admin + categories + match-reveal fetch in the background (don't block main data)
+      // Kick off admin + categories + match-reveal + weekly-lists fetch in the background
       checkAdminStatus();
       loadCategoriesFromDb();
       loadMatchReveals();
+      loadWeeklyLists();
       // Run the independent lists + group-membership queries in parallel
       console.time('loadState:lists+memberships');
       var results = await Promise.all([
@@ -5632,7 +5636,7 @@ async function submitFeedback() {
 
 function switchAdminTab(tab) {
   _adminTab = tab;
-  ['cats','items','users','lists','feedback'].forEach(function(t) {
+  ['cats','items','weekly','users','lists','feedback'].forEach(function(t) {
     var b = document.getElementById('admin-tab-' + t);
     if (!b) return;
     if (t === tab) { b.style.color = '#D85A30'; b.style.borderBottomColor = '#D85A30'; }
@@ -5648,9 +5652,116 @@ async function renderAdmin() {
   el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
   if (_adminTab === 'cats') return renderAdminCats(el);
   if (_adminTab === 'items') return renderAdminItems(el);
+  if (_adminTab === 'weekly') return renderAdminWeekly(el);
   if (_adminTab === 'users') return renderAdminUsers(el);
   if (_adminTab === 'lists') return renderAdminLists(el);
   if (_adminTab === 'feedback') return renderAdminFeedback(el);
+}
+
+// --- Weekly Lists admin tab ---
+async function renderAdminWeekly(el) {
+  var res = await sbClient.from('weekly_lists').select('*').order('week_start', {ascending:false}).limit(60);
+  if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(res.error.message) + '</div>'; return; }
+  var now = new Date();
+  var rows = (res.data || []).map(function(w) {
+    var reveal = new Date(w.reveal_at);
+    var badge = reveal > now
+      ? '<span style="font-size:9px;background:#D6F0EA;color:#1F7268;padding:2px 6px;border-radius:99px;margin-left:6px">Upcoming</span>'
+      : '<span style="font-size:9px;background:#F1EFE8;color:#5F5E5A;padding:2px 6px;border-radius:99px;margin-left:6px">Revealed</span>';
+    var revealFmt = reveal.toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    return '<div class="card no-hover" style="margin-bottom:6px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+      +   '<div style="flex:1"><strong style="font-size:13px">' + (w.emoji||'📋') + ' Top 10 ' + escapeHtml(w.category) + '</strong>' + badge + '</div>'
+      +   '<div><button class="back-btn" onclick="editAdminWeekly(\'' + w.id + '\')" style="margin-right:4px">Edit</button>'
+      +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminWeekly(\'' + w.id + '\')">Delete</button></div>'
+      + '</div>'
+      + '<div style="font-size:11px;color:#5F5E5A;margin-top:4px">Week of ' + escapeHtml(w.week_start) + ' · Reveals ' + revealFmt + '</div>'
+      + (w.description ? '<div style="font-size:11px;color:#888780;margin-top:2px">' + escapeHtml(w.description) + '</div>' : '')
+      + '</div>';
+  }).join('');
+  el.innerHTML = '<div style="padding:12px">'
+    + '<button class="btn-primary" onclick="editAdminWeekly(null)" style="margin-bottom:12px">+ New weekly list</button>'
+    + (rows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No weekly lists yet.</div>')
+    + '</div>';
+}
+
+// Helper: given any Date, return the Monday of that week as an ISO date string (YYYY-MM-DD)
+function mondayOf(dateStr) {
+  var d = dateStr ? new Date(dateStr + 'T12:00:00') : new Date();
+  var day = d.getDay(); // 0=Sun..6=Sat
+  var diff = day === 0 ? -6 : (1 - day);
+  d.setDate(d.getDate() + diff);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+// Return an ISO timestamp for Friday 8pm ET of the week containing weekStartDate
+function fridayRevealAt(weekStartDate) {
+  var d = new Date(weekStartDate + 'T00:00:00');
+  d.setDate(d.getDate() + 4); // Monday → Friday
+  // Set to 8pm Eastern — approximating as UTC-05:00 (ET is EST/EDT; using -05:00 is close enough for admin defaults)
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + 'T20:00:00-05:00';
+}
+
+function editAdminWeekly(id) {
+  var existing = id ? WEEKLY_LISTS.find(function(w){ return w.id === id; }) : null;
+  var defaultWeekStart = existing ? existing.week_start : mondayOf();
+  var defaultReveal = existing ? existing.reveal_at.substring(0, 16) : fridayRevealAt(defaultWeekStart).substring(0, 16);
+  var frame = document.querySelector('.frame') || document.body;
+  var existingModal = document.getElementById('admin-weekly-modal');
+  if (existingModal) existingModal.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'admin-weekly-modal';
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px';
+  overlay.innerHTML = ''
+    + '<div style="background:#fff;border-radius:12px;padding:16px;width:100%;max-width:340px;max-height:90%;overflow-y:auto">'
+    +   '<div style="font-size:15px;font-weight:700;margin-bottom:10px">' + (existing ? 'Edit weekly list' : 'New weekly list') + '</div>'
+    +   '<div style="font-size:11px;color:#5F5E5A;margin-bottom:3px">Category</div>'
+    +   '<input type="text" id="aw-category" value="' + escapeHtml(existing ? existing.category : '') + '" placeholder="Road-Trip Songs" style="margin-bottom:8px">'
+    +   '<div style="font-size:11px;color:#5F5E5A;margin-bottom:3px">Emoji</div>'
+    +   '<input type="text" id="aw-emoji" value="' + escapeHtml(existing ? (existing.emoji || '📋') : '📋') + '" style="margin-bottom:8px">'
+    +   '<div style="font-size:11px;color:#5F5E5A;margin-bottom:3px">Week start (Monday)</div>'
+    +   '<input type="date" id="aw-week-start" value="' + defaultWeekStart + '" onchange="var r=document.getElementById(\'aw-reveal\');if(r)r.value=fridayRevealAt(this.value).substring(0,16)" style="margin-bottom:8px">'
+    +   '<div style="font-size:11px;color:#5F5E5A;margin-bottom:3px">Reveal at (your local time)</div>'
+    +   '<input type="datetime-local" id="aw-reveal" value="' + defaultReveal + '" style="margin-bottom:8px">'
+    +   '<div style="font-size:11px;color:#5F5E5A;margin-bottom:3px">Description (optional)</div>'
+    +   '<textarea id="aw-description" style="width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;height:60px;margin-bottom:12px" placeholder="One line of flavor text">' + escapeHtml(existing ? (existing.description || '') : '') + '</textarea>'
+    +   '<div style="display:flex;gap:8px">'
+    +     '<button class="btn-secondary" onclick="document.getElementById(\'admin-weekly-modal\').remove()" style="margin-bottom:0">Cancel</button>'
+    +     '<button class="btn-primary"   onclick="saveAdminWeekly(' + (existing ? '\'' + existing.id + '\'' : 'null') + ')" style="margin-bottom:0">Save</button>'
+    +   '</div>'
+    + '</div>';
+  frame.appendChild(overlay);
+}
+
+function saveAdminWeekly(id) {
+  var category = (document.getElementById('aw-category').value || '').trim();
+  if (!category) { alert('Category is required.'); return; }
+  var emoji = (document.getElementById('aw-emoji').value || '').trim() || '📋';
+  var weekStart = document.getElementById('aw-week-start').value;
+  var revealLocal = document.getElementById('aw-reveal').value;
+  if (!weekStart || !revealLocal) { alert('Week start and reveal time are required.'); return; }
+  var revealAt = new Date(revealLocal).toISOString();
+  var description = (document.getElementById('aw-description').value || '').trim() || null;
+  var payload = { category: category, emoji: emoji, week_start: weekStart, reveal_at: revealAt, description: description };
+  if (!id) payload.created_by = userId;
+  var q = id
+    ? sbClient.from('weekly_lists').update(payload).eq('id', id)
+    : sbClient.from('weekly_lists').insert(payload);
+  q.then(function(r) {
+    if (r.error) { alert('Error: ' + r.error.message); return; }
+    var m = document.getElementById('admin-weekly-modal'); if (m) m.remove();
+    showToast('Saved');
+    loadWeeklyLists().then(renderAdmin);
+  });
+}
+
+function deleteAdminWeekly(id) {
+  showConfirm('Delete this weekly list?', 'Users\' individual lists in that category are not affected — only the weekly prompt itself is removed.', 'Delete', 'danger', function() {
+    sbClient.from('weekly_lists').delete().eq('id', id).then(function(r) {
+      if (r.error) { alert('Error: ' + r.error.message); return; }
+      showToast('Deleted');
+      loadWeeklyLists().then(renderAdmin);
+    });
+  });
 }
 
 // --- Users tab ---
@@ -6097,6 +6208,122 @@ function setFeedbackStatus(id, status) {
     if (r.error) { alert('Error: ' + r.error.message); return; }
     renderAdmin();
   });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WEEKLY LISTS
+// ═══════════════════════════════════════════════════════════════
+
+var WEEKLY_LISTS = [];       // Full cache, sorted by week_start desc
+var WEEKLY_PAST_SHOWN = 12;  // How many past weekly lists shown when the "past" section is expanded
+
+async function loadWeeklyLists() {
+  if (!sbClient) return;
+  try {
+    var res = await sbClient.from('weekly_lists').select('*').order('week_start', {ascending:false}).limit(120);
+    if (res.error) { console.warn('loadWeeklyLists', res.error); return; }
+    WEEKLY_LISTS = res.data || [];
+  } catch(e) { console.warn(e); }
+}
+
+// The "current" weekly list = the one whose week_start is today's Monday (or the most recent past one still before its reveal)
+function getCurrentWeeklyList() {
+  if (!WEEKLY_LISTS.length) return null;
+  var now = new Date();
+  // Prefer the entry whose week_start <= today AND reveal_at is in the future OR most recently past (last 3 days for the "reveal is live" moment)
+  var candidates = WEEKLY_LISTS.filter(function(w) {
+    var ws = new Date(w.week_start + 'T00:00:00');
+    var ra = new Date(w.reveal_at);
+    return ws <= now && (now - ra) < (3 * 24 * 60 * 60 * 1000);
+  });
+  return candidates[0] || null;
+}
+
+function userHasListInCategory(cat) {
+  if (!cat) return false;
+  return (MY_LISTS || []).some(function(l) {
+    return (l.category || l.n.replace('Top 10 ','')).toLowerCase() === cat.toLowerCase();
+  });
+}
+
+function renderWeeklyHeroCard() {
+  var el = document.getElementById('weekly-hero-card');
+  if (!el) return;
+  var wk = getCurrentWeeklyList();
+  if (!wk) { el.innerHTML = ''; return; }
+  var now = new Date();
+  var reveal = new Date(wk.reveal_at);
+  var revealed = now >= reveal;
+  var hasIt = userHasListInCategory(wk.category);
+  var revealFmt = reveal.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + ' · ' + reveal.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZoneName:'short' });
+  var bg = revealed ? 'linear-gradient(135deg,#F5B534,#E08F00)' : 'linear-gradient(135deg,#D85A30,#993C1D)';
+  var stateLine, cta;
+  if (revealed) {
+    stateLine = '<div style="font-size:12px;color:#fff;opacity:0.9">🎊 The reveal is live!</div>';
+    cta = '<button onclick="matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go(\'s-match\')" style="background:#fff;color:#B57F0F;border:none;border-radius:99px;padding:9px 18px;font-weight:700;font-size:13px;cursor:pointer">See how you compared →</button>';
+  } else if (hasIt) {
+    stateLine = '<div style="font-size:12px;color:#fff;opacity:0.9">✓ You\'re in · Reveals ' + revealFmt + '</div>';
+    cta = '<button onclick="openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:99px;padding:8px 16px;font-weight:600;font-size:12px;cursor:pointer">Review or update →</button>';
+  } else {
+    stateLine = '<div style="font-size:12px;color:#fff;opacity:0.9">Reveals ' + revealFmt + '</div>';
+    cta = '<button onclick="openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:#fff;color:#D85A30;border:none;border-radius:99px;padding:9px 18px;font-weight:700;font-size:13px;cursor:pointer">Make my Top 10 →</button>';
+  }
+  el.innerHTML = '<div style="background:' + bg + ';border-radius:16px;padding:16px 18px;margin-bottom:16px;color:#fff">'
+    + '<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#fff;opacity:0.85;margin-bottom:4px">This week on Tenner</div>'
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.01em;line-height:1.1;margin-bottom:6px">' + (wk.emoji||'📋') + ' Top 10 ' + escapeHtml(wk.category) + '</div>'
+    + (wk.description ? '<div style="font-size:12px;color:#fff;opacity:0.9;margin-bottom:10px">' + escapeHtml(wk.description) + '</div>' : '')
+    + stateLine
+    + '<div style="margin-top:12px">' + cta + '</div>'
+    + '</div>';
+}
+
+function openWeeklyListFlow(cat, emoji) {
+  // Pre-fill create step 2 with this category and go straight to editing
+  selCat = cat;
+  selCatEmoji = emoji || getCatEmoji(cat) || '📋';
+  var existingIdx = MY_LISTS.findIndex(function(l) {
+    return (l.category || l.n.replace('Top 10 ','')).toLowerCase() === cat.toLowerCase();
+  });
+  if (existingIdx >= 0) {
+    editListByIdx(existingIdx);
+  } else {
+    _createFromHome = false;
+    editingListIdx = -1;
+    items = [];
+    renderItems();
+    updateProg();
+    go('s-create2');
+  }
+}
+
+// Past-weekly-lists section on the Create tab (step 1)
+function renderCreatePastWeekly() {
+  var el = document.getElementById('past-weekly-section');
+  if (!el) return;
+  var now = new Date();
+  var past = WEEKLY_LISTS.filter(function(w) { return new Date(w.reveal_at) < now; });
+  var current = getCurrentWeeklyList();
+  if (current) past = past.filter(function(w) { return w.id !== current.id; });
+  if (!past.length) { el.innerHTML = ''; return; }
+  var expanded = !!window._pastWeeklyExpanded;
+  var visible = expanded ? past.slice(0, WEEKLY_PAST_SHOWN) : [];
+  var rowsHtml = visible.map(function(w) {
+    var hasIt = userHasListInCategory(w.category);
+    var when = new Date(w.week_start + 'T00:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' });
+    var label = hasIt ? 'View →' : 'Fill it out →';
+    return '<div class="card" onclick="openWeeklyListFlow(\'' + w.category.replace(/\'/g,"\\'") + '\',\'' + (w.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="margin-bottom:6px">'
+      + '<div style="display:flex;align-items:center;gap:10px">'
+      +   '<div style="width:32px;height:32px;border-radius:8px;background:#FAECE7;display:flex;align-items:center;justify-content:center">' + renderCatEmoji(w.emoji || '📋', 20) + '</div>'
+      +   '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Top 10 ' + escapeHtml(w.category) + '</div><div style="font-size:11px;color:#5F5E5A">' + when + '</div></div>'
+      +   '<span style="font-size:11px;color:#D85A30;font-weight:600">' + label + '</span>'
+      + '</div></div>';
+  }).join('');
+  var moreBtn = (expanded && past.length > visible.length)
+    ? '<button class="btn-secondary" onclick="WEEKLY_PAST_SHOWN+=12;renderCreatePastWeekly()" style="margin-top:6px">See more →</button>'
+    : '';
+  var toggleLabel = expanded ? '▲ Hide past weekly lists' : '▼ Past weekly lists (' + past.length + ')';
+  el.innerHTML = '<div class="sec-label" style="cursor:pointer" onclick="window._pastWeeklyExpanded=!window._pastWeeklyExpanded;renderCreatePastWeekly()">' + toggleLabel + '</div>'
+    + (expanded ? rowsHtml + moreBtn : '');
 }
 
 // ═══════════════════════════════════════════════════════════════
