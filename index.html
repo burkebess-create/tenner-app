@@ -230,12 +230,13 @@
           <div style="text-align:center;margin-bottom:32px">
             <img src="logo-square.png" alt="Tenner" style="width:min(280px,80%);height:auto;object-fit:contain;border-radius:32px;display:block;margin:0 auto">
           </div>
-          <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid #D3D1C7;border-radius:10px;overflow:hidden">
-            <button id="tab-login" onclick="authTab('login')" style="flex:1;padding:10px;border:none;background:#FAECE7;color:#993C1D;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">Log in</button>
-            <button id="tab-signup" onclick="authTab('signup')" style="flex:1;padding:10px;border:none;background:#fff;color:#5F5E5A;font-size:13px;cursor:pointer;font-family:inherit">Sign up</button>
-            <button id="tab-magic" onclick="authTab('magic')" style="flex:1;padding:10px;border:none;background:#fff;color:#5F5E5A;font-size:13px;cursor:pointer;font-family:inherit">Magic link</button>
+          <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid #D85A30;border-radius:10px;overflow:hidden;background:#fff">
+            <button id="tab-login"  onclick="authTab('login')"  style="flex:1;padding:12px 4px;border:none;background:#D85A30;color:#ffffff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Log in</button>
+            <button id="tab-signup" onclick="authTab('signup')" style="flex:1;padding:12px 4px;border:none;background:#fff;color:#2C2C2A;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;border-left:1px solid #E8E6DF">Sign up</button>
+            <button id="tab-magic"  onclick="authTab('magic')"  style="flex:1;padding:12px 4px;border:none;background:#fff;color:#2C2C2A;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;border-left:1px solid #E8E6DF">Magic link</button>
           </div>
           <div id="auth-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:10px;border:1px solid #F0997B"></div>
+          <div id="auth-resend" style="display:none;margin-bottom:10px"><button onclick="resendConfirmation()" class="btn-secondary" style="margin-bottom:0;font-size:12px">✉️ Resend confirmation email</button></div>
           <input type="email" id="auth-email" placeholder="Email address" style="margin-bottom:8px">
           <input type="password" id="auth-password" placeholder="Password" style="margin-bottom:4px">
           <div id="auth-password-hint" style="display:none;font-size:10px;color:#888780;margin-bottom:8px">At least 6 characters</div>
@@ -3420,9 +3421,9 @@ function authTab(tab) {
   ['login','signup','magic'].forEach(function(t) {
     var el = document.getElementById('tab-' + t);
     if (!el) return;
-    el.style.background = tab === t ? '#FAECE7' : '#fff';
-    el.style.color = tab === t ? '#993C1D' : '#5F5E5A';
-    el.style.fontWeight = tab === t ? '600' : 'normal';
+    el.style.background = tab === t ? '#D85A30' : '#fff';
+    el.style.color      = tab === t ? '#ffffff' : '#2C2C2A';
+    el.style.fontWeight = tab === t ? '700' : '600';
   });
   var labels = {login: 'Log in', signup: 'Create account', magic: 'Send magic link'};
   document.getElementById('auth-submit').textContent = labels[tab];
@@ -3431,6 +3432,29 @@ function authTab(tab) {
   document.getElementById('auth-magic-hint').style.display = tab === 'magic' ? 'block' : 'none';
   document.getElementById('auth-error').style.display = 'none';
   document.getElementById('auth-success').style.display = 'none';
+  var resend = document.getElementById('auth-resend');
+  if (resend) resend.style.display = 'none';
+}
+
+async function resendConfirmation() {
+  var email = document.getElementById('auth-email').value.trim();
+  var errEl = document.getElementById('auth-error');
+  var successEl = document.getElementById('auth-success');
+  if (!email) { errEl.textContent = 'Please enter your email first.'; errEl.style.display = 'block'; return; }
+  try {
+    var res = await sbClient.auth.resend({ type: 'signup', email: email });
+    if (res.error) {
+      errEl.textContent = authErrorText(res.error);
+      errEl.style.display = 'block';
+    } else {
+      successEl.textContent = '✓ Confirmation email re-sent to ' + email + '. Check your inbox (and spam).';
+      successEl.style.display = 'block';
+      errEl.style.display = 'none';
+    }
+  } catch(e) {
+    errEl.textContent = authErrorText(e);
+    errEl.style.display = 'block';
+  }
 }
 
 function authErrorText(err) {
@@ -3470,7 +3494,13 @@ async function submitAuth() {
       }
     } else if (currentAuthTab === 'login') {
       res = await sbClient.auth.signInWithPassword({email: email, password: password});
-      if (res.error) { errEl.textContent = authErrorText(res.error); errEl.style.display = 'block'; }
+      if (res.error) {
+        errEl.textContent = authErrorText(res.error);
+        errEl.style.display = 'block';
+        var msg = (res.error.message || '').toLowerCase();
+        var resendEl = document.getElementById('auth-resend');
+        if (resendEl && (msg.indexOf('confirm') >= 0 || msg.indexOf('not confirmed') >= 0)) resendEl.style.display = 'block';
+      }
     } else {
       res = await sbClient.auth.signUp({
         email: email,
