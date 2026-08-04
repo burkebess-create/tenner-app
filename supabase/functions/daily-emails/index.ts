@@ -13,7 +13,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const APP_URL = "https://burkebess-create.github.io/tenner-app/";
+const APP_URL = "https://mytenner.com/";
 
 function baseTemplate(preheader: string, contentHtml: string) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>

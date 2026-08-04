@@ -13,7 +13,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const APP_URL = "https://burkebess-create.github.io/tenner-app/";
+const APP_URL = "https://mytenner.com/";
 
 function baseTemplate(preheader: string, contentHtml: string) {
   return `<!DOCTYPE html>

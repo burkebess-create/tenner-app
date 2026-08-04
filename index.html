@@ -7,17 +7,17 @@
 <meta name="description" content="Rank what you love. Compare with people you know. Create your Top 10 lists and see how you match up with friends.">
 <!-- Open Graph / iMessage / social preview -->
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://burkebess-create.github.io/tenner-app/">
+<meta property="og:url" content="https://mytenner.com/">
 <meta property="og:title" content="Tenner — Top 10 Lists">
 <meta property="og:description" content="Rank what you love. Compare with people you know.">
-<meta property="og:image" content="https://burkebess-create.github.io/tenner-app/og-image.png">
+<meta property="og:image" content="https://mytenner.com/og-image.png">
 <meta property="og:image:width" content="630">
 <meta property="og:image:height" content="630">
 <!-- Twitter / X card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Tenner — Top 10 Lists">
 <meta name="twitter:description" content="Rank what you love. Compare with people you know.">
-<meta name="twitter:image" content="https://burkebess-create.github.io/tenner-app/og-image.png">
+<meta name="twitter:image" content="https://mytenner.com/og-image.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -3151,7 +3151,7 @@ async function finishGroup(skip) {
 
 
 function getListInviteUrl() {
-  var base = 'https://burkebess-create.github.io/tenner-app/?fill=' + encodeURIComponent(selCat);
+  var base = 'https://mytenner.com/?fill=' + encodeURIComponent(selCat);
   if (userId) base += '&from=' + encodeURIComponent(userId);
   return base;
 }
@@ -3186,7 +3186,7 @@ function openInviteModalForGroup() {
   var g = MY_GROUPS[selGroupIdx];
   var groupName = g ? g.n : '';
   var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
-  var defaultMsg = senderName + ' is inviting you to join "' + groupName + '" on Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nJoin here: https://burkebess-create.github.io/tenner-app/';
+  var defaultMsg = senderName + ' is inviting you to join "' + groupName + '" on Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nJoin here: https://mytenner.com/';
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
   var emailEl = document.getElementById('invite-email');
@@ -3200,7 +3200,7 @@ function openInviteModal() {
   var groupNameEl = document.getElementById('group-name');
   var groupName = groupNameEl ? groupNameEl.value.trim() : '';
   var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
-  var defaultMsg = senderName + ' is inviting you to join' + (groupName ? ' "' + groupName + '"' : ' a group') + ' on Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nJoin here: https://burkebess-create.github.io/tenner-app/';
+  var defaultMsg = senderName + ' is inviting you to join' + (groupName ? ' "' + groupName + '"' : ' a group') + ' on Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nJoin here: https://mytenner.com/';
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
   var emailEl = document.getElementById('invite-email');
@@ -3244,7 +3244,7 @@ function sendInviteText() {
 
 function nativeShareInvite() {
   var message = (document.getElementById('invite-message') || {}).value || '';
-  var url = 'https://burkebess-create.github.io/tenner-app/';
+  var url = 'https://mytenner.com/';
   if (navigator.share) {
     navigator.share({ title: 'Join me on Tenner', text: message, url: url })
       .then(function(){ closeInviteModal(); })
@@ -3255,7 +3255,7 @@ function nativeShareInvite() {
 }
 
 function copyInviteLink() {
-  var url = 'https://burkebess-create.github.io/tenner-app/';
+  var url = 'https://mytenner.com/';
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(url).then(function() {
       closeInviteModal();
@@ -3459,7 +3459,7 @@ async function submitAuth() {
     if (currentAuthTab === 'magic') {
       res = await sbClient.auth.signInWithOtp({
         email: email,
-        options: { emailRedirectTo: 'https://burkebess-create.github.io/tenner-app/' }
+        options: { emailRedirectTo: 'https://mytenner.com/' }
       });
       if (res.error) {
         errEl.textContent = authErrorText(res.error);
@@ -3475,7 +3475,7 @@ async function submitAuth() {
       res = await sbClient.auth.signUp({
         email: email,
         password: password,
-        options: { emailRedirectTo: 'https://burkebess-create.github.io/tenner-app/' }
+        options: { emailRedirectTo: 'https://mytenner.com/' }
       });
       if (res.error) {
         errEl.textContent = authErrorText(res.error);
@@ -3497,7 +3497,7 @@ async function submitAuth() {
 async function signInWithGoogle() {
   await sbClient.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: 'https://burkebess-create.github.io/tenner-app/' }
+    options: { redirectTo: 'https://mytenner.com/' }
   });
 }
 
@@ -4843,7 +4843,7 @@ function goToCg3() {
 
 function openCircleInviteModal() {
   var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
-  var url = 'https://burkebess-create.github.io/tenner-app/' + (userId ? '?from=' + encodeURIComponent(userId) : '');
+  var url = 'https://mytenner.com/' + (userId ? '?from=' + encodeURIComponent(userId) : '');
   var defaultMsg = senderName + ' is inviting you to join Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nSign up here: ' + url;
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
@@ -7139,7 +7139,7 @@ function shareListAsImage(listObj) {
   ctx.fillRect(0, 644, 600, 56);
   ctx.fillStyle = '#888780'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
   ctx.fillText('Create your own Top 10 lists on Tenner', 300, 666);
-  ctx.fillText('burkebess-create.github.io/tenner-app', 300, 684);
+  ctx.fillText('mytenner.com', 300, 684);
   canvas.toBlob(function(blob) {
     var fname = 'top-10-' + cat.toLowerCase().replace(/\s+/g, '-') + '.png';
     var file = new File([blob], fname, { type: 'image/png' });
