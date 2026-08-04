@@ -3433,6 +3433,15 @@ function authTab(tab) {
   document.getElementById('auth-success').style.display = 'none';
 }
 
+function authErrorText(err) {
+  if (!err) return 'Something went wrong. Please try again.';
+  var msg = err.message || err.error_description || err.error || err.msg;
+  if (msg && typeof msg === 'string' && msg.trim()) return msg;
+  if (err.status || err.code) return 'Error ' + (err.status || err.code) + '. Please try again.';
+  try { console.warn('Auth error object:', err); } catch(e) {}
+  return 'Something went wrong. Please try again or contact burkebess@gmail.com if it keeps happening.';
+}
+
 async function submitAuth() {
   var email = document.getElementById('auth-email').value.trim();
   var password = document.getElementById('auth-password').value;
@@ -3453,7 +3462,7 @@ async function submitAuth() {
         options: { emailRedirectTo: 'https://burkebess-create.github.io/tenner-app/' }
       });
       if (res.error) {
-        errEl.textContent = res.error.message;
+        errEl.textContent = authErrorText(res.error);
         errEl.style.display = 'block';
       } else {
         successEl.textContent = '✓ Magic link sent! Check your email and click the link to sign in.';
@@ -3461,7 +3470,7 @@ async function submitAuth() {
       }
     } else if (currentAuthTab === 'login') {
       res = await sbClient.auth.signInWithPassword({email: email, password: password});
-      if (res.error) { errEl.textContent = res.error.message; errEl.style.display = 'block'; }
+      if (res.error) { errEl.textContent = authErrorText(res.error); errEl.style.display = 'block'; }
     } else {
       res = await sbClient.auth.signUp({
         email: email,
@@ -3469,7 +3478,7 @@ async function submitAuth() {
         options: { emailRedirectTo: 'https://burkebess-create.github.io/tenner-app/' }
       });
       if (res.error) {
-        errEl.textContent = res.error.message;
+        errEl.textContent = authErrorText(res.error);
         errEl.style.display = 'block';
       } else if (!res.data.session) {
         successEl.textContent = 'Account created! Log in below with your email and password.';
@@ -3477,7 +3486,7 @@ async function submitAuth() {
       }
     }
   } catch(e) {
-    errEl.textContent = 'Something went wrong. Please try again.';
+    errEl.textContent = authErrorText(e);
     errEl.style.display = 'block';
   }
   var labels = {login: 'Log in', signup: 'Create account', magic: 'Send magic link'};
