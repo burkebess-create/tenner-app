@@ -3556,6 +3556,37 @@ function onSignedIn(session) {
   if (emailEl) emailEl.textContent = currentUserEmail;
   var emailInfo = document.getElementById('profile-email-info');
   if (emailInfo) emailInfo.textContent = currentUserEmail;
+  // Fire a welcome email once per user (idempotent via email_log)
+  setTimeout(function() { sendWelcomeEmailIfNeeded(); }, 2000);
+}
+
+// --- Transactional email helpers ---
+// Invokes the send-email Edge Function. Fire-and-forget — never blocks UI.
+function sendAppEmail(type, to, data) {
+  if (!sbClient || !to) return;
+  sbClient.functions.invoke('send-email', { body: { type: type, to: to, data: data || {} } })
+    .then(function(r) { if (r && r.error) console.warn('send-email:', r.error); })
+    .catch(function(e) { console.warn('send-email invoke failed:', e); });
+}
+
+async function sendWelcomeEmailIfNeeded() {
+  if (!sbClient || !userId || !currentUserEmail) return;
+  try {
+    // Dedupe: check email_log
+    var chk = await sbClient.from('email_log')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('email_type', 'welcome')
+      .maybeSingle();
+    if (chk.data) return; // already sent
+    // Send + record
+    sendAppEmail('welcome', currentUserEmail, { name: (myProfile && myProfile.display_name) || currentUserEmail.split('@')[0] });
+    await sbClient.from('email_log').insert({
+      user_id: userId,
+      email_type: 'welcome',
+      ref_key: userId
+    });
+  } catch(e) { console.warn('welcome email check failed', e); }
 }
 
 async function loadProfile() {
@@ -6215,9 +6246,17 @@ async function renderAdminFeedback(el) {
 }
 
 function setFeedbackStatus(id, status) {
-  sbClient.from('feedback').update({ status: status }).eq('id', id).then(function(r) {
-    if (r.error) { alert('Error: ' + r.error.message); return; }
-    renderAdmin();
+  // Fetch the row first so we know the submitter's email + original message
+  sbClient.from('feedback').select('user_email, message').eq('id', id).maybeSingle().then(function(fetched) {
+    var fb = fetched.data;
+    sbClient.from('feedback').update({ status: status }).eq('id', id).then(function(r) {
+      if (r.error) { alert('Error: ' + r.error.message); return; }
+      // Only email on meaningful transitions, and only if we have the submitter's email
+      if (fb && fb.user_email && (status === 'in_progress' || status === 'resolved')) {
+        sendAppEmail('feedback_update', fb.user_email, { status: status, message: fb.message });
+      }
+      renderAdmin();
+    });
   });
 }
 
@@ -6863,6 +6902,32 @@ async function saveList() {
 
 function notifyFriendsOfUpdate(name, category) {
   showToast('✓ List saved — friends can see your updated ' + singularize(category) + ' list');
+  // Email friends who share this category (they'd see a match-score change).
+  // Fire-and-forget; deduped daily to avoid spamming — one email per (viewer, updater, category, day).
+  if (!sbClient || !userId || !category) return;
+  (async function() {
+    try {
+      var acceptedFriendIds = (myFriends || [])
+        .filter(function(f){ return f.status === 'accepted' && f.friendId; })
+        .map(function(f){ return f.friendId; });
+      if (!acceptedFriendIds.length) return;
+      // Only email friends who ALSO have a list in this category (match would actually change)
+      var sameCatRes = await sbClient.from('lists').select('user_id').in('user_id', acceptedFriendIds).eq('category', category);
+      var interested = (sameCatRes.data || []).map(function(r){ return r.user_id; });
+      if (!interested.length) return;
+      var profRes = await sbClient.from('profiles').select('id, email').in('id', interested);
+      var today = new Date().toISOString().slice(0, 10);
+      for (var i = 0; i < (profRes.data || []).length; i++) {
+        var p = profRes.data[i];
+        if (!p.email) continue;
+        var refKey = userId + '__' + category + '__' + today;
+        var chk = await sbClient.from('email_log').select('id').eq('user_id', p.id).eq('email_type', 'friend_update').eq('ref_key', refKey).maybeSingle();
+        if (chk.data) continue;
+        sendAppEmail('friend_update', p.email, { friend_name: name, category: category });
+        await sbClient.from('email_log').insert({ user_id: p.id, email_type: 'friend_update', ref_key: refKey });
+      }
+    } catch(e) { console.warn('friend_update fanout failed', e); }
+  })();
 }
 
 document.addEventListener('click', function(e) {
