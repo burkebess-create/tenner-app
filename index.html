@@ -3481,7 +3481,7 @@ async function submitAuth() {
         errEl.textContent = authErrorText(res.error);
         errEl.style.display = 'block';
       } else if (!res.data.session) {
-        successEl.textContent = 'Account created! Log in below with your email and password.';
+        successEl.innerHTML = '✓ Account created! Check your email for a confirmation link, then <a href="#" onclick="authTab(\'login\');return false;" style="color:#27500A;text-decoration:underline;font-weight:600">tap here to log in</a>.';
         successEl.style.display = 'block';
       }
     }
