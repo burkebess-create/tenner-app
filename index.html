@@ -470,13 +470,19 @@
               <label class="toggle"><input type="checkbox" id="create-blind-fill-toggle" checked><span class="toggle-slider"></span></label>
             </div>
           </div>
-          <div class="sec-label">Share with friends</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
+            <div class="sec-label" style="margin:0">Share with friends</div>
+            <button id="share-friends-batch-btn" onclick="sendToSelectedFriends()" style="display:none;background:#D85A30;color:#fff;border:none;border-radius:99px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">Send to 0</button>
+          </div>
           <div id="share-friends-list"></div>
-          <div class="sec-label">Share with a group</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
+            <div class="sec-label" style="margin:0">Share with a group</div>
+            <button id="share-groups-batch-btn" onclick="sendToSelectedGroups()" style="display:none;background:#D85A30;color:#fff;border:none;border-radius:99px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">Send to 0</button>
+          </div>
           <div id="share-groups-list"></div>
-          <div class="sec-label">Or share directly</div>
+          <div class="sec-label">Invite someone new to Tenner</div>
           <button class="btn-secondary" style="margin-bottom:8px" onclick="openListInviteModal()">✉️💬 Invite by email or text</button>
-          <button class="btn-primary" onclick="saveList()">Save & finish</button>
+          <button class="btn-primary" onclick="finishShareStep()">Done</button>
         </div>
       </div>
 
@@ -1399,15 +1405,18 @@ function checkListComplete() {
       cancelBtn.textContent = 'Continue with ' + n + ' item' + (n === 1 ? '' : 's');
       var origOnClick = cancelBtn.onclick;
       cancelBtn.onclick = function(e) {
-        // Restore the default 'Cancel' label + handler for other callers of this shared modal
         cancelBtn.textContent = 'Cancel';
         cancelBtn.onclick = origOnClick;
         closeConfirm();
+        // Save in the background so the user's work is safe even if they don't tap Done
+        if (typeof saveListDataOnly === 'function') saveListDataOnly().catch(function(){});
         go('s-create3');
       };
     }
     modal.style.display = 'flex';
   } else {
+    // Save in the background so the list is safe even if they leave before tapping Done
+    if (typeof saveListDataOnly === 'function') saveListDataOnly().catch(function(){});
     go('s-create3');
   }
 }
@@ -2176,6 +2185,88 @@ function renderAddedChips() {
   });
 }
 
+var _shareSelectedFriends = new Set();
+var _shareSelectedGroups = new Set();
+var _shareFriendsExpanded = false;
+var _shareGroupsExpanded = false;
+var COLLAPSED_COUNT = 5;
+
+function updateShareBatchButtons() {
+  var fb = document.getElementById('share-friends-batch-btn');
+  var gb = document.getElementById('share-groups-batch-btn');
+  if (fb) {
+    var n = _shareSelectedFriends.size;
+    fb.textContent = 'Share with ' + n + ' selected';
+    fb.style.display = n > 0 ? 'block' : 'none';
+  }
+  if (gb) {
+    var m = _shareSelectedGroups.size;
+    gb.textContent = 'Share with ' + m + ' selected';
+    gb.style.display = m > 0 ? 'block' : 'none';
+  }
+}
+
+function toggleFriendShareSelect(fid) {
+  if (_shareSelectedFriends.has(fid)) _shareSelectedFriends.delete(fid);
+  else _shareSelectedFriends.add(fid);
+  renderShareGroups();
+}
+function toggleGroupShareSelect(idx) {
+  if (_shareSelectedGroups.has(idx)) _shareSelectedGroups.delete(idx);
+  else _shareSelectedGroups.add(idx);
+  renderShareGroups();
+}
+
+async function sendToSelectedFriends() {
+  var ids = Array.from(_shareSelectedFriends);
+  if (!ids.length) return;
+  await saveListDataOnly();
+  for (var i = 0; i < ids.length; i++) {
+    try {
+      var res = await sbClient.from('list_share_invites').insert({ from_user_id: userId, to_user_id: ids[i], category: selCat });
+      if (res.error && res.error.code !== '23505') console.warn('Share failed for friend', ids[i], res.error);
+    } catch(e) { console.warn(e); }
+  }
+  _shareSelectedFriends.clear();
+  showToast('Shared with ' + ids.length + ' friend' + (ids.length !== 1 ? 's' : ''));
+  renderShareGroups();
+}
+async function sendToSelectedGroups() {
+  var idxs = Array.from(_shareSelectedGroups);
+  if (!idxs.length) return;
+  await saveListDataOnly();
+  for (var i = 0; i < idxs.length; i++) {
+    var g = MY_GROUPS[idxs[i]];
+    if (g && g.id) {
+      try {
+        var res = await sbClient.from('group_lists').insert({ group_id: g.id, category: selCat, shared_by: userId });
+        if (res.error && res.error.code !== '23505') console.warn('Group share failed', res.error);
+      } catch(e) { console.warn(e); }
+    }
+  }
+  _shareSelectedGroups.clear();
+  showToast('Shared with ' + idxs.length + ' group' + (idxs.length !== 1 ? 's' : ''));
+  renderShareGroups();
+}
+
+function finishShareStep() {
+  // The list was already saved when Continue was tapped; this just closes the flow.
+  _shareSelectedFriends.clear();
+  _shareSelectedGroups.clear();
+  _shareFriendsExpanded = false;
+  _shareGroupsExpanded = false;
+  var dest = listOrigin;
+  listOrigin = 's-home';
+  editingListIdx = -1;
+  if (dest === 's-list-detail') {
+    var savedList = MY_LISTS.find(function(l){ return (l.category || l.n.replace('Top 10 ','')) === selCat; });
+    if (savedList) showListDetail(savedList);
+    else go('s-home');
+  } else {
+    go(dest);
+  }
+}
+
 async function renderShareGroups() {
   // Look up what's already been shared for this category
   var friendInvites = {};
@@ -2194,51 +2285,70 @@ async function renderShareGroups() {
     }
   }
 
-  // Friends
+  // Friends — collapsed to top 5 by default with "Show all" toggle
   var fe = document.getElementById('share-friends-list');
   if (fe) {
     var accepted = myFriends.filter(function(f) { return f.status === 'accepted'; });
     if (accepted.length === 0) {
-      fe.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No friends yet — add some from your Profile tab.</div>';
+      fe.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No friends yet — add some from your Circle tab.</div>';
     } else {
-      fe.innerHTML = accepted.map(function(f) {
+      var visible = _shareFriendsExpanded ? accepted : accepted.slice(0, COLLAPSED_COUNT);
+      var rows = visible.map(function(f) {
         var name = f.profile.display_name || f.profile.handle || 'Friend';
         var sharedAt = friendInvites[f.friendId];
+        var checked = _shareSelectedFriends.has(f.friendId);
         var sub = sharedAt ? '<div style="font-size:10px;color:#3B6D11">Shared ' + fmtShareDate(sharedAt) + '</div>' : '';
-        var btn = sharedAt
-          ? '<button class="add-btn" disabled style="opacity:.6">Shared ✓</button>'
-          : '<button class="add-btn" onclick="event.stopPropagation();shareCreateListToFriend(\'' + f.friendId + '\',this)">Send</button>';
-        var cls = sharedAt ? 'share-pick disabled' : 'share-pick';
-        var onclick = sharedAt ? '' : ' onclick="shareCreateListToFriend(\'' + f.friendId + '\',this.querySelector(\'button\'))"';
-        return '<div class="' + cls + '"' + onclick + '>'
+        if (sharedAt) {
+          return '<div class="share-pick disabled" style="opacity:.65">'
+            + friendAvatarHtml(f.profile, 32)
+            + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div>' + sub + '</div>'
+            + '<button class="add-btn" disabled>Shared ✓</button>'
+            + '</div>';
+        }
+        return '<div class="share-pick" onclick="toggleFriendShareSelect(\'' + f.friendId + '\')" style="cursor:pointer' + (checked ? ';background:#FAECE7' : '') + '">'
+          + '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onclick="event.stopPropagation();toggleFriendShareSelect(\'' + f.friendId + '\')" style="width:18px;height:18px;accent-color:#D85A30;margin:0 4px 0 0;flex-shrink:0">'
           + friendAvatarHtml(f.profile, 32)
           + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div>' + sub + '</div>'
-          + btn
           + '</div>';
       }).join('');
+      var toggleBtn = accepted.length > COLLAPSED_COUNT
+        ? '<button onclick="_shareFriendsExpanded=!_shareFriendsExpanded;renderShareGroups()" class="btn-secondary" style="font-size:11px;padding:6px;margin-top:4px;margin-bottom:8px">' + (_shareFriendsExpanded ? '▲ Show fewer' : '▼ Show all ' + accepted.length) + '</button>'
+        : '';
+      fe.innerHTML = rows + toggleBtn;
     }
   }
-  // Groups
+
+  // Groups — same treatment
   var el = document.getElementById('share-groups-list');
-  if (!el) return;
-  if (MY_GROUPS.length === 0) {
-    el.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No circles yet — create one first.</div>';
-    return;
+  if (el) {
+    if (MY_GROUPS.length === 0) {
+      el.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No groups yet — create one from your Circle tab.</div>';
+    } else {
+      var vg = _shareGroupsExpanded ? MY_GROUPS : MY_GROUPS.slice(0, COLLAPSED_COUNT);
+      var grows = vg.map(function(g, i) {
+        var sharedAt = g.id ? groupShares[g.id] : null;
+        var checked = _shareSelectedGroups.has(i);
+        var sub = sharedAt ? '<div style="font-size:10px;color:#3B6D11">Shared ' + fmtShareDate(sharedAt) + '</div>' : '';
+        if (sharedAt) {
+          return '<div class="share-pick disabled" style="opacity:.65">'
+            + groupAvatarHtml(g, 34)
+            + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + g.n + '</div>' + sub + '</div>'
+            + '<button class="add-btn" disabled>Shared ✓</button>'
+            + '</div>';
+        }
+        return '<div class="share-pick" onclick="toggleGroupShareSelect(' + i + ')" style="cursor:pointer' + (checked ? ';background:#FAECE7' : '') + '">'
+          + '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onclick="event.stopPropagation();toggleGroupShareSelect(' + i + ')" style="width:18px;height:18px;accent-color:#D85A30;margin:0 4px 0 0;flex-shrink:0">'
+          + groupAvatarHtml(g, 34)
+          + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + g.n + '</div>' + sub + '</div>'
+          + '</div>';
+      }).join('');
+      var gToggle = MY_GROUPS.length > COLLAPSED_COUNT
+        ? '<button onclick="_shareGroupsExpanded=!_shareGroupsExpanded;renderShareGroups()" class="btn-secondary" style="font-size:11px;padding:6px;margin-top:4px;margin-bottom:8px">' + (_shareGroupsExpanded ? '▲ Show fewer' : '▼ Show all ' + MY_GROUPS.length) + '</button>'
+        : '';
+      el.innerHTML = grows + gToggle;
+    }
   }
-  el.innerHTML = MY_GROUPS.map(function(g, i) {
-    var sharedAt = g.id ? groupShares[g.id] : null;
-    var sub = sharedAt ? '<div style="font-size:10px;color:#3B6D11">Shared ' + fmtShareDate(sharedAt) + '</div>' : '';
-    var btn = sharedAt
-      ? '<button class="add-btn" disabled style="opacity:.6">Shared ✓</button>'
-      : '<button class="add-btn" onclick="event.stopPropagation();shareCreateListToGroup(' + i + ', this)">Send</button>';
-    var cls = sharedAt ? 'share-pick disabled' : 'share-pick';
-    var onclick = sharedAt ? '' : ' onclick="shareCreateListToGroup(' + i + ',this.querySelector(\'button\'))"';
-    return '<div class="' + cls + '"' + onclick + '>'
-      + groupAvatarHtml(g, 34)
-      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + g.n + '</div>' + sub + '</div>'
-      + btn
-      + '</div>';
-  }).join('');
+  updateShareBatchButtons();
 }
 
 async function shareCreateListToFriend(friendId, btn) {
