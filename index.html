@@ -120,13 +120,19 @@
   .rank-item {
     display: flex; align-items: center; gap: 8px; padding: 8px 10px;
     border-radius: 8px; background: #fff; border: 1px solid #E8E6DF; margin-bottom: 5px;
-    cursor: grab; touch-action: pan-y; will-change: transform;
+    cursor: grab; touch-action: none; will-change: transform;
     /* Prevent iOS Safari long-press selection/callout while allowing input focus below */
     user-select: none; -webkit-user-select: none; -moz-user-select: none; -webkit-touch-callout: none;
   }
   /* Re-enable selection inside the text input so typing/selecting text still works */
   .rank-item input, .rank-item textarea {
     user-select: text; -webkit-user-select: text; -moz-user-select: text; -webkit-touch-callout: default;
+  }
+  /* While a drag is active anywhere in the list, force user-select off even inside inputs */
+  #items-list.dragging-active .rank-item input,
+  #items-list.dragging-active .rank-item textarea,
+  #items-list.dragging-active * {
+    user-select: none !important; -webkit-user-select: none !important; -moz-user-select: none !important; -webkit-touch-callout: none !important;
   }
   .rank-item.sliding { transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1); }
   .rank-item.dragging { z-index: 30; position: relative; cursor: grabbing; box-shadow: 0 12px 26px rgba(0,0,0,0.22); background: #fff; touch-action: none; transition: none; }
@@ -1665,7 +1671,12 @@ function moveItem(idx, dir) {
 
 var dragSrcIdx = null;
 var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-(function() { var h = document.getElementById('done-banner-hint'); if (h) h.textContent = IS_TOUCH ? 'Use ▲ ▼ arrows to reorder your ranking.' : 'Drag items to reorder your ranking.'; })();
+(function() {
+  var h = document.getElementById('done-banner-hint');
+  if (!h) return;
+  var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  h.textContent = reducedMotion ? 'Use ▲ ▼ arrows to reorder your ranking.' : 'Drag items to reorder your ranking.';
+})();
 
 function renderItems() {
   isRanked = document.getElementById('ranked-tog') ? document.getElementById('ranked-tog').checked : true;
@@ -1681,8 +1692,10 @@ function renderItems() {
       : '<div class="rank-dot"></div>';
     var sugsId = 'item-edit-sugs-' + i;
     div.style.flexWrap = 'wrap';
-    // Mobile: tappable up/down arrows. Desktop: drag handle.
-    var moveBtns = (isRanked && IS_TOUCH)
+    // Show tappable up/down arrows only when the user has reduced-motion enabled
+    // (drag physics still available for everyone else on touch and desktop).
+    var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var moveBtns = (isRanked && reducedMotion)
       ? '<button onclick="moveItem(' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + ' style="background:none;border:none;font-size:18px;line-height:1;padding:6px 5px;flex-shrink:0;cursor:pointer;color:' + (i === 0 ? '#DAD8D0' : '#888780') + '">▲</button>'
         + '<button onclick="moveItem(' + i + ',1)"' + (i === items.length - 1 ? ' disabled' : '') + ' style="background:none;border:none;font-size:18px;line-height:1;padding:6px 5px;flex-shrink:0;cursor:pointer;color:' + (i === items.length - 1 ? '#DAD8D0' : '#888780') + '">▼</button>'
       : '';
@@ -1758,8 +1771,8 @@ function attachLiveDrag(el) {
     if (e.pointerId !== pointerId) return;
     var dy = e.clientY - startY;
     if (!isDragging) {
-      // Movement threshold — small tap-clicks aren't dragged
-      if (Math.abs(dy) < 5 && Math.abs(e.clientX - startX) < 5) return;
+      // Movement threshold — small tap-clicks aren't dragged (small = feels responsive)
+      if (Math.abs(dy) < 3 && Math.abs(e.clientX - startX) < 3) return;
       begin();
     }
     e.preventDefault();
