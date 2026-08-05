@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>Tenner — Top 10 Lists</title>
 <meta name="description" content="Rank what you love. Compare with people you know. Create your Top 10 lists and see how you match up with friends.">
 <!-- Open Graph / iMessage / social preview -->
@@ -82,7 +82,10 @@
   .share-pick.disabled:hover { background: #fff; border-color: #E8E6DF; }
   .sec-label { font-size: 13px; font-weight: 700; color: #4A4A47; letter-spacing: .05em; text-transform: uppercase; margin: 26px 0 12px; }
   .sec-label:first-child { margin-top: 8px; }
-  input[type=text], input[type=email], input[type=password], input[type=date] { width: 100%; border: 1px solid #D3D1C7; border-radius: 8px; padding: 9px 11px; font-size: 13px; background: #fff; color: #2C2C2A; font-family: inherit; margin-bottom: 8px; }
+  /* Base input styles.
+     font-size:16px is required — iOS Safari auto-zooms into any input smaller than 16px.
+     Visual size can still look smaller via transform:scale on the input if needed. */
+  input[type=text], input[type=email], input[type=password], input[type=date], input[type=tel], input[type=search], input[type=url], input[type=number], textarea, select { width: 100%; border: 1px solid #D3D1C7; border-radius: 8px; padding: 9px 11px; font-size: 16px; background: #fff; color: #2C2C2A; font-family: inherit; margin-bottom: 8px; }
   input:focus { outline: none; border-color: #D85A30; box-shadow: 0 0 0 3px rgba(216,90,48,0.1); }
   .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
   .pill { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 99px; font-size: 10px; font-weight: 600; }
