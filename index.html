@@ -120,6 +120,10 @@
   .rank-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: #fff; border: 1px solid #E8E6DF; margin-bottom: 5px; cursor: grab; touch-action: pan-y; will-change: transform; }
   .rank-item.sliding { transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1); }
   .rank-item.dragging { z-index: 30; position: relative; cursor: grabbing; box-shadow: 0 12px 26px rgba(0,0,0,0.22); background: #fff; touch-action: none; transition: none; }
+  /* While any drag is in progress, disable text selection across the whole list */
+  #items-list.dragging-active, #items-list.dragging-active .rank-item, #items-list.dragging-active .rank-item * {
+    user-select: none; -webkit-user-select: none; -moz-user-select: none;
+  }
   .rank-item.landed { animation: rank-item-land 0.34s cubic-bezier(0.2,0.9,0.3,1.5); }
   @keyframes rank-item-land { 0% { transform: scale(1.06); } 55% { transform: scale(0.98); } 100% { transform: scale(1); } }
   @media (prefers-reduced-motion: reduce) {
@@ -1702,8 +1706,9 @@ function attachLiveDrag(el) {
   var listEl = null;
 
   function onDown(e) {
-    // Ignore inputs, buttons, and the drag handle (only start drag from the row body)
-    if (e.target.closest('input, textarea, button, .sugs')) return;
+    // Skip only explicit action buttons and suggestion popups — inputs are OK,
+    // we differentiate tap-to-edit vs. drag by the movement threshold below.
+    if (e.target.closest('button, .sugs')) return;
     startY = e.clientY;
     startX = e.clientX;
     pointerId = e.pointerId;
@@ -1721,9 +1726,15 @@ function attachLiveDrag(el) {
     var rect = el.getBoundingClientRect();
     rowStride = rect.height + 5;
     el.classList.add('dragging');
+    listEl.classList.add('dragging-active');
     hoverIdx = srcIdx;
     // Give other rows a transition so their shifts animate smoothly
     siblings.forEach(function(sib) { if (sib !== el) sib.classList.add('sliding'); });
+    // If a text input inside this row (or any other row) has focus, blur it so
+    // the browser doesn't try to place a caret or select text while we drag.
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    // Clear any highlighted selection that may have started before we crossed the threshold
+    if (window.getSelection) { var s = window.getSelection(); if (s.removeAllRanges) s.removeAllRanges(); }
     try { el.setPointerCapture(pointerId); } catch(_) {}
   }
 
@@ -1780,6 +1791,7 @@ function attachLiveDrag(el) {
       siblings.forEach(function(sib) { sib.style.transform = ''; sib.classList.remove('sliding'); });
       el.classList.remove('dragging', 'sliding');
       el.style.transform = '';
+      if (listEl) listEl.classList.remove('dragging-active');
       if (landIdx !== srcIdx) {
         var moved = items.splice(srcIdx, 1)[0];
         items.splice(landIdx, 0, moved);
