@@ -1377,6 +1377,11 @@ function closeConfirm() {
 }
 
 function checkListComplete() {
+  // Flush any half-typed text in the "add item" input as if the user had hit + or Enter
+  var pending = document.getElementById('item-inp');
+  if (pending && pending.value && pending.value.trim()) {
+    doAddItem();
+  }
   if (items.length < 10) {
     var n = items.length;
     var remaining = 10 - n;
@@ -6996,6 +7001,11 @@ async function saveListDataOnly() {
 }
 
 async function saveList() {
+  // Flush any half-typed text in the "add item" input first
+  var pending = document.getElementById('item-inp');
+  if (pending && pending.value && pending.value.trim()) {
+    doAddItem();
+  }
   var listName = 'Top 10 ' + selCat;
   var itemCount = items.filter(function(i) { return i.trim(); }).length;
   var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
