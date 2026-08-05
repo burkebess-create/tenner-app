@@ -1948,12 +1948,26 @@ function onGroupPhotoUploadCreate(input) {
   reader.readAsDataURL(input.files[0]);
 }
 
+// Grabs the first full emoji from a string, correctly handling ZWJ sequences
+// (like 😵‍💫), skin-tone modifiers (👍🏽), and flags (🇺🇸) as single units.
+function firstGrapheme(val) {
+  var s = (val || '').trim();
+  if (!s) return '';
+  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+    var seg = new Intl.Segmenter([], {granularity: 'grapheme'});
+    var it = seg.segment(s)[Symbol.iterator]().next();
+    if (!it.done) return it.value.segment;
+  }
+  // Fallback: just return the whole trimmed input (best guess when Segmenter is unavailable)
+  return s;
+}
+
 function onCustomEmojiInput(val) {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
-  var chars = Array.from(val.trim());
-  if (chars.length > 0) {
-    g.emoji = chars[0];
+  var emoji = firstGrapheme(val);
+  if (emoji) {
+    g.emoji = emoji;
     g.photo = null;
     updateSettingsAvatarPreview(g);
     renderGroupSettings();
@@ -1961,9 +1975,9 @@ function onCustomEmojiInput(val) {
 }
 
 function onCreateCustomEmojiInput(val) {
-  var chars = Array.from(val.trim());
-  if (chars.length > 0) {
-    selEmojiChar = chars[0];
+  var emoji = firstGrapheme(val);
+  if (emoji) {
+    selEmojiChar = emoji;
     groupPhotoData = null;
     renderEmojiGrid();
     var preview = document.getElementById('cg1-avatar-preview');
