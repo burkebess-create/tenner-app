@@ -430,7 +430,9 @@
               Similar item exists: <strong id="item-warn-name"></strong> — use that instead?
             </div>
           </div>
-          <button class="btn-primary" onclick="checkListComplete()" style="margin-top:8px">Continue →</button>
+          <button class="btn-primary" id="create2-continue-new" onclick="checkListComplete()" style="margin-top:8px">Continue →</button>
+          <button class="btn-primary" id="create2-save-edit" onclick="saveList()" style="margin-top:8px;display:none">Save changes</button>
+          <button class="btn-secondary" id="create2-save-share-edit" onclick="checkListComplete()" style="margin-bottom:0;display:none">Save & sharing options →</button>
         </div>
       </div>
 
@@ -1118,9 +1120,14 @@ function go(id) {
     if (t) t.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle">' + renderCatEmoji(selCatEmoji, 22) + '<span>Top 10 ' + escapeHtml(selCat) + '</span></span>';
     var backBtn = document.querySelector('#s-create2 .back-btn');
     if (backBtn) backBtn.onclick = editingListIdx >= 0 ? function(){ go('s-list-detail'); } : function(){ go('s-create1'); };
-    var contBtn = document.querySelector('#s-create2 .btn-primary');
-    if (contBtn) contBtn.textContent = editingListIdx >= 0 ? 'Continue →' : 'Continue →';
-    if (contBtn) contBtn.onclick = function(){ checkListComplete(); };
+    // Toggle CTA set based on whether we're editing an existing list or creating a new one
+    var isEditing = editingListIdx >= 0;
+    var continueNew    = document.getElementById('create2-continue-new');
+    var saveEdit       = document.getElementById('create2-save-edit');
+    var saveShareEdit  = document.getElementById('create2-save-share-edit');
+    if (continueNew)   continueNew.style.display   = isEditing ? 'none' : 'block';
+    if (saveEdit)      saveEdit.style.display      = isEditing ? 'block' : 'none';
+    if (saveShareEdit) saveShareEdit.style.display = isEditing ? 'block' : 'none';
   }
   if (id === 's-create3') {
     renderShareGroups();
