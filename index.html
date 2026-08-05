@@ -117,13 +117,13 @@
   .member-row { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 9px; border: 1px solid #E8E6DF; background: #fff; margin-bottom: 6px; }
   .add-btn { font-size: 10px; padding: 4px 9px; border-radius: 99px; border: 1px solid #D85A30; background: transparent; color: #D85A30; cursor: pointer; font-family: inherit; white-space: nowrap; }
   .added-btn { font-size: 10px; padding: 4px 9px; border-radius: 99px; border: 1px solid #3B6D11; background: #EAF3DE; color: #3B6D11; font-family: inherit; white-space: nowrap; }
-  .rank-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: #fff; border: 1px solid #E8E6DF; margin-bottom: 5px; cursor: grab; transition: transform 0.16s cubic-bezier(0.2,0.9,0.3,1.2), box-shadow 0.16s ease, border-color 0.16s ease; }
-  .rank-item.dragging { transform: scale(1.05) rotate(-2deg); box-shadow: 0 8px 20px rgba(0,0,0,0.18); z-index: 20; position: relative; cursor: grabbing; opacity: 0.95; }
-  .rank-item.drop-target { border-color: #D85A30; background: #FFF8F4; transform: scale(1.01); }
-  .rank-item.landed { animation: rank-item-land 0.32s cubic-bezier(0.2,0.9,0.3,1.5); }
-  @keyframes rank-item-land { 0% { transform: scale(1.08); } 60% { transform: scale(0.98); } 100% { transform: scale(1); } }
+  .rank-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: #fff; border: 1px solid #E8E6DF; margin-bottom: 5px; cursor: grab; touch-action: pan-y; will-change: transform; }
+  .rank-item.sliding { transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1); }
+  .rank-item.dragging { z-index: 30; position: relative; cursor: grabbing; box-shadow: 0 12px 26px rgba(0,0,0,0.22); background: #fff; touch-action: none; transition: none; }
+  .rank-item.landed { animation: rank-item-land 0.34s cubic-bezier(0.2,0.9,0.3,1.5); }
+  @keyframes rank-item-land { 0% { transform: scale(1.06); } 55% { transform: scale(0.98); } 100% { transform: scale(1); } }
   @media (prefers-reduced-motion: reduce) {
-    .rank-item, .rank-item.dragging, .rank-item.drop-target, .rank-item.landed { transition: none; animation: none; transform: none; }
+    .rank-item, .rank-item.dragging, .rank-item.landed, .rank-item.sliding { transition: none; animation: none; }
   }
   .rank-badge { width: 22px; height: 22px; border-radius: 50%; background: #FAECE7; color: #993C1D; font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .rank-dot { width: 8px; height: 8px; border-radius: 50%; background: #D85A30; flex-shrink: 0; margin: 0 7px; }
@@ -1665,7 +1665,6 @@ function renderItems() {
   items.forEach(function(item, i) {
     var div = document.createElement('div');
     div.className = 'rank-item';
-    div.draggable = true;
     div.dataset.idx = i;
     var badge = isRanked
       ? '<div class="rank-badge">' + (i+1) + '</div>'
@@ -1684,75 +1683,117 @@ function renderItems() {
       + dragHandle
       + '<button onmousedown="removeItem(' + i + ')" style="background:none;border:none;color:#888780;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0">×</button>'
       + '<div class="sugs" id="' + sugsId + '" style="width:100%;margin-top:2px"></div>';
-    // Desktop drag
-    div.addEventListener('dragstart', function(e) {
-      dragSrcIdx = parseInt(this.dataset.idx);
-      this.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    div.addEventListener('dragend', function() { this.classList.remove('dragging'); });
-    div.addEventListener('dragover', function(e) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      if (!this.classList.contains('dragging')) this.classList.add('drop-target');
-    });
-    div.addEventListener('dragleave', function() { this.classList.remove('drop-target'); });
-    div.addEventListener('drop', function(e) {
-      e.preventDefault();
-      this.classList.remove('drop-target');
-      var destIdx = parseInt(this.dataset.idx);
-      if (dragSrcIdx === null || dragSrcIdx === destIdx) return;
-      var moved = items.splice(dragSrcIdx, 1)[0];
-      items.splice(destIdx, 0, moved);
-      dragSrcIdx = null;
-      renderItems();
-      updateProg();
-      // Play a "landed" bounce on the moved item after re-render
-      requestAnimationFrame(function() {
-        var landed = document.querySelector('#items-list .rank-item[data-idx="' + destIdx + '"]');
-        if (landed) { landed.classList.add('landed'); setTimeout(function(){ landed.classList.remove('landed'); }, 350); }
-      });
-    });
-    // Touch drag
-    div.addEventListener('touchstart', function(e) {
-      dragSrcIdx = parseInt(this.dataset.idx);
-      this.classList.add('dragging');
-    }, {passive: true});
-    div.addEventListener('touchmove', function(e) {
-      // Highlight the row under the finger as a drop target
-      var touch = e.touches[0];
-      var target = document.elementFromPoint(touch.clientX, touch.clientY);
-      var over = target ? target.closest('.rank-item') : null;
-      document.querySelectorAll('#items-list .rank-item.drop-target').forEach(function(el){ if (el !== over) el.classList.remove('drop-target'); });
-      if (over && !over.classList.contains('dragging')) over.classList.add('drop-target');
-    }, {passive: true});
-    div.addEventListener('touchend', function(e) {
-      this.classList.remove('dragging');
-      var touch = e.changedTouches[0];
-      var target = document.elementFromPoint(touch.clientX, touch.clientY);
-      var destEl = target ? target.closest('.rank-item') : null;
-      document.querySelectorAll('#items-list .rank-item.drop-target').forEach(function(el){ el.classList.remove('drop-target'); });
-      var destIdxToBounce = null;
-      if (destEl && dragSrcIdx !== null) {
-        var destIdx = parseInt(destEl.dataset.idx);
-        if (destIdx !== dragSrcIdx) {
-          var moved = items.splice(dragSrcIdx, 1)[0];
-          items.splice(destIdx, 0, moved);
-          destIdxToBounce = destIdx;
-          renderItems();
-          updateProg();
-        }
-      }
-      dragSrcIdx = null;
-      if (destIdxToBounce !== null) {
-        requestAnimationFrame(function() {
-          var landed = document.querySelector('#items-list .rank-item[data-idx="' + destIdxToBounce + '"]');
-          if (landed) { landed.classList.add('landed'); setTimeout(function(){ landed.classList.remove('landed'); }, 350); }
-        });
-      }
-    }, {passive: true});
+    // Live-drag physics via pointer events (unified mouse + touch)
+    attachLiveDrag(div);
     list.appendChild(div);
   });
+}
+
+// Live-drag physics: the dragged row lifts off and follows the pointer;
+// the other rows shuffle in real time to open a slot at the current hover index.
+function attachLiveDrag(el) {
+  var startY = 0, startX = 0;
+  var pointerId = null;
+  var isDragging = false;
+  var srcIdx = -1;
+  var hoverIdx = -1;
+  var rowStride = 0; // height + margin, computed on first move
+  var siblings = [];
+  var listEl = null;
+
+  function onDown(e) {
+    // Ignore inputs, buttons, and the drag handle (only start drag from the row body)
+    if (e.target.closest('input, textarea, button, .sugs')) return;
+    startY = e.clientY;
+    startX = e.clientX;
+    pointerId = e.pointerId;
+    srcIdx = parseInt(el.dataset.idx, 10);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+  }
+
+  function begin() {
+    isDragging = true;
+    listEl = el.parentNode;
+    siblings = Array.prototype.slice.call(listEl.children);
+    // Row stride = height + margin-bottom (from .rank-item CSS: 5px)
+    var rect = el.getBoundingClientRect();
+    rowStride = rect.height + 5;
+    el.classList.add('dragging');
+    hoverIdx = srcIdx;
+    // Give other rows a transition so their shifts animate smoothly
+    siblings.forEach(function(sib) { if (sib !== el) sib.classList.add('sliding'); });
+    try { el.setPointerCapture(pointerId); } catch(_) {}
+  }
+
+  function applyShifts() {
+    siblings.forEach(function(sib, i) {
+      if (sib === el) return;
+      var shift = 0;
+      if (srcIdx < hoverIdx && i > srcIdx && i <= hoverIdx) shift = -rowStride;
+      else if (srcIdx > hoverIdx && i < srcIdx && i >= hoverIdx) shift = rowStride;
+      sib.style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+    });
+  }
+
+  function onMove(e) {
+    if (e.pointerId !== pointerId) return;
+    var dy = e.clientY - startY;
+    if (!isDragging) {
+      // Movement threshold — small tap-clicks aren't dragged
+      if (Math.abs(dy) < 5 && Math.abs(e.clientX - startX) < 5) return;
+      begin();
+    }
+    e.preventDefault();
+    // Lift + follow finger (slight tilt + hover)
+    var lift = -8; // ~1/8 inch above the row
+    el.style.transform = 'translateY(' + (dy + lift) + 'px) scale(1.03) rotate(-1.5deg)';
+    // Compute new hover index based on the center of the dragged row
+    var newHover = srcIdx + Math.round(dy / rowStride);
+    newHover = Math.max(0, Math.min(items.length - 1, newHover));
+    if (newHover !== hoverIdx) {
+      hoverIdx = newHover;
+      applyShifts();
+    }
+  }
+
+  function onUp(e) {
+    if (e.pointerId !== pointerId) return;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+    try { el.releasePointerCapture(pointerId); } catch(_) {}
+    pointerId = null;
+    if (!isDragging) return;
+
+    // Compute where the row visually is right now, then animate it into the exact target slot
+    var finalOffset = (hoverIdx - srcIdx) * rowStride;
+    // Snap the dragged row down/across to its landing slot (transition from current translate to final)
+    el.classList.add('sliding');
+    el.style.transform = 'translateY(' + finalOffset + 'px) scale(1) rotate(0deg)';
+
+    var landIdx = hoverIdx;
+    setTimeout(function() {
+      // Commit the reorder and re-render
+      isDragging = false;
+      siblings.forEach(function(sib) { sib.style.transform = ''; sib.classList.remove('sliding'); });
+      el.classList.remove('dragging', 'sliding');
+      el.style.transform = '';
+      if (landIdx !== srcIdx) {
+        var moved = items.splice(srcIdx, 1)[0];
+        items.splice(landIdx, 0, moved);
+        renderItems();
+        updateProg();
+        requestAnimationFrame(function() {
+          var landed = document.querySelector('#items-list .rank-item[data-idx="' + landIdx + '"]');
+          if (landed) { landed.classList.add('landed'); setTimeout(function(){ landed.classList.remove('landed'); }, 360); }
+        });
+      }
+    }, 180);
+  }
+
+  el.addEventListener('pointerdown', onDown);
 }
 
 function updateProg() {
