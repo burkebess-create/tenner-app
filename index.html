@@ -1392,6 +1392,18 @@ function checkListComplete() {
     okBtn.textContent = 'Continue anyway';
     okBtn.style.cssText = 'width:100%;padding:14px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px;color:#fff;background:#D85A30;border:none;';
     okBtn.onclick = function() { closeConfirm(); go('s-create3'); };
+    // Relabel the shared secondary button as 'Add more' for this specific dialog,
+    // then reset it back to 'Cancel' when the modal closes so other callers aren't affected.
+    var cancelBtn = document.querySelector('#confirm-modal .btn-secondary');
+    if (cancelBtn) {
+      cancelBtn.textContent = 'Add more';
+      var origOnClick = cancelBtn.onclick;
+      cancelBtn.onclick = function(e) {
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.onclick = origOnClick;
+        closeConfirm();
+      };
+    }
     modal.style.display = 'flex';
   } else {
     go('s-create3');
