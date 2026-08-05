@@ -117,13 +117,19 @@
   .member-row { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 9px; border: 1px solid #E8E6DF; background: #fff; margin-bottom: 6px; }
   .add-btn { font-size: 10px; padding: 4px 9px; border-radius: 99px; border: 1px solid #D85A30; background: transparent; color: #D85A30; cursor: pointer; font-family: inherit; white-space: nowrap; }
   .added-btn { font-size: 10px; padding: 4px 9px; border-radius: 99px; border: 1px solid #3B6D11; background: #EAF3DE; color: #3B6D11; font-family: inherit; white-space: nowrap; }
-  .rank-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: #fff; border: 1px solid #E8E6DF; margin-bottom: 5px; cursor: grab; touch-action: pan-y; will-change: transform; }
+  .rank-item {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border-radius: 8px; background: #fff; border: 1px solid #E8E6DF; margin-bottom: 5px;
+    cursor: grab; touch-action: pan-y; will-change: transform;
+    /* Prevent iOS Safari long-press selection/callout while allowing input focus below */
+    user-select: none; -webkit-user-select: none; -moz-user-select: none; -webkit-touch-callout: none;
+  }
+  /* Re-enable selection inside the text input so typing/selecting text still works */
+  .rank-item input, .rank-item textarea {
+    user-select: text; -webkit-user-select: text; -moz-user-select: text; -webkit-touch-callout: default;
+  }
   .rank-item.sliding { transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1); }
   .rank-item.dragging { z-index: 30; position: relative; cursor: grabbing; box-shadow: 0 12px 26px rgba(0,0,0,0.22); background: #fff; touch-action: none; transition: none; }
-  /* While any drag is in progress, disable text selection across the whole list */
-  #items-list.dragging-active, #items-list.dragging-active .rank-item, #items-list.dragging-active .rank-item * {
-    user-select: none; -webkit-user-select: none; -moz-user-select: none;
-  }
   .rank-item.landed { animation: rank-item-land 0.34s cubic-bezier(0.2,0.9,0.3,1.5); }
   @keyframes rank-item-land { 0% { transform: scale(1.06); } 55% { transform: scale(0.98); } 100% { transform: scale(1); } }
   @media (prefers-reduced-motion: reduce) {
