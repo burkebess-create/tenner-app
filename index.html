@@ -467,7 +467,7 @@
                 <div style="font-size:12px;font-weight:600;color:#2C2C2A">Blind fill</div>
                 <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Friends must fill out their own list before seeing yours</div>
               </div>
-              <label class="toggle"><input type="checkbox" id="create-blind-fill-toggle" checked><span class="toggle-slider"></span></label>
+              <label class="toggle"><input type="checkbox" id="create-blind-fill-toggle"><span class="toggle-slider"></span></label>
             </div>
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
@@ -1145,7 +1145,7 @@ function go(id) {
     var ct = document.getElementById('create-public-toggle');
     if (ct) ct.checked = existing ? !!existing.is_public : true;
     var bf = document.getElementById('create-blind-fill-toggle');
-    if (bf) bf.checked = existing ? !!existing.blind_fill : true;
+    if (bf) bf.checked = existing ? !!existing.blind_fill : false;
   }
   if (id === 's-gsettings') renderGroupSettings();
   if (id === 's-match') {
@@ -7133,7 +7133,7 @@ async function saveListDataOnly() {
   var createToggle = document.getElementById('create-public-toggle');
   var prevPublic = createToggle ? !!createToggle.checked : (existing >= 0 ? !!(MY_LISTS[existing] && MY_LISTS[existing].is_public) : true);
   var blindToggle = document.getElementById('create-blind-fill-toggle');
-  var prevBlind = blindToggle ? !!blindToggle.checked : (existing >= 0 ? !!(MY_LISTS[existing] && MY_LISTS[existing].blind_fill) : true);
+  var prevBlind = blindToggle ? !!blindToggle.checked : (existing >= 0 ? !!(MY_LISTS[existing] && MY_LISTS[existing].blind_fill) : false);
   var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic, blind_fill: prevBlind };
   if (existing >= 0) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
   await saveListToDb(listObj);
