@@ -24,9 +24,9 @@ function baseTemplate(preheader: string, contentHtml: string) {
   p{line-height:1.55;margin:0 0 14px;font-size:15px}
   .cta{display:inline-block;background:#D85A30;color:#fff!important;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600;font-size:15px}
   .foot{color:#888780;font-size:12px;text-align:center;padding:20px 8px}
-  .brand{font-family:"DM Serif Display",Georgia,serif;font-size:22px;color:#D85A30;text-align:center;margin-bottom:18px;letter-spacing:-.02em}
+  .brand{text-align:center;margin-bottom:18px}.brand img{width:90px;height:auto;display:inline-block}
   .pre{display:none;visibility:hidden;height:0;width:0;overflow:hidden}
-</style></head><body><div class="pre">${preheader}</div><div class="wrap"><div class="brand">Tenner</div><div class="card">${contentHtml}</div><div class="foot">Tenner — Top 10 lists with friends<br><a href="${APP_URL}" style="color:#888780">${APP_URL}</a></div></div></body></html>`;
+</style></head><body><div class="pre">${preheader}</div><div class="wrap"><div class="brand"><img src="https://mytenner.com/logo-square.png" alt="Tenner" width="90"></div><div class="card">${contentHtml}</div><div class="foot">Tenner — Top 10 lists with friends<br><a href="${APP_URL}" style="color:#888780">${APP_URL}</a></div></div></body></html>`;
 }
 
 function escapeHtml(str: string) {

@@ -32,14 +32,15 @@ function baseTemplate(preheader: string, contentHtml: string) {
   .cta:hover { background: #993C1D; }
   .foot { color: #888780; font-size: 12px; text-align: center; padding: 20px 8px; line-height: 1.6; }
   .foot a { color: #888780; }
-  .brand { font-family: "DM Serif Display", Georgia, serif; font-size: 22px; color: #D85A30; text-align: center; margin-bottom: 18px; letter-spacing: -0.02em; }
+  .brand { text-align: center; margin-bottom: 18px; }
+  .brand img { width: 90px; height: auto; display: inline-block; }
   .preheader { display: none; visibility: hidden; opacity: 0; color: transparent; height: 0; width: 0; overflow: hidden; }
 </style>
 </head>
 <body>
   <div class="preheader">${preheader}</div>
   <div class="wrap">
-    <div class="brand">Tenner</div>
+    <div class="brand"><img src="https://mytenner.com/logo-square.png" alt="Tenner" width="90"></div>
     <div class="card">
       ${contentHtml}
     </div>
@@ -58,10 +59,10 @@ function templateWelcome(data: any) {
   const preheader = "Welcome to Tenner — let's make your first Top 10.";
   const body = `
     <h1>Welcome to Tenner, ${escapeHtml(name)}!</h1>
-    <p>You're in. Tenner is a fun way to rank what you love — movies, restaurants, songs, books — and compare with friends.</p>
+    <p>You're in. Tenner is a fun way to rank what you love — movies, restaurants, songs, books, or anything you want — and compare with friends.</p>
     <h2>Here's how to get started</h2>
     <p>1. <strong>Make your first Top 10 list</strong> in any category.<br>
-       2. <strong>Add friends</strong> from your Circle.<br>
+       2. <strong>Add friends</strong> to your Circle.<br>
        3. <strong>Compare</strong> — see how your picks stack up.</p>
     <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Make my first list →</a></p>`;
   return { subject: "Welcome to Tenner 🎉", html: baseTemplate(preheader, body) };
