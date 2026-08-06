@@ -279,6 +279,9 @@
             Continue with Google
           </button>
           <div id="auth-success" style="display:none;text-align:center;background:#EAF3DE;color:#27500A;font-size:11px;padding:10px;border-radius:8px;margin-top:10px;border:1px solid #97C459"></div>
+          <div id="auth-forgot-link" style="text-align:center;margin-top:12px;font-size:12px;color:#888780">
+            <a href="#" onclick="startPasswordReset();return false;" style="color:#5F5E5A;text-decoration:underline;cursor:pointer">Forgot your password?</a>
+          </div>
           <div style="text-align:center;margin-top:16px;font-size:12px;color:#888780">
             New to Tenner? <a href="about.html" style="color:#D85A30;text-decoration:underline;font-weight:600;cursor:pointer">Learn more →</a>
           </div>
@@ -3690,6 +3693,82 @@ function authTab(tab) {
   document.getElementById('auth-success').style.display = 'none';
   var resend = document.getElementById('auth-resend');
   if (resend) resend.style.display = 'none';
+  var forgot = document.getElementById('auth-forgot-link');
+  if (forgot) forgot.style.display = tab === 'login' ? 'block' : 'none';
+}
+
+async function startPasswordReset() {
+  var email = (document.getElementById('auth-email') || {}).value || '';
+  email = email.trim();
+  var errEl = document.getElementById('auth-error');
+  var successEl = document.getElementById('auth-success');
+  if (!email) {
+    errEl.textContent = 'Enter your email address above, then tap "Forgot your password?" again.';
+    errEl.style.display = 'block';
+    var inp = document.getElementById('auth-email');
+    if (inp) inp.focus();
+    return;
+  }
+  try {
+    var res = await sbClient.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://mytenner.com/?reset=1'
+    });
+    if (res.error) {
+      errEl.textContent = authErrorText(res.error);
+      errEl.style.display = 'block';
+    } else {
+      successEl.textContent = '✓ Password reset link sent to ' + email + '. Check your inbox (and spam).';
+      successEl.style.display = 'block';
+      errEl.style.display = 'none';
+    }
+  } catch (e) {
+    errEl.textContent = authErrorText(e);
+    errEl.style.display = 'block';
+  }
+}
+
+// When a user clicks the reset link in their email, Supabase sends them back with
+// a recovery session. Detect it on load and prompt for the new password.
+function initPasswordRecoveryFlow() {
+  if (!sbClient || !sbClient.auth) return;
+  sbClient.auth.onAuthStateChange(function(event, session) {
+    if (event === 'PASSWORD_RECOVERY') {
+      showSetNewPasswordModal();
+    }
+  });
+}
+
+function showSetNewPasswordModal() {
+  var frame = document.querySelector('.frame') || document.body;
+  var existing = document.getElementById('reset-password-modal');
+  if (existing) existing.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'reset-password-modal';
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(20,10,4,0.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px';
+  overlay.innerHTML = ''
+    + '<div class="pop-in" style="background:#fff;border-radius:16px;padding:24px 20px;width:100%;max-width:320px">'
+    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;color:#1A0F0A;text-align:center;margin-bottom:8px">Set a new password</div>'
+    +   '<div style="font-size:12px;color:#5F5E5A;text-align:center;margin-bottom:14px">Choose a new password for your Tenner account.</div>'
+    +   '<input type="password" id="reset-new-password" placeholder="New password (at least 6 characters)" style="margin-bottom:8px">'
+    +   '<div id="reset-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #F0997B"></div>'
+    +   '<button class="btn-primary" onclick="submitNewPassword()" style="margin-bottom:0">Save new password</button>'
+    + '</div>';
+  frame.appendChild(overlay);
+}
+
+async function submitNewPassword() {
+  var pw = (document.getElementById('reset-new-password') || {}).value || '';
+  var errEl = document.getElementById('reset-error');
+  if (pw.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
+  try {
+    var res = await sbClient.auth.updateUser({ password: pw });
+    if (res.error) { errEl.textContent = authErrorText(res.error); errEl.style.display = 'block'; return; }
+    var m = document.getElementById('reset-password-modal'); if (m) m.remove();
+    showToast('✓ Password updated. You\'re signed in.');
+  } catch (e) {
+    errEl.textContent = authErrorText(e);
+    errEl.style.display = 'block';
+  }
 }
 
 async function resendConfirmation() {
@@ -7318,6 +7397,7 @@ function setupRealtimeNotifications() {
   }
 
   initSupabase();
+  initPasswordRecoveryFlow();
   authTab('login');
   renderCatGrid();
   renderEmojiGrid();
