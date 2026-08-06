@@ -3460,7 +3460,12 @@ function openInviteModal() {
   var groupNameEl = document.getElementById('group-name');
   var groupName = groupNameEl ? groupNameEl.value.trim() : '';
   var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
-  var defaultMsg = senderName + ' is inviting you to join' + (groupName ? ' "' + groupName + '"' : ' a group') + ' on Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nJoin here: https://mytenner.com/';
+  var defaultMsg;
+  if (groupName) {
+    defaultMsg = 'Hey — I\'m using Tenner to share Top 10 lists (movies, restaurants, songs, anything) with friends and see how our picks match up. Want to join my group "' + groupName + '"?\n\nSign up here: https://mytenner.com/\n\n— ' + senderName;
+  } else {
+    defaultMsg = 'Hey — I\'m using Tenner to share Top 10 lists (movies, restaurants, songs, anything) with friends and see how our picks match up. Want to join?\n\nSign up here: https://mytenner.com/\n\n— ' + senderName;
+  }
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
   var emailEl = document.getElementById('invite-email');
