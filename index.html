@@ -1470,7 +1470,7 @@ function onCatEmojiSearch(val) {
   var q = (val || '').trim().toLowerCase();
   if (!q) { resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; return; }
   // If the user typed/pasted an actual emoji (non-letter), use it directly.
-  var firstChar = Array.from(val.trim())[0];
+  var firstChar = firstGrapheme(val);
   if (firstChar && !/[a-z0-9]/i.test(firstChar)) {
     setCatEmoji(firstChar);
     resultsEl.style.display = 'none';
@@ -2692,7 +2692,7 @@ function onListEmojiSearch(val) {
   if (!resultsEl) return;
   var q = (val || '').trim().toLowerCase();
   if (!q) { resultsEl.style.display = 'none'; return; }
-  var firstChar = Array.from(val.trim())[0];
+  var firstChar = firstGrapheme(val);
   if (firstChar && !/[a-z0-9]/i.test(firstChar)) { applyListEmoji(firstChar); return; }
   var matches = EMOJI_SEARCH_POOL.filter(function(e){ return e[1].toLowerCase().includes(q); }).slice(0, 24);
   resultsEl.innerHTML = '';
