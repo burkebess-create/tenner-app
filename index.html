@@ -6533,10 +6533,12 @@ function sendUserPasswordReset(email) {
 // --- User Detail (drilled into from Users tab) ---
 
 var _adminUserExpanded = {}; // { lists: bool, friends: bool, groups: bool, feedback: bool, emails: bool }
+var _adminUserCache = null;  // { profile, counts, isAdminUser } — reused when toggling sections
 
 async function openAdminUserDetail(uid) {
   if (!IS_ADMIN) return;
   _adminUserExpanded = {};
+  _adminUserCache = null;
   go('s-admin-user');
   var el = document.getElementById('admin-user-content');
   if (el) el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
@@ -6544,7 +6546,6 @@ async function openAdminUserDetail(uid) {
     var pr = await sbClient.from('profiles').select('*').eq('id', uid).maybeSingle();
     if (!pr.data) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">User not found.</div>'; return; }
     var profile = pr.data;
-    // Counts (using head:true keeps payload tiny)
     var [listsC, friendsC, groupsC, feedbackC, emailC, adminChk] = await Promise.all([
       sbClient.from('lists').select('id', { count: 'exact', head: true }).eq('user_id', uid),
       sbClient.from('friendships').select('id', { count: 'exact', head: true }).or('requester_id.eq.' + uid + ',addressee_id.eq.' + uid).eq('status', 'accepted'),
@@ -6561,6 +6562,7 @@ async function openAdminUserDetail(uid) {
       emails: emailC.count || 0
     };
     var isAdminUser = !!(adminChk && adminChk.data);
+    _adminUserCache = { profile: profile, counts: counts, isAdminUser: isAdminUser };
     renderAdminUserDetail(profile, counts, isAdminUser);
   } catch(e) {
     el.innerHTML = '<div style="padding:20px;color:#A32D2D">Error: ' + escapeHtml(e.message || String(e)) + '</div>';
@@ -6638,9 +6640,10 @@ function adminUserSection(key, label, hasContent, uid) {
 
 async function toggleAdminUserSection(key, uid) {
   _adminUserExpanded[key] = !_adminUserExpanded[key];
-  // Re-render the whole detail so opened/collapsed state reflects
-  await openAdminUserDetail(uid);
-  // After re-render, populate the opened section's body with real data
+  // Re-render from cached profile+counts (does NOT re-fetch, does NOT reset expanded state)
+  if (_adminUserCache) {
+    renderAdminUserDetail(_adminUserCache.profile, _adminUserCache.counts, _adminUserCache.isAdminUser);
+  }
   if (_adminUserExpanded[key]) {
     var bodyEl = document.getElementById('admin-user-' + key + '-body');
     if (!bodyEl) return;
