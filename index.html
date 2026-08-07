@@ -105,6 +105,9 @@
   .toggle input:checked + .toggle-slider::before { transform: translateX(16px); }
   .step-dots { display: flex; gap: 5px; margin-bottom: 14px; }
   .step-dot { width: 6px; height: 6px; border-radius: 50%; background: #D3D1C7; }
+  .onb-dot { width: 32px; height: 4px; border-radius: 2px; background: #E8E6DF; transition: background 0.25s ease; }
+  .onb-dot.active { background: #D85A30; }
+  .onb-dot.done   { background: #F5B091; }
   .step-dot.active { background: #D85A30; width: 16px; border-radius: 3px; }
   .step-dot.done { background: #F0997B; }
   .group-emoji { font-size: 22px; width: 42px; height: 42px; border-radius: 10px; background: #F1EFE8; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -289,6 +292,20 @@
       </div>
 
       <!-- ═══ HOME ═══ -->
+      <!-- ═══ ONBOARDING ═══ -->
+      <div class="screen" id="s-onboarding">
+        <div class="content" style="justify-content:center;display:flex;flex-direction:column;padding:32px 24px">
+          <!-- Progress dots -->
+          <div id="onb-dots" style="display:flex;gap:8px;justify-content:center;margin-bottom:32px">
+            <div class="onb-dot" data-onb-step="1"></div>
+            <div class="onb-dot" data-onb-step="2"></div>
+            <div class="onb-dot" data-onb-step="3"></div>
+            <div class="onb-dot" data-onb-step="4"></div>
+          </div>
+          <div id="onb-body"></div>
+        </div>
+      </div>
+
       <div class="screen" id="s-home">
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
@@ -657,6 +674,7 @@
           <button class="back-btn" onclick="doRefresh(this,function(){return loadFriends().then(renderCircleScreen);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
         </div>
         <div class="content">
+          <div id="circle-profile-nudges"></div>
           <div id="weekly-hero-card"></div>
           <div id="home-feed-section"></div>
           <div class="sec-label">Friends</div>
@@ -1157,7 +1175,7 @@ function go(id) {
     if (mbb) mbb.style.display = matchOrigin ? 'block' : 'none';
     renderMatch();
   }
-  if (id === 's-circle') { renderCircleScreen(); renderGiftReminders(); renderHomeFeed(); renderWeeklyHeroCard(); }
+  if (id === 's-circle') { renderCircleScreen(); renderGiftReminders(); renderHomeFeed(); renderWeeklyHeroCard(); renderProfileNudges(); }
   if (id === 's-notifications') { loadListShareInvites().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
   if (id === 's-admin') { renderAdmin(); }
@@ -4367,6 +4385,257 @@ function renderFriendsSection() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// PROFILE ONBOARDING
+// ═══════════════════════════════════════════════════════════════
+
+var _onbStep = 1;
+var _onbTotal = 4;
+
+function isOnboardingIncomplete() {
+  // Required: display_name + handle. Missing either = fire onboarding.
+  if (!myProfile) return true;
+  if (!myProfile.display_name || !myProfile.display_name.trim()) return true;
+  if (!myProfile.handle || !myProfile.handle.trim()) return true;
+  return false;
+}
+
+async function startOnboardingIfNeeded() {
+  if (!isOnboardingIncomplete()) return false;
+  _onbStep = 1;
+  go('s-onboarding');
+  renderOnbStep();
+  return true;
+}
+
+function updateOnbDots() {
+  document.querySelectorAll('.onb-dot').forEach(function(d) {
+    var n = parseInt(d.dataset.onbStep, 10);
+    d.classList.remove('active', 'done');
+    if (n < _onbStep) d.classList.add('done');
+    else if (n === _onbStep) d.classList.add('active');
+  });
+}
+
+function renderOnbStep() {
+  updateOnbDots();
+  var body = document.getElementById('onb-body');
+  if (!body) return;
+  if (_onbStep === 1) return renderOnbStep1(body);
+  if (_onbStep === 2) return renderOnbStep2(body);
+  if (_onbStep === 3) return renderOnbStep3(body);
+  if (_onbStep === 4) return renderOnbStep4(body);
+}
+
+function renderOnbStep1(body) {
+  var current = (myProfile && myProfile.display_name) || '';
+  body.innerHTML = ''
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#1A0F0A;text-align:center;margin-bottom:8px;line-height:1.15">What should we call you?</div>'
+    + '<div style="font-size:13px;color:#5F5E5A;text-align:center;margin-bottom:20px">This is how friends will see you on Tenner.</div>'
+    + '<input type="text" id="onb-name" value="' + escapeHtml(current) + '" placeholder="Your name" autocomplete="name" autofocus style="margin-bottom:6px;text-align:center">'
+    + '<div id="onb-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #F0997B"></div>'
+    + '<button class="btn-primary" onclick="onbStep1Next()" style="margin-top:14px">Continue →</button>';
+  var inp = document.getElementById('onb-name'); if (inp) inp.focus();
+}
+
+function onbStep1Next() {
+  var v = (document.getElementById('onb-name') || {}).value || '';
+  v = v.trim();
+  var err = document.getElementById('onb-error');
+  if (!v) { err.textContent = 'Please enter your name.'; err.style.display = 'block'; return; }
+  if (!myProfile) myProfile = { id: userId };
+  myProfile.display_name = v;
+  _onbStep = 2;
+  renderOnbStep();
+}
+
+function renderOnbStep2(body) {
+  var existingHandle = (myProfile && myProfile.handle) || '';
+  var suggested = existingHandle || suggestHandleFromName((myProfile && myProfile.display_name) || '');
+  body.innerHTML = ''
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#1A0F0A;text-align:center;margin-bottom:8px;line-height:1.15">Pick your @handle</div>'
+    + '<div style="font-size:13px;color:#5F5E5A;text-align:center;margin-bottom:20px">Friends can find you by @handle. It\'s permanent, so choose something you\'ll be happy with.</div>'
+    + '<div style="display:flex;align-items:stretch;border:1px solid #D3D1C7;border-radius:8px;background:#fff;overflow:hidden;margin-bottom:4px">'
+    +   '<div style="display:flex;align-items:center;padding:0 12px;background:#F1EFE8;color:#5F5E5A;font-size:16px;font-weight:600">@</div>'
+    +   '<input type="text" id="onb-handle" value="' + escapeHtml(suggested) + '" placeholder="yourhandle" autocomplete="off" autocorrect="off" autocapitalize="off" oninput="onOnbHandleInput()" style="border:none;flex:1;margin:0;padding:11px;background:transparent">'
+    + '</div>'
+    + '<div id="onb-handle-status" style="font-size:12px;color:#888780;min-height:16px;margin-bottom:4px"></div>'
+    + '<div id="onb-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #F0997B"></div>'
+    + '<button class="btn-primary" onclick="onbStep2Next()" style="margin-top:14px">Continue →</button>'
+    + '<button class="btn-secondary" onclick="onbBack()" style="margin-top:6px;margin-bottom:0">← Back</button>';
+  onOnbHandleInput();
+}
+
+function suggestHandleFromName(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15) || '';
+}
+
+var _onbHandleCheckTimer = null;
+function onOnbHandleInput() {
+  var v = ((document.getElementById('onb-handle') || {}).value || '').toLowerCase().replace(/[^a-z0-9_]/g,'');
+  var el = document.getElementById('onb-handle');
+  if (el && el.value !== v) el.value = v;
+  var status = document.getElementById('onb-handle-status');
+  if (!status) return;
+  clearTimeout(_onbHandleCheckTimer);
+  if (!v) { status.textContent = ''; return; }
+  if (v.length < 3) { status.textContent = 'At least 3 characters.'; status.style.color = '#888780'; return; }
+  status.textContent = 'Checking availability…';
+  status.style.color = '#888780';
+  _onbHandleCheckTimer = setTimeout(function() {
+    sbClient.from('profiles').select('id').eq('handle', v).neq('id', userId).maybeSingle().then(function(r) {
+      if (r.data) { status.textContent = '@' + v + ' is taken. Try another.'; status.style.color = '#A32D2D'; }
+      else       { status.textContent = '✓ @' + v + ' is available.'; status.style.color = '#3B6D11'; }
+    }).catch(function(){ status.textContent = ''; });
+  }, 350);
+}
+
+async function onbStep2Next() {
+  var v = ((document.getElementById('onb-handle') || {}).value || '').toLowerCase().replace(/[^a-z0-9_]/g,'');
+  var err = document.getElementById('onb-error');
+  if (!v || v.length < 3) { err.textContent = 'Please pick a handle (at least 3 characters).'; err.style.display = 'block'; return; }
+  try {
+    var chk = await sbClient.from('profiles').select('id').eq('handle', v).neq('id', userId).maybeSingle();
+    if (chk.data) { err.textContent = '@' + v + ' is taken. Please try another.'; err.style.display = 'block'; return; }
+  } catch(e) {}
+  myProfile.handle = v;
+  _onbStep = 3;
+  renderOnbStep();
+}
+
+function renderOnbStep3(body) {
+  var current = (myProfile && myProfile.phone) || '';
+  body.innerHTML = ''
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#1A0F0A;text-align:center;margin-bottom:8px;line-height:1.15">Add your phone number</div>'
+    + '<div style="font-size:13px;color:#5F5E5A;text-align:center;margin-bottom:20px">Friends who have your number can find you instantly. Only friends who already have your number can see you.</div>'
+    + '<input type="tel" id="onb-phone" value="' + escapeHtml(current) + '" placeholder="(555) 555-5555" autocomplete="tel" onblur="formatPhoneInput(this)" style="margin-bottom:6px;text-align:center">'
+    + '<div id="onb-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #F0997B"></div>'
+    + '<button class="btn-primary" onclick="onbStep3Next()" style="margin-top:14px">Add my number →</button>'
+    + '<button onclick="onbStep3Skip()" style="margin-top:6px;background:none;border:none;color:#888780;font-size:12px;padding:8px;cursor:pointer;text-decoration:underline">Skip for now</button>'
+    + '<button class="btn-secondary" onclick="onbBack()" style="margin-top:2px;margin-bottom:0">← Back</button>';
+}
+
+function onbStep3Next() {
+  var raw = ((document.getElementById('onb-phone') || {}).value || '');
+  var digits = raw.replace(/\D/g, '');
+  var err = document.getElementById('onb-error');
+  if (digits.length < 10) {
+    err.textContent = 'That doesn\'t look like a valid phone number. You can also skip for now.';
+    err.style.display = 'block';
+    return;
+  }
+  myProfile.phone = raw;
+  _onbStep = 4;
+  renderOnbStep();
+}
+function onbStep3Skip() {
+  myProfile.phone = null;
+  _onbStep = 4;
+  renderOnbStep();
+}
+
+function renderOnbStep4(body) {
+  var currentM = (myProfile && myProfile.birthday && myProfile.birthday.split('-')[1]) || '';
+  var currentD = (myProfile && myProfile.birthday && myProfile.birthday.split('-')[2]) || '';
+  var monthOpts = ['<option value="">Month</option>','<option value="01">January</option>','<option value="02">February</option>','<option value="03">March</option>','<option value="04">April</option>','<option value="05">May</option>','<option value="06">June</option>','<option value="07">July</option>','<option value="08">August</option>','<option value="09">September</option>','<option value="10">October</option>','<option value="11">November</option>','<option value="12">December</option>'].map(function(o){ return o.replace('value="' + currentM + '"', 'value="' + currentM + '" selected'); }).join('');
+  body.innerHTML = ''
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#1A0F0A;text-align:center;margin-bottom:8px;line-height:1.15">When\'s your birthday?</div>'
+    + '<div style="font-size:13px;color:#5F5E5A;text-align:center;margin-bottom:20px">Friends will get a heads-up so they can wish you a happy day. 🎂</div>'
+    + '<div style="display:flex;gap:8px;margin-bottom:6px">'
+    +   '<select id="onb-bday-month" onchange="populateOnbDay()" style="flex:1;text-align:center">' + monthOpts + '</select>'
+    +   '<select id="onb-bday-day" style="width:110px;text-align:center"><option value="">Day</option></select>'
+    + '</div>'
+    + '<div id="onb-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #F0997B"></div>'
+    + '<button class="btn-primary" onclick="onbFinish()" style="margin-top:14px">Finish →</button>'
+    + '<button onclick="onbFinishSkip()" style="margin-top:6px;background:none;border:none;color:#888780;font-size:12px;padding:8px;cursor:pointer;text-decoration:underline">Skip for now</button>'
+    + '<button class="btn-secondary" onclick="onbBack()" style="margin-top:2px;margin-bottom:0">← Back</button>';
+  populateOnbDay(currentD);
+}
+
+function populateOnbDay(preselectDay) {
+  var m = (document.getElementById('onb-bday-month') || {}).value;
+  var days = m ? new Date(2000, parseInt(m, 10), 0).getDate() : 31;
+  var sel = document.getElementById('onb-bday-day');
+  if (!sel) return;
+  var opts = '<option value="">Day</option>';
+  for (var d = 1; d <= days; d++) {
+    var v = String(d).padStart(2, '0');
+    opts += '<option value="' + v + '"' + (preselectDay === v ? ' selected' : '') + '>' + d + '</option>';
+  }
+  sel.innerHTML = opts;
+}
+
+async function onbFinish() {
+  var m = (document.getElementById('onb-bday-month') || {}).value;
+  var d = (document.getElementById('onb-bday-day') || {}).value;
+  var err = document.getElementById('onb-error');
+  if ((m && !d) || (!m && d)) { err.textContent = 'Please pick both month and day, or skip.'; err.style.display = 'block'; return; }
+  if (m && d) myProfile.birthday = '2000-' + m + '-' + d;
+  await finalizeOnboarding();
+}
+async function onbFinishSkip() {
+  await finalizeOnboarding();
+}
+
+async function finalizeOnboarding() {
+  // Persist to Supabase
+  try {
+    var payload = {
+      id: userId,
+      display_name: myProfile.display_name,
+      handle: myProfile.handle,
+      phone: myProfile.phone || null,
+      birthday: myProfile.birthday || null,
+      updated_at: new Date().toISOString()
+    };
+    var res = await sbClient.from('profiles').upsert(payload);
+    if (res && res.error) { console.warn('Onboarding save failed:', res.error); }
+  } catch(e) { console.warn(e); }
+  // Celebrate and drop into Circle
+  go('s-circle');
+  setTimeout(function() { celebrateConfetti(70); showToast('✓ You\'re all set — welcome to Tenner!'); }, 250);
+}
+
+function onbBack() {
+  if (_onbStep > 1) { _onbStep--; renderOnbStep(); }
+}
+
+// ─── Post-onboarding Circle nudges for still-empty fields ───
+
+function renderProfileNudges() {
+  var host = document.getElementById('circle-profile-nudges');
+  if (!host) return;
+  if (!myProfile) { host.innerHTML = ''; return; }
+  var dismissed = {};
+  try { dismissed = JSON.parse(sessionStorage.getItem('tenner_nudges_dismissed') || '{}'); } catch(e) {}
+  var nudges = [];
+  if (!myProfile.phone && !dismissed.phone) {
+    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+      + '<div style="font-size:22px">📞</div>'
+      + '<div style="flex:1;font-size:12px;color:#2C2C2A">Add your phone number so friends can find you.</div>'
+      + '<button class="back-btn" onclick="go(\'s-profile\')" style="padding:5px 10px;font-size:11px">Add</button>'
+      + '<button onclick="dismissNudge(\'phone\')" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
+      + '</div>');
+  }
+  if (!myProfile.birthday && !dismissed.birthday) {
+    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+      + '<div style="font-size:22px">🎂</div>'
+      + '<div style="flex:1;font-size:12px;color:#2C2C2A">Add your birthday so friends know when to celebrate.</div>'
+      + '<button class="back-btn" onclick="go(\'s-profile\')" style="padding:5px 10px;font-size:11px">Add</button>'
+      + '<button onclick="dismissNudge(\'birthday\')" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
+      + '</div>');
+  }
+  host.innerHTML = nudges.join('');
+}
+
+function dismissNudge(key) {
+  var dismissed = {};
+  try { dismissed = JSON.parse(sessionStorage.getItem('tenner_nudges_dismissed') || '{}'); } catch(e) {}
+  dismissed[key] = true;
+  try { sessionStorage.setItem('tenner_nudges_dismissed', JSON.stringify(dismissed)); } catch(e) {}
+  renderProfileNudges();
+}
+
 function renderCircleScreen() {
   renderCircleFriends();
   renderCircleGroups();
@@ -7420,6 +7689,11 @@ function setupRealtimeNotifications() {
       renderListPicker();
       renderCircleScreen();
       go('s-circle');
+      // Fetch profile so we know whether to onboard; run once on first sign-in
+      (async function() {
+        try { await loadProfile(); } catch(e) {}
+        startOnboardingIfNeeded();
+      })();
       // Prefer in-memory invite (same page load); fall back to persisted
       // invite that survived the email-confirmation reload.
       var invite = window.pendingFill ? { fill: window.pendingFill, from: window.pendingFrom || null } : getPendingInvite();
