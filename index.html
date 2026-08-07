@@ -174,8 +174,12 @@
   .nav-btn:hover { background: #FAECE7; color: #993C1D; }
   .nav-btn.active { background: #FAECE7; color: #993C1D; font-weight: 600; }
   .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-  .cat-card { background: #fff; border: 1px solid #E8E6DF; border-radius: 10px; padding: 10px 8px; cursor: pointer; text-align: center; }
-  .cat-card:hover, .cat-card.selected { border-color: #D85A30; border-width: 1.5px; background: #FAECE7; }
+  .cat-card { background: #fff; border: 1px solid #E8E6DF; border-radius: 10px; padding: 10px 8px; cursor: pointer; text-align: center; touch-action: manipulation; }
+  .cat-card.selected { border-color: #D85A30; border-width: 1.5px; background: #FAECE7; }
+  /* Only apply hover styling on devices that actually have a mouse — prevents multi-finger touch from making multiple cards appear selected simultaneously. */
+  @media (hover: hover) {
+    .cat-card:hover { border-color: #D85A30; border-width: 1.5px; background: #FAECE7; }
+  }
   .cat-icon { font-size: 22px; margin-bottom: 4px; }
   .cat-name { font-size: 11px; font-weight: 600; color: #2C2C2A; }
   .done-banner { background: #EAF3DE; border: 1px solid #97C459; border-radius: 8px; padding: 9px 12px; font-size: 11px; color: #27500A; margin-bottom: 8px; display: none; }
