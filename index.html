@@ -897,6 +897,16 @@
         <div class="content" id="admin-content"></div>
       </div>
 
+      <!-- ═══ ADMIN — USER DETAIL ═══ -->
+      <div class="screen" id="s-admin-user">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-admin')">← Back</button>
+          <span style="font-size:12px;font-weight:600;color:#2C2C2A">User</span>
+          <span style="width:60px"></span>
+        </div>
+        <div class="content" id="admin-user-content"></div>
+      </div>
+
       <!-- ═══ GIFTS ═══ -->
       <div class="screen" id="s-gifts">
         <div class="topbar">
@@ -1183,6 +1193,7 @@ function go(id) {
   if (id === 's-notifications') { loadListShareInvites().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
   if (id === 's-admin') { renderAdmin(); }
+  if (id === 's-admin-user') { /* driven by openAdminUserDetail */ }
   if (id === 's-gifts') { renderGifts(); }
 }
 
@@ -6472,21 +6483,15 @@ async function renderAdminUsers(el) {
   }) : all;
   var rows = users.map(function(u) {
     var bannedTag = u.is_banned ? '<span style="font-size:9px;background:#F5C4B3;color:#712B13;padding:2px 6px;border-radius:99px;margin-left:6px">Banned</span>' : '';
-    return '<div class="card no-hover" style="margin-bottom:8px">'
-      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+    return '<div class="card" onclick="openAdminUserDetail(\'' + u.id + '\')" style="margin-bottom:8px;cursor:pointer">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
       +   '<div style="flex:1;min-width:0">'
       +     '<div style="font-size:12px;font-weight:600;color:#2C2C2A;word-wrap:break-word">' + escapeHtml(u.display_name || '—') + bannedTag + '</div>'
       +     '<div style="font-size:13.5px;color:#5F5E5A;word-wrap:break-word">' + escapeHtml(u.email || '') + '</div>'
       +     '<div style="font-size:10px;color:#888780;margin-top:2px">' + (u.handle ? '@' + escapeHtml(u.handle) : '') + (u.handle && u.phone ? ' · ' : '') + escapeHtml(u.phone || '') + '</div>'
       +   '</div>'
-      + '</div>'
-      + '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">'
-      +   (u.is_banned
-          ? '<button class="back-btn" onclick="unbanUser(\'' + u.id + '\')">Unban</button>'
-          : '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="banUser(\'' + u.id + '\',\'' + escapeHtml(u.display_name||u.email||'').replace(/\'/g,"\\'") + '\')">Ban</button>')
-      +   '<button class="back-btn" onclick="sendUserPasswordReset(\'' + escapeHtml(u.email||'').replace(/\'/g,"\\'") + '\')">Send password reset</button>'
-      + '</div>'
-      + '</div>';
+      +   '<span style="font-size:18px;color:#D3D1C7">›</span>'
+      + '</div></div>';
   }).join('');
   el.innerHTML = '<div style="padding:12px">'
     + '<input type="text" placeholder="Search by name, email, or handle" value="' + escapeHtml(_adminUserSearch) + '" oninput="_adminUserSearch=this.value;renderAdmin()" style="margin-bottom:10px;font-size:12px;padding:6px 8px">'
@@ -6523,6 +6528,174 @@ function sendUserPasswordReset(email) {
       showToast('Reset link sent to ' + email);
     });
   });
+}
+
+// --- User Detail (drilled into from Users tab) ---
+
+var _adminUserExpanded = {}; // { lists: bool, friends: bool, groups: bool, feedback: bool, emails: bool }
+
+async function openAdminUserDetail(uid) {
+  if (!IS_ADMIN) return;
+  _adminUserExpanded = {};
+  go('s-admin-user');
+  var el = document.getElementById('admin-user-content');
+  if (el) el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
+  try {
+    var pr = await sbClient.from('profiles').select('*').eq('id', uid).maybeSingle();
+    if (!pr.data) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">User not found.</div>'; return; }
+    var profile = pr.data;
+    // Counts (using head:true keeps payload tiny)
+    var [listsC, friendsC, groupsC, feedbackC, emailC, adminChk] = await Promise.all([
+      sbClient.from('lists').select('id', { count: 'exact', head: true }).eq('user_id', uid),
+      sbClient.from('friendships').select('id', { count: 'exact', head: true }).or('requester_id.eq.' + uid + ',addressee_id.eq.' + uid).eq('status', 'accepted'),
+      sbClient.from('group_members').select('group_id', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'accepted'),
+      sbClient.from('feedback').select('id', { count: 'exact', head: true }).eq('user_id', uid),
+      sbClient.from('email_log').select('id', { count: 'exact', head: true }).eq('user_id', uid),
+      sbClient.from('admins').select('user_id').eq('user_id', uid).maybeSingle()
+    ]);
+    var counts = {
+      lists: listsC.count || 0,
+      friends: friendsC.count || 0,
+      groups: groupsC.count || 0,
+      feedback: feedbackC.count || 0,
+      emails: emailC.count || 0
+    };
+    var isAdminUser = !!(adminChk && adminChk.data);
+    renderAdminUserDetail(profile, counts, isAdminUser);
+  } catch(e) {
+    el.innerHTML = '<div style="padding:20px;color:#A32D2D">Error: ' + escapeHtml(e.message || String(e)) + '</div>';
+  }
+}
+
+function renderAdminUserDetail(p, counts, isAdminUser) {
+  var el = document.getElementById('admin-user-content');
+  if (!el) return;
+  var name = p.display_name || (p.handle ? '@' + p.handle : (p.email || 'Unknown'));
+  var joinedAt = p.created_at ? new Date(p.created_at).toLocaleDateString() : '—';
+  var updatedAt = p.updated_at ? new Date(p.updated_at).toLocaleDateString() : '—';
+  var bannedBanner = p.is_banned
+    ? '<div style="background:#F5C4B3;color:#712B13;padding:10px 12px;border-radius:10px;margin-bottom:12px;border:1px solid #F0997B;font-size:12px"><strong>Banned</strong>' + (p.banned_at ? ' on ' + new Date(p.banned_at).toLocaleDateString() : '') + (p.banned_reason ? ' — ' + escapeHtml(p.banned_reason) : '') + '</div>'
+    : '';
+  var adminBadge = isAdminUser ? '<span style="font-size:9px;background:#D6F0EA;color:#1F7268;padding:2px 8px;border-radius:99px;margin-left:6px;font-weight:600">ADMIN</span>' : '';
+  var bday = p.birthday ? ('🎂 ' + p.birthday.slice(5).replace('-', '/')) : '—';
+
+  el.innerHTML = '<div style="padding:14px">'
+    + bannedBanner
+    + '<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">'
+    +   friendAvatarHtml(p, 56)
+    +   '<div style="flex:1;min-width:0">'
+    +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.02em;color:#1A0F0A">' + escapeHtml(name) + adminBadge + '</div>'
+    +     '<div style="font-size:11px;color:#5F5E5A">' + escapeHtml(p.email || '') + '</div>'
+    +     '<div style="font-size:11px;color:#888780">' + (p.handle ? '@' + escapeHtml(p.handle) : '') + (p.handle && p.phone ? ' · ' : '') + escapeHtml(p.phone || '') + '</div>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;font-size:11px">'
+    +   '<div style="background:#F1EFE8;padding:8px 10px;border-radius:8px"><div style="color:#888780">Joined</div><div style="color:#2C2C2A;font-weight:600">' + joinedAt + '</div></div>'
+    +   '<div style="background:#F1EFE8;padding:8px 10px;border-radius:8px"><div style="color:#888780">Profile updated</div><div style="color:#2C2C2A;font-weight:600">' + updatedAt + '</div></div>'
+    +   '<div style="background:#F1EFE8;padding:8px 10px;border-radius:8px"><div style="color:#888780">Birthday</div><div style="color:#2C2C2A;font-weight:600">' + bday + '</div></div>'
+    +   '<div style="background:#F1EFE8;padding:8px 10px;border-radius:8px"><div style="color:#888780">Bio</div><div style="color:#2C2C2A;font-weight:600">' + (p.bio ? escapeHtml(p.bio).slice(0,40) : '—') + '</div></div>'
+    + '</div>'
+    // Numbers row
+    + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:14px;text-align:center">'
+    +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.lists + '</div><div style="font-size:9px">Lists</div></div>'
+    +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.friends + '</div><div style="font-size:9px">Friends</div></div>'
+    +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.groups + '</div><div style="font-size:9px">Groups</div></div>'
+    +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.feedback + '</div><div style="font-size:9px">Feedback</div></div>'
+    +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.emails + '</div><div style="font-size:9px">Emails</div></div>'
+    + '</div>'
+    // Actions
+    + '<div class="sec-label">Actions</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">'
+    +   (p.is_banned
+        ? '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px" onclick="unbanUser(\'' + p.id + '\');setTimeout(function(){openAdminUserDetail(\'' + p.id + '\')},300)">Unban user</button>'
+        : '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px;color:#A32D2D;border-color:#F09595" onclick="banUser(\'' + p.id + '\',\'' + escapeHtml(name).replace(/\'/g,"\\'") + '\');setTimeout(function(){openAdminUserDetail(\'' + p.id + '\')},500)">Ban user</button>')
+    +   '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px" onclick="sendUserPasswordReset(\'' + escapeHtml(p.email||'').replace(/\'/g,"\\'") + '\')">Send password reset</button>'
+    + '</div>'
+    // Expandable sections
+    + adminUserSection('lists',    'Lists (' + counts.lists + ')',    counts.lists    > 0, p.id)
+    + adminUserSection('friends',  'Friends (' + counts.friends + ')', counts.friends > 0, p.id)
+    + adminUserSection('groups',   'Groups (' + counts.groups + ')',   counts.groups  > 0, p.id)
+    + adminUserSection('feedback', 'Feedback (' + counts.feedback + ')', counts.feedback > 0, p.id)
+    + adminUserSection('emails',   'Email history (' + counts.emails + ')', counts.emails > 0, p.id)
+    + '</div>';
+}
+
+function adminUserSection(key, label, hasContent, uid) {
+  var expanded = !!_adminUserExpanded[key];
+  var arrow = expanded ? '▲' : '▼';
+  var opener = 'onclick="toggleAdminUserSection(\'' + key + '\',\'' + uid + '\')"';
+  var body = expanded ? '<div id="admin-user-' + key + '-body" style="padding:6px 4px 12px"><div style="font-size:11px;color:#888">Loading…</div></div>' : '';
+  return '<div style="border-top:1px solid #E8E6DF">'
+    + '<div ' + opener + ' style="display:flex;justify-content:space-between;align-items:center;padding:12px 4px;cursor:' + (hasContent ? 'pointer' : 'default') + ';color:' + (hasContent ? '#2C2C2A' : '#888780') + '">'
+    +   '<span style="font-size:13px;font-weight:600">' + label + '</span>'
+    +   (hasContent ? '<span style="color:#888780">' + arrow + '</span>' : '')
+    + '</div>'
+    + body
+    + '</div>';
+}
+
+async function toggleAdminUserSection(key, uid) {
+  _adminUserExpanded[key] = !_adminUserExpanded[key];
+  // Re-render the whole detail so opened/collapsed state reflects
+  await openAdminUserDetail(uid);
+  // After re-render, populate the opened section's body with real data
+  if (_adminUserExpanded[key]) {
+    var bodyEl = document.getElementById('admin-user-' + key + '-body');
+    if (!bodyEl) return;
+    try {
+      if (key === 'lists') {
+        var r = await sbClient.from('lists').select('id, name, category, emoji, items, updated_at').eq('user_id', uid).order('updated_at', {ascending:false});
+        var rows = (r.data || []).map(function(l) {
+          var count = (l.items || []).length;
+          return '<div class="card no-hover" style="margin-bottom:4px;padding:8px 10px"><div style="display:flex;align-items:center;gap:8px">'
+            + '<div style="width:26px;text-align:center">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 20) + '</div>'
+            + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600">' + escapeHtml(l.name || 'Untitled') + '</div><div style="font-size:10px;color:#888780">' + count + ' items · updated ' + (l.updated_at ? new Date(l.updated_at).toLocaleDateString() : '—') + '</div></div>'
+            + '</div></div>';
+        }).join('');
+        bodyEl.innerHTML = rows || '<div style="font-size:11px;color:#888;padding:6px">No lists.</div>';
+      } else if (key === 'friends') {
+        var f = await sbClient.from('friendships').select('requester_id, addressee_id, status, created_at').or('requester_id.eq.' + uid + ',addressee_id.eq.' + uid).eq('status', 'accepted');
+        var ids = (f.data || []).map(function(x){ return x.requester_id === uid ? x.addressee_id : x.requester_id; }).filter(Boolean);
+        if (!ids.length) { bodyEl.innerHTML = '<div style="font-size:11px;color:#888;padding:6px">No friends yet.</div>'; return; }
+        var pr = await sbClient.from('profiles').select('id, display_name, handle, email').in('id', ids);
+        var rows2 = (pr.data || []).map(function(fp) {
+          return '<div class="card no-hover" onclick="openAdminUserDetail(\'' + fp.id + '\')" style="margin-bottom:4px;padding:8px 10px;cursor:pointer"><div style="display:flex;align-items:center;gap:8px">'
+            + friendAvatarHtml(fp, 28)
+            + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600">' + escapeHtml(fp.display_name || '—') + '</div><div style="font-size:10px;color:#888780">' + (fp.handle ? '@' + escapeHtml(fp.handle) : escapeHtml(fp.email || '')) + '</div></div>'
+            + '<span style="color:#D3D1C7">›</span></div></div>';
+        }).join('');
+        bodyEl.innerHTML = rows2;
+      } else if (key === 'groups') {
+        var gm = await sbClient.from('group_members').select('group_id, role, joined_at').eq('user_id', uid).eq('status', 'accepted');
+        var gids = (gm.data || []).map(function(x){ return x.group_id; }).filter(Boolean);
+        if (!gids.length) { bodyEl.innerHTML = '<div style="font-size:11px;color:#888;padding:6px">Not in any groups.</div>'; return; }
+        var gr = await sbClient.from('groups').select('id, name, created_at').in('id', gids);
+        var byId = {}; (gr.data || []).forEach(function(g){ byId[g.id] = g; });
+        var rows3 = (gm.data || []).map(function(m) {
+          var g = byId[m.group_id]; if (!g) return '';
+          var role = m.role || 'member';
+          return '<div class="card no-hover" style="margin-bottom:4px;padding:8px 10px"><div style="font-size:12px;font-weight:600">' + escapeHtml(g.name || 'Group') + '</div><div style="font-size:10px;color:#888780">' + role + (m.joined_at ? ' · joined ' + new Date(m.joined_at).toLocaleDateString() : '') + '</div></div>';
+        }).join('');
+        bodyEl.innerHTML = rows3 || '<div style="font-size:11px;color:#888;padding:6px">No groups.</div>';
+      } else if (key === 'feedback') {
+        var fb = await sbClient.from('feedback').select('id, message, category, status, created_at').eq('user_id', uid).order('created_at', {ascending:false});
+        var rows4 = (fb.data || []).map(function(x) {
+          return '<div class="card no-hover" style="margin-bottom:4px;padding:8px 10px">'
+            + '<div style="font-size:10px;color:#888780;margin-bottom:2px">' + escapeHtml(x.category || '') + ' · ' + escapeHtml(x.status || 'new') + ' · ' + (x.created_at ? new Date(x.created_at).toLocaleDateString() : '') + '</div>'
+            + '<div style="font-size:12px;color:#2C2C2A;white-space:pre-wrap">' + escapeHtml(x.message || '') + '</div></div>';
+        }).join('');
+        bodyEl.innerHTML = rows4 || '<div style="font-size:11px;color:#888;padding:6px">No feedback submitted.</div>';
+      } else if (key === 'emails') {
+        var eh = await sbClient.from('email_log').select('email_type, ref_key, sent_at').eq('user_id', uid).order('sent_at', {ascending:false}).limit(100);
+        var rows5 = (eh.data || []).map(function(x) {
+          return '<div class="card no-hover" style="margin-bottom:4px;padding:8px 10px"><div style="display:flex;justify-content:space-between;gap:8px"><span style="font-size:12px;color:#2C2C2A">' + escapeHtml(x.email_type || '') + '</span><span style="font-size:10px;color:#888780">' + (x.sent_at ? new Date(x.sent_at).toLocaleString() : '') + '</span></div></div>';
+        }).join('');
+        bodyEl.innerHTML = rows5 || '<div style="font-size:11px;color:#888;padding:6px">No emails yet.</div>';
+      }
+    } catch(e) {
+      bodyEl.innerHTML = '<div style="font-size:11px;color:#A32D2D;padding:6px">Error: ' + escapeHtml(e.message || String(e)) + '</div>';
+    }
+  }
 }
 
 // --- Lists tab ---
