@@ -5720,13 +5720,13 @@ async function loadCategoriesFromDb() {
       (itemsByCat[it.category_id] = itemsByCat[it.category_id] || []).push(it);
     });
     CATS_FULL = res.data;
-    // Filter to active (seasonal date range check)
+    // Filter to what regular users see: not retired AND (not seasonal OR in season)
     var today = new Date();
     var mmdd = String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     var active = res.data.filter(function(c) {
+      if (c.retired_at) return false;
       if (!c.is_seasonal) return true;
       if (!c.active_from || !c.active_to) return true;
-      // Handle year-wrap ranges (e.g. Dec-Jan)
       if (c.active_from <= c.active_to) {
         return mmdd >= c.active_from && mmdd <= c.active_to;
       }
@@ -6969,22 +6969,70 @@ async function renderAdminCats(el) {
   var res = await sbClient.from('categories').select('*').order('sort_order');
   if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">Error: ' + escapeHtml(res.error.message) + '</div>'; return; }
   var analytics = await getListAnalytics();
-  var rows = (res.data || []).map(function(c) {
+  var allCats = res.data || [];
+  var active = allCats.filter(function(c){ return !c.retired_at; });
+  var retired = allCats.filter(function(c){ return !!c.retired_at; });
+  var showRetired = !!window._adminShowRetired;
+
+  function fmtDate(v) { if (!v) return '—'; try { return new Date(v).toLocaleDateString(); } catch(e) { return '—'; } }
+
+  var activeRows = active.map(function(c) {
     var seasonBadge = c.is_seasonal ? '<span style="font-size:9px;background:#FAECE7;color:#993C1D;padding:2px 6px;border-radius:99px;margin-left:6px">Seasonal ' + escapeHtml(c.active_from || '?') + ' → ' + escapeHtml(c.active_to || '?') + '</span>' : '';
     return '<div class="card no-hover" style="margin-bottom:6px">'
       + '<div style="display:flex;justify-content:space-between;align-items:center">'
-      +   '<div style="display:flex;align-items:center;gap:8px"><span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center">' + renderCatEmoji(c.emoji, 22) + '</span><strong style="font-size:13px">' + escapeHtml(c.name) + '</strong>' + seasonBadge + '</div>'
-      +   '<div><button class="back-btn" onclick="editAdminCat(\'' + c.id + '\')" style="margin-right:4px">Edit</button>'
+      +   '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0"><span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' + renderCatEmoji(c.emoji, 22) + '</span><div style="min-width:0"><strong style="font-size:13px">' + escapeHtml(c.name) + '</strong>' + seasonBadge + '<div style="font-size:10px;color:#888780">Created ' + fmtDate(c.created_at) + '</div></div></div>'
+      +   '<div style="flex-shrink:0"><button class="back-btn" onclick="editAdminCat(\'' + c.id + '\')" style="margin-right:4px">Edit</button>'
+      +   '<button class="back-btn" onclick="retireAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')" style="margin-right:4px">Retire</button>'
       +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')">Delete</button></div>'
       + '</div>'
       + analyticsStatsBar(c.name, analytics)
       + '</div>';
   }).join('');
+
+  var retiredRows = retired.map(function(c) {
+    var stats = analytics.byCategory[(c.name || '').toLowerCase()] || { users: 0, complete: 0, total: 0 };
+    var pct = analytics.totalUsers > 0 ? Math.round((stats.users / analytics.totalUsers) * 100) : 0;
+    return '<div class="card no-hover" style="margin-bottom:6px;opacity:0.9;border-style:dashed">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center">'
+      +   '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0"><span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' + renderCatEmoji(c.emoji, 22) + '</span><div style="min-width:0"><strong style="font-size:13px;color:#5F5E5A">' + escapeHtml(c.name) + '</strong><span style="font-size:9px;background:#F1EFE8;color:#5F5E5A;padding:2px 6px;border-radius:99px;margin-left:6px">Retired</span><div style="font-size:10px;color:#888780">Created ' + fmtDate(c.created_at) + ' · Retired ' + fmtDate(c.retired_at) + '</div></div></div>'
+      +   '<div style="flex-shrink:0"><button class="back-btn" onclick="restoreAdminCat(\'' + c.id + '\')" style="margin-right:4px">Restore</button>'
+      +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')">Delete</button></div>'
+      + '</div>'
+      + '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">'
+      +   '<span style="background:#F1EFE8;color:#5F5E5A;font-size:10px;padding:3px 8px;border-radius:99px;font-weight:600">👥 ' + stats.users + ' users ever</span>'
+      +   '<span style="background:#F1EFE8;color:#5F5E5A;font-size:10px;padding:3px 8px;border-radius:99px;font-weight:600">✓ ' + stats.complete + ' complete</span>'
+      +   '<span style="background:#F1EFE8;color:#5F5E5A;font-size:10px;padding:3px 8px;border-radius:99px;font-weight:600">' + pct + '% of Tenner</span>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+
   el.innerHTML = '<div style="padding:12px">'
     + '<div style="font-size:10px;color:#888780;margin-bottom:6px">Popularity based on ' + analytics.totalUsers + ' total Tenner users.</div>'
     + '<button class="btn-primary" onclick="editAdminCat(null)" style="margin-bottom:12px">+ New category</button>'
-    + (rows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No categories yet.</div>')
+    + (activeRows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No active categories yet.</div>')
+    + (retired.length
+        ? '<div style="text-align:center;margin-top:14px"><button class="btn-secondary" style="font-size:11px;padding:6px 14px;width:auto" onclick="window._adminShowRetired=!window._adminShowRetired;renderAdmin()">' + (showRetired ? '▲ Hide retired categories' : '▼ Show retired categories (' + retired.length + ')') + '</button></div>'
+        : '')
+    + (showRetired ? '<div style="margin-top:10px">' + retiredRows + '</div>' : '')
     + '</div>';
+}
+
+function retireAdminCat(id, name) {
+  showConfirm('Retire "' + name + '"?', 'This removes the category from the category picker for new lists. Existing user lists in this category stay intact. You can restore it later.', 'Retire', 'primary', function() {
+    sbClient.from('categories').update({ retired_at: new Date().toISOString() }).eq('id', id).then(function(r) {
+      if (r.error) { alert('Error: ' + r.error.message); return; }
+      showToast('Category retired');
+      loadCategoriesFromDb().then(renderAdmin);
+    });
+  });
+}
+
+function restoreAdminCat(id) {
+  sbClient.from('categories').update({ retired_at: null }).eq('id', id).then(function(r) {
+    if (r.error) { alert('Error: ' + r.error.message); return; }
+    showToast('Category restored');
+    loadCategoriesFromDb().then(renderAdmin);
+  });
 }
 
 function editAdminCat(id) {
