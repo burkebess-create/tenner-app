@@ -890,6 +890,7 @@
           <button id="admin-tab-cats"     onclick="switchAdminTab('cats')"     style="flex:1;min-width:70px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#D85A30;border-bottom:2px solid #D85A30">Categories</button>
           <button id="admin-tab-items"    onclick="switchAdminTab('items')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Items</button>
           <button id="admin-tab-weekly"   onclick="switchAdminTab('weekly')"   style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Weekly</button>
+          <button id="admin-tab-insights" onclick="switchAdminTab('insights')" style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Insights</button>
           <button id="admin-tab-users"    onclick="switchAdminTab('users')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Users</button>
           <button id="admin-tab-lists"    onclick="switchAdminTab('lists')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Lists</button>
           <button id="admin-tab-feedback" onclick="switchAdminTab('feedback')" style="flex:1;min-width:70px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Feedback</button>
@@ -6351,7 +6352,7 @@ async function submitFeedback() {
 
 function switchAdminTab(tab) {
   _adminTab = tab;
-  ['cats','items','weekly','users','lists','feedback'].forEach(function(t) {
+  ['cats','items','weekly','insights','users','lists','feedback'].forEach(function(t) {
     var b = document.getElementById('admin-tab-' + t);
     if (!b) return;
     if (t === tab) { b.style.color = '#D85A30'; b.style.borderBottomColor = '#D85A30'; }
@@ -6368,15 +6369,133 @@ async function renderAdmin() {
   if (_adminTab === 'cats') return renderAdminCats(el);
   if (_adminTab === 'items') return renderAdminItems(el);
   if (_adminTab === 'weekly') return renderAdminWeekly(el);
+  if (_adminTab === 'insights') return renderAdminInsights(el);
   if (_adminTab === 'users') return renderAdminUsers(el);
   if (_adminTab === 'lists') return renderAdminLists(el);
   if (_adminTab === 'feedback') return renderAdminFeedback(el);
+}
+
+// --- Insights tab: leaderboard of user-created custom categories ---
+
+async function renderAdminInsights(el) {
+  el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading insights…</div>';
+  try {
+    var analytics = await getListAnalytics();
+    // Load admin-defined category names + weekly-list category names so we can exclude them
+    var [catsRes, weeklyRes] = await Promise.all([
+      sbClient.from('categories').select('name'),
+      sbClient.from('weekly_lists').select('category')
+    ]);
+    var standardNames = new Set();
+    (catsRes.data || []).forEach(function(c){ if (c.name) standardNames.add(c.name.toLowerCase()); });
+    (weeklyRes.data || []).forEach(function(w){ if (w.category) standardNames.add(w.category.toLowerCase()); });
+
+    // Split into standard vs custom
+    var all = Object.keys(analytics.byCategory).map(function(k){ return { key: k, ...analytics.byCategory[k] }; });
+    var custom = all.filter(function(c){ return !standardNames.has(c.key); }).sort(function(a,b){ return b.users - a.users; });
+    var standard = all.filter(function(c){ return standardNames.has(c.key); }).sort(function(a,b){ return b.users - a.users; });
+
+    var totalUsers = analytics.totalUsers;
+    var totalLists = all.reduce(function(s, c){ return s + c.total; }, 0);
+    var totalCustomLists = custom.reduce(function(s, c){ return s + c.total; }, 0);
+
+    // Top overview tiles
+    var overview = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">'
+      + '<div style="background:#FAECE7;color:#993C1D;padding:10px;border-radius:8px;text-align:center"><div style="font-size:20px;font-weight:800">' + totalUsers + '</div><div style="font-size:10px">Total users</div></div>'
+      + '<div style="background:#FAECE7;color:#993C1D;padding:10px;border-radius:8px;text-align:center"><div style="font-size:20px;font-weight:800">' + totalLists + '</div><div style="font-size:10px">Total lists</div></div>'
+      + '<div style="background:#D6F0EA;color:#1F7268;padding:10px;border-radius:8px;text-align:center"><div style="font-size:20px;font-weight:800">' + standard.length + '</div><div style="font-size:10px">Standard categories in use</div></div>'
+      + '<div style="background:#FFF3D6;color:#B57F0F;padding:10px;border-radius:8px;text-align:center"><div style="font-size:20px;font-weight:800">' + custom.length + '</div><div style="font-size:10px">Custom category names</div></div>'
+      + '</div>';
+
+    function renderLeaderboardRow(c, idx) {
+      var pct = totalUsers > 0 ? Math.round((c.users / totalUsers) * 100) : 0;
+      var medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
+      return '<div class="card no-hover" style="margin-bottom:4px;padding:8px 10px">'
+        + '<div style="display:flex;align-items:center;gap:8px">'
+        +   '<span style="width:24px;text-align:center;font-size:14px;color:#888780;font-weight:700">' + (medal || (idx + 1)) + '</span>'
+        +   '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(c.display) + '</div>'
+        +     '<div style="font-size:10px;color:#5F5E5A">' + c.users + ' user' + (c.users !== 1 ? 's' : '') + ' · ' + c.complete + ' complete · ' + pct + '% of Tenner</div>'
+        +   '</div>'
+        + '</div></div>';
+    }
+
+    var customHtml = custom.length
+      ? custom.slice(0, 50).map(renderLeaderboardRow).join('')
+      : '<div style="font-size:11px;color:#888;padding:8px 0">No custom categories yet. When users type their own category (e.g. "Star Wars movies") instead of picking a standard one, it shows up here.</div>';
+
+    var standardHtml = standard.length
+      ? standard.map(renderLeaderboardRow).join('')
+      : '<div style="font-size:11px;color:#888;padding:8px 0">No standard categories in use yet.</div>';
+
+    el.innerHTML = '<div style="padding:12px">'
+      + '<div style="font-size:10px;color:#888780;margin-bottom:8px">Aggregate stats across all users. Numbers refresh every 60s.</div>'
+      + overview
+      + '<div class="sec-label">Custom categories (user-created)</div>'
+      + '<div style="font-size:11px;color:#5F5E5A;margin-bottom:8px">Popular custom names might be good candidates for a new standard category or weekly list prompt.</div>'
+      + customHtml
+      + '<div class="sec-label" style="margin-top:20px">Standard categories (usage)</div>'
+      + standardHtml
+      + '<div style="margin-top:14px;text-align:center"><button class="btn-secondary" style="width:auto;padding:6px 14px;font-size:11px" onclick="_adminAnalyticsCache=null;renderAdmin()">↻ Refresh now</button></div>'
+      + '</div>';
+  } catch(e) {
+    el.innerHTML = '<div style="padding:20px;color:#A32D2D">Error: ' + escapeHtml(e.message || String(e)) + '</div>';
+  }
+}
+
+// --- Shared analytics helper: fetch every list + total user count, cached briefly ---
+var _adminAnalyticsCache = null;
+var _adminAnalyticsCacheAt = 0;
+
+async function getListAnalytics() {
+  if (_adminAnalyticsCache && (Date.now() - _adminAnalyticsCacheAt) < 60 * 1000) {
+    return _adminAnalyticsCache;
+  }
+  var listsRes = await sbClient.from('lists').select('user_id, category, items').limit(20000);
+  var usersRes = await sbClient.from('profiles').select('id', { count: 'exact', head: true });
+  var lists = listsRes.data || [];
+  var totalUsers = usersRes.count || 0;
+  var byCategory = {};
+  lists.forEach(function(l) {
+    var raw = (l.category || '').trim();
+    if (!raw) return;
+    var key = raw.toLowerCase();
+    if (!byCategory[key]) byCategory[key] = { display: raw, userIds: new Set(), complete: 0, total: 0 };
+    byCategory[key].userIds.add(l.user_id);
+    byCategory[key].total++;
+    if ((l.items || []).length >= 10) byCategory[key].complete++;
+  });
+  var out = {};
+  Object.keys(byCategory).forEach(function(k) {
+    out[k] = {
+      display: byCategory[k].display,
+      users: byCategory[k].userIds.size,
+      complete: byCategory[k].complete,
+      total: byCategory[k].total
+    };
+  });
+  _adminAnalyticsCache = { totalUsers: totalUsers, byCategory: out };
+  _adminAnalyticsCacheAt = Date.now();
+  return _adminAnalyticsCache;
+}
+
+function analyticsStatsBar(categoryName, analytics) {
+  var stats = analytics.byCategory[(categoryName || '').toLowerCase()];
+  if (!stats || stats.users === 0) {
+    return '<div style="font-size:10px;color:#888780;margin-top:6px">No users have made this list yet.</div>';
+  }
+  var pct = analytics.totalUsers > 0 ? Math.round((stats.users / analytics.totalUsers) * 100) : 0;
+  return '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">'
+    + '<span style="background:#FAECE7;color:#993C1D;font-size:10px;padding:3px 8px;border-radius:99px;font-weight:600">👥 ' + stats.users + ' user' + (stats.users !== 1 ? 's' : '') + '</span>'
+    + '<span style="background:#D6F0EA;color:#1F7268;font-size:10px;padding:3px 8px;border-radius:99px;font-weight:600">✓ ' + stats.complete + ' complete</span>'
+    + '<span style="background:#F1EFE8;color:#5F5E5A;font-size:10px;padding:3px 8px;border-radius:99px;font-weight:600">' + pct + '% of Tenner</span>'
+    + '</div>';
 }
 
 // --- Weekly Lists admin tab ---
 async function renderAdminWeekly(el) {
   var res = await sbClient.from('weekly_lists').select('*').order('week_start', {ascending:false}).limit(60);
   if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(res.error.message) + '</div>'; return; }
+  var analytics = await getListAnalytics();
   var now = new Date();
   var rows = (res.data || []).map(function(w) {
     var reveal = new Date(w.reveal_at);
@@ -6392,9 +6511,11 @@ async function renderAdminWeekly(el) {
       + '</div>'
       + '<div style="font-size:11px;color:#5F5E5A;margin-top:4px">Week of ' + escapeHtml(w.week_start) + ' · Reveals ' + revealFmt + '</div>'
       + (w.description ? '<div style="font-size:11px;color:#888780;margin-top:2px">' + escapeHtml(w.description) + '</div>' : '')
+      + analyticsStatsBar(w.category, analytics)
       + '</div>';
   }).join('');
   el.innerHTML = '<div style="padding:12px">'
+    + '<div style="font-size:10px;color:#888780;margin-bottom:6px">Popularity based on ' + analytics.totalUsers + ' total Tenner users.</div>'
     + '<button class="btn-primary" onclick="editAdminWeekly(null)" style="margin-bottom:12px">+ New weekly list</button>'
     + (rows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No weekly lists yet.</div>')
     + '</div>';
@@ -6847,15 +6968,20 @@ function deleteAdminList(id, name) {
 async function renderAdminCats(el) {
   var res = await sbClient.from('categories').select('*').order('sort_order');
   if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">Error: ' + escapeHtml(res.error.message) + '</div>'; return; }
+  var analytics = await getListAnalytics();
   var rows = (res.data || []).map(function(c) {
     var seasonBadge = c.is_seasonal ? '<span style="font-size:9px;background:#FAECE7;color:#993C1D;padding:2px 6px;border-radius:99px;margin-left:6px">Seasonal ' + escapeHtml(c.active_from || '?') + ' → ' + escapeHtml(c.active_to || '?') + '</span>' : '';
-    return '<div class="card no-hover" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
-      + '<div style="display:flex;align-items:center;gap:8px"><span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center">' + renderCatEmoji(c.emoji, 22) + '</span><strong style="font-size:13px">' + escapeHtml(c.name) + '</strong>' + seasonBadge + '</div>'
-      + '<div><button class="back-btn" onclick="editAdminCat(\'' + c.id + '\')" style="margin-right:4px">Edit</button>'
-      + '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')">Delete</button></div>'
+    return '<div class="card no-hover" style="margin-bottom:6px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center">'
+      +   '<div style="display:flex;align-items:center;gap:8px"><span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center">' + renderCatEmoji(c.emoji, 22) + '</span><strong style="font-size:13px">' + escapeHtml(c.name) + '</strong>' + seasonBadge + '</div>'
+      +   '<div><button class="back-btn" onclick="editAdminCat(\'' + c.id + '\')" style="margin-right:4px">Edit</button>'
+      +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')">Delete</button></div>'
+      + '</div>'
+      + analyticsStatsBar(c.name, analytics)
       + '</div>';
   }).join('');
   el.innerHTML = '<div style="padding:12px">'
+    + '<div style="font-size:10px;color:#888780;margin-bottom:6px">Popularity based on ' + analytics.totalUsers + ' total Tenner users.</div>'
     + '<button class="btn-primary" onclick="editAdminCat(null)" style="margin-bottom:12px">+ New category</button>'
     + (rows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No categories yet.</div>')
     + '</div>';
