@@ -7851,14 +7851,15 @@ async function openGiftGuide(friendUserId) {
         +     '<div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(item) + '</div>'
         +     '<div style="font-size:11px;color:#5F5E5A">Their #' + (idx+1) + ' ' + escapeHtml(l.category) + '</div>'
         +   '</div>'
-        +   '<a href="' + url + '" target="_blank" rel="noopener sponsored nofollow" class="btn-primary" style="width:auto;padding:7px 12px;font-size:11px;text-decoration:none;display:inline-block;margin-bottom:0" title="Amazon affiliate link">Shop <span style="font-size:8px;background:rgba(255,255,255,0.28);padding:1px 4px;border-radius:3px;margin-left:2px;vertical-align:middle">Ad</span> →</a>'
+        +   '<a href="' + url + '" target="_blank" rel="noopener sponsored nofollow" class="btn-primary" style="width:auto;padding:7px 12px;font-size:11px;text-decoration:none;display:inline-block;margin-bottom:0">Shop →</a>'
         + '</div></div>';
     });
   });
 
-  var footer = '<div style="background:#F1EFE8;border-radius:8px;padding:10px 12px;margin-top:14px;font-size:11px;color:#5F5E5A;line-height:1.5;text-align:center"><strong>Ad</strong> · Shop links are affiliate links. As an Amazon Associate, Tenner earns from qualifying purchases at no cost to you.</div>';
+  // Prominent disclosure above the picks — legally sufficient without cluttering each button
+  var disclosure = '<div style="background:#FFF8F4;border:1px solid #F5C4B3;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:#712B13;line-height:1.5;text-align:center">Shop links below are affiliate links. As an Amazon Associate, Tenner earns from qualifying purchases at no cost to you.</div>';
 
-  el.innerHTML = header + basedOn + picksHtml + footer;
+  el.innerHTML = header + disclosure + basedOn + picksHtml;
 }
 
 function computeMatch(myItems, theirItems, ranked) {
