@@ -907,6 +907,16 @@
         <div class="content" id="admin-user-content"></div>
       </div>
 
+      <!-- ═══ ADMIN — LIST DETAIL ═══ -->
+      <div class="screen" id="s-admin-list">
+        <div class="topbar">
+          <button class="back-btn" id="admin-list-back" onclick="go('s-admin')">← Back</button>
+          <span style="font-size:12px;font-weight:600;color:#2C2C2A">List</span>
+          <span style="width:60px"></span>
+        </div>
+        <div class="content" id="admin-list-content"></div>
+      </div>
+
       <!-- ═══ GIFTS ═══ -->
       <div class="screen" id="s-gifts">
         <div class="topbar">
@@ -1194,6 +1204,7 @@ function go(id) {
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
   if (id === 's-admin') { renderAdmin(); }
   if (id === 's-admin-user') { /* driven by openAdminUserDetail */ }
+  if (id === 's-admin-list') { /* driven by openAdminListDetail */ }
   if (id === 's-gifts') { renderGifts(); }
 }
 
@@ -6652,9 +6663,10 @@ async function toggleAdminUserSection(key, uid) {
         var r = await sbClient.from('lists').select('id, name, category, emoji, items, updated_at').eq('user_id', uid).order('updated_at', {ascending:false});
         var rows = (r.data || []).map(function(l) {
           var count = (l.items || []).length;
-          return '<div class="card no-hover" style="margin-bottom:4px;padding:8px 10px"><div style="display:flex;align-items:center;gap:8px">'
+          return '<div class="card" onclick="openAdminListDetail(\'' + l.id + '\',\'user\',\'' + uid + '\')" style="margin-bottom:4px;padding:8px 10px;cursor:pointer"><div style="display:flex;align-items:center;gap:8px">'
             + '<div style="width:26px;text-align:center">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 20) + '</div>'
             + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600">' + escapeHtml(l.name || 'Untitled') + '</div><div style="font-size:10px;color:#888780">' + count + ' items · updated ' + (l.updated_at ? new Date(l.updated_at).toLocaleDateString() : '—') + '</div></div>'
+            + '<span style="color:#D3D1C7">›</span>'
             + '</div></div>';
         }).join('');
         bodyEl.innerHTML = rows || '<div style="font-size:11px;color:#888;padding:6px">No lists.</div>';
@@ -6737,7 +6749,7 @@ async function renderAdminLists(el) {
       +   '</div>'
       + '</div>'
       + '<div style="display:flex;gap:4px;margin-top:8px">'
-      +   '<button class="back-btn" onclick="viewAdminListDetail(\'' + l.id + '\')">View all items</button>'
+      +   '<button class="back-btn" onclick="openAdminListDetail(\'' + l.id + '\',\'admin\')">View all items</button>'
       +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminList(\'' + l.id + '\',\'' + escapeHtml(l.name||'').replace(/\'/g,"\\'") + '\')">Delete</button>'
       + '</div>'
       + '</div>';
@@ -6750,11 +6762,76 @@ async function renderAdminLists(el) {
 }
 
 async function viewAdminListDetail(id) {
-  var res = await sbClient.from('lists').select('*').eq('id', id).maybeSingle();
-  if (res.error || !res.data) { alert('Could not load list.'); return; }
-  var l = res.data;
-  var body = (l.items || []).map(function(x, i){ return (i+1) + '. ' + x; }).join('\n');
-  alert(l.name + '\n\n' + body);
+  // Legacy — retained in case anything else calls it. New callers should use openAdminListDetail.
+  openAdminListDetail(id, 'admin');
+}
+
+// Full admin view for a specific list.
+// `origin` is 'admin' (came from Lists tab) or 'user' (came from User Detail → Lists section)
+// `originUid` is the user id to return to when origin === 'user'
+async function openAdminListDetail(listId, origin, originUid) {
+  if (!IS_ADMIN) return;
+  go('s-admin-list');
+  var el = document.getElementById('admin-list-content');
+  var backBtn = document.getElementById('admin-list-back');
+  if (backBtn) {
+    backBtn.onclick = (origin === 'user' && originUid)
+      ? function() { openAdminUserDetail(originUid); }
+      : function() { go('s-admin'); };
+  }
+  el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
+  try {
+    var lr = await sbClient.from('lists').select('*').eq('id', listId).maybeSingle();
+    if (lr.error || !lr.data) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">Could not load list.</div>'; return; }
+    var l = lr.data;
+    var owner = null;
+    if (l.user_id) {
+      try {
+        var pr = await sbClient.from('profiles').select('id, display_name, handle, email, photo').eq('id', l.user_id).maybeSingle();
+        owner = pr.data || null;
+      } catch(e) {}
+    }
+    var itemsHtml = (l.items || []).length
+      ? (l.items || []).map(function(item, i) {
+          var badgeStyle = i === 0
+            ? 'background:linear-gradient(135deg,#F5B534,#E08F00);color:#fff'
+            : 'background:#FAECE7;color:#993C1D';
+          return '<div class="card no-hover" style="margin-bottom:4px;padding:8px 10px">'
+            + '<div style="display:flex;align-items:center;gap:10px">'
+            +   '<div style="width:28px;height:28px;border-radius:8px;' + badgeStyle + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">' + (i+1) + '</div>'
+            +   '<div style="flex:1;font-size:13px;color:#2C2C2A">' + escapeHtml(item) + '</div>'
+            + '</div></div>';
+        }).join('')
+      : '<div style="font-size:11px;color:#888;padding:6px">This list has no items.</div>';
+    var ownerLine = owner
+      ? '<div class="card" onclick="openAdminUserDetail(\'' + owner.id + '\')" style="margin-bottom:12px;cursor:pointer;padding:10px"><div style="display:flex;align-items:center;gap:10px">'
+        + friendAvatarHtml(owner, 32)
+        + '<div style="flex:1;min-width:0"><div style="font-size:10px;color:#888780">Owner</div><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(owner.display_name || owner.email || '—') + '</div><div style="font-size:10px;color:#888780">' + (owner.handle ? '@' + escapeHtml(owner.handle) : escapeHtml(owner.email || '')) + '</div></div>'
+        + '<span style="color:#D3D1C7">›</span></div></div>'
+      : '';
+    var settingsChips = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'
+      + '<span style="background:#F1EFE8;color:#5F5E5A;font-size:10px;padding:3px 8px;border-radius:99px">' + (l.is_ranked ? 'Ranked' : 'Unranked') + '</span>'
+      + '<span style="background:' + (l.is_public ? '#D6F0EA' : '#F1EFE8') + ';color:' + (l.is_public ? '#1F7268' : '#5F5E5A') + ';font-size:10px;padding:3px 8px;border-radius:99px">' + (l.is_public ? 'Visible to friends' : 'Private') + '</span>'
+      + '<span style="background:' + (l.blind_fill ? '#FAECE7' : '#F1EFE8') + ';color:' + (l.blind_fill ? '#993C1D' : '#5F5E5A') + ';font-size:10px;padding:3px 8px;border-radius:99px">' + (l.blind_fill ? 'Blind fill' : 'Open') + '</span>'
+      + '</div>';
+    el.innerHTML = '<div style="padding:14px">'
+      + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
+      +   '<div style="width:48px;height:48px;border-radius:12px;background:#FAECE7;display:flex;align-items:center;justify-content:center">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 26) + '</div>'
+      +   '<div style="flex:1;min-width:0">'
+      +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.02em;color:#1A0F0A">' + escapeHtml(l.name || 'Untitled') + '</div>'
+      +     '<div style="font-size:11px;color:#888780">Updated ' + (l.updated_at ? new Date(l.updated_at).toLocaleString() : '—') + '</div>'
+      +   '</div>'
+      + '</div>'
+      + ownerLine
+      + settingsChips
+      + '<div class="sec-label">Items (' + (l.items || []).length + ')</div>'
+      + itemsHtml
+      + '<div class="sec-label" style="margin-top:14px">Danger zone</div>'
+      + '<button class="btn-secondary" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminList(\'' + l.id + '\',\'' + escapeHtml(l.name||'').replace(/\'/g,"\\'") + '\')">Delete this list</button>'
+      + '</div>';
+  } catch(e) {
+    el.innerHTML = '<div style="padding:20px;color:#A32D2D">Error: ' + escapeHtml(e.message || String(e)) + '</div>';
+  }
 }
 
 function deleteAdminList(id, name) {
