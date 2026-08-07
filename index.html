@@ -7624,13 +7624,22 @@ function renderCreatePastWeekly() {
 // ═══════════════════════════════════════════════════════════════
 
 var AMAZON_AFFILIATE_TAG = ''; // TODO: set once you have your Amazon Associates tag, e.g. 'tenner-20'
+// Search suffixes per category. We append 'gift ideas' universally to broaden the
+// results toward merch, themed items, and giftable variations (posters, shirts,
+// signed editions, gift baskets) rather than the exact item the friend already owns.
+// For a few categories we also include a category hint that pairs naturally with "gift ideas".
 var GIFT_CATEGORY_SUFFIX = {
-  'Movies': 'movie', 'TV Shows': 'tv series', 'Books': 'book',
-  'Songs': 'vinyl', 'Restaurants': 'cookbook',
-  'Travel': 'travel guide', 'Candy Bars': 'candy', 'Sodas': ''
+  'Movies':       'gift ideas',
+  'TV Shows':     'gift ideas',
+  'Books':        'book gift ideas',
+  'Songs':        'gift ideas',
+  'Restaurants':  'gift card',
+  'Travel':       'gift ideas',
+  'Candy Bars':   'gift ideas',
+  'Sodas':        'gift ideas'
 };
 function amazonSearchUrl(query, category) {
-  var suffix = GIFT_CATEGORY_SUFFIX[category] || '';
+  var suffix = GIFT_CATEGORY_SUFFIX[category] || 'gift ideas';
   var q = (query + ' ' + suffix).trim();
   var url = 'https://www.amazon.com/s?k=' + encodeURIComponent(q);
   if (AMAZON_AFFILIATE_TAG) url += '&tag=' + AMAZON_AFFILIATE_TAG;
