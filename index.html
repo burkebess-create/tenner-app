@@ -7737,12 +7737,50 @@ var GIFT_CATEGORY_SUFFIX = {
   'Candy Bars':   'gift ideas',
   'Sodas':        'gift ideas'
 };
+// Budget buckets → Amazon price refinement (values in cents; empty = no filter)
+var GIFT_BUDGET_BUCKETS = [
+  { key: '',        label: 'Any',        rh: '' },
+  { key: 'u25',     label: 'Under $25',  rh: 'p_36:-2500' },
+  { key: '25-50',   label: '$25–$50',    rh: 'p_36:2500-5000' },
+  { key: '50-100',  label: '$50–$100',   rh: 'p_36:5000-10000' },
+  { key: '100plus', label: '$100+',      rh: 'p_36:10000-' }
+];
+var AMAZON_RATING_4PLUS = 'p_72:1248882011'; // "4 stars & up" filter
+var _giftBudget = ''; // current selected bucket key
+var _giftGuideFriendId = null;
+
 function amazonSearchUrl(query, category) {
   var suffix = GIFT_CATEGORY_SUFFIX[category] || 'gift ideas';
   var q = (query + ' ' + suffix).trim();
   var url = 'https://www.amazon.com/s?k=' + encodeURIComponent(q);
+  var bucket = GIFT_BUDGET_BUCKETS.find(function(b){ return b.key === _giftBudget; });
+  var rhParts = [];
+  if (bucket && bucket.rh) rhParts.push(bucket.rh);
+  rhParts.push(AMAZON_RATING_4PLUS);
+  url += '&rh=' + encodeURIComponent(rhParts.join(','));
+  url += '&s=review-rank';
   if (AMAZON_AFFILIATE_TAG) url += '&tag=' + AMAZON_AFFILIATE_TAG;
   return url;
+}
+
+function setGiftBudget(key) {
+  _giftBudget = key;
+  if (_giftGuideFriendId) openGiftGuide(_giftGuideFriendId);
+}
+
+function renderGiftBudgetPills() {
+  return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;justify-content:center">'
+    + GIFT_BUDGET_BUCKETS.map(function(b) {
+        var active = b.key === _giftBudget;
+        var bg = active ? '#D85A30' : '#FFF';
+        var color = active ? '#FFF' : '#2C2C2A';
+        var border = active ? '#D85A30' : '#D3D1C7';
+        return '<button type="button" onclick="setGiftBudget(\'' + b.key + '\')" '
+          + 'style="background:' + bg + ';color:' + color + ';border:1px solid ' + border + ';'
+          + 'font-family:inherit;font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600">'
+          + escapeHtml(b.label) + '</button>';
+      }).join('')
+    + '</div>';
 }
 
 function daysUntilBirthday(birthdayStr) {
@@ -7900,6 +7938,7 @@ function updateGiftsBadge(upcoming) {
 }
 
 async function openGiftGuide(friendUserId) {
+  _giftGuideFriendId = friendUserId;
   go('s-gift-guide');
   var el = document.getElementById('gift-guide-content');
   var titleEl = document.getElementById('gift-guide-title');
@@ -7958,7 +7997,9 @@ async function openGiftGuide(friendUserId) {
   // Prominent disclosure above the picks — legally sufficient without cluttering each button
   var disclosure = '<div style="background:#FFF8F4;border:1px solid #F5C4B3;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:#712B13;line-height:1.5;text-align:center">Shop links below are affiliate links. As an Amazon Associate, Tenner earns from qualifying purchases at no cost to you.</div>';
 
-  el.innerHTML = header + disclosure + basedOn + picksHtml;
+  var budgetSection = '<div class="sec-label">Budget</div>' + renderGiftBudgetPills();
+
+  el.innerHTML = header + disclosure + budgetSection + basedOn + picksHtml;
 }
 
 function computeMatch(myItems, theirItems, ranked) {
