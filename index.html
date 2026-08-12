@@ -1113,20 +1113,40 @@ function getCategoryColor(nameOrCategory, opts) {
   for (var j=0;j<s2.length;j++) h2 = ((h2 << 5) - h2 + s2.charCodeAt(j)) | 0;
   return CATEGORY_PALETTE[Math.abs(h2) % CATEGORY_PALETTE.length];
 }
-// Greedy reorder so no two adjacent items share the same color key.
+// Multi-pass greedy reorder so no two adjacent items share the same color key.
+// Keeps swapping until stable or until a max iteration cap is hit.
 function antiAdjacentByColor(items, getKey) {
   var arr = items.slice();
-  for (var i=1; i<arr.length; i++) {
-    if (getKey(arr[i]) === getKey(arr[i-1])) {
-      for (var j=i+1; j<arr.length; j++) {
-        var okPrev = getKey(arr[j]) !== getKey(arr[i-1]);
+  var maxPasses = 6;
+  for (var pass = 0; pass < maxPasses; pass++) {
+    var changed = false;
+    for (var i = 1; i < arr.length; i++) {
+      if (getKey(arr[i]) !== getKey(arr[i-1])) continue;
+      // Find a swap partner further ahead that fixes this collision without creating a new one.
+      var swapped = false;
+      for (var j = i + 1; j < arr.length; j++) {
+        var okAtI  = getKey(arr[j]) !== getKey(arr[i-1]);
+        var okAtJ  = getKey(arr[i]) !== getKey(arr[j-1]) && (j+1 >= arr.length || getKey(arr[i]) !== getKey(arr[j+1]));
         var okNext = (i+1 >= arr.length) || getKey(arr[j]) !== getKey(arr[i+1]);
-        if (okPrev && okNext) {
+        if (okAtI && okNext && okAtJ) {
           var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+          swapped = true;
+          changed = true;
           break;
         }
       }
+      // If no perfect swap exists, take a swap that just fixes the local collision
+      if (!swapped) {
+        for (var k = i + 1; k < arr.length; k++) {
+          if (getKey(arr[k]) !== getKey(arr[i-1])) {
+            var tmp2 = arr[i]; arr[i] = arr[k]; arr[k] = tmp2;
+            changed = true;
+            break;
+          }
+        }
+      }
     }
+    if (!changed) break;
   }
   return arr;
 }
@@ -1575,11 +1595,11 @@ function renderCatGrid() {
     var div = document.createElement('div');
     div.className = 'cat-card' + (selected ? ' selected' : '');
     // Bento-shaped: soft tint + colored top stripe, dark border on selected
-    div.style.cssText = 'background:' + pal.bg + '1F;border-top:4px solid ' + pal.bg + ';border-radius:14px;padding:12px 8px 10px;cursor:pointer;text-align:center;touch-action:manipulation;'
+    div.style.cssText = 'background:' + pal.bg + '38;border-top:4px solid ' + pal.bg + ';border-radius:14px;padding:12px 8px 10px;cursor:pointer;text-align:center;touch-action:manipulation;'
       + 'outline:' + (selected ? '2px solid #1A0F0A' : '2px solid transparent') + ';outline-offset:-2px;'
       + 'box-shadow:' + (selected ? '0 4px 12px rgba(0,0,0,0.10)' : '0 1px 3px rgba(0,0,0,0.04)') + ';'
       + 'transform:' + (selected ? 'scale(1.02)' : 'scale(1)') + ';transition:transform 0.15s ease';
-    div.innerHTML = '<div style="width:36px;height:36px;border-radius:10px;background:' + pal.bg + '40;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:22px">' + renderCatEmoji(cat.e, 22) + '</div>'
+    div.innerHTML = '<div style="width:36px;height:36px;border-radius:10px;background:' + pal.bg + '66;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:22px">' + renderCatEmoji(cat.e, 22) + '</div>'
       + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:13px;letter-spacing:-0.01em;line-height:1.1;color:#1A0F0A">' + escapeHtml(cat.n) + '</div>';
     div.onclick = function() { selCat = cat.n; selCatEmoji = cat.e; renderCatGrid(); document.getElementById('cat-inp').value = ''; document.getElementById('cat-warn').style.display = 'none'; document.getElementById('cat-sugs').style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; };
     grid.appendChild(div);
@@ -2155,7 +2175,8 @@ function friendAvatarHtml(profile, size) {
       + '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover"></div>';
   }
   var fontSize = Math.round(size * 0.38);
-  return '<div style="' + base + 'background:#E6F1FB;color:#185FA5;font-size:' + fontSize + 'px;font-weight:700">' + initials + '</div>';
+  // Warm neutral fallback — doesn't clash with any category color in the app palette
+  return '<div style="' + base + 'background:#EAE3DC;color:#5F5E5A;font-size:' + fontSize + 'px;font-weight:700">' + initials + '</div>';
 }
 
 function groupAvatarHtml(g, size) {
@@ -2640,8 +2661,8 @@ function renderLists() {
     var pal = getCategoryColor(l.category || l.n.replace('Top 10 ',''));
     var card = document.createElement('div');
     // Bento-shaped tile matching the gift guide: soft tint, colored top stripe, emoji chip, DM Serif name
-    card.style.cssText = 'background:' + pal.bg + '1F;border-top:4px solid ' + pal.bg + ';border-radius:18px;padding:16px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.04)';
-    card.innerHTML = '<div style="width:44px;height:44px;border-radius:12px;background:' + pal.bg + '40;display:flex;align-items:center;justify-content:center;margin-bottom:10px;font-size:26px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 26) + '</div>'
+    card.style.cssText = 'background:' + pal.bg + '38;border-top:4px solid ' + pal.bg + ';border-radius:18px;padding:16px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.04)';
+    card.innerHTML = '<div style="width:44px;height:44px;border-radius:12px;background:' + pal.bg + '66;display:flex;align-items:center;justify-content:center;margin-bottom:10px;font-size:26px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 26) + '</div>'
       + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;letter-spacing:-0.01em;line-height:1.1;color:#1A0F0A;margin-bottom:4px">' + escapeHtml(l.n) + '</div>'
       + '<div style="font-size:11px;color:#5F5E5A;font-weight:600">' + escapeHtml(l.m) + '</div>';
     card.onclick = (function(list) { return function() { showListDetail(list); }; })(l);
@@ -8017,7 +8038,7 @@ async function renderGifts() {
     var isUrgent = entry.daysUntil <= 14;
     var previewChips = visibleLists.slice(0, 3).map(function(l) {
       var chipPal = getCategoryColor(l.category);
-      return '<span style="display:inline-block;background:' + chipPal.bg + '30;color:' + chipPal.accent + ';font-size:10px;font-weight:600;padding:3px 9px;border-radius:99px;margin-right:5px;margin-top:5px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 11) + ' ' + escapeHtml(l.category) + '</span>';
+      return '<span style="display:inline-block;background:' + chipPal.bg + '55;color:' + chipPal.accent + ';font-size:10px;font-weight:600;padding:3px 9px;border-radius:99px;margin-right:5px;margin-top:5px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 11) + ' ' + escapeHtml(l.category) + '</span>';
     }).join('');
     var ctaAction, ctaLabel;
     if (visibleLists.length === 0) {
@@ -8029,7 +8050,7 @@ async function renderGifts() {
     }
     var badgeBg = isUrgent ? '#1A0F0A' : pal.bg + '40';
     var badgeFg = isUrgent ? '#FFFFFF' : pal.accent;
-    return '<div style="background:' + pal.bg + '1F;border-top:4px solid ' + pal.bg + ';border-radius:18px;padding:16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.04);position:relative;overflow:hidden">'
+    return '<div style="background:' + pal.bg + '38;border-top:4px solid ' + pal.bg + ';border-radius:18px;padding:16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.04);position:relative;overflow:hidden">'
       + '<div style="display:inline-block;background:' + badgeBg + ';color:' + badgeFg + ';font-size:10px;font-weight:700;padding:5px 11px;border-radius:99px;letter-spacing:0.05em;margin-bottom:10px">' + daysLabel + ' · ' + dateLabel + '</div>'
       + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
       +   avatar
@@ -8137,8 +8158,8 @@ function renderGiftTileHtml(l, i) {
   var safeCat = String(l.category).replace(/'/g,"\\'");
   var subtitle = 'Top ' + count + ' pick' + (count === 1 ? '' : 's') + ' · ' + (isOpen ? 'tap to close ↑' : 'tap to shop ↓');
   // Soft tinted card + colored top stripe as the identifier (bento-shaped)
-  var html = '<div data-gift-tile-idx="' + i + '" style="' + span + 'background:' + pal.bg + '1F;border-top:4px solid ' + pal.bg + ';border-radius:18px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);position:relative;overflow:hidden;cursor:pointer" onclick="toggleGiftTile(\'' + safeCat + '\')">'
-    +   '<div style="width:44px;height:44px;border-radius:12px;background:' + pal.bg + '40;display:flex;align-items:center;justify-content:center;margin-bottom:10px;font-size:26px">' + renderCatEmoji(emoji, 26) + '</div>'
+  var html = '<div data-gift-tile-idx="' + i + '" style="' + span + 'background:' + pal.bg + '38;border-top:4px solid ' + pal.bg + ';border-radius:18px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);position:relative;overflow:hidden;cursor:pointer" onclick="toggleGiftTile(\'' + safeCat + '\')">'
+    +   '<div style="width:44px;height:44px;border-radius:12px;background:' + pal.bg + '66;display:flex;align-items:center;justify-content:center;margin-bottom:10px;font-size:26px">' + renderCatEmoji(emoji, 26) + '</div>'
     +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;letter-spacing:-0.01em;line-height:1.1;color:#1A0F0A;margin-bottom:4px">' + escapeHtml(l.category) + '</div>'
     +   '<div style="font-size:11px;font-weight:600;color:#5F5E5A;letter-spacing:0.02em">' + subtitle + '</div>';
   if (isOpen) {
@@ -8147,7 +8168,7 @@ function renderGiftTileHtml(l, i) {
     items.forEach(function(item, idx) {
       var url = amazonSearchUrl(item, l.category);
       html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 8px;' + (idx < items.length - 1 ? 'border-bottom:1px solid #F1EFE8;' : '') + '">'
-        +   '<div style="width:22px;height:22px;border-radius:999px;background:' + pal.bg + '40;color:' + pal.accent + ';font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + (idx+1) + '</div>'
+        +   '<div style="width:22px;height:22px;border-radius:999px;background:' + pal.bg + '66;color:' + pal.accent + ';font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + (idx+1) + '</div>'
         +   '<div style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#2C2C2A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(item) + '</div>'
         +   '<a href="' + url + '" target="_blank" rel="noopener sponsored nofollow" style="background:#2C2C2A;color:#FFF;text-decoration:none;font-size:11px;font-weight:600;padding:6px 12px;border-radius:999px;flex-shrink:0">Shop →</a>'
         + '</div>';
