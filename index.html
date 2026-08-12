@@ -7853,7 +7853,9 @@ var GIFT_BUDGET_BUCKETS = [
   { key: '50-100',  label: '$50–$100',   minCents: 5000,  maxCents: 10000 },
   { key: '100plus', label: '$100+',      minCents: 10000, maxCents: null }
 ];
-var AMAZON_RATING_4PLUS = 'p_72:1248882011'; // "4 stars & up" filter
+// NOTE: Amazon's rating-filter node IDs (p_72:...) are department-scoped, so
+// applying one to a keyword search snaps results into that department (e.g. Books).
+// We rely on s=review-rank for the "well-reviewed items first" effect instead.
 var _giftBudgetRange = null; // { lowIdx, highIdx } or null (=Any)
 var _giftGuideFriendId = null;
 
@@ -7873,11 +7875,8 @@ function amazonSearchUrl(query, category) {
   var suffix = GIFT_CATEGORY_SUFFIX[category] || 'gift ideas';
   var q = (query + ' ' + suffix).trim();
   var url = 'https://www.amazon.com/s?k=' + encodeURIComponent(q);
-  var rhParts = [];
   var budgetRh = giftBudgetRh();
-  if (budgetRh) rhParts.push(budgetRh);
-  rhParts.push(AMAZON_RATING_4PLUS);
-  url += '&rh=' + encodeURIComponent(rhParts.join(','));
+  if (budgetRh) url += '&rh=' + encodeURIComponent(budgetRh);
   url += '&s=review-rank';
   if (AMAZON_AFFILIATE_TAG) url += '&tag=' + AMAZON_AFFILIATE_TAG;
   return url;
