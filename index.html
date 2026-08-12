@@ -1046,6 +1046,90 @@ var CATS = [
 ];
 // Full DB-backed category records (for admin editing). Not used by the app rendering path directly.
 var CATS_FULL = [];
+
+// ═══════════════════════════════════════════════════════════════
+// CATEGORY COLOR SYSTEM
+// ═══════════════════════════════════════════════════════════════
+// 16-color harmonized palette. All entries share warm, muted-saturated tones.
+// Each entry: bg (tile fill), fg (contrast text on tile), accent (secondary text/badge on tile).
+var CATEGORY_PALETTE = [
+  { key:'mustard',    bg:'#F5B534', fg:'#2C1A00', accent:'#8A5A00' },
+  { key:'gold',       bg:'#EFCB68', fg:'#3A2600', accent:'#7A5000' },
+  { key:'terracotta', bg:'#C4593E', fg:'#FFFFFF', accent:'#3A1408' },
+  { key:'blush',      bg:'#F5D0C8', fg:'#4A1F15', accent:'#8A3A20' },
+  { key:'sage',       bg:'#B8D0A8', fg:'#1F3820', accent:'#3A5A30' },
+  { key:'forest',     bg:'#3A7A5C', fg:'#FFFFFF', accent:'#0F2E20' },
+  { key:'teal',       bg:'#2F9E8F', fg:'#FFFFFF', accent:'#0F3E38' },
+  { key:'mint',       bg:'#A8D8C8', fg:'#0F3828', accent:'#2A5A45' },
+  { key:'sky',        bg:'#A8C8E8', fg:'#0F2A4A', accent:'#1F4A85' },
+  { key:'dusk',       bg:'#5A7AAA', fg:'#FFFFFF', accent:'#1F2E4A' },
+  { key:'lavender',   bg:'#D9BEEC', fg:'#3A1F55', accent:'#5A2A85' },
+  { key:'plum',       bg:'#7A4A85', fg:'#FFFFFF', accent:'#2E1938' },
+  { key:'coral',      bg:'#E8927C', fg:'#3A1A0F', accent:'#8A2E1A' },
+  { key:'rose',       bg:'#D46A80', fg:'#FFFFFF', accent:'#4A1220' },
+  { key:'salmon',     bg:'#F5A896', fg:'#3A1A10', accent:'#8A3A20' },
+  { key:'peach',      bg:'#F5C098', fg:'#3A2010', accent:'#8A4A20' }
+];
+// Fixed colors for standard categories (same for every user, everywhere in the app).
+// Keys must match the category name exactly.
+var STANDARD_CATEGORY_COLORS = {
+  'Movies':      'coral',
+  'TV Shows':    'teal',
+  'Books':       'mustard',
+  'Songs':       'plum',
+  'Restaurants': 'forest',
+  'Travel':      'sky',
+  'Candy Bars':  'rose',
+  'Sodas':       'mint',
+  'Meals':       'terracotta',
+  'Podcasts':    'dusk',
+  'Video Games': 'lavender',
+  'Board Games': 'gold',
+  'Sports Teams':'sage',
+  'Bands':       'peach',
+  'Apps':        'blush',
+  'Cocktails':   'salmon',
+  'Beers':       'gold'
+};
+function _paletteByKey(key) {
+  for (var i=0;i<CATEGORY_PALETTE.length;i++) if (CATEGORY_PALETTE[i].key === key) return CATEGORY_PALETTE[i];
+  return CATEGORY_PALETTE[0];
+}
+// getCategoryColor(name) — for a standard/custom category name.
+// getCategoryColor(name, { id }) — for a weekly list (hashed on its stable id).
+function getCategoryColor(nameOrCategory, opts) {
+  if (opts && opts.id) {
+    // Weekly list — hash on ID for stability across users
+    var s = String(opts.id);
+    var h = 0;
+    for (var i=0;i<s.length;i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return CATEGORY_PALETTE[Math.abs(h) % CATEGORY_PALETTE.length];
+  }
+  var std = STANDARD_CATEGORY_COLORS[nameOrCategory];
+  if (std) return _paletteByKey(std);
+  // Custom category — hash on lowercased name so same name → same color across users
+  var s2 = String(nameOrCategory || '').toLowerCase();
+  var h2 = 0;
+  for (var j=0;j<s2.length;j++) h2 = ((h2 << 5) - h2 + s2.charCodeAt(j)) | 0;
+  return CATEGORY_PALETTE[Math.abs(h2) % CATEGORY_PALETTE.length];
+}
+// Greedy reorder so no two adjacent items share the same color key.
+function antiAdjacentByColor(items, getKey) {
+  var arr = items.slice();
+  for (var i=1; i<arr.length; i++) {
+    if (getKey(arr[i]) === getKey(arr[i-1])) {
+      for (var j=i+1; j<arr.length; j++) {
+        var okPrev = getKey(arr[j]) !== getKey(arr[i-1]);
+        var okNext = (i+1 >= arr.length) || getKey(arr[j]) !== getKey(arr[i+1]);
+        if (okPrev && okNext) {
+          var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+          break;
+        }
+      }
+    }
+  }
+  return arr;
+}
 var ITEMS = {
   'Movies':['The Godfather','The Dark Knight','Inception','Interstellar','Pulp Fiction','Forrest Gump','The Shawshank Redemption','Goodfellas','The Matrix','Fight Club','Titanic','Avengers: Endgame','Jurassic Park','Star Wars'],
   'Candy Bars':['Snickers','Reese\'s Peanut Butter Cups','Kit Kat','Butterfinger','Twix','M&Ms','Milky Way','Mars Bar','Baby Ruth','Crunch Bar','Almond Joy','100 Grand'],
@@ -1484,10 +1568,18 @@ function checkListComplete() {
 function renderCatGrid() {
   var grid = document.getElementById('cat-grid');
   grid.innerHTML = '';
-  CATS.forEach(function(cat) {
+  var ordered = antiAdjacentByColor(CATS, function(c){ return getCategoryColor(c.n).key; });
+  ordered.forEach(function(cat) {
+    var pal = getCategoryColor(cat.n);
+    var selected = selCat === cat.n;
     var div = document.createElement('div');
-    div.className = 'cat-card' + (selCat === cat.n ? ' selected' : '');
-    div.innerHTML = '<div class="cat-icon">' + renderCatEmoji(cat.e, 22) + '</div><div class="cat-name">' + cat.n + '</div>';
+    div.className = 'cat-card' + (selected ? ' selected' : '');
+    div.style.cssText = 'background:' + pal.bg + ';color:' + pal.fg + ';border-radius:16px;padding:14px 8px;cursor:pointer;text-align:center;touch-action:manipulation;'
+      + 'border:' + (selected ? '3px solid #1A0F0A' : '3px solid transparent') + ';'
+      + 'box-shadow:' + (selected ? '0 6px 16px rgba(0,0,0,0.15)' : '0 3px 8px rgba(0,0,0,0.06)') + ';'
+      + 'transform:' + (selected ? 'scale(1.02)' : 'scale(1)') + ';transition:transform 0.15s ease';
+    div.innerHTML = '<div style="font-size:28px;line-height:1;margin-bottom:6px">' + renderCatEmoji(cat.e, 28) + '</div>'
+      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:14px;letter-spacing:-0.01em;line-height:1.1">' + escapeHtml(cat.n) + '</div>';
     div.onclick = function() { selCat = cat.n; selCatEmoji = cat.e; renderCatGrid(); document.getElementById('cat-inp').value = ''; document.getElementById('cat-warn').style.display = 'none'; document.getElementById('cat-sugs').style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; };
     grid.appendChild(div);
   });
@@ -2540,10 +2632,19 @@ function renderLists() {
     container.innerHTML = '<div style="text-align:center;padding:16px 0;color:#888780;font-size:12px">No lists yet. Tap <strong>Create</strong> to make your first top 10!</div>';
     return;
   }
-  MY_LISTS.forEach(function(l, i) {
+  var ordered = antiAdjacentByColor(MY_LISTS, function(l){ return getCategoryColor(l.category || l.n.replace('Top 10 ','')).key; });
+  ordered.forEach(function(l, i) {
+    var pal = getCategoryColor(l.category || l.n.replace('Top 10 ',''));
     var card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = '<div style="display:flex;align-items:center;gap:10px"><div style="width:36px;text-align:center;display:flex;align-items:center;justify-content:center">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 22) + '</div><div style="flex:1"><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + l.n + '</div><div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + l.m + '</div></div><span style="font-size:18px;color:#D3D1C7">›</span></div>';
+    card.style.cssText = 'background:' + pal.bg + ';color:' + pal.fg + ';border-radius:18px;padding:14px 16px;margin-bottom:8px;box-shadow:0 3px 10px rgba(0,0,0,0.05);cursor:pointer';
+    card.innerHTML = '<div style="display:flex;align-items:center;gap:12px">'
+      + '<div style="font-size:28px;line-height:1;flex-shrink:0">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 28) + '</div>'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;letter-spacing:-0.01em;line-height:1.15">' + escapeHtml(l.n) + '</div>'
+      +   '<div style="font-size:11px;color:' + pal.accent + ';margin-top:2px;font-weight:600">' + escapeHtml(l.m) + '</div>'
+      + '</div>'
+      + '<span style="font-size:20px;color:' + pal.fg + ';opacity:0.6">›</span>'
+      + '</div>';
     card.onclick = (function(list) { return function() { showListDetail(list); }; })(l);
     container.appendChild(card);
   });
@@ -7498,31 +7599,39 @@ async function renderWeeklyHeroCard() {
   var revealed = now >= reveal;
   var hasIt = userHasListInCategory(wk.category);
   var revealFmt = reveal.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + ' · ' + reveal.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZoneName:'short' });
-  var bg = revealed ? 'linear-gradient(135deg,#F5B534,#E08F00)' : 'linear-gradient(135deg,#D85A30,#993C1D)';
+  var wkPal = getCategoryColor(wk.category, { id: wk.id });
+  var bg = 'linear-gradient(135deg,' + wkPal.bg + ',' + wkPal.accent + ')';
+  var fg = wkPal.fg;
+  var isDarkText = fg !== '#FFFFFF';
+  var subOpacity = isDarkText ? '0.75' : '0.9';
+  var btnBg = isDarkText ? '#1A0F0A' : '#FFFFFF';
+  var btnFg = isDarkText ? '#FFFFFF' : wkPal.accent;
+  var ghostBorder = isDarkText ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.45)';
+  var ghostBg = isDarkText ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.2)';
   // Kick off (or reuse) participation count query
   var count = WEEKLY_PARTICIPATION[wk.id];
   if (count == null) { loadWeeklyParticipation(wk).then(function(){ renderWeeklyHeroCard(); }); count = null; }
   var participationLine = count != null
-    ? '<div style="font-size:11px;color:#fff;opacity:0.85;margin-top:6px">👥 ' + count + ' Tenner user' + (count!==1?'s':'') + ' ' + (revealed ? 'took part' : 'have joined so far') + '</div>'
+    ? '<div style="font-size:11px;color:' + fg + ';opacity:' + subOpacity + ';margin-top:6px">👥 ' + count + ' Tenner user' + (count!==1?'s':'') + ' ' + (revealed ? 'took part' : 'have joined so far') + '</div>'
     : '';
   var stateLine, cta;
   if (revealed) {
-    stateLine = '<div style="font-size:12px;color:#fff;opacity:0.9">🎊 The reveal is live!</div>';
+    stateLine = '<div style="font-size:12px;color:' + fg + ';opacity:' + subOpacity + '">🎊 The reveal is live!</div>';
     cta = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">'
-        + '<button onclick="matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go(\'s-match\')" style="background:#fff;color:#B57F0F;border:none;border-radius:99px;padding:9px 16px;font-weight:700;font-size:12px;cursor:pointer">Compare with friends →</button>'
-        + '<button onclick="openAllOfTenner(\'' + wk.id + '\')" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:99px;padding:9px 16px;font-weight:600;font-size:12px;cursor:pointer">🌎 See all of Tenner</button>'
+        + '<button onclick="matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go(\'s-match\')" style="background:' + btnBg + ';color:' + btnFg + ';border:none;border-radius:99px;padding:9px 16px;font-weight:700;font-size:12px;cursor:pointer">Compare with friends →</button>'
+        + '<button onclick="openAllOfTenner(\'' + wk.id + '\')" style="background:' + ghostBg + ';color:' + fg + ';border:1px solid ' + ghostBorder + ';border-radius:99px;padding:9px 16px;font-weight:600;font-size:12px;cursor:pointer">🌎 See all of Tenner</button>'
         + '</div>';
   } else if (hasIt) {
-    stateLine = '<div style="font-size:12px;color:#fff;opacity:0.9">✓ You\'re in · Reveals ' + revealFmt + '</div>';
-    cta = '<div style="margin-top:12px"><button onclick="openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:99px;padding:8px 16px;font-weight:600;font-size:12px;cursor:pointer">Review or update →</button></div>';
+    stateLine = '<div style="font-size:12px;color:' + fg + ';opacity:' + subOpacity + '">✓ You\'re in · Reveals ' + revealFmt + '</div>';
+    cta = '<div style="margin-top:12px"><button onclick="openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:' + ghostBg + ';color:' + fg + ';border:1px solid ' + ghostBorder + ';border-radius:99px;padding:8px 16px;font-weight:600;font-size:12px;cursor:pointer">Review or update →</button></div>';
   } else {
-    stateLine = '<div style="font-size:12px;color:#fff;opacity:0.9">Reveals ' + revealFmt + '</div>';
-    cta = '<div style="margin-top:12px"><button onclick="openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:#fff;color:#D85A30;border:none;border-radius:99px;padding:9px 18px;font-weight:700;font-size:13px;cursor:pointer">Make my Top 10 →</button></div>';
+    stateLine = '<div style="font-size:12px;color:' + fg + ';opacity:' + subOpacity + '">Reveals ' + revealFmt + '</div>';
+    cta = '<div style="margin-top:12px"><button onclick="openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:' + btnBg + ';color:' + btnFg + ';border:none;border-radius:99px;padding:9px 18px;font-weight:700;font-size:13px;cursor:pointer">Make my Top 10 →</button></div>';
   }
-  el.innerHTML = '<div style="background:' + bg + ';border-radius:16px;padding:16px 18px;margin-bottom:16px;color:#fff">'
-    + '<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#fff;opacity:0.85;margin-bottom:4px">This week on Tenner</div>'
+  el.innerHTML = '<div style="background:' + bg + ';border-radius:16px;padding:16px 18px;margin-bottom:16px;color:' + fg + '">'
+    + '<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:' + fg + ';opacity:' + subOpacity + ';margin-bottom:4px">This week on Tenner</div>'
     + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.01em;line-height:1.1;margin-bottom:6px">' + (wk.emoji||'📋') + ' Top 10 ' + escapeHtml(wk.category) + '</div>'
-    + (wk.description ? '<div style="font-size:12px;color:#fff;opacity:0.9;margin-bottom:10px">' + escapeHtml(wk.description) + '</div>' : '')
+    + (wk.description ? '<div style="font-size:12px;color:' + fg + ';opacity:' + subOpacity + ';margin-bottom:10px">' + escapeHtml(wk.description) + '</div>' : '')
     + stateLine
     + participationLine
     + cta
@@ -7889,55 +7998,70 @@ async function renderGifts() {
 
   function friendGiftCard(entry) {
     var p = entry.profile;
-    var f = entry.friend;
     var name = p.display_name || (p.handle ? '@' + p.handle : 'Friend');
-    var avatar = friendAvatarHtml(p, 44);
+    var avatar = friendAvatarHtml(p, 52);
     var daysLabel;
-    if (entry.daysUntil === 0)      daysLabel = '🎂 Today!';
-    else if (entry.daysUntil === 1) daysLabel = '🎂 Tomorrow';
-    else                            daysLabel = '🎂 in ' + entry.daysUntil + ' days';
+    if (entry.daysUntil === 0)      daysLabel = '🎂 TODAY!';
+    else if (entry.daysUntil === 1) daysLabel = '🎂 TOMORROW';
+    else                            daysLabel = '🎂 IN ' + entry.daysUntil + ' DAYS';
     var bday = new Date(p.birthday + 'T00:00:00');
     var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     var dateLabel = months[bday.getMonth()] + ' ' + bday.getDate();
-    var listCount = entry.lists.length;
     var visibleCats = Array.isArray(p.gift_visible_categories) && p.gift_visible_categories.length
       ? p.gift_visible_categories
-      : entry.lists.map(function(l){ return l.category; }); // default: all shown if user hasn't opted in/out
-    var visibleLists = entry.lists.filter(function(l){ return visibleCats.indexOf(l.category) >= 0; });
+      : entry.lists.map(function(l){ return l.category; });
+    var visibleLists = entry.lists.filter(function(l){ return visibleCats.indexOf(l.category) >= 0 && (l.items || []).length > 0; });
+    // Card color = color of friend's most-populated visible list, or hash of their name if none
+    var pal = visibleLists.length
+      ? getCategoryColor(visibleLists.slice().sort(function(a,b){ return (b.items||[]).length - (a.items||[]).length; })[0].category)
+      : getCategoryColor(name);
+    var isUrgent = entry.daysUntil <= 14;
     var previewChips = visibleLists.slice(0, 3).map(function(l) {
-      return '<span style="display:inline-block;background:#FAECE7;color:#993C1D;font-size:10px;padding:3px 8px;border-radius:99px;margin-right:4px;margin-top:4px">' + escapeHtml(l.category) + '</span>';
+      return '<span style="display:inline-block;background:rgba(255,255,255,0.55);color:' + pal.accent + ';font-size:10px;font-weight:600;padding:3px 9px;border-radius:99px;margin-right:5px;margin-top:5px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 11) + ' ' + escapeHtml(l.category) + '</span>';
     }).join('');
-    var ctaBtn, subtitle;
+    var ctaAction, ctaLabel;
     if (visibleLists.length === 0) {
-      subtitle = 'No shared lists yet';
-      ctaBtn = '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin-bottom:0;font-size:12px">Ask for a list →</button>';
+      ctaLabel = 'Ask for a list →';
+      ctaAction = '';
     } else {
-      subtitle = 'Ideas from ' + visibleLists.length + ' list' + (visibleLists.length !== 1 ? 's' : '');
-      ctaBtn = '<button class="btn-primary" style="width:auto;padding:8px 14px;margin-bottom:0;font-size:12px" onclick="openGiftGuide(\'' + p.id + '\')">See gifts →</button>';
+      ctaLabel = 'See gifts →';
+      ctaAction = 'onclick="openGiftGuide(\'' + p.id + '\')"';
     }
-    var accent = entry.daysUntil <= 14 ? '#D85A30' : '#5F5E5A';
-    return '<div class="card no-hover" style="margin-bottom:8px;border-left:3px solid ' + accent + '">'
-      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
-      +   avatar
+    var isDarkText = pal.fg !== '#FFFFFF';
+    var btnBg = isDarkText ? '#1A0F0A' : '#FFFFFF';
+    var btnFg = isDarkText ? '#FFFFFF' : pal.accent;
+    var badgeBg = isUrgent ? '#1A0F0A' : 'rgba(255,255,255,0.65)';
+    var badgeFg = isUrgent ? '#FFFFFF' : pal.accent;
+    return '<div style="background:' + pal.bg + ';color:' + pal.fg + ';border-radius:22px;padding:18px;margin-bottom:10px;box-shadow:0 4px 14px rgba(0,0,0,0.08);position:relative;overflow:hidden">'
+      + '<div style="display:inline-block;background:' + badgeBg + ';color:' + badgeFg + ';font-size:10px;font-weight:700;padding:5px 11px;border-radius:99px;letter-spacing:0.05em;margin-bottom:10px">' + daysLabel + ' · ' + dateLabel + '</div>'
+      + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
+      +   '<div style="padding:3px;background:rgba(255,255,255,0.9);border-radius:999px;flex-shrink:0">' + avatar + '</div>'
       +   '<div style="flex:1;min-width:0">'
-      +     '<div style="font-size:13.5px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + '</div>'
-      +     '<div style="font-size:11px;color:' + accent + ';font-weight:600;margin-top:1px">' + daysLabel + ' · ' + dateLabel + '</div>'
-      +     '<div style="font-size:11px;color:#5F5E5A;margin-top:1px">' + subtitle + '</div>'
+      +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.01em;line-height:1.15">' + escapeHtml(name) + '</div>'
       +   '</div>'
       + '</div>'
-      + (previewChips ? '<div style="margin-bottom:8px">' + previewChips + '</div>' : '')
-      + '<div style="text-align:right">' + ctaBtn + '</div>'
+      + (previewChips ? '<div style="margin-bottom:12px">' + previewChips + '</div>' : '')
+      + '<button ' + ctaAction + ' style="background:' + btnBg + ';color:' + btnFg + ';border:none;border-radius:99px;padding:10px 20px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">' + ctaLabel + '</button>'
       + '</div>';
   }
 
+  function entryColorKey(entry) {
+    var vc = Array.isArray(entry.profile.gift_visible_categories) && entry.profile.gift_visible_categories.length
+      ? entry.profile.gift_visible_categories
+      : entry.lists.map(function(l){ return l.category; });
+    var vis = entry.lists.filter(function(l){ return vc.indexOf(l.category) >= 0 && (l.items||[]).length > 0; });
+    if (!vis.length) return getCategoryColor(entry.profile.display_name || entry.profile.handle || 'Friend').key;
+    var top = vis.slice().sort(function(a,b){ return (b.items||[]).length - (a.items||[]).length; })[0];
+    return getCategoryColor(top.category).key;
+  }
   var html = '';
   if (upcoming.length) {
     html += '<div class="sec-label">Coming up</div>';
-    html += upcoming.map(friendGiftCard).join('');
+    html += antiAdjacentByColor(upcoming, entryColorKey).map(friendGiftCard).join('');
   }
   if (later.length) {
     html += '<div class="sec-label">Later in the year</div>';
-    html += later.map(friendGiftCard).join('');
+    html += antiAdjacentByColor(later, entryColorKey).map(friendGiftCard).join('');
   }
   if (withoutBdays.length) {
     html += '<div class="sec-label">Friends without a birthday on file</div>';
@@ -7971,24 +8095,8 @@ function updateGiftsBadge(upcoming) {
   else          { badge.style.display = 'none'; }
 }
 
-// Warm, saturated tile palette — cycles per category. Each entry: { bg, fg, accent }
-var GIFT_TILE_PALETTE = [
-  { bg: '#F5B534', fg: '#2C1A00', accent: '#8A5A00' }, // mustard
-  { bg: '#2F9E8F', fg: '#FFFFFF', accent: '#0F5E55' }, // teal
-  { bg: '#E8927C', fg: '#3A1A0F', accent: '#8A2E1A' }, // coral
-  { bg: '#B8D0A8', fg: '#1F3820', accent: '#3A5A30' }, // sage
-  { bg: '#D9BEEC', fg: '#3A1F55', accent: '#5A2A85' }, // lavender
-  { bg: '#F5D0C8', fg: '#4A1F15', accent: '#8A3A20' }, // blush
-  { bg: '#A8C8E8', fg: '#0F2A4A', accent: '#1F4A85' }, // sky
-  { bg: '#EFCB68', fg: '#3A2600', accent: '#7A5000' }  // gold
-];
-function giftTileColor(category, index) {
-  // Stable hash: category name → same color across renders
-  var s = String(category || '') + index;
-  var h = 0;
-  for (var i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  return GIFT_TILE_PALETTE[Math.abs(h) % GIFT_TILE_PALETTE.length];
-}
+// Use the app-wide category palette (defined near CATS). Same category → same color everywhere.
+function giftTileColor(category) { return getCategoryColor(category); }
 var _giftTilesOpen = {}; // { [category]: true }
 var _giftGuideCache = null; // { friendId, profile, visibleLists }
 
@@ -8074,7 +8182,10 @@ async function openGiftGuide(friendUserId) {
   var days = daysUntilBirthday(profile.birthday);
   var bday = profile.birthday ? new Date(profile.birthday + 'T00:00:00') : null;
   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var heroPalette = visibleLists.length ? giftTileColor(visibleLists[0].category, 0) : GIFT_TILE_PALETTE[0];
+  // Anti-adjacency: reorder tiles so same colors don't sit next to each other
+  visibleLists = antiAdjacentByColor(visibleLists, function(l){ return getCategoryColor(l.category).key; });
+  _giftGuideCache.visibleLists = visibleLists;
+  var heroPalette = visibleLists.length ? getCategoryColor(visibleLists[0].category) : CATEGORY_PALETTE[0];
 
   // ── BIG HERO ─────────────────────────────────────────────────────────
   var countdown = '';
