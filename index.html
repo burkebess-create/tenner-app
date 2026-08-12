@@ -7737,25 +7737,36 @@ var GIFT_CATEGORY_SUFFIX = {
   'Candy Bars':   'candy gift ideas',
   'Sodas':        'soda gift ideas'
 };
-// Budget buckets → Amazon price refinement (values in cents; empty = no filter)
+// Budget buckets → Amazon price refinement (min/max in cents; maxCents=null = open-ended)
 var GIFT_BUDGET_BUCKETS = [
-  { key: '',        label: 'Any',        rh: '' },
-  { key: 'u25',     label: 'Under $25',  rh: 'p_36:-2500' },
-  { key: '25-50',   label: '$25–$50',    rh: 'p_36:2500-5000' },
-  { key: '50-100',  label: '$50–$100',   rh: 'p_36:5000-10000' },
-  { key: '100plus', label: '$100+',      rh: 'p_36:10000-' }
+  { key: 'u25',     label: 'Under $25',  minCents: 0,     maxCents: 2500 },
+  { key: '25-50',   label: '$25–$50',    minCents: 2500,  maxCents: 5000 },
+  { key: '50-100',  label: '$50–$100',   minCents: 5000,  maxCents: 10000 },
+  { key: '100plus', label: '$100+',      minCents: 10000, maxCents: null }
 ];
 var AMAZON_RATING_4PLUS = 'p_72:1248882011'; // "4 stars & up" filter
-var _giftBudget = ''; // current selected bucket key
+var _giftBudgetRange = null; // { lowIdx, highIdx } or null (=Any)
 var _giftGuideFriendId = null;
+
+function giftBudgetRh() {
+  var r = _giftBudgetRange;
+  if (!r) return '';
+  var last = GIFT_BUDGET_BUCKETS.length - 1;
+  if (r.lowIdx === 0 && r.highIdx === last) return ''; // full range = no filter
+  var lo = GIFT_BUDGET_BUCKETS[r.lowIdx];
+  var hi = GIFT_BUDGET_BUCKETS[r.highIdx];
+  var minStr = lo.minCents > 0 ? String(lo.minCents) : '';
+  var maxStr = hi.maxCents != null ? String(hi.maxCents) : '';
+  return 'p_36:' + minStr + '-' + maxStr;
+}
 
 function amazonSearchUrl(query, category) {
   var suffix = GIFT_CATEGORY_SUFFIX[category] || 'gift ideas';
   var q = (query + ' ' + suffix).trim();
   var url = 'https://www.amazon.com/s?k=' + encodeURIComponent(q);
-  var bucket = GIFT_BUDGET_BUCKETS.find(function(b){ return b.key === _giftBudget; });
   var rhParts = [];
-  if (bucket && bucket.rh) rhParts.push(bucket.rh);
+  var budgetRh = giftBudgetRh();
+  if (budgetRh) rhParts.push(budgetRh);
   rhParts.push(AMAZON_RATING_4PLUS);
   url += '&rh=' + encodeURIComponent(rhParts.join(','));
   url += '&s=review-rank';
@@ -7763,24 +7774,47 @@ function amazonSearchUrl(query, category) {
   return url;
 }
 
-function setGiftBudget(key) {
-  _giftBudget = key;
+function toggleGiftBudget(idx) {
+  var r = _giftBudgetRange;
+  if (!r) {
+    _giftBudgetRange = { lowIdx: idx, highIdx: idx };
+  } else if (idx < r.lowIdx) {
+    r.lowIdx = idx; // extend low (auto-fills gap)
+  } else if (idx > r.highIdx) {
+    r.highIdx = idx; // extend high (auto-fills gap)
+  } else if (r.lowIdx === r.highIdx && idx === r.lowIdx) {
+    _giftBudgetRange = null; // deselect only pill
+  } else if (idx === r.lowIdx) {
+    r.lowIdx = idx + 1; // shrink from low end
+  } else if (idx === r.highIdx) {
+    r.highIdx = idx - 1; // shrink from high end
+  } // else: middle tap — no-op
+  if (_giftGuideFriendId) openGiftGuide(_giftGuideFriendId);
+}
+
+function clearGiftBudget() {
+  _giftBudgetRange = null;
   if (_giftGuideFriendId) openGiftGuide(_giftGuideFriendId);
 }
 
 function renderGiftBudgetPills() {
-  return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;justify-content:center">'
-    + GIFT_BUDGET_BUCKETS.map(function(b) {
-        var active = b.key === _giftBudget;
-        var bg = active ? '#D85A30' : '#FFF';
-        var color = active ? '#FFF' : '#2C2C2A';
-        var border = active ? '#D85A30' : '#D3D1C7';
-        return '<button type="button" onclick="setGiftBudget(\'' + b.key + '\')" '
-          + 'style="background:' + bg + ';color:' + color + ';border:1px solid ' + border + ';'
-          + 'font-family:inherit;font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600">'
-          + escapeHtml(b.label) + '</button>';
-      }).join('')
-    + '</div>';
+  var r = _giftBudgetRange;
+  var anyActive = !r;
+  var pills = '<button type="button" onclick="clearGiftBudget()" '
+    + 'style="background:' + (anyActive ? '#D85A30' : '#FFF') + ';color:' + (anyActive ? '#FFF' : '#2C2C2A') + ';'
+    + 'border:1px solid ' + (anyActive ? '#D85A30' : '#D3D1C7') + ';'
+    + 'font-family:inherit;font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600">Any</button>';
+  pills += GIFT_BUDGET_BUCKETS.map(function(b, i) {
+    var active = r && i >= r.lowIdx && i <= r.highIdx;
+    var bg = active ? '#D85A30' : '#FFF';
+    var color = active ? '#FFF' : '#2C2C2A';
+    var border = active ? '#D85A30' : '#D3D1C7';
+    return '<button type="button" onclick="toggleGiftBudget(' + i + ')" '
+      + 'style="background:' + bg + ';color:' + color + ';border:1px solid ' + border + ';'
+      + 'font-family:inherit;font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600">'
+      + escapeHtml(b.label) + '</button>';
+  }).join('');
+  return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;justify-content:center">' + pills + '</div>';
 }
 
 function daysUntilBirthday(birthdayStr) {
