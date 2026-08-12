@@ -7971,7 +7971,32 @@ function updateGiftsBadge(upcoming) {
   else          { badge.style.display = 'none'; }
 }
 
+// Warm, saturated tile palette — cycles per category. Each entry: { bg, fg, accent }
+var GIFT_TILE_PALETTE = [
+  { bg: '#F5B534', fg: '#2C1A00', accent: '#8A5A00' }, // mustard
+  { bg: '#2F9E8F', fg: '#FFFFFF', accent: '#0F5E55' }, // teal
+  { bg: '#E8927C', fg: '#3A1A0F', accent: '#8A2E1A' }, // coral
+  { bg: '#B8D0A8', fg: '#1F3820', accent: '#3A5A30' }, // sage
+  { bg: '#D9BEEC', fg: '#3A1F55', accent: '#5A2A85' }, // lavender
+  { bg: '#F5D0C8', fg: '#4A1F15', accent: '#8A3A20' }, // blush
+  { bg: '#A8C8E8', fg: '#0F2A4A', accent: '#1F4A85' }, // sky
+  { bg: '#EFCB68', fg: '#3A2600', accent: '#7A5000' }  // gold
+];
+function giftTileColor(category, index) {
+  // Stable hash: category name → same color across renders
+  var s = String(category || '') + index;
+  var h = 0;
+  for (var i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return GIFT_TILE_PALETTE[Math.abs(h) % GIFT_TILE_PALETTE.length];
+}
+var _giftTilesOpen = {}; // { [category]: true }
+function toggleGiftTile(category) {
+  _giftTilesOpen[category] = !_giftTilesOpen[category];
+  if (_giftGuideFriendId) openGiftGuide(_giftGuideFriendId);
+}
+
 async function openGiftGuide(friendUserId) {
+  if (_giftGuideFriendId !== friendUserId) _giftTilesOpen = {};
   _giftGuideFriendId = friendUserId;
   go('s-gift-guide');
   var el = document.getElementById('gift-guide-content');
@@ -7985,55 +8010,73 @@ async function openGiftGuide(friendUserId) {
   var visibleCats = Array.isArray(profile.gift_visible_categories) && profile.gift_visible_categories.length
     ? profile.gift_visible_categories
     : lists.map(function(l){ return l.category; });
-  var visibleLists = lists.filter(function(l){ return visibleCats.indexOf(l.category) >= 0; });
+  var visibleLists = lists.filter(function(l){ return visibleCats.indexOf(l.category) >= 0 && (l.items || []).length > 0; });
   var name = profile.display_name || (profile.handle ? '@' + profile.handle : 'Friend');
   if (titleEl) titleEl.textContent = 'Gifts for ' + name;
 
   var days = daysUntilBirthday(profile.birthday);
   var bday = profile.birthday ? new Date(profile.birthday + 'T00:00:00') : null;
   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var header = '<div style="text-align:center;margin-bottom:14px">'
-    + friendAvatarHtml(profile, 72)
-    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;letter-spacing:-0.02em;color:#1A0F0A;margin-top:10px">' + escapeHtml(name) + '</div>'
-    + (bday ? '<div style="font-size:12px;color:#D85A30;font-weight:600;margin-top:2px">🎂 ' + months[bday.getMonth()] + ' ' + bday.getDate() + (days !== null ? ' · in ' + days + ' days' : '') + '</div>' : '')
+  var heroPalette = visibleLists.length ? giftTileColor(visibleLists[0].category, 0) : GIFT_TILE_PALETTE[0];
+
+  // ── BIG HERO ─────────────────────────────────────────────────────────
+  var countdown = '';
+  if (bday) {
+    var dayStr = months[bday.getMonth()] + ' ' + bday.getDate();
+    var daysStr = days !== null ? (days === 0 ? "TODAY 🎉" : (days === 1 ? "TOMORROW" : "in " + days + " days")) : '';
+    countdown = '<div style="display:inline-flex;align-items:center;gap:6px;background:#FFFFFF;border:1px solid #F5C4B3;color:#D85A30;font-size:11px;font-weight:700;padding:6px 14px;border-radius:999px;margin-top:14px;letter-spacing:0.02em;text-transform:uppercase;box-shadow:0 2px 8px rgba(216,90,48,0.12)">🎂 ' + dayStr + (daysStr ? ' · ' + daysStr : '') + '</div>';
+  }
+  var hero = '<div style="position:relative;text-align:center;padding:28px 20px 24px;margin:-14px -14px 20px;background:linear-gradient(180deg, ' + heroPalette.bg + '22 0%, #FAF8F5 100%);border-radius:0 0 28px 28px">'
+    + '<div style="display:inline-block;padding:4px;background:#FFFFFF;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,0.10)">'
+    +   friendAvatarHtml(profile, 96)
+    + '</div>'
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:30px;letter-spacing:-0.02em;color:#1A0F0A;margin-top:14px;line-height:1.15">Gifts for<br>' + escapeHtml(name) + '</div>'
+    + countdown
     + '</div>';
 
   if (visibleLists.length === 0) {
-    el.innerHTML = header
+    el.innerHTML = hero
       + '<div style="text-align:center;padding:20px;color:#888780;font-size:12px">' + escapeHtml(name) + ' hasn\'t shared any lists you can shop from yet.</div>';
     return;
   }
 
-  var basedOn = '<div class="sec-label">Based on</div>'
-    + '<div style="margin-bottom:12px">'
-    + visibleLists.map(function(l) {
-        return '<span style="display:inline-block;background:#F1EFE8;color:#2C2C2A;font-size:11px;padding:5px 10px;border-radius:99px;margin-right:6px;margin-bottom:4px">' + (l.emoji || '📋') + ' ' + escapeHtml(l.category) + '</span>';
-      }).join('')
-    + '</div>';
+  // ── DISCLOSURE (softer, less alarming) ───────────────────────────────
+  var disclosure = '<div style="background:#FFFFFF;border:1px solid #EAE3DC;border-radius:14px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#5F5E5A;line-height:1.55;text-align:center">Shop links are Amazon affiliate links. As an Amazon Associate, Tenner earns from qualifying purchases.</div>';
 
-  var picksHtml = '<div class="sec-label">Top picks</div>';
-  visibleLists.forEach(function(l) {
-    var topItems = (l.items || []).slice(0, 5);
-    topItems.forEach(function(item, idx) {
-      var url = amazonSearchUrl(item, l.category);
-      picksHtml += '<div class="card no-hover" style="margin-bottom:6px">'
-        + '<div style="display:flex;align-items:center;gap:10px">'
-        +   '<div style="width:36px;height:36px;border-radius:8px;background:#FAECE7;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 20) + '</div>'
-        +   '<div style="flex:1;min-width:0">'
-        +     '<div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(item) + '</div>'
-        +     '<div style="font-size:11px;color:#5F5E5A">Their #' + (idx+1) + ' ' + escapeHtml(l.category) + '</div>'
-        +   '</div>'
-        +   '<a href="' + url + '" target="_blank" rel="noopener sponsored nofollow" class="btn-primary" style="width:auto;padding:7px 12px;font-size:11px;text-decoration:none;display:inline-block;margin-bottom:0">Shop →</a>'
-        + '</div></div>';
-    });
+  // ── BUDGET PILLS ─────────────────────────────────────────────────────
+  var budgetSection = '<div class="sec-label" style="margin-bottom:8px">Budget</div>' + renderGiftBudgetPills();
+
+  // ── BENTO GRID ───────────────────────────────────────────────────────
+  var tilesHtml = '<div class="sec-label" style="margin-top:18px;margin-bottom:10px">Inspired by their lists</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+  visibleLists.forEach(function(l, i) {
+    var pal = giftTileColor(l.category, i);
+    var emoji = l.emoji || getCatEmoji(l.category);
+    var count = (l.items || []).length;
+    var isOpen = !!_giftTilesOpen[l.category];
+    var span = isOpen ? 'grid-column: 1 / -1;' : '';
+    tilesHtml += '<div style="' + span + 'background:' + pal.bg + ';border-radius:22px;padding:18px;color:' + pal.fg + ';box-shadow:0 4px 14px rgba(0,0,0,0.06);position:relative;overflow:hidden;cursor:pointer" onclick="toggleGiftTile(\'' + String(l.category).replace(/'/g,"\\'") + '\')">'
+      +   '<div style="font-size:42px;line-height:1;margin-bottom:8px">' + renderCatEmoji(emoji, 42) + '</div>'
+      +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.01em;line-height:1.1;margin-bottom:4px">' + escapeHtml(l.category) + '</div>'
+      +   '<div style="font-size:11px;font-weight:600;color:' + pal.accent + ';letter-spacing:0.03em;text-transform:uppercase">' + count + ' pick' + (count === 1 ? '' : 's') + ' · ' + (isOpen ? 'tap to close ↑' : 'tap to shop ↓') + '</div>';
+    if (isOpen) {
+      var items = (l.items || []).slice(0, 5);
+      tilesHtml += '<div style="margin-top:14px;background:rgba(255,255,255,0.85);border-radius:16px;padding:6px" onclick="event.stopPropagation()">';
+      items.forEach(function(item, idx) {
+        var url = amazonSearchUrl(item, l.category);
+        tilesHtml += '<div style="display:flex;align-items:center;gap:10px;padding:10px 8px;' + (idx < items.length - 1 ? 'border-bottom:1px solid #F1EFE8;' : '') + '">'
+          +   '<div style="width:24px;height:24px;border-radius:999px;background:' + pal.bg + ';color:' + pal.fg + ';font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + (idx+1) + '</div>'
+          +   '<div style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#2C2C2A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(item) + '</div>'
+          +   '<a href="' + url + '" target="_blank" rel="noopener sponsored nofollow" style="background:#2C2C2A;color:#FFF;text-decoration:none;font-size:11px;font-weight:600;padding:6px 12px;border-radius:999px;flex-shrink:0">Shop →</a>'
+          + '</div>';
+      });
+      tilesHtml += '</div>';
+    }
+    tilesHtml += '</div>';
   });
+  tilesHtml += '</div>';
 
-  // Prominent disclosure above the picks — legally sufficient without cluttering each button
-  var disclosure = '<div style="background:#FFF8F4;border:1px solid #F5C4B3;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:#712B13;line-height:1.5;text-align:center">Shop links below are affiliate links. As an Amazon Associate, Tenner earns from qualifying purchases at no cost to you.</div>';
-
-  var budgetSection = '<div class="sec-label">Budget</div>' + renderGiftBudgetPills();
-
-  el.innerHTML = header + disclosure + budgetSection + basedOn + picksHtml;
+  el.innerHTML = hero + disclosure + budgetSection + tilesHtml;
 }
 
 function computeMatch(myItems, theirItems, ranked) {
