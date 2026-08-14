@@ -5228,13 +5228,15 @@ function renderCircleScreen() {
 
 var MY_LIST_SHARE_INVITES = []; // incoming "fill out this list" invites from friends
 var MY_COMMENTS_ON_ME = [];     // comments others left on my list items (last 30 days)
+var MY_THREAD_REPLIES = [];     // comments others left on OTHER people's items where I also commented
 var _lastAlertsSeenAt = null;   // profile.last_alerts_seen_at, used to gauge unread
 var pendingMatchFriendId = null;
 
 function unreadCommentsCount() {
-  if (!MY_COMMENTS_ON_ME.length) return 0;
   var since = _lastAlertsSeenAt ? new Date(_lastAlertsSeenAt).getTime() : 0;
-  return MY_COMMENTS_ON_ME.filter(function(c){ return new Date(c.created_at).getTime() > since; }).length;
+  var mine = (MY_COMMENTS_ON_ME || []).filter(function(c){ return new Date(c.created_at).getTime() > since; }).length;
+  var replies = (MY_THREAD_REPLIES || []).filter(function(c){ return new Date(c.created_at).getTime() > since; }).length;
+  return mine + replies;
 }
 
 function updateNotificationBadge() {
@@ -5251,7 +5253,7 @@ function updateNotificationBadge() {
 
 // Refresh the unread count without rendering the full screen (called on app load / tab changes)
 function refreshNotifications() {
-  return Promise.all([loadListShareInvites(), loadCommentsOnMe(), loadLastAlertsSeenAt()]).then(updateNotificationBadge);
+  return Promise.all([loadListShareInvites(), loadCommentsOnMe(), loadThreadReplies(), loadLastAlertsSeenAt()]).then(updateNotificationBadge);
 }
 
 async function loadLastAlertsSeenAt() {
@@ -5287,6 +5289,44 @@ async function loadCommentsOnMe() {
       return { id: c.id, from_user_id: c.from_user_id, category: c.category, item_name: c.item_name, comment: c.comment, created_at: c.created_at, profile: profileMap[c.from_user_id] || {} };
     });
   } catch(e) { console.warn('Load comments-on-me failed', e); }
+}
+
+// Load comments others left on OTHER people's items where I've also commented — i.e.
+// replies to a conversation I'm part of. Relies on the SQL policy 'Thread participants
+// see comments' to filter server-side (RLS returns only threads where I participated).
+async function loadThreadReplies() {
+  MY_THREAD_REPLIES = [];
+  if (!sbClient || !userId) return;
+  try {
+    var since = new Date(Date.now() - 30*24*60*60*1000).toISOString();
+    var res = await sbClient.from('list_item_comments')
+      .select('id, from_user_id, list_owner_id, category, item_name, comment, created_at')
+      .neq('from_user_id', userId)
+      .neq('list_owner_id', userId)  // exclude comments on my own items (already in MY_COMMENTS_ON_ME)
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (!res.data || res.data.length === 0) return;
+    // Profile lookups (commenters + list owners so we can display context)
+    var ids = [];
+    res.data.forEach(function(c) {
+      if (ids.indexOf(c.from_user_id) === -1) ids.push(c.from_user_id);
+      if (ids.indexOf(c.list_owner_id) === -1) ids.push(c.list_owner_id);
+    });
+    var profileMap = {};
+    try {
+      var pr = await sbClient.from('profiles').select('id, display_name, handle, photo').in('id', ids);
+      (pr.data || []).forEach(function(p){ profileMap[p.id] = p; });
+    } catch(e) {}
+    MY_THREAD_REPLIES = res.data.map(function(c) {
+      return {
+        id: c.id, from_user_id: c.from_user_id, list_owner_id: c.list_owner_id,
+        category: c.category, item_name: c.item_name, comment: c.comment, created_at: c.created_at,
+        profile: profileMap[c.from_user_id] || {},
+        ownerProfile: profileMap[c.list_owner_id] || {}
+      };
+    });
+  } catch(e) { console.warn('Load thread replies failed', e); }
 }
 
 async function loadListShareInvites() {
@@ -5412,6 +5452,32 @@ async function renderNotifActivity(el) {
     }).join('');
   }
 
+  // ── SECTION 1b: Replies to threads I participated in (on OTHER people's items) ──
+  var replies = (MY_THREAD_REPLIES || []).slice(0, 20);
+  if (replies.length > 0) {
+    html += '<div class="sec-label" style="margin-top:18px">Replies to your comments</div>';
+    html += replies.map(function(c) {
+      var p = c.profile || {};
+      var op = c.ownerProfile || {};
+      var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
+      var ownerName = op.display_name || (op.handle ? '@' + op.handle : 'someone');
+      var isUnread = new Date(c.created_at).getTime() > sinceMs;
+      var dotStyle = isUnread ? 'width:8px;height:8px;border-radius:50%;background:#D85A30;flex-shrink:0;margin-right:6px' : 'width:8px;flex-shrink:0';
+      var catEsc = String(c.category).replace(/'/g, "\\'");
+      var itemEsc = String(c.item_name).replace(/'/g, "\\'");
+      var ownerEsc = String(c.list_owner_id).replace(/'/g, "\\'");
+      return '<div class="share-pick" style="cursor:pointer;align-items:flex-start;margin-bottom:6px" onclick="openItemCommentsFromNotifOnFriend(\'' + ownerEsc + '\',\'' + catEsc + '\',\'' + itemEsc + '\')">'
+        + '<span style="' + dotStyle + '"></span>'
+        + friendAvatarHtml(p, 32)
+        + '<div style="flex:1;min-width:0">'
+        +   '<div style="font-size:12px;color:#2C2C2A;line-height:1.4"><strong>' + escapeHtml(name) + '</strong> replied on <strong>' + escapeHtml(ownerName) + '</strong>\'s <strong>Top 10 ' + escapeHtml(c.category) + '</strong> pick <strong>' + escapeHtml(c.item_name) + '</strong></div>'
+        +   '<div style="font-size:12.5px;color:#5F5E5A;margin-top:3px;font-style:italic">"' + escapeHtml(c.comment) + '"</div>'
+        +   '<div style="font-size:10px;color:#888780;margin-top:3px">' + timeAgo(c.created_at) + '</div>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
   // ── SECTION 2: Friends' recent list updates ──
   if (accepted.length === 0) {
     if (!html) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">👋</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No friends yet</div><div style="font-size:12px;line-height:1.5">Add friends to see their list updates here.</div></div>'; return; }
@@ -5461,6 +5527,11 @@ function openItemCommentsFromNotif(category, itemName) {
   setTimeout(function() {
     if (typeof openItemComments === 'function') openItemComments(userId, category, itemName);
   }, 100);
+}
+
+// Helper: open a comment thread on a FRIEND's item (from a 'replies to your comments' alert)
+function openItemCommentsFromNotifOnFriend(ownerUserId, category, itemName) {
+  if (typeof openItemComments === 'function') openItemComments(ownerUserId, category, itemName);
 }
 
 // Snooze an invite. Progressive hide from Circle:
@@ -9667,15 +9738,68 @@ async function loadItemComments(listOwnerId, category, itemName) {
   var el = document.getElementById('item-comments-list');
   if (!sbClient || !el) return;
   try {
-    var res = await sbClient.from('list_item_comments').select('from_user_id, comment, created_at').eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', itemName).order('created_at', { ascending: true });
+    var res = await sbClient.from('list_item_comments').select('id, from_user_id, comment, created_at, edited_at').eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', itemName).order('created_at', { ascending: true });
     var comments = res.data || [];
     if (!comments.length) { el.innerHTML = '<div style="color:#888780;font-size:12px;padding:8px 0">No comments yet. Be the first!</div>'; return; }
     el.innerHTML = comments.map(function(c) {
+      var isMine = c.from_user_id === userId;
       var f = myFriends.find(function(x){ return x.friendId === c.from_user_id; });
-      var name = (f && f.profile && f.profile.display_name) || (c.from_user_id === userId ? ((myProfile && myProfile.display_name) || 'You') : 'Friend');
-      return '<div style="padding:8px 0;border-bottom:1px solid #F5F3EE"><div style="font-size:11px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '</div><div style="font-size:13px;color:#444;margin-top:2px">' + escapeHtml(c.comment) + '</div></div>';
+      var name = isMine
+        ? ((myProfile && myProfile.display_name) || 'You')
+        : ((f && f.profile && f.profile.display_name) || 'Friend');
+      var editedTag = c.edited_at ? ' <span style="font-size:10px;color:#888780;font-weight:400">· edited</span>' : '';
+      var when = '<span style="font-size:10px;color:#888780;font-weight:400;margin-left:6px">' + timeAgo(c.created_at) + '</span>';
+      var actions = isMine
+        ? '<div style="display:flex;gap:8px;margin-top:6px">'
+          +   '<button type="button" onclick="startEditItemComment(\'' + c.id + '\')" style="background:none;border:none;color:#5F5E5A;font-size:11px;padding:2px 0;cursor:pointer;font-family:inherit;text-decoration:underline">Edit</button>'
+          +   '<button type="button" onclick="deleteItemComment(\'' + c.id + '\')" style="background:none;border:none;color:#A32D2D;font-size:11px;padding:2px 0;cursor:pointer;font-family:inherit;text-decoration:underline">Delete</button>'
+          + '</div>'
+        : '';
+      return '<div data-comment-id="' + c.id + '" style="padding:10px 0;border-bottom:1px solid #F5F3EE">'
+        + '<div style="font-size:11px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + editedTag + when + '</div>'
+        + '<div class="comment-body" style="font-size:13px;color:#444;margin-top:3px">' + escapeHtml(c.comment) + '</div>'
+        + actions
+        + '</div>';
     }).join('');
   } catch(e) { el.innerHTML = '<div style="color:#A32D2D;font-size:12px">Failed to load.</div>'; }
+}
+
+// Swap a comment body into an editable textarea with Save/Cancel
+function startEditItemComment(commentId) {
+  var row = document.querySelector('[data-comment-id="' + commentId + '"]');
+  if (!row) return;
+  var body = row.querySelector('.comment-body');
+  if (!body) return;
+  var current = body.textContent;
+  var editorId = 'comment-edit-' + commentId;
+  body.outerHTML = '<div class="comment-body">'
+    + '<textarea id="' + editorId + '" style="width:100%;font-size:13px;padding:8px;border:1px solid #D3D1C7;border-radius:8px;resize:vertical;min-height:60px;font-family:inherit">' + escapeHtml(current) + '</textarea>'
+    + '<div style="display:flex;gap:6px;margin-top:6px">'
+    +   '<button type="button" onclick="saveEditItemComment(\'' + commentId + '\')" style="background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">Save</button>'
+    +   '<button type="button" onclick="loadItemComments(activeCommentListOwner,activeCommentCategory,activeCommentItem)" style="background:transparent;color:#5F5E5A;border:1px solid #D3D1C7;border-radius:99px;padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">Cancel</button>'
+    + '</div></div>';
+  var ta = document.getElementById(editorId);
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+
+async function saveEditItemComment(commentId) {
+  var ta = document.getElementById('comment-edit-' + commentId);
+  if (!ta || !sbClient) return;
+  var text = ta.value.trim().slice(0, 280);
+  if (!text) { showToast('Comment cannot be empty. Use Delete instead.'); return; }
+  try {
+    var now = new Date().toISOString();
+    await sbClient.from('list_item_comments').update({ comment: text, edited_at: now }).eq('id', commentId).eq('from_user_id', userId);
+    loadItemComments(activeCommentListOwner, activeCommentCategory, activeCommentItem);
+  } catch(e) { showToast('Could not save edit.'); }
+}
+
+async function deleteItemComment(commentId) {
+  if (!sbClient || !confirm('Delete this comment?')) return;
+  try {
+    await sbClient.from('list_item_comments').delete().eq('id', commentId).eq('from_user_id', userId);
+    loadItemComments(activeCommentListOwner, activeCommentCategory, activeCommentItem);
+  } catch(e) { showToast('Could not delete comment.'); }
 }
 
 async function submitItemComment() {
