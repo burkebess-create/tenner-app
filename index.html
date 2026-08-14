@@ -3898,8 +3898,7 @@ function myHandleLine() {
 
 function copyListInviteLink() {
   var url = getListInviteUrl();
-  var handle = (myProfile && myProfile.handle) ? '@' + myProfile.handle : '';
-  var textToCopy = url + (handle ? '\n\nAdd me on Tenner: ' + handle : '');
+  var textToCopy = url + myHandleLine();
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(textToCopy).then(function() {
       showConfirm('Link copied!', 'Share this with friends:\n\n' + textToCopy, 'Done', 'primary', function(){});
@@ -3944,12 +3943,10 @@ function openInviteModal() {
   var groupNameEl = document.getElementById('group-name');
   var groupName = groupNameEl ? groupNameEl.value.trim() : '';
   var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
-  var body = 'Hey — check out this new app called Tenner, it’s a social app for making and sharing top 10 lists — your favorite movies, restaurants, songs, books, vacation spots, anything. You can see how your picks compare with friends and groups, react to each other’s lists, and discover new things through friend’s list.';
-  var join = groupName
-    ? '\n\nWant to join my group "' + groupName + '"?'
-    : '\n\nWant to join?';
-  var handleTagLine = (myProfile && myProfile.handle) ? ' (@' + myProfile.handle + ' on Tenner)' : '';
-  var defaultMsg = body + join + '\n\nSign up here: https://mytenner.com/\n\n— ' + senderName + handleTagLine;
+  var body = 'Hey — I\'ve been using this app called Tenner. You make Top 10 lists of stuff you love (movies, restaurants, songs, travel spots, whatever) and see how your picks match up with your friends. It\'s pretty fun.';
+  var join = groupName ? '\n\nWant to join my group "' + groupName + '"?' : '';
+  var findLine = (myProfile && myProfile.handle) ? '\nFind me @' + myProfile.handle : '';
+  var defaultMsg = body + join + '\n\nSign up → https://mytenner.com/' + findLine + '\n\n— ' + senderName;
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
   var emailEl = document.getElementById('invite-email');
@@ -4151,8 +4148,7 @@ function openMatchWithFriend(friendId, origin) { matchFriendCtx = friendId; matc
 // falls back to copying a pre-composed message to clipboard.
 async function nudgeFriend(friendName, category) {
   var firstName = String(friendName).split(' ')[0];
-  var handleTag = (myProfile && myProfile.handle) ? ' (find me @' + myProfile.handle + ')' : '';
-  var msg = 'Hey ' + firstName + '! Fill out your Top 10 ' + category + ' on Tenner so we can compare' + handleTag + ' → https://mytenner.com';
+  var msg = 'Hey ' + firstName + '! I want to compare our Top 10 ' + category + ' on Tenner. Fill yours out → https://mytenner.com' + myHandleLine();
   var title = 'Tenner: fill out Top 10 ' + category;
   try {
     if (navigator.share) {
