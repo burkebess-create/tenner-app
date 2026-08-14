@@ -341,9 +341,10 @@
       <div class="screen" id="s-home">
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
-          <div style="display:flex;gap:6px">
+          <div style="display:flex;align-items:center;gap:8px">
             <button class="back-btn" onclick="go('s-notifications')" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
             <button class="back-btn" id="home-refresh-btn" onclick="doRefresh(this,function(){return loadState().then(renderHome);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg id="home-refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+            <div class="topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
           </div>
         </div>
         <div class="content">
@@ -421,7 +422,7 @@
         <div class="topbar">
           <button class="back-btn" id="create1-back-btn" onclick="go('s-home')" style="display:none">← Back</button>
           <span style="font-size:13px;font-weight:600;color:#2C2C2A">New List</span>
-          <span style="width:52px"></span>
+          <div class="topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
         </div>
         <div class="content">
           <div class="step-dots">
@@ -431,6 +432,7 @@
           </div>
           <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:3px">Choose a category</div>
           <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:12px">Pick one or type your own</div>
+          <div id="current-weekly-section" style="margin-bottom:14px"></div>
           <div id="past-weekly-section" style="margin-bottom:12px"></div>
           <div class="cat-grid" id="cat-grid"></div>
           <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-top:18px;margin-bottom:6px">Create your own category</div>
@@ -694,7 +696,7 @@
         <div class="topbar">
           <button class="back-btn" id="match-back-btn" onclick="go(matchOrigin || 's-circle')" style="font-size:11px;display:none">← Back</button>
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
-          <span id="match-topbar-debug" style="display:none"></span>
+          <div class="topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
         </div>
         <div class="content" id="match-screen-content">
           <div style="text-align:center;padding:40px 20px;color:#888780">
@@ -713,7 +715,7 @@
           <div style="display:flex;align-items:center;gap:8px">
             <button onclick="go('s-notifications')" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge-circle" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
             <button onclick="doRefresh(this,function(){return loadFriends().then(renderCircleScreen);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
-            <div id="circle-topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
+            <div id="circle-topbar-avatar" class="topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
           </div>
         </div>
         <div class="content">
@@ -985,7 +987,10 @@
       <div class="screen" id="s-gifts">
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
-          <button class="back-btn" onclick="doRefresh(this,function(){return loadFriends().then(renderGifts);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="back-btn" onclick="doRefresh(this,function(){return loadFriends().then(renderGifts);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+            <div class="topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
+          </div>
         </div>
         <div class="content" id="gifts-content">
           <div style="text-align:center;padding:40px 20px;color:#888780">
@@ -1329,10 +1334,10 @@ function go(id) {
     }[id];
     if (activeNav) document.getElementById(activeNav) && document.getElementById(activeNav).classList.add('active');
   }
-  if (id === 's-home') { renderHome(); if (userId) showOnboardingIfNeeded(); }
+  if (id === 's-home') { renderHome(); renderTopbarAvatars(); if (userId) showOnboardingIfNeeded(); }
   if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-fdetail' && selFriendId) renderFriendDetail();
-  if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); renderCreatePastWeekly(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
+  if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
   if (id === 's-create2') { renderItems(); updateProg(); renderItemChips(); }
   if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); addedNonFriends = {}; clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
@@ -1369,6 +1374,7 @@ function go(id) {
     var mbb = document.getElementById('match-back-btn');
     if (mbb) mbb.style.display = matchOrigin ? 'block' : 'none';
     renderMatch();
+    renderTopbarAvatars();
   }
   if (id === 's-circle') { renderCircleTopbarAvatar(); renderTodayPill(); renderCircleListInvites(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderWeeklyHeroCard(); renderProfileNudges(); updateNotificationBadge(); }
   if (id === 's-add-friends') {
@@ -1381,7 +1387,7 @@ function go(id) {
   if (id === 's-admin') { renderAdmin(); }
   if (id === 's-admin-user') { /* driven by openAdminUserDetail */ }
   if (id === 's-admin-list') { /* driven by openAdminListDetail */ }
-  if (id === 's-gifts') { renderGifts(); }
+  if (id === 's-gifts') { renderGifts(); renderTopbarAvatars(); }
 }
 
 function formatPhoneInput(input) {
@@ -3168,18 +3174,19 @@ function renderCircleListInvites() {
   host.innerHTML = '<div class="sec-label">Invites (' + pending.length + ')</div>' + cards + toggle;
 }
 
-// ── Circle topbar avatar (user's own photo, links to Profile) ──────────
-function renderCircleTopbarAvatar() {
-  var host = document.getElementById('circle-topbar-avatar');
-  if (!host) return;
+// ── Topbar profile avatar (user's own photo, links to Profile) ─────────
+// Populates any element with class 'topbar-avatar' — used on every main tab.
+function renderCircleTopbarAvatar() { renderTopbarAvatars(); }
+function renderTopbarAvatars() {
+  var hosts = document.querySelectorAll('.topbar-avatar');
+  if (!hosts.length) return;
   var p = myProfile || {};
   var name = p.display_name || p.handle || '?';
   var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
-  if (p.photo) {
-    host.innerHTML = '<div style="width:34px;height:34px;border-radius:50%;overflow:hidden;border:1.5px solid #2C2C2A"><img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover"></div>';
-  } else {
-    host.innerHTML = '<div style="width:34px;height:34px;border-radius:50%;background:#EAE3DC;color:#5F5E5A;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #2C2C2A">' + initials + '</div>';
-  }
+  var html = p.photo
+    ? '<div style="width:34px;height:34px;border-radius:50%;overflow:hidden;border:1.5px solid #2C2C2A"><img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover"></div>'
+    : '<div style="width:34px;height:34px;border-radius:50%;background:#EAE3DC;color:#5F5E5A;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #2C2C2A">' + initials + '</div>';
+  hosts.forEach(function(h) { h.innerHTML = html; });
 }
 
 // ── "Today on Tenner" pill (dynamic status line at top of Circle) ──────
@@ -8396,6 +8403,39 @@ function openWeeklyListFlow(cat, emoji) {
 }
 
 // Past-weekly-lists section on the Create tab (step 1)
+// Highlighted tile at the top of Create → categories showing the current week's
+// Tenner list, if there is one. Distinct from the standard categories below.
+function renderCreateCurrentWeekly() {
+  var el = document.getElementById('current-weekly-section');
+  if (!el) return;
+  var wk = (typeof getCurrentWeeklyList === 'function') ? getCurrentWeeklyList() : null;
+  if (!wk) { el.innerHTML = ''; return; }
+  var hasIt = userHasListInCategory(wk.category);
+  var pal = getCategoryColor(wk.category, { id: wk.id });
+  var reveal = new Date(wk.reveal_at);
+  var now = new Date();
+  var revealed = now >= reveal;
+  var stateLine;
+  if (hasIt && !revealed)      stateLine = '✓ You\'re in · Reveals ' + reveal.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+  else if (hasIt && revealed)  stateLine = '🎊 The reveal is live';
+  else if (revealed)           stateLine = '🎊 Reveal is live — fill it out to compare';
+  else                         stateLine = 'Reveals ' + reveal.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+  var ctaLabel = hasIt ? 'Review or update →' : 'Make your Top 10 →';
+  var safeCat = wk.category.replace(/\'/g,"\\'");
+  var safeEmoji = (wk.emoji || '📋').replace(/\'/g,"\\'");
+  el.innerHTML = '<div style="position:relative;background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:22px;padding:18px;cursor:pointer" onclick="openWeeklyListFlow(\'' + safeCat + '\',\'' + safeEmoji + '\')">'
+    + '<div style="display:inline-block;background:#2C2C2A;color:#FFFFFF;font-size:9.5px;font-weight:700;padding:3px 10px;border-radius:99px;letter-spacing:0.08em;margin-bottom:10px">✨ THIS WEEK ON TENNER</div>'
+    + '<div style="display:flex;align-items:flex-start;gap:12px">'
+    +   '<div style="font-size:44px;line-height:1;flex-shrink:0">' + renderCatEmoji(wk.emoji || '📋', 44) + '</div>'
+    +   '<div style="flex:1;min-width:0">'
+    +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A">Top 10 ' + escapeHtml(wk.category) + '</div>'
+    +     '<div style="font-size:11.5px;color:#2C2C2A;opacity:0.75;font-weight:600;margin-top:4px">' + stateLine + '</div>'
+    +   '</div>'
+    + '</div>'
+    + '<button onclick="event.stopPropagation();openWeeklyListFlow(\'' + safeCat + '\',\'' + safeEmoji + '\')" style="width:100%;margin-top:12px;background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">' + ctaLabel + '</button>'
+    + '</div>';
+}
+
 function renderCreatePastWeekly() {
   var el = document.getElementById('past-weekly-section');
   if (!el) return;
@@ -9138,7 +9178,8 @@ function setupRealtimeNotifications() {
     // that depend on that data.
     var isCircleActive = function() { var el = document.getElementById('s-circle'); return el && el.classList.contains('active'); };
     loadProfile().then(function() {
-      if (isCircleActive()) { renderCircleTopbarAvatar(); renderTodayPill(); renderProfileNudges(); }
+      renderTopbarAvatars(); // populate wherever it's mounted (all tabs)
+      if (isCircleActive()) { renderTodayPill(); renderProfileNudges(); }
     }).catch(console.warn);
     loadFriends().then(function() {
       if (isCircleActive()) { renderCircleStories(); renderHomeFeed(); renderCircleScreen(); renderTodayPill(); renderCircleListInvites(); }
