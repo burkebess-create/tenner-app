@@ -3361,6 +3361,9 @@ function timeAgo(iso) {
 async function openFriendListByCat(friendUserId, category, origin) {
   var friend = (myFriends || []).find(function(f){ return f.friendId === friendUserId; });
   if (!friend) return;
+  // Set selFriendId so downstream openFriendList / friend-list title link can resolve
+  // to the correct friend for name display + profile navigation
+  selFriendId = friendUserId;
   try {
     var r = await sbClient.from('lists').select('*').eq('user_id', friendUserId).eq('category', category).maybeSingle();
     if (!r.data) { showToast('That list isn\'t available anymore.'); return; }
@@ -5550,8 +5553,14 @@ async function renderFriendListChanges(ownerId, category) {
 
 function openFriendList(listData, origin) {
   friendListOrigin = origin || (document.getElementById('s-circle').classList.contains('active') ? 's-circle' : 's-fdetail');
-  var f = myFriends.find(function(x){ return x.friendId === selFriendId; });
-  var friendName = (f && (f.profile.display_name || f.profile.handle)) || 'Friend';
+  // Prefer the friend id embedded in listData (which is always correct) over selFriendId
+  // (which callers sometimes forget to set). Sync selFriendId so downstream navigation works.
+  var ownerId = (listData && listData.user_id) || selFriendId;
+  if (ownerId) selFriendId = ownerId;
+  var f = myFriends.find(function(x){ return x.friendId === ownerId; });
+  var friendName = (f && f.profile && (f.profile.display_name || f.profile.handle))
+    || (listData && listData.profile && (listData.profile.display_name || listData.profile.handle))
+    || 'Friend';
   var cat = listData.category || (listData.name || '').replace('Top 10 ', '');
   var emoji = listData.emoji || getCatEmoji(cat);
   var items = listData.items || [];
