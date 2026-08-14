@@ -3108,17 +3108,15 @@ function renderCircleListInvites() {
     var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
     var catEsc = String(inv.category).replace(/'/g,"\\'");
     var pal = getCategoryColor(inv.category);
-    return '<div style="background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:14px;margin-bottom:10px">'
-      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
-      +   friendAvatarHtml(p, 36)
-      +   '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + ' invited you</div>'
-      +   '<div style="font-size:11px;color:#2C2C2A;opacity:0.75;margin-top:2px">to fill out <strong>Top 10 ' + escapeHtml(inv.category) + '</strong></div></div>'
-      +   '<div style="font-size:22px;flex-shrink:0">' + renderCatEmoji(getCatEmoji(inv.category), 22) + '</div>'
-      + '</div>'
-      + '<div style="display:flex;gap:6px">'
-      +   '<button style="flex:1;background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit" onclick="acceptListInvite(\'' + inv.id + '\',\'' + catEsc + '\')">Fill it out</button>'
-      +   '<button style="flex:1;background:transparent;color:#2C2C2A;border:1.5px solid #2C2C2A;border-radius:99px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit" onclick="declineListInvite(\'' + inv.id + '\');renderCircleListInvites();">Dismiss</button>'
-      + '</div>'
+    // Compact single-row layout matching the activity tile shape. Whole tile is
+    // tappable to fill out; small × in the corner dismisses.
+    return '<div style="position:relative;background:' + pal.bg + '55;border:1.5px solid #2C2C2A;border-radius:18px;padding:14px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px" onclick="acceptListInvite(\'' + inv.id + '\',\'' + catEsc + '\')">'
+      +   friendAvatarHtml(p, 40)
+      +   '<div style="flex:1;min-width:0;padding-right:16px">'
+      +     '<div style="font-size:12.5px;color:#2C2C2A;line-height:1.35"><strong>' + escapeHtml(name) + '</strong> invited you to fill out <strong>Top 10 ' + escapeHtml(inv.category) + '</strong></div>'
+      +   '</div>'
+      +   '<div style="font-size:26px;flex-shrink:0">' + renderCatEmoji(getCatEmoji(inv.category), 26) + '</div>'
+      +   '<button onclick="event.stopPropagation();declineListInvite(\'' + inv.id + '\');renderCircleListInvites();" title="Dismiss" style="position:absolute;top:6px;right:8px;background:transparent;border:none;color:#2C2C2A;opacity:0.5;font-size:16px;line-height:1;padding:4px;cursor:pointer;font-family:inherit;font-weight:700">×</button>'
       + '</div>';
   }).join('');
   var toggle = '';
