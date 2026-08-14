@@ -718,9 +718,9 @@
         <div class="content">
           <div id="circle-profile-nudges"></div>
           <div id="today-pill-host"></div>
-          <div id="circle-list-invites"></div>
+          <div id="circle-stories-row-host"></div>
+          <div id="circle-list-invites-host"></div>
           <div id="weekly-hero-card"></div>
-          <div id="circle-stories-row"></div>
           <div class="sec-label">Activity</div>
           <div id="home-feed-section"></div>
 
@@ -3089,18 +3089,21 @@ function renderHome() {
 }
 
 // ── Inline list-share invites on Circle ────────────────────────────────
-// Prominent card at the top of Circle when someone has invited you to fill
-// out a list. Friend requests and group invites already surface inline in
-// their respective sections; this is the third missing invite type.
+// Titled section with collapse-after-3 behavior. Shows the third invite type
+// (friend requests and group invites already surface elsewhere on Circle).
+var _circleInvitesExpanded = false;
 function renderCircleListInvites() {
-  var host = document.getElementById('circle-list-invites');
+  var host = document.getElementById('circle-list-invites-host');
   if (!host) return;
   var pending = (MY_LIST_SHARE_INVITES || []).filter(function(i) {
     // Only show invites for lists you haven't filled out yet
     return !MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === i.category; });
   });
   if (!pending.length) { host.innerHTML = ''; return; }
-  var html = pending.slice(0, 3).map(function(inv) {
+  var COLLAPSE_AT = 3;
+  var showAll = _circleInvitesExpanded || pending.length <= COLLAPSE_AT;
+  var visible = showAll ? pending : pending.slice(0, COLLAPSE_AT);
+  var cards = visible.map(function(inv) {
     var p = inv.profile || {};
     var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
     var catEsc = String(inv.category).replace(/'/g,"\\'");
@@ -3118,7 +3121,14 @@ function renderCircleListInvites() {
       + '</div>'
       + '</div>';
   }).join('');
-  host.innerHTML = html;
+  var toggle = '';
+  if (pending.length > COLLAPSE_AT) {
+    toggle = '<button onclick="_circleInvitesExpanded=' + (!_circleInvitesExpanded) + ';renderCircleListInvites()" '
+      + 'style="width:100%;background:transparent;border:1.5px dashed #2C2C2A;color:#2C2C2A;border-radius:99px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:6px">'
+      + (showAll ? 'Show less ↑' : 'Show ' + (pending.length - COLLAPSE_AT) + ' more ↓')
+      + '</button>';
+  }
+  host.innerHTML = '<div class="sec-label">Invites (' + pending.length + ')</div>' + cards + toggle;
 }
 
 // ── Circle topbar avatar (user's own photo, links to Profile) ──────────
@@ -3178,7 +3188,7 @@ function renderTodayPill() {
 //   🆕 new list → their most recent list
 //   (none)      → friend detail
 async function renderCircleStories() {
-  var host = document.getElementById('circle-stories-row');
+  var host = document.getElementById('circle-stories-row-host');
   if (!host) return;
   var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted' && f.profile; });
   if (!accepted.length) { host.innerHTML = ''; return; }
@@ -3236,7 +3246,9 @@ async function renderCircleStories() {
       + '<div style="font-size:10px;font-weight:600;color:#2C2C2A;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(firstName) + '</div>'
       + '</div>';
   }).join('');
-  host.innerHTML = '<div style="display:flex;gap:10px;overflow-x:auto;padding:4px 0 10px;margin:0 -14px 4px;padding-left:14px;padding-right:14px;scrollbar-width:none">' + pills + '</div>';
+  host.innerHTML = '<div class="sec-label" style="margin-top:0;margin-bottom:2px">Your circle</div>'
+    + '<div style="font-size:11px;color:#888780;margin-bottom:6px">Tap a friend — 🎂 opens their gift guide, 🆕 opens their newest list</div>'
+    + '<div style="display:flex;gap:10px;overflow-x:auto;padding:4px 0 10px;margin:0 -14px 4px;padding-left:14px;padding-right:14px;scrollbar-width:none">' + pills + '</div>';
 }
 
 async function renderHomeFeed() {
