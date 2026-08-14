@@ -1,4 +1,25 @@
 <!DOCTYPE html>
+<!--
+ ═══════════════════════════════════════════════════════════════════════════
+ TENNER APP — READ THIS BEFORE MAKING RECOMMENDATIONS OR CHANGES
+ ═══════════════════════════════════════════════════════════════════════════
+
+ THE HOME OF THIS APP IS THE **CIRCLE** TAB (screen id: s-circle).
+ It is what users see first, and it is the primary feed of the app.
+
+ The screen id `s-home` is misleadingly named — it is the **My Lists** tab
+ (the user's own lists inventory), NOT the app's landing/home surface.
+
+ Circle currently contains, in order: profile nudges, weekly hero card,
+ friend activity feed (home-feed-section), friend search + invite, friend
+ requests, friends list, group invites, groups list, and gift reminders.
+
+ When reasoning about the app's "home", "landing", "primary feed", or
+ "what users see first" — always mean Circle (s-circle).
+
+ Bottom nav order: [My Lists, Create, Circle, Match, Profile, Gifts]
+ ═══════════════════════════════════════════════════════════════════════════
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -683,6 +704,7 @@
       </div>
 
       <!-- ═══ CIRCLE ═══ -->
+      <!-- ═══ CIRCLE = APP HOME / PRIMARY FEED (NOT s-home; s-home is My Lists) ═══ -->
       <div class="screen" id="s-circle">
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
