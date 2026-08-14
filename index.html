@@ -5703,6 +5703,59 @@ async function getMutualFriends(otherId) {
   } catch(e) { return []; }
 }
 
+// Same as getMutualFriends but returns full friend objects with id/name/photo
+// so callers can render tappable avatars that navigate to each friend's profile.
+async function getMutualFriendsDetailed(otherId) {
+  if (!sbClient) return [];
+  try {
+    var res = await sbClient.rpc('mutual_friends', { other_id: otherId });
+    if (res.error || !res.data) return [];
+    var ids = res.data.map(function(r) { return r.friend_id || r; });
+    return ids.map(function(id) {
+      var mf = myFriends.find(function(x) { return x.friendId === id; });
+      var p = mf && mf.profile;
+      if (!p) return null;
+      return { id: id, name: p.display_name || p.handle || 'Friend', handle: p.handle, photo: p.photo };
+    }).filter(Boolean);
+  } catch(e) { return []; }
+}
+
+// Modal listing mutual friends between me and the currently-viewed friend.
+// Each row taps through to that friend's profile.
+function openMutualFriendsModal(theirName, mutuals) {
+  var frame = document.querySelector('.frame') || document.body;
+  var existing = document.getElementById('mutual-friends-modal');
+  if (existing) existing.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'mutual-friends-modal';
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(20,10,4,0.75);display:flex;align-items:center;justify-content:center;z-index:9998;padding:16px';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  var rows = mutuals.map(function(m) {
+    var initials = String(m.name).split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+    var avatar = m.photo
+      ? '<img src="' + m.photo + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0">'
+      : '<div style="width:36px;height:36px;border-radius:50%;background:#EAE3DC;color:#5F5E5A;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + escapeHtml(initials) + '</div>';
+    var handleLine = m.handle ? '<div style="font-size:11px;color:#888780;margin-top:1px">@' + escapeHtml(m.handle) + '</div>' : '';
+    return '<div onclick="document.getElementById(\'mutual-friends-modal\').remove();selFriendId=\'' + m.id + '\';go(\'s-fdetail\')" '
+      + 'style="display:flex;align-items:center;gap:12px;padding:10px 8px;border-radius:12px;cursor:pointer">'
+      + avatar
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(m.name) + '</div>'
+      +   handleLine
+      + '</div>'
+      + '<span style="font-size:16px;color:#B8B5A8">›</span>'
+      + '</div>';
+  }).join('');
+  overlay.innerHTML = '<div style="background:#FDFCF8;border:1.5px solid #2C2C2A;border-radius:22px;padding:18px;width:100%;max-width:340px;max-height:80vh;display:flex;flex-direction:column">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:19px;color:#2C2C2A;line-height:1.15">Mutual friend' + (mutuals.length !== 1 ? 's' : '') + ' with ' + escapeHtml(String(theirName).split(' ')[0]) + '</div>'
+    +   '<button onclick="document.getElementById(\'mutual-friends-modal\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;padding:0 4px;line-height:1;font-family:inherit">×</button>'
+    + '</div>'
+    + '<div style="flex:1;overflow-y:auto;margin:0 -4px">' + rows + '</div>'
+    + '</div>';
+  frame.appendChild(overlay);
+}
+
 function mutualSummary(names) {
   if (!names || names.length === 0) return '';
   if (names.length === 1) return 'You both know ' + names[0];
@@ -5812,7 +5865,7 @@ async function renderFriendDetail() {
   var statsBarHtml = isAccepted ? '<div id="fdetail-stats-bar" style="display:flex;justify-content:space-around;gap:8px;background:#F1EFE8;border-radius:14px;padding:12px 8px;margin-bottom:14px">'
     + '<div style="text-align:center"><div id="fdetail-stat-lists" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Lists</div></div>'
     + '<div style="text-align:center"><div id="fdetail-stat-shared" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Compared</div></div>'
-    + '<div style="text-align:center"><div id="fdetail-stat-mutual" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div id="fdetail-stat-mutual-label" style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Mutual friends</div></div>'
+    + '<div id="fdetail-stat-mutual-wrap" style="text-align:center"><div id="fdetail-stat-mutual" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div id="fdetail-stat-mutual-label" style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Mutual friends</div></div>'
     + '</div>' : '';
 
   // ── 4. MOST-ALIKE / MOST-DIFFERENT (placeholder) ────────────────────
@@ -6110,13 +6163,24 @@ async function renderFriendDetail() {
     if (listsEl2) listsEl2.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">Couldn\'t load lists.</div>';
   }
 
-  // Mutual friends count (separate call)
-  getMutualFriends(f.friendId).then(function(names) {
+  // Mutual friends count (separate call) — makes the stat cell tappable when > 0
+  getMutualFriendsDetailed(f.friendId).then(function(mutuals) {
     if (selFriendId !== f.friendId) return;
     var setStat = function(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
-    setStat('fdetail-stat-mutual', names.length);
+    setStat('fdetail-stat-mutual', mutuals.length);
     var labelEl = document.getElementById('fdetail-stat-mutual-label');
-    if (labelEl) labelEl.textContent = names.length === 1 ? 'Mutual friend' : 'Mutual friends';
+    if (labelEl) labelEl.textContent = mutuals.length === 1 ? 'Mutual friend' : 'Mutual friends';
+    var wrap = document.getElementById('fdetail-stat-mutual-wrap');
+    if (wrap) {
+      if (mutuals.length > 0) {
+        wrap.style.cursor = 'pointer';
+        wrap.title = 'See mutual friends';
+        wrap.onclick = function() { openMutualFriendsModal(name, mutuals); };
+      } else {
+        wrap.style.cursor = 'default';
+        wrap.onclick = null;
+      }
+    }
   }).catch(function(){});
 }
 
