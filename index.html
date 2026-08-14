@@ -708,13 +708,20 @@
       <div class="screen" id="s-circle">
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
-          <button class="back-btn" onclick="doRefresh(this,function(){return loadFriends().then(renderCircleScreen);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button onclick="doRefresh(this,function(){return loadFriends().then(renderCircleScreen);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+            <div id="circle-topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
+          </div>
         </div>
         <div class="content">
           <div id="circle-profile-nudges"></div>
+          <div id="today-pill-host"></div>
           <div id="weekly-hero-card"></div>
+          <div id="circle-stories-row"></div>
+          <div class="sec-label">Activity</div>
           <div id="home-feed-section"></div>
-          <div class="sec-label">Friends</div>
+
+          <div class="sec-label" style="margin-top:16px">Friends</div>
           <div style="display:flex;gap:6px;margin-bottom:6px">
             <input type="text" id="circle-friend-search" placeholder="Find friends by @handle or phone number" style="margin-bottom:0;flex:1;font-size:12px;padding:7px 10px">
             <button class="btn-primary" onclick="circleSearchFriend()" style="width:auto;padding:7px 14px;margin-bottom:0;font-size:12px;white-space:nowrap">Search</button>
@@ -730,12 +737,6 @@
             <button class="btn-primary" onclick="go('s-cg1')" style="width:auto;padding:7px 14px;margin-bottom:0;font-size:12px;white-space:nowrap">+ New group</button>
           </div>
           <div id="circle-groups-list"></div>
-
-          <div class="sec-label" style="margin-top:4px">Gift Reminders</div>
-          <div id="gift-reminders-section">
-            <div style="font-size:11px;color:#888780;padding:8px 0">Add friends with birthdays to see gift reminders.</div>
-          </div>
-
         </div>
       </div>
 
@@ -803,8 +804,9 @@
       <!-- ═══ PROFILE ═══ -->
       <div class="screen" id="s-profile">
         <div class="topbar">
-          <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
-          <span style="font-size:13.5px;color:#5F5E5A">Profile</span>
+          <button class="back-btn" onclick="go('s-circle')">← Back</button>
+          <span style="font-size:13px;font-weight:600;color:#2C2C2A">Profile</span>
+          <span style="width:52px"></span>
         </div>
         <div class="content">
           <div style="text-align:center;padding:16px 0 18px">
@@ -992,7 +994,6 @@
         <div class="ni" id="nav-create" onclick="go('s-create1')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Create</div>
         <div class="ni" id="nav-circle" style="position:relative" onclick="go('s-circle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg><span id="circle-badge" style="display:none;position:absolute;top:2px;right:8px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center"></span>Circle</div>
         <div class="ni" id="nav-match" onclick="matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
-        <div class="ni" id="nav-profile" onclick="go('s-profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</div>
         <div class="ni" id="nav-gifts" onclick="go('s-gifts')" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>Gifts<span id="gifts-badge" style="display:none;position:absolute;top:2px;right:14px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center"></span></div>
       </div>
 
@@ -1283,7 +1284,7 @@ function go(id) {
   var bnav = document.getElementById('global-bnav');
   if (bnav) {
     bnav.style.display = (id === 's-auth') ? 'none' : 'flex';
-    ['nav-home','nav-create','nav-circle','nav-match','nav-profile','nav-gifts'].forEach(function(nid) {
+    ['nav-home','nav-create','nav-circle','nav-match','nav-gifts'].forEach(function(nid) {
       document.getElementById(nid) && document.getElementById(nid).classList.remove('active');
     });
     var activeNav = {
@@ -1295,7 +1296,7 @@ function go(id) {
       's-gifts': 'nav-gifts', 's-gift-guide': 'nav-gifts',
       's-all-tenner': 'nav-circle',
       's-circle': 'nav-circle', 's-fdetail': 'nav-circle', 's-friend-list': 'nav-circle', 's-gift-ideas': 'nav-circle',
-      's-profile': 'nav-profile',
+      // s-profile intentionally has no bnav mapping — reached via Circle topbar avatar
       's-notifications': 'nav-home'
     }[id];
     if (activeNav) document.getElementById(activeNav) && document.getElementById(activeNav).classList.add('active');
@@ -1337,7 +1338,7 @@ function go(id) {
     if (mbb) mbb.style.display = matchOrigin ? 'block' : 'none';
     renderMatch();
   }
-  if (id === 's-circle') { renderCircleScreen(); renderGiftReminders(); renderHomeFeed(); renderWeeklyHeroCard(); renderProfileNudges(); }
+  if (id === 's-circle') { renderCircleTopbarAvatar(); renderTodayPill(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderWeeklyHeroCard(); renderProfileNudges(); }
   if (id === 's-notifications') { loadListShareInvites().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
   if (id === 's-admin') { renderAdmin(); }
@@ -3068,15 +3069,123 @@ function renderHome() {
   renderLists();
 }
 
+// ── Circle topbar avatar (user's own photo, links to Profile) ──────────
+function renderCircleTopbarAvatar() {
+  var host = document.getElementById('circle-topbar-avatar');
+  if (!host) return;
+  var p = myProfile || {};
+  var name = p.display_name || p.handle || '?';
+  var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
+  if (p.photo) {
+    host.innerHTML = '<div style="width:34px;height:34px;border-radius:50%;overflow:hidden;border:1.5px solid #2C2C2A"><img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover"></div>';
+  } else {
+    host.innerHTML = '<div style="width:34px;height:34px;border-radius:50%;background:#EAE3DC;color:#5F5E5A;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #2C2C2A">' + initials + '</div>';
+  }
+}
+
+// ── "Today on Tenner" pill (dynamic status line at top of Circle) ──────
+function renderTodayPill() {
+  var host = document.getElementById('today-pill-host');
+  if (!host) return;
+  var msg = null, cta = null;
+  var wk = (typeof getCurrentWeeklyList === 'function') ? getCurrentWeeklyList() : null;
+  if (wk) {
+    var reveal = new Date(wk.reveal_at);
+    var msLeft = reveal.getTime() - Date.now();
+    var hoursLeft = msLeft / (1000*60*60);
+    if (hoursLeft > 0 && hoursLeft <= 24) {
+      msg = '🎊 Weekly reveal in ' + Math.max(1, Math.round(hoursLeft)) + 'h';
+    } else if (hoursLeft > -48 && hoursLeft <= 0) {
+      msg = '🎊 This week\'s Tenner reveal is live';
+    }
+  }
+  if (!msg) {
+    var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted'; });
+    var upcomingBday = null;
+    accepted.forEach(function(f) {
+      var d = f.profile && daysUntilBirthday(f.profile.birthday);
+      if (d !== null && d !== undefined && d >= 0 && d <= 30) {
+        if (!upcomingBday || d < upcomingBday.d) upcomingBday = { d: d, name: f.profile.display_name || f.profile.handle || 'A friend' };
+      }
+    });
+    if (upcomingBday) {
+      var dayStr = upcomingBday.d === 0 ? "today" : upcomingBday.d === 1 ? "tomorrow" : "in " + upcomingBday.d + " days";
+      msg = '🎂 ' + upcomingBday.name + '\'s birthday ' + dayStr;
+    }
+  }
+  if (!msg) {
+    var hi = (myProfile && myProfile.display_name) ? myProfile.display_name.split(' ')[0] : 'there';
+    msg = '👋 Welcome back, ' + hi;
+  }
+  host.innerHTML = '<div style="background:#2C2C2A;color:#FFFFFF;font-size:11px;font-weight:600;padding:8px 14px;border-radius:99px;margin-bottom:14px;text-align:center;letter-spacing:0.02em">' + escapeHtml(msg) + '</div>';
+}
+
+// ── Stories row (horizontal scroll of friend avatars with activity badges) ──
+async function renderCircleStories() {
+  var host = document.getElementById('circle-stories-row');
+  if (!host) return;
+  var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted' && f.profile; });
+  if (!accepted.length) { host.innerHTML = ''; return; }
+  // Fetch recent list updates for badge computation
+  var recentByUser = {};
+  try {
+    var friendIds = accepted.map(function(f){ return f.friendId; });
+    var lr = await sbClient.from('lists')
+      .select('user_id, updated_at, is_public')
+      .in('user_id', friendIds)
+      .order('updated_at', { ascending: false })
+      .limit(60);
+    (lr.data || []).forEach(function(l) {
+      if (!l.is_public) return;
+      var days = (Date.now() - new Date(l.updated_at).getTime()) / (1000*60*60*24);
+      if (days > 3) return;
+      if (!recentByUser[l.user_id]) recentByUser[l.user_id] = true;
+    });
+  } catch(e) {}
+  // Score each friend for sort order
+  function scoreFriend(f) {
+    var d = f.profile && daysUntilBirthday(f.profile.birthday);
+    if (d !== null && d !== undefined && d >= 0 && d <= 30) return { s: 100 - d, badge: '🎂', ring: '#D85A30' };
+    if (recentByUser[f.friendId]) return { s: 50, badge: '🆕', ring: '#2F9E8F' };
+    return { s: 0, badge: null, ring: null };
+  }
+  var scored = accepted.map(function(f){ return { f: f, meta: scoreFriend(f) }; })
+    .sort(function(a,b){ return b.meta.s - a.meta.s; })
+    .slice(0, 20);
+  var pills = scored.map(function(x) {
+    var f = x.f, m = x.meta;
+    var p = f.profile;
+    var name = p.display_name || p.handle || 'Friend';
+    var firstName = name.split(' ')[0];
+    var ringStyle = m.ring
+      ? 'padding:3px;background:linear-gradient(135deg,' + m.ring + ',' + m.ring + '88);border-radius:999px'
+      : 'padding:1.5px;background:#2C2C2A;border-radius:999px';
+    var avatar = '<div style="width:56px;height:56px;border-radius:999px;overflow:hidden;background:#FFFFFF;display:flex;align-items:center;justify-content:center">'
+      + (p.photo
+          ? '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover">'
+          : '<div style="width:100%;height:100%;background:#EAE3DC;color:#5F5E5A;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center">' + name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) + '</div>'
+        )
+      + '</div>';
+    var badge = m.badge
+      ? '<div style="position:absolute;bottom:-2px;right:-2px;background:#FFFFFF;border:1.5px solid #2C2C2A;border-radius:999px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px">' + m.badge + '</div>'
+      : '';
+    return '<div onclick="selFriendId=\'' + f.friendId + '\';go(\'s-fdetail\')" style="flex-shrink:0;width:74px;cursor:pointer;text-align:center">'
+      + '<div style="position:relative;display:inline-block">' + '<div style="' + ringStyle + '">' + avatar + '</div>' + badge + '</div>'
+      + '<div style="font-size:10px;font-weight:600;color:#2C2C2A;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(firstName) + '</div>'
+      + '</div>';
+  }).join('');
+  host.innerHTML = '<div style="display:flex;gap:10px;overflow-x:auto;padding:4px 0 10px;margin:0 -14px 4px;padding-left:14px;padding-right:14px;scrollbar-width:none">' + pills + '</div>';
+}
+
 async function renderHomeFeed() {
   var el = document.getElementById('home-feed-section');
   if (!el) return;
   var acceptedFriends = (myFriends || []).filter(function(f){ return f.status === 'accepted'; });
   if (!acceptedFriends.length) {
-    el.innerHTML = '';
+    el.innerHTML = '<div class="card no-hover" style="text-align:center;padding:20px;color:#5F5E5A;font-size:12px">Add friends to see their activity here.</div>';
     return;
   }
-  el.innerHTML = '<div class="sec-label">What\'s new</div><div id="home-feed-list" style="margin-bottom:12px"><div style="font-size:11px;color:#888780;padding:6px 0">Loading…</div></div>';
+  el.innerHTML = '<div style="font-size:11px;color:#888780;padding:6px 0">Loading…</div>';
   var friendIds = acceptedFriends.map(function(f){ return f.friendId; }).filter(Boolean);
   var items = [];
   try {
@@ -3084,38 +3193,35 @@ async function renderHomeFeed() {
       .select('user_id, name, category, emoji, updated_at, is_public')
       .in('user_id', friendIds)
       .order('updated_at', { ascending: false })
-      .limit(15);
+      .limit(20);
     (listRes.data || []).forEach(function(l) {
       if (!l.is_public) return;
       items.push({ type: 'list', at: l.updated_at, user_id: l.user_id, category: l.category, emoji: l.emoji });
     });
   } catch(e) {}
-  // Sort newest first, cap to 5
   items.sort(function(a,b){ return (b.at||'').localeCompare(a.at||''); });
-  items = items.slice(0, 5);
+  items = items.slice(0, 8);
   var profilesById = {};
   acceptedFriends.forEach(function(f) { if (f.profile) profilesById[f.friendId] = f.profile; });
-  var listEl = document.getElementById('home-feed-list');
-  if (!listEl) return;
   if (!items.length) {
-    listEl.innerHTML = '<div class="card no-hover" style="text-align:center;padding:16px;color:#5F5E5A;font-size:12px">No new activity from your circle yet. Check back later.</div>';
+    el.innerHTML = '<div class="card no-hover" style="text-align:center;padding:20px;color:#5F5E5A;font-size:12px">No new activity from your circle yet. Check back later.</div>';
     return;
   }
-  listEl.innerHTML = items.map(function(it) {
+  el.innerHTML = items.map(function(it) {
     var p = profilesById[it.user_id] || {};
     var name = p.display_name || (p.handle ? '@'+p.handle : 'A friend');
     var when = timeAgo(it.at);
-    var line = '<strong>' + escapeHtml(name) + '</strong> updated their <strong>Top 10 ' + escapeHtml(it.category || '') + '</strong>';
-    return '<div class="card" onclick="openFriendListByCat(\'' + it.user_id + '\',\'' + (it.category||'').replace(/\'/g,"\\'") + '\')" style="margin-bottom:6px">'
-      + '<div style="display:flex;align-items:center;gap:10px">'
-      +   friendAvatarHtml(p, 32)
+    var pal = getCategoryColor(it.category);
+    var safeCat = (it.category||'').replace(/\'/g,"\\'");
+    return '<div onclick="openFriendListByCat(\'' + it.user_id + '\',\'' + safeCat + '\')" '
+      + 'style="background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:14px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px">'
+      +   friendAvatarHtml(p, 44)
       +   '<div style="flex:1;min-width:0">'
-      +     '<div style="font-size:12px;color:#2C2C2A;line-height:1.35">' + line + '</div>'
-      +     '<div style="font-size:10px;color:#888780;margin-top:2px">' + when + '</div>'
+      +     '<div style="font-size:13px;color:#2C2C2A;line-height:1.35"><strong>' + escapeHtml(name) + '</strong> updated their <strong>Top 10 ' + escapeHtml(it.category || '') + '</strong></div>'
+      +     '<div style="font-size:11px;color:#2C2C2A;opacity:0.7;margin-top:3px;font-weight:600">' + when + '</div>'
       +   '</div>'
-      +   '<div style="width:28px;text-align:center">' + renderCatEmoji(it.emoji || getCatEmoji(it.category), 20) + '</div>'
-      +   '<span style="font-size:16px;color:#D85A30">›</span>'
-      + '</div></div>';
+      +   '<div style="font-size:28px;flex-shrink:0">' + renderCatEmoji(it.emoji || getCatEmoji(it.category), 28) + '</div>'
+      + '</div>';
   }).join('');
 }
 
