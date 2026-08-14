@@ -4062,6 +4062,29 @@ var matchOrigin = null; // screen to return to from match via back button
 
 function openMatch(origin) { matchOrigin = origin || null; go('s-match'); }
 function openMatchWithFriend(friendId, origin) { matchFriendCtx = friendId; matchGroupCtx = -1; matchOrigin = origin || null; go('s-match'); }
+
+// Nudge a friend to fill out a specific category — uses Web Share API where available,
+// falls back to copying a pre-composed message to clipboard.
+async function nudgeFriend(friendName, category) {
+  var firstName = String(friendName).split(' ')[0];
+  var msg = 'Hey ' + firstName + '! Fill out your Top 10 ' + category + ' on Tenner so we can compare → https://mytenner.com';
+  var title = 'Tenner: fill out Top 10 ' + category;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: title, text: msg, url: 'https://mytenner.com' });
+      showToast('Nudge sent!');
+      return;
+    }
+  } catch(e) { /* user cancelled — silent */ if (e && e.name === 'AbortError') return; }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(msg);
+      showToast('Message copied — paste it in any chat');
+      return;
+    }
+  } catch(e) {}
+  showToast('Copy this: ' + msg, 6000);
+}
 var currentAuthTab = 'login';
 
 var DEFAULT_GROUPS = [
@@ -5572,7 +5595,7 @@ async function renderFriendDetail() {
   var statsBarHtml = isAccepted ? '<div id="fdetail-stats-bar" style="display:flex;justify-content:space-around;gap:8px;background:#F1EFE8;border-radius:14px;padding:12px 8px;margin-bottom:14px">'
     + '<div style="text-align:center"><div id="fdetail-stat-lists" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Lists</div></div>'
     + '<div style="text-align:center"><div id="fdetail-stat-shared" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Compared</div></div>'
-    + '<div style="text-align:center"><div id="fdetail-stat-mutual" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Mutual</div></div>'
+    + '<div style="text-align:center"><div id="fdetail-stat-mutual" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Mutual friends</div></div>'
     + '</div>' : '';
 
   // ── 4. MOST-ALIKE / MOST-DIFFERENT (placeholder) ────────────────────
@@ -5670,13 +5693,14 @@ async function renderFriendDetail() {
       var bestCat = perCat.slice().sort(function(a,b){ return b.score - a.score; })[0];
       var mcHost = document.getElementById('fdetail-match-card');
       if (mcHost) {
-        var mcPal = getCategoryColor(bestCat.cat);
-        mcHost.innerHTML = '<div onclick="openMatchWithFriend(\'' + fid + '\',\'s-fdetail\')" style="cursor:pointer;background:' + mcPal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:18px 16px;display:flex;align-items:center;gap:14px">'
+        // Overall match card uses a neutral cream fill so it doesn't fight the tiles below
+        var listWord = mutualCats.length === 1 ? 'list' : 'lists';
+        mcHost.innerHTML = '<div onclick="openMatchWithFriend(\'' + fid + '\',\'s-fdetail\')" style="cursor:pointer;background:#F1EFE8;border:1.5px solid #2C2C2A;border-radius:18px;padding:18px 16px;display:flex;align-items:center;gap:14px">'
           + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:44px;color:#2C2C2A;line-height:1">' + avgScore + '<span style="font-size:22px">%</span></div>'
           + '<div style="flex:1;min-width:0">'
-          +   '<div style="font-size:10px;font-weight:700;color:#2C2C2A;opacity:0.7;letter-spacing:0.05em;text-transform:uppercase">Your match</div>'
-          +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;color:#2C2C2A;line-height:1.15;margin-top:2px">Most alike on ' + escapeHtml(bestCat.cat) + '</div>'
-          +   '<div style="font-size:11px;color:#2C2C2A;opacity:0.7;font-weight:600;margin-top:2px">' + bestCat.shared + ' shared pick' + (bestCat.shared !== 1 ? 's' : '') + '</div>'
+          +   '<div style="font-size:10px;font-weight:700;color:#2C2C2A;opacity:0.7;letter-spacing:0.05em;text-transform:uppercase">Overall match</div>'
+          +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;color:#2C2C2A;line-height:1.15;margin-top:2px">Across ' + mutualCats.length + ' shared ' + listWord + '</div>'
+          +   '<div style="font-size:11px;color:#2C2C2A;opacity:0.7;font-weight:600;margin-top:2px">Tap to see the full comparison</div>'
           + '</div>'
           + '<span style="font-size:20px;color:#2C2C2A">›</span>'
           + '</div>';
@@ -5694,17 +5718,19 @@ async function renderFriendDetail() {
           adEl.style.display = 'grid';
           adEl.style.gridTemplateColumns = '1fr 1fr';
           adEl.style.gap = '10px';
-          adEl.innerHTML = '<div style="background:' + mostPal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:16px;padding:14px">'
+          var mostPicks = most.shared === 1 ? 'pick' : 'picks';
+          var leastPicks = least.shared === 1 ? 'pick' : 'picks';
+          adEl.innerHTML = '<div onclick="openMatchWithFriend(\'' + fid + '\',\'s-fdetail\')" style="cursor:pointer;background:' + mostPal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:16px;padding:14px">'
             + '<div style="font-size:9px;font-weight:700;color:#2C2C2A;opacity:0.7;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px">Most alike</div>'
             + '<div style="font-size:26px;line-height:1;margin-bottom:6px">' + renderCatEmoji(most.emoji, 26) + '</div>'
             + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:15px;color:#2C2C2A;line-height:1.15">' + escapeHtml(most.cat) + '</div>'
-            + '<div style="font-size:10px;color:#2C2C2A;opacity:0.75;font-weight:600;margin-top:3px">' + most.shared + ' shared</div>'
+            + '<div style="font-size:10px;color:#2C2C2A;opacity:0.75;font-weight:600;margin-top:3px">' + most.shared + ' shared ' + mostPicks + '</div>'
             + '</div>'
-            + '<div style="background:' + leastPal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:16px;padding:14px">'
+            + '<div onclick="openMatchWithFriend(\'' + fid + '\',\'s-fdetail\')" style="cursor:pointer;background:' + leastPal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:16px;padding:14px">'
             + '<div style="font-size:9px;font-weight:700;color:#2C2C2A;opacity:0.7;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px">Most different</div>'
             + '<div style="font-size:26px;line-height:1;margin-bottom:6px">' + renderCatEmoji(least.emoji, 26) + '</div>'
             + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:15px;color:#2C2C2A;line-height:1.15">' + escapeHtml(least.cat) + '</div>'
-            + '<div style="font-size:10px;color:#2C2C2A;opacity:0.75;font-weight:600;margin-top:3px">' + least.shared + ' shared</div>'
+            + '<div style="font-size:10px;color:#2C2C2A;opacity:0.75;font-weight:600;margin-top:3px">' + least.shared + ' shared ' + leastPicks + '</div>'
             + '</div>';
         }
       }
@@ -5715,7 +5741,9 @@ async function renderFriendDetail() {
       }
     }
 
-    // ── 8. NUDGE — lists I have that they don't ──
+    // ── 8. NUDGE — categories I've shared publicly that they haven't filled out ──
+    // Only surface categories where MY list is public (visible to them) so the nudge
+    // makes sense: "you can already see mine — fill yours out to compare"
     if (isAccepted) {
       var theirCatSet = {};
       theirLists.forEach(function(l) {
@@ -5723,22 +5751,30 @@ async function renderFriendDetail() {
         theirCatSet[c] = true;
       });
       var iHaveTheyDont = MY_LISTS.filter(function(l) {
+        if (!l.is_public) return false; // only public lists — they can already see it
         var c = l.category || l.n.replace('Top 10 ', '');
         return !theirCatSet[c];
       });
       if (iHaveTheyDont.length > 0) {
-        var pick = iHaveTheyDont[0];
-        var pickCat = pick.category || pick.n.replace('Top 10 ', '');
-        var pickPal = getCategoryColor(pickCat);
         var nEl = document.getElementById('fdetail-nudge');
         if (nEl) {
           nEl.style.display = 'block';
-          nEl.innerHTML = '<div style="background:' + pickPal.bg + '55;border:1.5px dashed #2C2C2A;border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px">'
-            + '<div style="font-size:26px;line-height:1">' + renderCatEmoji(pick.emoji || getCatEmoji(pickCat), 26) + '</div>'
-            + '<div style="flex:1;min-width:0">'
-            +   '<div style="font-size:12px;font-weight:700;color:#2C2C2A">You have <strong>Top 10 ' + escapeHtml(pickCat) + '</strong> · they don\'t</div>'
-            +   '<div style="font-size:10px;color:#5F5E5A;margin-top:2px">Nudge them to fill it out so you can compare</div>'
-            + '</div>'
+          var chips = iHaveTheyDont.slice(0, 6).map(function(l) {
+            var pickCat = l.category || l.n.replace('Top 10 ', '');
+            var pickPal = getCategoryColor(pickCat);
+            var pickEmoji = l.emoji || getCatEmoji(pickCat);
+            var safeCat = pickCat.replace(/'/g,"\\'");
+            var safeName = name.replace(/'/g,"\\'");
+            return '<button type="button" onclick="nudgeFriend(\'' + safeName + '\',\'' + safeCat + '\')" '
+              + 'style="background:' + pickPal.bg + 'AA;border:1.5px solid #2C2C2A;color:#2C2C2A;font-family:inherit;font-size:11.5px;font-weight:700;padding:6px 11px;border-radius:99px;cursor:pointer;display:inline-flex;align-items:center;gap:5px">'
+              + '<span style="font-size:14px">' + renderCatEmoji(pickEmoji, 14) + '</span>'
+              + escapeHtml(pickCat)
+              + '</button>';
+          }).join(' ');
+          nEl.innerHTML = '<div style="background:#F1EFE8;border:1.5px dashed #2C2C2A;border-radius:14px;padding:14px">'
+            + '<div style="font-size:12px;font-weight:700;color:#2C2C2A;margin-bottom:4px">📤 Nudge ' + escapeHtml(name.split(' ')[0]) + ' to fill one out</div>'
+            + '<div style="font-size:10.5px;color:#5F5E5A;margin-bottom:10px">These are your public lists that they haven\'t filled out yet. Tap one to share.</div>'
+            + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + chips + '</div>'
             + '</div>';
         }
       }
