@@ -3872,23 +3872,38 @@ function getListInviteUrl() {
   return base;
 }
 
+// Share helpers: append the user's Tenner @handle so recipients can find them.
+// - myHandleShareLine(): includes the URL (for flows that don't already have one)
+// - myHandleLine(): handle only (for flows whose message already includes a URL)
+function myHandleShareLine() {
+  var h = (myProfile && myProfile.handle) ? myProfile.handle : '';
+  return h ? ('\n\nNot on Tenner yet? Add me @' + h + ' → https://mytenner.com') : '\n\nMake yours → https://mytenner.com';
+}
+function myHandleLine() {
+  var h = (myProfile && myProfile.handle) ? myProfile.handle : '';
+  return h ? ('\n\nNot on Tenner yet? Add me @' + h) : '';
+}
+
 function copyListInviteLink() {
   var url = getListInviteUrl();
+  var handle = (myProfile && myProfile.handle) ? '@' + myProfile.handle : '';
+  var textToCopy = url + (handle ? '\n\nAdd me on Tenner: ' + handle : '');
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(url).then(function() {
-      showConfirm('Link copied!', 'Share this with friends:\n' + url, 'Done', 'primary', function(){});
+    navigator.clipboard.writeText(textToCopy).then(function() {
+      showConfirm('Link copied!', 'Share this with friends:\n\n' + textToCopy, 'Done', 'primary', function(){});
     }).catch(function() {
-      showConfirm('Invite link', url, 'Done', 'primary', function(){});
+      showConfirm('Invite link', textToCopy, 'Done', 'primary', function(){});
     });
   } else {
-    showConfirm('Invite link', url, 'Done', 'primary', function(){});
+    showConfirm('Invite link', textToCopy, 'Done', 'primary', function(){});
   }
 }
 
 function openListInviteModal() {
   var url = getListInviteUrl();
   var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
-  var defaultMsg = senderName + ' shared their Top 10 ' + selCat + ' list on Tenner!\n\nFill out yours and see how you compare:\n' + url;
+  var handleTag = (myProfile && myProfile.handle) ? ' (@' + myProfile.handle + ')' : '';
+  var defaultMsg = senderName + handleTag + ' shared their Top 10 ' + selCat + ' list on Tenner!\n\nFill out yours and see how you compare:\n' + url + myHandleLine();
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
   var emailEl = document.getElementById('invite-email');
@@ -3902,7 +3917,8 @@ function openInviteModalForGroup() {
   var g = MY_GROUPS[selGroupIdx];
   var groupName = g ? g.n : '';
   var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
-  var defaultMsg = senderName + ' is inviting you to join "' + groupName + '" on Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nJoin here: https://mytenner.com/';
+  var handleTag = (myProfile && myProfile.handle) ? ' (@' + myProfile.handle + ')' : '';
+  var defaultMsg = senderName + handleTag + ' is inviting you to join "' + groupName + '" on Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nJoin here: https://mytenner.com/' + myHandleLine();
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
   var emailEl = document.getElementById('invite-email');
@@ -3920,7 +3936,8 @@ function openInviteModal() {
   var join = groupName
     ? '\n\nWant to join my group "' + groupName + '"?'
     : '\n\nWant to join?';
-  var defaultMsg = body + join + '\n\nSign up here: https://mytenner.com/\n\n— ' + senderName;
+  var handleTagLine = (myProfile && myProfile.handle) ? ' (@' + myProfile.handle + ' on Tenner)' : '';
+  var defaultMsg = body + join + '\n\nSign up here: https://mytenner.com/\n\n— ' + senderName + handleTagLine;
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
   var emailEl = document.getElementById('invite-email');
@@ -4122,7 +4139,8 @@ function openMatchWithFriend(friendId, origin) { matchFriendCtx = friendId; matc
 // falls back to copying a pre-composed message to clipboard.
 async function nudgeFriend(friendName, category) {
   var firstName = String(friendName).split(' ')[0];
-  var msg = 'Hey ' + firstName + '! Fill out your Top 10 ' + category + ' on Tenner so we can compare → https://mytenner.com';
+  var handleTag = (myProfile && myProfile.handle) ? ' (find me @' + myProfile.handle + ')' : '';
+  var msg = 'Hey ' + firstName + '! Fill out your Top 10 ' + category + ' on Tenner so we can compare' + handleTag + ' → https://mytenner.com';
   var title = 'Tenner: fill out Top 10 ' + category;
   try {
     if (navigator.share) {
