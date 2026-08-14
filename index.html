@@ -6349,9 +6349,16 @@ async function renderFriendDetail() {
         cEl.style.display = 'block';
         cEl.innerHTML = '<div class="sec-label">They said</div>'
           + comments.map(function(c) {
-              return '<div class="card no-hover" style="margin-bottom:6px">'
-                + '<div style="font-size:10px;color:#888780;font-weight:600;margin-bottom:3px">on your ' + escapeHtml(c.category) + ' pick <strong style="color:#2C2C2A">' + escapeHtml(c.item_name) + '</strong> · ' + timeAgo(c.created_at) + '</div>'
-                + '<div style="font-size:12.5px;color:#2C2C2A;font-style:italic">"' + escapeHtml(c.comment) + '"</div>'
+              var catEsc = String(c.category).replace(/'/g, "\\'");
+              var itemEsc = String(c.item_name).replace(/'/g, "\\'");
+              return '<div class="card" style="margin-bottom:6px;cursor:pointer" onclick="openItemCommentsFromNotif(\'' + catEsc + '\',\'' + itemEsc + '\')">'
+                + '<div style="display:flex;align-items:center;gap:8px">'
+                +   '<div style="flex:1;min-width:0">'
+                +     '<div style="font-size:10px;color:#888780;font-weight:600;margin-bottom:3px">on your ' + escapeHtml(c.category) + ' pick <strong style="color:#2C2C2A">' + escapeHtml(c.item_name) + '</strong> · ' + timeAgo(c.created_at) + '</div>'
+                +     '<div style="font-size:12.5px;color:#2C2C2A;font-style:italic">"' + escapeHtml(c.comment) + '"</div>'
+                +   '</div>'
+                +   '<span style="font-size:16px;color:#D3D1C7;flex-shrink:0">›</span>'
+                + '</div>'
                 + '</div>';
             }).join('');
       } catch(e) {}
