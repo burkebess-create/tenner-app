@@ -1594,12 +1594,10 @@ function renderCatGrid() {
     var selected = selCat === cat.n;
     var div = document.createElement('div');
     div.className = 'cat-card' + (selected ? ' selected' : '');
-    // Bento-shaped: soft tint + colored top stripe, dark border on selected
-    div.style.cssText = 'background:' + pal.bg + '38;border-top:4px solid ' + pal.bg + ';border-radius:14px;padding:12px 8px 10px;cursor:pointer;text-align:center;touch-action:manipulation;'
-      + 'outline:' + (selected ? '2px solid #1A0F0A' : '2px solid transparent') + ';outline-offset:-2px;'
-      + 'box-shadow:' + (selected ? '0 4px 12px rgba(0,0,0,0.10)' : '0 1px 3px rgba(0,0,0,0.04)') + ';'
-      + 'transform:' + (selected ? 'scale(1.02)' : 'scale(1)') + ';transition:transform 0.15s ease';
-    div.innerHTML = '<div style="width:36px;height:36px;border-radius:10px;background:' + pal.bg + '66;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:22px">' + renderCatEmoji(cat.e, 22) + '</div>'
+    // Single medium-tone fill, black border, no emoji chip. Selected = thicker border + subtle scale
+    div.style.cssText = 'background:' + pal.bg + 'AA;border:' + (selected ? '2.5px solid #1A0F0A' : '1.5px solid #1A0F0A') + ';border-radius:14px;padding:12px 8px 10px;cursor:pointer;text-align:center;touch-action:manipulation;'
+      + 'transform:' + (selected ? 'scale(1.03)' : 'scale(1)') + ';transition:transform 0.15s ease';
+    div.innerHTML = '<div style="font-size:28px;line-height:1;margin-bottom:6px">' + renderCatEmoji(cat.e, 28) + '</div>'
       + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:13px;letter-spacing:-0.01em;line-height:1.1;color:#1A0F0A">' + escapeHtml(cat.n) + '</div>';
     div.onclick = function() { selCat = cat.n; selCatEmoji = cat.e; renderCatGrid(); document.getElementById('cat-inp').value = ''; document.getElementById('cat-warn').style.display = 'none'; document.getElementById('cat-sugs').style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; };
     grid.appendChild(div);
@@ -2660,11 +2658,11 @@ function renderLists() {
   ordered.forEach(function(l, i) {
     var pal = getCategoryColor(l.category || l.n.replace('Top 10 ',''));
     var card = document.createElement('div');
-    // Bento-shaped tile matching the gift guide: soft tint, colored top stripe, emoji chip, DM Serif name
-    card.style.cssText = 'background:' + pal.bg + '38;border-top:4px solid ' + pal.bg + ';border-radius:18px;padding:16px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.04)';
-    card.innerHTML = '<div style="width:44px;height:44px;border-radius:12px;background:' + pal.bg + '66;display:flex;align-items:center;justify-content:center;margin-bottom:10px;font-size:26px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 26) + '</div>'
+    // Single medium-tone fill, black border, no emoji chip
+    card.style.cssText = 'background:' + pal.bg + 'AA;border:1.5px solid #1A0F0A;border-radius:18px;padding:16px;cursor:pointer';
+    card.innerHTML = '<div style="font-size:36px;line-height:1;margin-bottom:10px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 36) + '</div>'
       + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;letter-spacing:-0.01em;line-height:1.1;color:#1A0F0A;margin-bottom:4px">' + escapeHtml(l.n) + '</div>'
-      + '<div style="font-size:11px;color:#5F5E5A;font-weight:600">' + escapeHtml(l.m) + '</div>';
+      + '<div style="font-size:11px;color:#1A0F0A;opacity:0.7;font-weight:600">' + escapeHtml(l.m) + '</div>';
     card.onclick = (function(list) { return function() { showListDetail(list); }; })(l);
     grid.appendChild(card);
   });
@@ -8037,8 +8035,7 @@ async function renderGifts() {
       : getCategoryColor(name);
     var isUrgent = entry.daysUntil <= 14;
     var previewChips = visibleLists.slice(0, 3).map(function(l) {
-      var chipPal = getCategoryColor(l.category);
-      return '<span style="display:inline-block;background:' + chipPal.bg + '55;color:' + chipPal.accent + ';font-size:10px;font-weight:600;padding:3px 9px;border-radius:99px;margin-right:5px;margin-top:5px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 11) + ' ' + escapeHtml(l.category) + '</span>';
+      return '<span style="display:inline-block;background:#FFFFFF;color:#1A0F0A;font-size:10px;font-weight:600;padding:3px 9px;border-radius:99px;border:1px solid #1A0F0A;margin-right:5px;margin-top:5px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 11) + ' ' + escapeHtml(l.category) + '</span>';
     }).join('');
     var ctaAction, ctaLabel;
     if (visibleLists.length === 0) {
@@ -8048,9 +8045,9 @@ async function renderGifts() {
       ctaLabel = 'See gifts →';
       ctaAction = 'onclick="openGiftGuide(\'' + p.id + '\')"';
     }
-    var badgeBg = isUrgent ? '#1A0F0A' : pal.bg + '40';
-    var badgeFg = isUrgent ? '#FFFFFF' : pal.accent;
-    return '<div style="background:' + pal.bg + '38;border-top:4px solid ' + pal.bg + ';border-radius:18px;padding:16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.04);position:relative;overflow:hidden">'
+    var badgeBg = isUrgent ? '#1A0F0A' : '#FFFFFF';
+    var badgeFg = isUrgent ? '#FFFFFF' : '#1A0F0A';
+    return '<div style="background:' + pal.bg + 'AA;border:1.5px solid #1A0F0A;border-radius:18px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden">'
       + '<div style="display:inline-block;background:' + badgeBg + ';color:' + badgeFg + ';font-size:10px;font-weight:700;padding:5px 11px;border-radius:99px;letter-spacing:0.05em;margin-bottom:10px">' + daysLabel + ' · ' + dateLabel + '</div>'
       + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
       +   avatar
@@ -8157,11 +8154,11 @@ function renderGiftTileHtml(l, i) {
   var span = isOpen ? 'grid-column: 1 / -1;' : '';
   var safeCat = String(l.category).replace(/'/g,"\\'");
   var subtitle = 'Top ' + count + ' pick' + (count === 1 ? '' : 's') + ' · ' + (isOpen ? 'tap to close ↑' : 'tap to shop ↓');
-  // Soft tinted card + colored top stripe as the identifier (bento-shaped)
-  var html = '<div data-gift-tile-idx="' + i + '" style="' + span + 'background:' + pal.bg + '38;border-top:4px solid ' + pal.bg + ';border-radius:18px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);position:relative;overflow:hidden;cursor:pointer" onclick="toggleGiftTile(\'' + safeCat + '\')">'
-    +   '<div style="width:44px;height:44px;border-radius:12px;background:' + pal.bg + '66;display:flex;align-items:center;justify-content:center;margin-bottom:10px;font-size:26px">' + renderCatEmoji(emoji, 26) + '</div>'
+  // Single medium-tone fill, black border, no emoji chip
+  var html = '<div data-gift-tile-idx="' + i + '" style="' + span + 'background:' + pal.bg + 'AA;border:1.5px solid #1A0F0A;border-radius:18px;padding:16px;position:relative;overflow:hidden;cursor:pointer" onclick="toggleGiftTile(\'' + safeCat + '\')">'
+    +   '<div style="font-size:36px;line-height:1;margin-bottom:10px">' + renderCatEmoji(emoji, 36) + '</div>'
     +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;letter-spacing:-0.01em;line-height:1.1;color:#1A0F0A;margin-bottom:4px">' + escapeHtml(l.category) + '</div>'
-    +   '<div style="font-size:11px;font-weight:600;color:#5F5E5A;letter-spacing:0.02em">' + subtitle + '</div>';
+    +   '<div style="font-size:11px;font-weight:600;color:#1A0F0A;opacity:0.7;letter-spacing:0.02em">' + subtitle + '</div>';
   if (isOpen) {
     var items = (l.items || []).slice(0, 5);
     html += '<div style="margin-top:14px;background:#FFFFFF;border-radius:14px;padding:6px" onclick="event.stopPropagation()">';
