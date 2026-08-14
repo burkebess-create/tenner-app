@@ -8522,7 +8522,11 @@ function amazonSearchUrl(query, category) {
   var url = 'https://www.amazon.com/s?k=' + encodeURIComponent(q);
   var budgetRh = giftBudgetRh();
   if (budgetRh) url += '&rh=' + encodeURIComponent(budgetRh);
-  url += '&s=review-rank';
+  // NOTE: We deliberately do NOT set s=review-rank. Like the p_72 rating filter
+  // we tried earlier, review-rank is originally a Books/Media sort key and Amazon
+  // sometimes uses it to snap the search into the Books department, returning
+  // wrong results for queries like 'Mean Girls movie gift ideas'. Amazon's default
+  // relevance sort gives better cross-department results.
   if (AMAZON_AFFILIATE_TAG) url += '&tag=' + AMAZON_AFFILIATE_TAG;
   return url;
 }
