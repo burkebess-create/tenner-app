@@ -1317,7 +1317,11 @@ function go(id) {
     var t = document.getElementById('create2-title');
     if (t) t.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle">' + renderCatEmoji(selCatEmoji, 22) + '<span>Top 10 ' + escapeHtml(selCat) + '</span></span>';
     var backBtn = document.querySelector('#s-create2 .back-btn');
-    if (backBtn) backBtn.onclick = editingListIdx >= 0 ? function(){ go('s-list-detail'); } : function(){ go('s-create1'); };
+    // For new lists: honor a non-default listOrigin (e.g. from an invite on Circle) so
+    // back returns to where the user actually came from, not always the Create tab.
+    if (backBtn) backBtn.onclick = editingListIdx >= 0
+      ? function(){ go('s-list-detail'); }
+      : function(){ go(listOrigin && listOrigin !== 's-home' ? listOrigin : 's-create1'); };
     // Toggle CTA set based on whether we're editing an existing list or creating a new one
     var isEditing = editingListIdx >= 0;
     var continueNew    = document.getElementById('create2-continue-new');
@@ -3095,9 +3099,12 @@ var _circleInvitesExpanded = false;
 function renderCircleListInvites() {
   var host = document.getElementById('circle-list-invites-host');
   if (!host) return;
+  var now = new Date();
   var pending = (MY_LIST_SHARE_INVITES || []).filter(function(i) {
-    // Only show invites for lists you haven't filled out yet
-    return !MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === i.category; });
+    if (MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === i.category; })) return false;
+    if ((i.snooze_count || 0) >= 3) return false;             // hidden from Circle forever after 3rd snooze
+    if (i.snoozed_until && new Date(i.snoozed_until) > now) return false; // still snoozed
+    return true;
   });
   if (!pending.length) { host.innerHTML = ''; return; }
   var COLLAPSE_AT = 3;
@@ -3108,15 +3115,18 @@ function renderCircleListInvites() {
     var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
     var catEsc = String(inv.category).replace(/'/g,"\\'");
     var pal = getCategoryColor(inv.category);
-    // Compact single-row layout matching the activity tile shape. Whole tile is
-    // tappable to fill out; small × in the corner dismisses.
-    return '<div style="position:relative;background:' + pal.bg + '55;border:1.5px solid #2C2C2A;border-radius:18px;padding:14px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px" onclick="acceptListInvite(\'' + inv.id + '\',\'' + catEsc + '\')">'
+    // Compact single-row layout. Whole tile tappable → fill out. Two small
+    // icon buttons in the corner: snooze (💤) and dismiss (×).
+    return '<div style="position:relative;background:' + pal.bg + '55;border:1.5px solid #2C2C2A;border-radius:18px;padding:14px;padding-right:52px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px" onclick="acceptListInvite(\'' + inv.id + '\',\'' + catEsc + '\',\'s-circle\')">'
       +   friendAvatarHtml(p, 40)
-      +   '<div style="flex:1;min-width:0;padding-right:16px">'
+      +   '<div style="flex:1;min-width:0">'
       +     '<div style="font-size:12.5px;color:#2C2C2A;line-height:1.35"><strong>' + escapeHtml(name) + '</strong> invited you to fill out <strong>Top 10 ' + escapeHtml(inv.category) + '</strong></div>'
       +   '</div>'
       +   '<div style="font-size:26px;flex-shrink:0">' + renderCatEmoji(getCatEmoji(inv.category), 26) + '</div>'
-      +   '<button onclick="event.stopPropagation();declineListInvite(\'' + inv.id + '\');renderCircleListInvites();" title="Dismiss" style="position:absolute;top:6px;right:8px;background:transparent;border:none;color:#2C2C2A;opacity:0.5;font-size:16px;line-height:1;padding:4px;cursor:pointer;font-family:inherit;font-weight:700">×</button>'
+      +   '<div style="position:absolute;top:4px;right:4px;display:flex;flex-direction:column;gap:2px">'
+      +     '<button onclick="event.stopPropagation();snoozeListInvite(\'' + inv.id + '\');" title="Snooze this invite" style="background:transparent;border:none;color:#2C2C2A;opacity:0.55;font-size:14px;line-height:1;padding:4px 6px;cursor:pointer;font-family:inherit">💤</button>'
+      +     '<button onclick="event.stopPropagation();declineListInvite(\'' + inv.id + '\');renderCircleListInvites();" title="Dismiss forever" style="background:transparent;border:none;color:#2C2C2A;opacity:0.55;font-size:16px;line-height:1;padding:2px 8px;cursor:pointer;font-family:inherit;font-weight:700">×</button>'
+      +   '</div>'
       + '</div>';
   }).join('');
   var toggle = '';
@@ -5159,7 +5169,7 @@ async function loadListShareInvites() {
       (pRes.data || []).forEach(function(p){ profileMap[p.id] = p; });
     } catch(e) {}
     MY_LIST_SHARE_INVITES = invites.map(function(r) {
-      return { id: r.id, fromId: r.from_user_id, category: r.category, read_at: r.read_at, profile: profileMap[r.from_user_id] || {} };
+      return { id: r.id, fromId: r.from_user_id, category: r.category, read_at: r.read_at, snoozed_until: r.snoozed_until, snooze_count: r.snooze_count || 0, profile: profileMap[r.from_user_id] || {} };
     });
   } catch(e) { console.warn('Load list invites failed', e); }
 }
@@ -5264,9 +5274,34 @@ async function renderNotifActivity(el) {
   } catch(e) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists you\'ll see it here.</div></div>'; }
 }
 
+// Snooze an invite. Progressive hide from Circle:
+//   1st snooze  → hidden 14 days
+//   2nd snooze  → hidden 28 days
+//   3rd snooze  → hidden from Circle forever (still visible on Alerts screen)
+async function snoozeListInvite(inviteId) {
+  var inv = MY_LIST_SHARE_INVITES.find(function(i){ return i.id === inviteId; });
+  if (!inv) return;
+  var newCount = (inv.snooze_count || 0) + 1;
+  var days = newCount === 1 ? 14 : newCount === 2 ? 28 : 36500; // 100 years = effectively never
+  var until = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+  inv.snooze_count = newCount;
+  inv.snoozed_until = until;
+  var toastMsg = newCount === 1
+    ? '💤 Snoozed for 2 weeks'
+    : newCount === 2
+      ? '💤 Snoozed for 4 weeks'
+      : '💤 Won\'t show on Circle again — still on Alerts';
+  showToast(toastMsg);
+  renderCircleListInvites();
+  if (sbClient) {
+    try { await sbClient.from('list_share_invites').update({ snooze_count: newCount, snoozed_until: until }).eq('id', inviteId); }
+    catch(e) { console.warn('Snooze failed', e); }
+  }
+}
+
 // "Fill it out" — mark the invite read (do NOT dismiss), then open the create flow.
 // The invite stays in Notifications so the user can return to it if they don't finish.
-async function acceptListInvite(inviteId, cat) {
+async function acceptListInvite(inviteId, cat, origin) {
   var inv = MY_LIST_SHARE_INVITES.find(function(i){ return i.id === inviteId; });
   if (inv && !inv.read_at) {
     inv.read_at = new Date().toISOString();
@@ -5290,7 +5325,7 @@ async function acceptListInvite(inviteId, cat) {
       } catch(e) {}
     }
   }
-  listOrigin = 's-home';
+  listOrigin = origin || 's-home';
   pendingShareGroupId = null;
   pendingMatchFriendId = inv ? (inv.fromId || null) : null;
   go('s-create2');
