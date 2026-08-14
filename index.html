@@ -9747,6 +9747,11 @@ async function loadItemComments(listOwnerId, category, itemName) {
       var name = isMine
         ? ((myProfile && myProfile.display_name) || 'You')
         : ((f && f.profile && f.profile.display_name) || 'Friend');
+      // A comment starting with '@' is treated as a reply — indent + connector
+      var isReply = /^@[^\s]+/.test(c.comment);
+      var indentStyle = isReply
+        ? 'margin-left:22px;border-left:2px solid #EAE3DC;padding-left:12px;position:relative'
+        : '';
       var editedTag = c.edited_at ? ' <span style="font-size:10px;color:#888780;font-weight:400">· edited</span>' : '';
       var when = '<span style="font-size:10px;color:#888780;font-weight:400;margin-left:6px">' + timeAgo(c.created_at) + '</span>';
       // Reply affordance for OTHERS' comments — focuses the input at the bottom and
@@ -9760,7 +9765,7 @@ async function loadItemComments(listOwnerId, category, itemName) {
         : '<div style="display:flex;gap:8px;margin-top:6px">'
           +   '<button type="button" onclick="replyToItemComment(\'' + safeName + '\')" style="background:none;border:none;color:#D85A30;font-size:11px;padding:2px 0;cursor:pointer;font-family:inherit;text-decoration:underline;font-weight:600">↩ Reply</button>'
           + '</div>';
-      return '<div data-comment-id="' + c.id + '" style="padding:10px 0;border-bottom:1px solid #F5F3EE">'
+      return '<div data-comment-id="' + c.id + '" style="padding:10px 0;border-bottom:1px solid #F5F3EE;' + indentStyle + '">'
         + '<div style="font-size:11px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + editedTag + when + '</div>'
         + '<div class="comment-body" style="font-size:13px;color:#444;margin-top:3px">' + escapeHtml(c.comment) + '</div>'
         + actions
