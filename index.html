@@ -8033,20 +8033,20 @@ async function renderGifts() {
     var pal = visibleLists.length
       ? getCategoryColor(visibleLists.slice().sort(function(a,b){ return (b.items||[]).length - (a.items||[]).length; })[0].category)
       : getCategoryColor(name);
-    var ctaAction, ctaLabel, listSummary;
+    var ctaLabel, listSummary, cardClick;
     if (visibleLists.length === 0) {
       ctaLabel = 'Ask for a list →';
-      ctaAction = '';
+      cardClick = '';
       listSummary = 'No shared lists yet';
     } else {
       ctaLabel = 'See gifts →';
-      ctaAction = 'onclick="openGiftGuide(\'' + p.id + '\')"';
+      cardClick = 'onclick="openGiftGuide(\'' + p.id + '\')"';
       var catNames = visibleLists.slice(0, 3).map(function(l){ return l.category; }).join(' · ');
       var more = visibleLists.length > 3 ? ' · +' + (visibleLists.length - 3) : '';
       listSummary = catNames + more;
     }
-    // Bento-style card: medium colored fill, black border, no white elements inside
-    return '<div style="background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden">'
+    // Bento-style card: medium colored fill, black border, whole card is the tap target
+    return '<div ' + cardClick + ' style="background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden' + (visibleLists.length ? ';cursor:pointer' : '') + '">'
       + '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">'
       +   avatar
       +   '<div style="flex:1;min-width:0">'
@@ -8055,7 +8055,7 @@ async function renderGifts() {
       +     '<div style="font-size:11px;color:#2C2C2A;opacity:0.7;margin-top:4px;font-weight:600">' + escapeHtml(listSummary) + '</div>'
       +   '</div>'
       + '</div>'
-      + '<button ' + ctaAction + ' style="background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;padding:10px 20px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">' + ctaLabel + '</button>'
+      + '<span style="display:inline-block;background:#2C2C2A;color:#FFFFFF;border-radius:99px;padding:10px 20px;font-weight:700;font-size:13px;font-family:inherit;pointer-events:none">' + ctaLabel + '</span>'
       + '</div>';
   }
 
