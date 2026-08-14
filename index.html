@@ -18,6 +18,12 @@
  "what users see first" — always mean Circle (s-circle).
 
  Bottom nav order: [My Lists, Create, Circle, Match, Profile, Gifts]
+
+ DEFERRED — build with the notifications/email pipeline expansion:
+   - Push notification when a friend comments on one of my list items
+   - Email digest of new comments on my lists (daily/weekly cadence)
+   - Push + email when someone reacts to my list
+   - Push + email when someone sends a nudge to fill out a list
  ═══════════════════════════════════════════════════════════════════════════
 -->
 <html lang="en">
@@ -2829,11 +2835,24 @@ function showListDetail(l) {
   if (listItems.length === 0) {
     el.innerHTML = '<div style="font-size:12px;color:#888780;text-align:center;padding:20px">No items yet.</div>';
   } else {
+    // Determine which items have new comments since last Alerts view — shows a small
+    // 💬 badge on those items so users notice comment activity without opening Alerts
+    var newCommentItems = {};
+    var listCat = l.category || l.n.replace('Top 10 ', '');
+    var sinceMs = _lastAlertsSeenAt ? new Date(_lastAlertsSeenAt).getTime() : 0;
+    (MY_COMMENTS_ON_ME || []).forEach(function(c) {
+      if (c.category !== listCat) return;
+      if (new Date(c.created_at).getTime() <= sinceMs) return;
+      newCommentItems[c.item_name] = (newCommentItems[c.item_name] || 0) + 1;
+    });
     listItems.forEach(function(item, i) {
       var row = document.createElement('div');
       row.className = 'rank-item';
       row.style.marginBottom = '6px';
-      row.innerHTML = (l.ranked ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>') + '<span style="flex:1;font-size:13.5px;color:#2C2C2A">' + item + '</span>';
+      var badge = newCommentItems[item]
+        ? '<span style="display:inline-flex;align-items:center;gap:3px;background:#D85A30;color:#FFFFFF;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:8px;flex-shrink:0" title="' + newCommentItems[item] + ' new comment' + (newCommentItems[item] !== 1 ? 's' : '') + '">💬 ' + newCommentItems[item] + '</span>'
+        : '';
+      row.innerHTML = (l.ranked ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>') + '<span style="flex:1;font-size:13.5px;color:#2C2C2A">' + item + '</span>' + badge;
       el.appendChild(row);
     });
   }
@@ -5181,10 +5200,20 @@ function renderCircleScreen() {
 }
 
 var MY_LIST_SHARE_INVITES = []; // incoming "fill out this list" invites from friends
+var MY_COMMENTS_ON_ME = [];     // comments others left on my list items (last 30 days)
+var _lastAlertsSeenAt = null;   // profile.last_alerts_seen_at, used to gauge unread
 var pendingMatchFriendId = null;
 
+function unreadCommentsCount() {
+  if (!MY_COMMENTS_ON_ME.length) return 0;
+  var since = _lastAlertsSeenAt ? new Date(_lastAlertsSeenAt).getTime() : 0;
+  return MY_COMMENTS_ON_ME.filter(function(c){ return new Date(c.created_at).getTime() > since; }).length;
+}
+
 function updateNotificationBadge() {
-  var n = MY_LIST_SHARE_INVITES.filter(function(i){ return !i.read_at; }).length;
+  var invites = MY_LIST_SHARE_INVITES.filter(function(i){ return !i.read_at; }).length;
+  var comments = unreadCommentsCount();
+  var n = invites + comments;
   ['notif-badge', 'notif-badge-circle'].forEach(function(id) {
     var badge = document.getElementById(id);
     if (!badge) return;
@@ -5195,7 +5224,42 @@ function updateNotificationBadge() {
 
 // Refresh the unread count without rendering the full screen (called on app load / tab changes)
 function refreshNotifications() {
-  return loadListShareInvites().then(updateNotificationBadge);
+  return Promise.all([loadListShareInvites(), loadCommentsOnMe(), loadLastAlertsSeenAt()]).then(updateNotificationBadge);
+}
+
+async function loadLastAlertsSeenAt() {
+  if (!sbClient || !userId) return;
+  try {
+    var r = await sbClient.from('profiles').select('last_alerts_seen_at').eq('id', userId).maybeSingle();
+    if (r.data) _lastAlertsSeenAt = r.data.last_alerts_seen_at || null;
+  } catch(e) { /* column may not exist yet; silent */ }
+}
+
+// Load comments others left on my list items — last 30 days, most recent 50
+async function loadCommentsOnMe() {
+  MY_COMMENTS_ON_ME = [];
+  if (!sbClient || !userId) return;
+  try {
+    var since = new Date(Date.now() - 30*24*60*60*1000).toISOString();
+    var res = await sbClient.from('list_item_comments')
+      .select('id, from_user_id, category, item_name, comment, created_at')
+      .eq('list_owner_id', userId)
+      .neq('from_user_id', userId)
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (!res.data || res.data.length === 0) return;
+    var fromIds = [];
+    res.data.forEach(function(c) { if (fromIds.indexOf(c.from_user_id) === -1) fromIds.push(c.from_user_id); });
+    var profileMap = {};
+    try {
+      var pr = await sbClient.from('profiles').select('id, display_name, handle, photo').in('id', fromIds);
+      (pr.data || []).forEach(function(p){ profileMap[p.id] = p; });
+    } catch(e) {}
+    MY_COMMENTS_ON_ME = res.data.map(function(c) {
+      return { id: c.id, from_user_id: c.from_user_id, category: c.category, item_name: c.item_name, comment: c.comment, created_at: c.created_at, profile: profileMap[c.from_user_id] || {} };
+    });
+  } catch(e) { console.warn('Load comments-on-me failed', e); }
 }
 
 async function loadListShareInvites() {
@@ -5217,15 +5281,22 @@ async function loadListShareInvites() {
   } catch(e) { console.warn('Load list invites failed', e); }
 }
 
-// Mark every currently-loaded unread invite as read (called when the screen is opened)
+// Mark every currently-loaded unread invite as read AND stamp last_alerts_seen_at
+// so the comments-unread count also resets. Called when the Alerts screen opens.
 async function markNotificationsRead() {
-  var unread = MY_LIST_SHARE_INVITES.filter(function(i){ return !i.read_at; });
-  if (unread.length === 0) return;
   var now = new Date().toISOString();
-  unread.forEach(function(i){ i.read_at = now; });
+  var unread = MY_LIST_SHARE_INVITES.filter(function(i){ return !i.read_at; });
+  if (unread.length) {
+    unread.forEach(function(i){ i.read_at = now; });
+    if (sbClient && userId) {
+      try { await sbClient.from('list_share_invites').update({ read_at: now }).eq('to_user_id', userId).is('read_at', null).is('dismissed_at', null); }
+      catch(e) { console.warn('Mark invites read failed', e); }
+    }
+  }
+  _lastAlertsSeenAt = now;
   if (sbClient && userId) {
-    try { await sbClient.from('list_share_invites').update({ read_at: now }).eq('to_user_id', userId).is('read_at', null).is('dismissed_at', null); }
-    catch(e) { console.warn('Mark read failed', e); }
+    try { await sbClient.from('profiles').update({ last_alerts_seen_at: now }).eq('id', userId); }
+    catch(e) { /* column may not exist yet; silent */ }
   }
 }
 
@@ -5283,10 +5354,42 @@ function renderNotifications() {
 }
 
 async function renderNotifActivity(el) {
-  if (!sbClient || !userId) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists you\'ll see it here.</div></div>'; return; }
+  if (!sbClient || !userId) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists or comment on yours, it\'ll show up here.</div></div>'; return; }
   var accepted = myFriends.filter(function(f){ return f.status === 'accepted'; });
-  if (accepted.length === 0) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">👋</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No friends yet</div><div style="font-size:12px;line-height:1.5">Add friends to see their list updates here.</div></div>'; return; }
   var friendIds = accepted.map(function(f){ return f.friendId; });
+  var html = '';
+
+  // ── SECTION 1: Comments on YOUR items (last 30 days) ──
+  // Reads from MY_COMMENTS_ON_ME which is loaded via refreshNotifications() /
+  // loadCommentsOnMe(). Tapping opens the item's comment thread so you can reply.
+  var sinceMs = _lastAlertsSeenAt ? new Date(_lastAlertsSeenAt).getTime() : 0;
+  var comments = (MY_COMMENTS_ON_ME || []).slice(0, 20);
+  if (comments.length > 0) {
+    html += '<div class="sec-label" style="margin-top:0">Comments on your lists</div>';
+    html += comments.map(function(c) {
+      var p = c.profile || {};
+      var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
+      var isUnread = new Date(c.created_at).getTime() > sinceMs;
+      var dotStyle = isUnread ? 'width:8px;height:8px;border-radius:50%;background:#D85A30;flex-shrink:0;margin-right:6px' : 'width:8px;flex-shrink:0';
+      var catEsc = String(c.category).replace(/'/g, "\\'");
+      var itemEsc = String(c.item_name).replace(/'/g, "\\'");
+      return '<div class="share-pick" style="cursor:pointer;align-items:flex-start;margin-bottom:6px" onclick="openItemCommentsFromNotif(\'' + catEsc + '\',\'' + itemEsc + '\')">'
+        + '<span style="' + dotStyle + '"></span>'
+        + friendAvatarHtml(p, 32)
+        + '<div style="flex:1;min-width:0">'
+        +   '<div style="font-size:12px;color:#2C2C2A;line-height:1.4"><strong>' + escapeHtml(name) + '</strong> commented on your <strong>Top 10 ' + escapeHtml(c.category) + '</strong> pick <strong>' + escapeHtml(c.item_name) + '</strong></div>'
+        +   '<div style="font-size:12.5px;color:#5F5E5A;margin-top:3px;font-style:italic">"' + escapeHtml(c.comment) + '"</div>'
+        +   '<div style="font-size:10px;color:#888780;margin-top:3px">' + timeAgo(c.created_at) + '</div>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  // ── SECTION 2: Friends' recent list updates ──
+  if (accepted.length === 0) {
+    if (!html) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">👋</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No friends yet</div><div style="font-size:12px;line-height:1.5">Add friends to see their list updates here.</div></div>'; return; }
+    el.innerHTML = html; return;
+  }
   try {
     var res = await sbClient.from('lists').select('user_id, name, category, emoji, items, updated_at').in('user_id', friendIds).order('updated_at', { ascending: false }).limit(30);
     var recentLists = res.data || [];
@@ -5296,25 +5399,41 @@ async function renderNotifActivity(el) {
       var cat = l.category || (l.name || '').replace('Top 10 ','');
       return _myCats.indexOf(cat) >= 0;
     });
-    if (recentLists.length === 0) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists you\'ll see it here.</div></div>'; return; }
-    var rows = recentLists.map(function(l) {
-      var f = accepted.find(function(fr){ return fr.friendId === l.user_id; });
-      var p = (f && f.profile) || {};
-      var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
-      var cat = l.category || (l.name || '').replace('Top 10 ', '');
-      var emoji = l.emoji || getCatEmoji(cat);
-      var topItem = l.items && l.items[0] ? l.items[0] : null;
-      var dataAttr = 'data-list=\'' + escapeHtml(JSON.stringify(l)).replace(/'/g, '&#39;') + '\'';
-      var sentence = topItem
-        ? escapeHtml(name) + ' shared that <em>' + escapeHtml(topItem) + '</em> is their favorite ' + escapeHtml(singularize(cat))
-        : escapeHtml(name) + ' updated their ' + escapeHtml(singularize(cat)) + ' list';
-      return '<div class="share-pick" style="cursor:pointer;align-items:flex-start" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
-        + '<span style="font-size:18px;flex-shrink:0;margin-top:2px">' + emoji + '</span>'
-        + '<div style="flex:1;font-size:13.5px;color:#2C2C2A;line-height:1.5">' + sentence + '</div>'
-        + '</div>';
-    });
-    el.innerHTML = '<div class="sec-label" style="margin-top:0">Recent from your circle</div>' + rows.join('');
-  } catch(e) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists you\'ll see it here.</div></div>'; }
+    if (recentLists.length > 0) {
+      var rows = recentLists.map(function(l) {
+        var f = accepted.find(function(fr){ return fr.friendId === l.user_id; });
+        var p = (f && f.profile) || {};
+        var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
+        var cat = l.category || (l.name || '').replace('Top 10 ', '');
+        var emoji = l.emoji || getCatEmoji(cat);
+        var topItem = l.items && l.items[0] ? l.items[0] : null;
+        var dataAttr = 'data-list=\'' + escapeHtml(JSON.stringify(l)).replace(/'/g, '&#39;') + '\'';
+        var sentence = topItem
+          ? escapeHtml(name) + ' shared that <em>' + escapeHtml(topItem) + '</em> is their favorite ' + escapeHtml(singularize(cat))
+          : escapeHtml(name) + ' updated their ' + escapeHtml(singularize(cat)) + ' list';
+        return '<div class="share-pick" style="cursor:pointer;align-items:flex-start" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
+          + '<span style="font-size:18px;flex-shrink:0;margin-top:2px">' + emoji + '</span>'
+          + '<div style="flex:1;font-size:13.5px;color:#2C2C2A;line-height:1.5">' + sentence + '</div>'
+          + '</div>';
+      }).join('');
+      html += '<div class="sec-label" style="margin-top:18px">Recent from your circle</div>' + rows;
+    }
+    if (!html) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists or comment on yours, it\'ll show up here.</div></div>'; return; }
+    el.innerHTML = html;
+  } catch(e) {
+    if (!html) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists or comment on yours, it\'ll show up here.</div></div>'; return; }
+    el.innerHTML = html;
+  }
+}
+
+// Helper: from the Alerts activity feed, open the item's comment modal on YOUR list
+function openItemCommentsFromNotif(category, itemName) {
+  var l = MY_LISTS.find(function(x){ return (x.category || x.n.replace('Top 10 ','')) === category; });
+  if (!l) { showToast('That list is no longer available.'); return; }
+  showListDetail(l);
+  setTimeout(function() {
+    if (typeof openItemComments === 'function') openItemComments(userId, category, itemName);
+  }, 100);
 }
 
 // Snooze an invite. Progressive hide from Circle:
