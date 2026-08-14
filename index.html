@@ -9192,26 +9192,74 @@ function shareListAsImage(listObj) {
     canvas.toBlob(function(blob) {
       var fname = 'top-10-' + cat.toLowerCase().replace(/\s+/g, '-') + '.png';
       var file = new File([blob], fname, { type: 'image/png' });
-      // Copy caption first so it's on the clipboard even if the share sheet strips text
-      // (Instagram accepts the image but ignores the text param on Web Share). Users can
-      // paste it into the Instagram caption box.
-      var copyPromise = (navigator.clipboard && navigator.clipboard.writeText)
-        ? navigator.clipboard.writeText(caption).catch(function(){})
-        : Promise.resolve();
-      copyPromise.then(function() {
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          navigator.share({ files: [file], title: 'My Top 10 ' + cat, text: caption }).then(function(){
-            showToast('Caption copied — paste it if the app didn\'t auto-fill', 4500);
-          }).catch(function(){});
-        } else {
-          var url = URL.createObjectURL(blob);
-          var a = document.createElement('a'); a.href = url; a.download = fname; a.click();
-          setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-          showToast('Image saved · caption copied to clipboard', 4500);
-        }
-      });
+      var imgDataUrl = canvas.toDataURL('image/png');
+      openShareImagePreview({ file: file, fname: fname, caption: caption, cat: cat, imgDataUrl: imgDataUrl });
     }, 'image/png');
   }
+}
+
+// Modal that shows a preview of the shareable image, the auto-generated caption,
+// a Copy caption button (with clear guidance for Instagram), and a Share button
+// that fires the native share sheet.
+function openShareImagePreview(payload) {
+  var frame = document.querySelector('.frame') || document.body;
+  var existing = document.getElementById('share-image-modal');
+  if (existing) existing.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'share-image-modal';
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(20,10,4,0.75);display:flex;align-items:center;justify-content:center;z-index:9998;padding:16px';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  var canShare = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [payload.file] }));
+  overlay.innerHTML = '<div style="background:#FDFCF8;border:1.5px solid #2C2C2A;border-radius:22px;padding:18px;width:100%;max-width:360px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px">'
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;color:#2C2C2A;text-align:center;line-height:1.15">Share your Top 10</div>'
+    + '<img src="' + payload.imgDataUrl + '" style="width:100%;border-radius:14px;border:1px solid #EAE3DC" alt="Preview">'
+    + '<div>'
+    +   '<div style="font-size:10px;font-weight:700;color:#5F5E5A;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px">Caption</div>'
+    +   '<div id="share-caption-text" style="background:#F1EFE8;border:1px solid #EAE3DC;border-radius:12px;padding:12px;font-size:12.5px;color:#2C2C2A;line-height:1.5;white-space:pre-wrap">' + escapeHtml(payload.caption) + '</div>'
+    +   '<button id="share-copy-btn" style="width:100%;margin-top:8px;background:#FFFFFF;border:1.5px solid #2C2C2A;color:#2C2C2A;border-radius:99px;padding:9px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">📋 Copy caption</button>'
+    + '</div>'
+    + '<div style="background:#FFF8F6;border:1px solid #F4C9B8;border-radius:12px;padding:10px 12px;font-size:11px;color:#712B13;line-height:1.5">'
+    +   '<strong>Instagram tip:</strong> Instagram doesn\'t auto-fill the caption from a share. Tap <em>Copy caption</em> above, tap <em>Share image</em> below, then <strong>long-press → Paste</strong> in Instagram\'s caption box.'
+    + '</div>'
+    + '<div style="display:flex;gap:8px">'
+    +   '<button onclick="document.getElementById(\'share-image-modal\').remove()" style="flex:1;background:transparent;border:1.5px solid #2C2C2A;color:#2C2C2A;border-radius:99px;padding:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Close</button>'
+    +   '<button id="share-do-btn" style="flex:2;background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;padding:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">' + (canShare ? 'Share image →' : 'Download image →') + '</button>'
+    + '</div>'
+    + '</div>';
+  frame.appendChild(overlay);
+  var copyBtn = document.getElementById('share-copy-btn');
+  if (copyBtn) copyBtn.onclick = function() {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(payload.caption).then(function() {
+        copyBtn.textContent = '✓ Caption copied — now paste in Instagram after sharing';
+        copyBtn.style.background = '#EAF3DE';
+        copyBtn.style.borderColor = '#97C459';
+        copyBtn.style.color = '#3B6D11';
+      }).catch(function(){ showToast('Copy failed — long-press the caption above to select it'); });
+    } else {
+      showToast('Long-press the caption above to select it');
+    }
+  };
+  var doBtn = document.getElementById('share-do-btn');
+  if (doBtn) doBtn.onclick = function() {
+    // Copy caption again just before firing share so it's fresh on the clipboard
+    var copyP = (navigator.clipboard && navigator.clipboard.writeText)
+      ? navigator.clipboard.writeText(payload.caption).catch(function(){})
+      : Promise.resolve();
+    copyP.then(function() {
+      if (canShare) {
+        navigator.share({ files: [payload.file], title: 'My Top 10 ' + payload.cat, text: payload.caption })
+          .then(function(){ overlay.remove(); })
+          .catch(function(){});
+      } else {
+        var url = URL.createObjectURL(payload.file);
+        var a = document.createElement('a'); a.href = url; a.download = payload.fname; a.click();
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+        overlay.remove();
+        showToast('Image saved · caption copied to clipboard', 4500);
+      }
+    });
+  };
 }
 
 // ── Feature D: Reactions + item comments ──────────────────────────────────
