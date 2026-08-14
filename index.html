@@ -8510,7 +8510,14 @@ function giftBudgetRh() {
 }
 
 function amazonSearchUrl(query, category) {
-  var suffix = GIFT_CATEGORY_SUFFIX[category] || 'gift ideas';
+  var suffix = GIFT_CATEGORY_SUFFIX[category];
+  if (!suffix) {
+    // Custom user categories — append the category noun (singularized, lowercased)
+    // before 'gift ideas' so Amazon can disambiguate e.g. 'Callaway Rogue' as a
+    // golf club, 'Manhattan' as a cocktail, etc.
+    var noun = category ? singularize(category).toLowerCase().trim() : '';
+    suffix = noun ? (noun + ' gift ideas') : 'gift ideas';
+  }
   var q = (query + ' ' + suffix).trim();
   var url = 'https://www.amazon.com/s?k=' + encodeURIComponent(q);
   var budgetRh = giftBudgetRh();
