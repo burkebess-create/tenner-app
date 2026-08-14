@@ -796,6 +796,7 @@
             </div>
           </div>
           <div id="friend-list-reactions" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>
+          <div id="friend-list-changes" style="display:none;margin-bottom:12px"></div>
           <div id="friend-list-items"></div>
           <div id="friend-list-cta" style="margin-top:16px"></div>
         </div>
@@ -3245,14 +3246,16 @@ function timeAgo(iso) {
   return d.toLocaleDateString();
 }
 
-async function openFriendListByCat(friendUserId, category) {
+async function openFriendListByCat(friendUserId, category, origin) {
   var friend = (myFriends || []).find(function(f){ return f.friendId === friendUserId; });
   if (!friend) return;
   try {
     var r = await sbClient.from('lists').select('*').eq('user_id', friendUserId).eq('category', category).maybeSingle();
     if (!r.data) { showToast('That list isn\'t available anymore.'); return; }
     var listData = { user_id: friendUserId, name: r.data.name, category: r.data.category, emoji: r.data.emoji, items: r.data.items, ranked: r.data.is_ranked, profile: friend.profile };
-    openFriendList(listData, 's-home');
+    // Fall back to whichever screen is currently active if origin not provided
+    var resolvedOrigin = origin || (document.getElementById('s-circle') && document.getElementById('s-circle').classList.contains('active') ? 's-circle' : 's-home');
+    openFriendList(listData, resolvedOrigin);
   } catch(e) { console.warn(e); }
 }
 
@@ -5345,6 +5348,53 @@ function openFriendDetail(friendId) {
   go('s-fdetail');
 }
 
+// Fetch the most recent list_change_event for (ownerId, category) and render a
+// "What changed" callout above the friend-list items. Silently no-ops if the
+// table doesn't exist yet or no events found.
+async function renderFriendListChanges(ownerId, category) {
+  var el = document.getElementById('friend-list-changes');
+  if (!el || !sbClient || !ownerId || !category) return;
+  try {
+    var r = await sbClient.from('list_change_events')
+      .select('items_before, items_after, ranked_before, ranked_after, created_at')
+      .eq('user_id', ownerId)
+      .eq('category', category)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (r.error || !r.data) return;
+    var evt = r.data;
+    var before = Array.isArray(evt.items_before) ? evt.items_before : [];
+    var after  = Array.isArray(evt.items_after)  ? evt.items_after  : [];
+    var beforeLower = before.map(function(x){ return String(x).toLowerCase().trim(); });
+    var afterLower  = after.map(function(x){ return String(x).toLowerCase().trim(); });
+    var added   = after.filter(function(x){ return beforeLower.indexOf(String(x).toLowerCase().trim()) === -1; });
+    var removed = before.filter(function(x){ return afterLower.indexOf(String(x).toLowerCase().trim()) === -1; });
+    // Rank changes: items present in both but at different positions
+    var rankMoves = [];
+    after.forEach(function(x, i) {
+      var lk = String(x).toLowerCase().trim();
+      var oldIdx = beforeLower.indexOf(lk);
+      if (oldIdx !== -1 && oldIdx !== i) rankMoves.push({ item: x, from: oldIdx + 1, to: i + 1 });
+    });
+    var rankedChanged = evt.ranked_before !== evt.ranked_after;
+    if (!added.length && !removed.length && !rankMoves.length && !rankedChanged) return;
+    var parts = [];
+    added.forEach(function(x) { parts.push('<div style="font-size:12px;color:#2C2C2A;padding:4px 0"><span style="color:#2F9E8F;font-weight:700">+ added</span> ' + escapeHtml(x) + '</div>'); });
+    removed.forEach(function(x) { parts.push('<div style="font-size:12px;color:#2C2C2A;padding:4px 0"><span style="color:#A32D2D;font-weight:700">− removed</span> ' + escapeHtml(x) + '</div>'); });
+    rankMoves.slice(0, 5).forEach(function(m) {
+      var dir = m.from < m.to ? '↓' : '↑';
+      parts.push('<div style="font-size:12px;color:#2C2C2A;padding:4px 0"><span style="color:#5F5E5A;font-weight:700">' + dir + ' moved</span> ' + escapeHtml(m.item) + ' <span style="color:#888780">#' + m.from + ' → #' + m.to + '</span></div>');
+    });
+    if (rankedChanged) parts.push('<div style="font-size:12px;color:#2C2C2A;padding:4px 0"><span style="color:#5F5E5A;font-weight:700">✓ ' + (evt.ranked_after ? 'switched to ranked' : 'switched to unranked') + '</span></div>');
+    el.innerHTML = '<div style="background:#F1EFE8;border:1px solid #EAE3DC;border-radius:14px;padding:12px 14px">'
+      + '<div style="font-size:10px;font-weight:700;color:#888780;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Changed ' + timeAgo(evt.created_at) + '</div>'
+      + parts.join('')
+      + '</div>';
+    el.style.display = 'block';
+  } catch(e) { /* table may not exist yet — silent */ }
+}
+
 function openFriendList(listData, origin) {
   friendListOrigin = origin || (document.getElementById('s-circle').classList.contains('active') ? 's-circle' : 's-fdetail');
   var f = myFriends.find(function(x){ return x.friendId === selFriendId; });
@@ -5366,6 +5416,11 @@ function openFriendList(listData, origin) {
   document.getElementById('friend-list-emoji').textContent = emoji;
   document.getElementById('friend-list-name').textContent = listData.name || ('Top 10 ' + cat);
   document.getElementById('friend-list-meta').textContent = meta;
+
+  // Reset + populate the "what changed" callout asynchronously
+  var changesEl = document.getElementById('friend-list-changes');
+  if (changesEl) { changesEl.style.display = 'none'; changesEl.innerHTML = ''; }
+  renderFriendListChanges(listData.user_id || selFriendId, cat);
 
   var iHaveIt = MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
   var isBlindLocked = !!listData.blind_fill && !iHaveIt;
@@ -5822,10 +5877,12 @@ async function renderFriendDetail() {
           aEl.innerHTML = '<div class="sec-label">Recent activity</div>'
             + recent.map(function(l) {
                 var cat = l.category || (l.name || '').replace('Top 10 ', '');
-                return '<div class="card no-hover" style="margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+                var safeCat = cat.replace(/\'/g,"\\'");
+                return '<div class="card" onclick="openFriendListByCat(\'' + fid + '\',\'' + safeCat + '\',\'s-fdetail\')" style="cursor:pointer;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
                   + '<div style="font-size:20px">' + renderCatEmoji(l.emoji || getCatEmoji(cat), 20) + '</div>'
                   + '<div style="flex:1;font-size:12px;color:#2C2C2A">Updated <strong>Top 10 ' + escapeHtml(cat) + '</strong></div>'
-                  + '<div style="font-size:10px;color:#888780">' + timeAgo(l.updated_at) + '</div>'
+                  + '<div style="font-size:10px;color:#888780;margin-right:6px">' + timeAgo(l.updated_at) + '</div>'
+                  + '<span style="font-size:16px;color:#D3D1C7">›</span>'
                   + '</div>';
               }).join('');
         }
