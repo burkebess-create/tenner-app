@@ -3166,7 +3166,8 @@ async function renderCircleStories() {
   if (!host) return;
   var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted' && f.profile; });
   if (!accepted.length) { host.innerHTML = ''; return; }
-  // Fetch recent list updates per friend to badge & to know which list to jump to
+  // Fetch recent list updates per friend to badge & to know which list to jump to.
+  // Windowed at 14 days for "🆕 new list" — must be public so tapping can actually open it.
   var latestByUser = {}; // user_id -> { category, at }
   try {
     var friendIds = accepted.map(function(f){ return f.friendId; });
@@ -3178,20 +3179,20 @@ async function renderCircleStories() {
     (lr.data || []).forEach(function(l) {
       if (!l.is_public) return;
       var days = (Date.now() - new Date(l.updated_at).getTime()) / (1000*60*60*24);
-      if (days > 3) return;
+      if (days > 14) return;
       if (!latestByUser[l.user_id]) latestByUser[l.user_id] = { category: l.category, at: l.updated_at };
     });
   } catch(e) {}
   function scoreFriend(f) {
     var d = f.profile && daysUntilBirthday(f.profile.birthday);
-    if (d !== null && d !== undefined && d >= 0 && d <= 30) {
-      return { s: 100 - d, badge: '🎂', ring: '#D85A30', action: 'openGiftGuide(\'' + f.friendId + '\')' };
+    if (d !== null && d !== undefined && d >= 0 && d <= 60) {
+      return { s: 100 - d, badge: '🎂', action: 'openGiftGuide(\'' + f.friendId + '\')' };
     }
     if (latestByUser[f.friendId]) {
       var cat = latestByUser[f.friendId].category.replace(/\'/g,"\\'");
-      return { s: 50, badge: '🆕', ring: '#2F9E8F', action: 'openFriendListByCat(\'' + f.friendId + '\',\'' + cat + '\')' };
+      return { s: 50, badge: '🆕', action: 'openFriendListByCat(\'' + f.friendId + '\',\'' + cat + '\')' };
     }
-    return { s: 0, badge: null, ring: null, action: 'selFriendId=\'' + f.friendId + '\';go(\'s-fdetail\')' };
+    return { s: 0, badge: null, action: 'selFriendId=\'' + f.friendId + '\';go(\'s-fdetail\')' };
   }
   var scored = accepted.map(function(f){ return { f: f, meta: scoreFriend(f) }; })
     .sort(function(a,b){ return b.meta.s - a.meta.s; })
@@ -3201,18 +3202,18 @@ async function renderCircleStories() {
     var p = f.profile;
     var name = p.display_name || p.handle || 'Friend';
     var firstName = name.split(' ')[0];
-    var ringStyle = m.ring
-      ? 'padding:3px;background:linear-gradient(135deg,' + m.ring + ',' + m.ring + '88);border-radius:999px'
-      : 'padding:1.5px;background:#2C2C2A;border-radius:999px';
     var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+    // Uniform neutral ring for everyone — the emoji badge (not ring color) tells the story
+    var ringStyle = 'padding:1.5px;background:#2C2C2A;border-radius:999px';
     var avatar = '<div style="width:56px;height:56px;border-radius:999px;overflow:hidden;background:#FFFFFF;display:flex;align-items:center;justify-content:center">'
       + (p.photo
           ? '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover">'
           : '<div style="width:100%;height:100%;background:#EAE3DC;color:#5F5E5A;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center">' + initials + '</div>'
         )
       + '</div>';
+    // Larger, more prominent badge that clearly communicates WHY they're here
     var badge = m.badge
-      ? '<div style="position:absolute;bottom:-2px;right:-2px;background:#FFFFFF;border:1.5px solid #2C2C2A;border-radius:999px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px">' + m.badge + '</div>'
+      ? '<div style="position:absolute;bottom:-3px;right:-4px;background:#FFFFFF;border:2px solid #2C2C2A;border-radius:999px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,0.12)">' + m.badge + '</div>'
       : '';
     return '<div onclick="' + m.action + '" style="flex-shrink:0;width:74px;cursor:pointer;text-align:center">'
       + '<div style="position:relative;display:inline-block">' + '<div style="' + ringStyle + '">' + avatar + '</div>' + badge + '</div>'
@@ -9074,7 +9075,7 @@ function shareListAsImage(listObj) {
   logo.src = 'logo-horizontal.png';
 
   function buildAndShare(logoImg) {
-    var W = 600, H = 740;
+    var W = 600, H = 780;
     var canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = H;
     var ctx = canvas.getContext('2d');
@@ -9128,11 +9129,12 @@ function shareListAsImage(listObj) {
     ctx.textAlign = 'center';
     ctx.fillStyle = '#2C2C2A';
     ctx.font = '13px sans-serif';
-    ctx.fillText('Create your own Top 10 lists on Tenner. Share, compare lists,', W / 2, footTop + 26);
-    ctx.fillText('see your match scores, and learn more about your friends.', W / 2, footTop + 46);
+    ctx.fillText('Create your own Top 10 lists on Tenner. Share, compare lists, see', W / 2, footTop + 26);
+    ctx.fillText('your match scores, and learn more about your friend\'s favorite', W / 2, footTop + 46);
+    ctx.fillText('things through their top 10 lists.', W / 2, footTop + 66);
     ctx.font = 'bold 15px sans-serif';
     ctx.fillStyle = '#D4622A';
-    ctx.fillText('MyTenner.com', W / 2, footTop + 78);
+    ctx.fillText('MyTenner.com', W / 2, footTop + 100);
 
     canvas.toBlob(function(blob) {
       var fname = 'top-10-' + cat.toLowerCase().replace(/\s+/g, '-') + '.png';
