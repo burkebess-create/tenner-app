@@ -5650,7 +5650,7 @@ async function renderFriendDetail() {
   var statsBarHtml = isAccepted ? '<div id="fdetail-stats-bar" style="display:flex;justify-content:space-around;gap:8px;background:#F1EFE8;border-radius:14px;padding:12px 8px;margin-bottom:14px">'
     + '<div style="text-align:center"><div id="fdetail-stat-lists" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Lists</div></div>'
     + '<div style="text-align:center"><div id="fdetail-stat-shared" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Compared</div></div>'
-    + '<div style="text-align:center"><div id="fdetail-stat-mutual" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Mutual friends</div></div>'
+    + '<div style="text-align:center"><div id="fdetail-stat-mutual" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div id="fdetail-stat-mutual-label" style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Mutual friends</div></div>'
     + '</div>' : '';
 
   // ── 4. MOST-ALIKE / MOST-DIFFERENT (placeholder) ────────────────────
@@ -5953,6 +5953,8 @@ async function renderFriendDetail() {
     if (selFriendId !== f.friendId) return;
     var setStat = function(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
     setStat('fdetail-stat-mutual', names.length);
+    var labelEl = document.getElementById('fdetail-stat-mutual-label');
+    if (labelEl) labelEl.textContent = names.length === 1 ? 'Mutual friend' : 'Mutual friends';
   }).catch(function(){});
 }
 
@@ -8988,8 +8990,17 @@ function setupRealtimeNotifications() {
       }
     }
     loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderGiftReminders(); updateGroupMetaCounts(); }).catch(console.warn);
-    loadProfile().catch(console.warn);
-    loadFriends().catch(console.warn);
+    // Circle is the initial landing surface; its render calls fire before profile/friends
+    // finish loading, leaving avatars and activity blank until the user navigates away and
+    // back. When each load completes, if Circle is currently active, refresh the parts
+    // that depend on that data.
+    var isCircleActive = function() { var el = document.getElementById('s-circle'); return el && el.classList.contains('active'); };
+    loadProfile().then(function() {
+      if (isCircleActive()) { renderCircleTopbarAvatar(); renderTodayPill(); renderProfileNudges(); }
+    }).catch(console.warn);
+    loadFriends().then(function() {
+      if (isCircleActive()) { renderCircleStories(); renderHomeFeed(); renderCircleScreen(); renderTodayPill(); }
+    }).catch(console.warn);
     refreshNotifications().catch(console.warn);
     setupRealtimeNotifications();
   }
