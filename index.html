@@ -1594,11 +1594,11 @@ function renderCatGrid() {
     var selected = selCat === cat.n;
     var div = document.createElement('div');
     div.className = 'cat-card' + (selected ? ' selected' : '');
-    // Single medium-tone fill, black border, no emoji chip. Selected = thicker border + subtle scale
-    div.style.cssText = 'background:' + pal.bg + 'AA;border:' + (selected ? '2.5px solid #2C2C2A' : '1.5px solid #2C2C2A') + ';border-radius:14px;padding:12px 8px 10px;cursor:pointer;text-align:center;touch-action:manipulation;'
-      + 'transform:' + (selected ? 'scale(1.03)' : 'scale(1)') + ';transition:transform 0.15s ease';
-    div.innerHTML = '<div style="font-size:28px;line-height:1;margin-bottom:6px">' + renderCatEmoji(cat.e, 28) + '</div>'
-      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:13px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A">' + escapeHtml(cat.n) + '</div>';
+    // Match the My Lists bento tile: same size, padding, alignment, and typography
+    div.style.cssText = 'background:' + pal.bg + 'AA;border:' + (selected ? '2.5px solid #2C2C2A' : '1.5px solid #2C2C2A') + ';border-radius:18px;padding:16px;cursor:pointer;text-align:left;touch-action:manipulation;'
+      + 'transform:' + (selected ? 'scale(1.02)' : 'scale(1)') + ';transition:transform 0.15s ease';
+    div.innerHTML = '<div style="font-size:36px;line-height:1;margin-bottom:10px">' + renderCatEmoji(cat.e, 36) + '</div>'
+      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A">' + escapeHtml(cat.n) + '</div>';
     div.onclick = function() { selCat = cat.n; selCatEmoji = cat.e; renderCatGrid(); document.getElementById('cat-inp').value = ''; document.getElementById('cat-warn').style.display = 'none'; document.getElementById('cat-sugs').style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; };
     grid.appendChild(div);
   });
