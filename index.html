@@ -709,6 +709,7 @@
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
           <div style="display:flex;align-items:center;gap:8px">
+            <button onclick="go('s-notifications')" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge-circle" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
             <button onclick="doRefresh(this,function(){return loadFriends().then(renderCircleScreen);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
             <div id="circle-topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
           </div>
@@ -716,6 +717,7 @@
         <div class="content">
           <div id="circle-profile-nudges"></div>
           <div id="today-pill-host"></div>
+          <div id="circle-list-invites"></div>
           <div id="weekly-hero-card"></div>
           <div id="circle-stories-row"></div>
           <div class="sec-label">Activity</div>
@@ -1339,7 +1341,7 @@ function go(id) {
     if (mbb) mbb.style.display = matchOrigin ? 'block' : 'none';
     renderMatch();
   }
-  if (id === 's-circle') { renderCircleTopbarAvatar(); renderTodayPill(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderWeeklyHeroCard(); renderProfileNudges(); }
+  if (id === 's-circle') { renderCircleTopbarAvatar(); renderTodayPill(); renderCircleListInvites(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderWeeklyHeroCard(); renderProfileNudges(); updateNotificationBadge(); }
   if (id === 's-notifications') { loadListShareInvites().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
   if (id === 's-admin') { renderAdmin(); }
@@ -3068,6 +3070,39 @@ function showOnboardingIfNeeded() {
 
 function renderHome() {
   renderLists();
+}
+
+// ── Inline list-share invites on Circle ────────────────────────────────
+// Prominent card at the top of Circle when someone has invited you to fill
+// out a list. Friend requests and group invites already surface inline in
+// their respective sections; this is the third missing invite type.
+function renderCircleListInvites() {
+  var host = document.getElementById('circle-list-invites');
+  if (!host) return;
+  var pending = (MY_LIST_SHARE_INVITES || []).filter(function(i) {
+    // Only show invites for lists you haven't filled out yet
+    return !MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === i.category; });
+  });
+  if (!pending.length) { host.innerHTML = ''; return; }
+  var html = pending.slice(0, 3).map(function(inv) {
+    var p = inv.profile || {};
+    var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
+    var catEsc = String(inv.category).replace(/'/g,"\\'");
+    var pal = getCategoryColor(inv.category);
+    return '<div style="background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:14px;margin-bottom:10px">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+      +   friendAvatarHtml(p, 36)
+      +   '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + ' invited you</div>'
+      +   '<div style="font-size:11px;color:#2C2C2A;opacity:0.75;margin-top:2px">to fill out <strong>Top 10 ' + escapeHtml(inv.category) + '</strong></div></div>'
+      +   '<div style="font-size:22px;flex-shrink:0">' + renderCatEmoji(getCatEmoji(inv.category), 22) + '</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:6px">'
+      +   '<button style="flex:1;background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit" onclick="acceptListInvite(\'' + inv.id + '\',\'' + catEsc + '\')">Fill it out</button>'
+      +   '<button style="flex:1;background:transparent;color:#2C2C2A;border:1.5px solid #2C2C2A;border-radius:99px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit" onclick="declineListInvite(\'' + inv.id + '\');renderCircleListInvites();">Dismiss</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+  host.innerHTML = html;
 }
 
 // ── Circle topbar avatar (user's own photo, links to Profile) ──────────
@@ -5055,11 +5090,13 @@ var MY_LIST_SHARE_INVITES = []; // incoming "fill out this list" invites from fr
 var pendingMatchFriendId = null;
 
 function updateNotificationBadge() {
-  var badge = document.getElementById('notif-badge');
-  if (!badge) return;
   var n = MY_LIST_SHARE_INVITES.filter(function(i){ return !i.read_at; }).length;
-  if (n > 0) { badge.textContent = n > 9 ? '9+' : n; badge.style.display = 'block'; }
-  else { badge.style.display = 'none'; }
+  ['notif-badge', 'notif-badge-circle'].forEach(function(id) {
+    var badge = document.getElementById(id);
+    if (!badge) return;
+    if (n > 0) { badge.textContent = n > 9 ? '9+' : n; badge.style.display = 'block'; }
+    else { badge.style.display = 'none'; }
+  });
 }
 
 // Refresh the unread count without rendering the full screen (called on app load / tab changes)
@@ -8999,9 +9036,11 @@ function setupRealtimeNotifications() {
       if (isCircleActive()) { renderCircleTopbarAvatar(); renderTodayPill(); renderProfileNudges(); }
     }).catch(console.warn);
     loadFriends().then(function() {
-      if (isCircleActive()) { renderCircleStories(); renderHomeFeed(); renderCircleScreen(); renderTodayPill(); }
+      if (isCircleActive()) { renderCircleStories(); renderHomeFeed(); renderCircleScreen(); renderTodayPill(); renderCircleListInvites(); }
     }).catch(console.warn);
-    refreshNotifications().catch(console.warn);
+    refreshNotifications().then(function() {
+      if (isCircleActive()) renderCircleListInvites();
+    }).catch(console.warn);
     setupRealtimeNotifications();
   }
 
