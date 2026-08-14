@@ -3120,18 +3120,22 @@ function renderTodayPill() {
   host.innerHTML = '<div style="background:#2C2C2A;color:#FFFFFF;font-size:11px;font-weight:600;padding:8px 14px;border-radius:99px;margin-bottom:14px;text-align:center;letter-spacing:0.02em">' + escapeHtml(msg) + '</div>';
 }
 
-// ── Stories row (horizontal scroll of friend avatars with activity badges) ──
+// ── Stories row (horizontal scroll of friend avatars with actionable badges) ──
+// Each avatar shortcuts to whatever action the badge represents:
+//   🎂 birthday → gift guide for that friend
+//   🆕 new list → their most recent list
+//   (none)      → friend detail
 async function renderCircleStories() {
   var host = document.getElementById('circle-stories-row');
   if (!host) return;
   var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted' && f.profile; });
   if (!accepted.length) { host.innerHTML = ''; return; }
-  // Fetch recent list updates for badge computation
-  var recentByUser = {};
+  // Fetch recent list updates per friend to badge & to know which list to jump to
+  var latestByUser = {}; // user_id -> { category, at }
   try {
     var friendIds = accepted.map(function(f){ return f.friendId; });
     var lr = await sbClient.from('lists')
-      .select('user_id, updated_at, is_public')
+      .select('user_id, category, updated_at, is_public')
       .in('user_id', friendIds)
       .order('updated_at', { ascending: false })
       .limit(60);
@@ -3139,15 +3143,19 @@ async function renderCircleStories() {
       if (!l.is_public) return;
       var days = (Date.now() - new Date(l.updated_at).getTime()) / (1000*60*60*24);
       if (days > 3) return;
-      if (!recentByUser[l.user_id]) recentByUser[l.user_id] = true;
+      if (!latestByUser[l.user_id]) latestByUser[l.user_id] = { category: l.category, at: l.updated_at };
     });
   } catch(e) {}
-  // Score each friend for sort order
   function scoreFriend(f) {
     var d = f.profile && daysUntilBirthday(f.profile.birthday);
-    if (d !== null && d !== undefined && d >= 0 && d <= 30) return { s: 100 - d, badge: '🎂', ring: '#D85A30' };
-    if (recentByUser[f.friendId]) return { s: 50, badge: '🆕', ring: '#2F9E8F' };
-    return { s: 0, badge: null, ring: null };
+    if (d !== null && d !== undefined && d >= 0 && d <= 30) {
+      return { s: 100 - d, badge: '🎂', ring: '#D85A30', action: 'openGiftGuide(\'' + f.friendId + '\')' };
+    }
+    if (latestByUser[f.friendId]) {
+      var cat = latestByUser[f.friendId].category.replace(/\'/g,"\\'");
+      return { s: 50, badge: '🆕', ring: '#2F9E8F', action: 'openFriendListByCat(\'' + f.friendId + '\',\'' + cat + '\')' };
+    }
+    return { s: 0, badge: null, ring: null, action: 'selFriendId=\'' + f.friendId + '\';go(\'s-fdetail\')' };
   }
   var scored = accepted.map(function(f){ return { f: f, meta: scoreFriend(f) }; })
     .sort(function(a,b){ return b.meta.s - a.meta.s; })
@@ -3160,16 +3168,17 @@ async function renderCircleStories() {
     var ringStyle = m.ring
       ? 'padding:3px;background:linear-gradient(135deg,' + m.ring + ',' + m.ring + '88);border-radius:999px'
       : 'padding:1.5px;background:#2C2C2A;border-radius:999px';
+    var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
     var avatar = '<div style="width:56px;height:56px;border-radius:999px;overflow:hidden;background:#FFFFFF;display:flex;align-items:center;justify-content:center">'
       + (p.photo
           ? '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover">'
-          : '<div style="width:100%;height:100%;background:#EAE3DC;color:#5F5E5A;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center">' + name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) + '</div>'
+          : '<div style="width:100%;height:100%;background:#EAE3DC;color:#5F5E5A;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center">' + initials + '</div>'
         )
       + '</div>';
     var badge = m.badge
       ? '<div style="position:absolute;bottom:-2px;right:-2px;background:#FFFFFF;border:1.5px solid #2C2C2A;border-radius:999px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px">' + m.badge + '</div>'
       : '';
-    return '<div onclick="selFriendId=\'' + f.friendId + '\';go(\'s-fdetail\')" style="flex-shrink:0;width:74px;cursor:pointer;text-align:center">'
+    return '<div onclick="' + m.action + '" style="flex-shrink:0;width:74px;cursor:pointer;text-align:center">'
       + '<div style="position:relative;display:inline-block">' + '<div style="' + ringStyle + '">' + avatar + '</div>' + badge + '</div>'
       + '<div style="font-size:10px;font-weight:600;color:#2C2C2A;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(firstName) + '</div>'
       + '</div>';
@@ -5323,7 +5332,14 @@ function openFriendList(listData, origin) {
   var count = items.length;
   var meta = (listData.is_ranked !== false ? 'Ranked' : 'Unranked') + ' · ' + count + ' item' + (count !== 1 ? 's' : '') + ' · ' + friendName + '\'s list';
 
-  document.getElementById('friend-list-title').textContent = friendName;
+  var titleEl = document.getElementById('friend-list-title');
+  titleEl.innerHTML = escapeHtml(friendName) + ' <span style="color:#888780;font-weight:400">↗</span>';
+  titleEl.style.cursor = 'pointer';
+  titleEl.title = 'View ' + friendName + "'s profile";
+  titleEl.onclick = function() {
+    selFriendId = (f && f.friendId) || selFriendId;
+    go('s-fdetail');
+  };
   document.getElementById('friend-list-emoji').textContent = emoji;
   document.getElementById('friend-list-name').textContent = listData.name || ('Top 10 ' + cat);
   document.getElementById('friend-list-meta').textContent = meta;
@@ -8338,11 +8354,12 @@ async function openGiftGuide(friendUserId) {
     var daysStr = days !== null ? (days === 0 ? "TODAY 🎉" : (days === 1 ? "TOMORROW" : "in " + days + " days")) : '';
     countdown = '<div style="display:inline-flex;align-items:center;gap:6px;background:#FFFFFF;border:1px solid #F5C4B3;color:#D85A30;font-size:11px;font-weight:700;padding:6px 14px;border-radius:999px;margin-top:14px;letter-spacing:0.02em;text-transform:uppercase;box-shadow:0 2px 8px rgba(216,90,48,0.12)">🎂 ' + dayStr + (daysStr ? ' · ' + daysStr : '') + '</div>';
   }
-  var hero = '<div style="position:relative;text-align:center;padding:28px 20px 24px;margin:-14px -14px 20px;background:linear-gradient(180deg, ' + heroPalette.bg + '22 0%, #FAF8F5 100%);border-radius:0 0 28px 28px">'
+  var hero = '<div onclick="selFriendId=\'' + friendUserId + '\';go(\'s-fdetail\')" style="position:relative;text-align:center;padding:28px 20px 24px;margin:-14px -14px 20px;background:linear-gradient(180deg, ' + heroPalette.bg + '22 0%, #FAF8F5 100%);border-radius:0 0 28px 28px;cursor:pointer">'
     + '<div style="display:inline-block;padding:4px;background:#FFFFFF;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,0.10)">'
     +   friendAvatarHtml(profile, 96)
     + '</div>'
     + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:30px;letter-spacing:-0.02em;color:#2C2C2A;margin-top:14px;line-height:1.15">Gifts for<br>' + escapeHtml(name) + '</div>'
+    + '<div style="font-size:10px;color:#5F5E5A;margin-top:6px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">Tap to see profile ↗</div>'
     + countdown
     + '</div>';
 
