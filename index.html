@@ -27,7 +27,7 @@
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F9F7F2; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
   .outer { display: flex; align-items: center; justify-content: center; }
   .phone-wrap { position: relative; flex-shrink: 0; }
-  .phone { width: calc((100vh - 40px - 16px) * 0.508); max-width: 415px; min-width: 280px; background: #1A0F0A; border-radius: calc((100vh - 40px - 16px) * 0.065); padding: 10px; box-shadow: 0 30px 80px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08); position: relative; }
+  .phone { width: calc((100vh - 40px - 16px) * 0.508); max-width: 415px; min-width: 280px; background: #2C2C2A; border-radius: calc((100vh - 40px - 16px) * 0.065); padding: 10px; box-shadow: 0 30px 80px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08); position: relative; }
   .phone::before, .phone::after { display: none; }
   .frame { border-radius: calc((100vh - 40px - 32px) * 0.05); overflow: hidden; background: #fff; height: calc(100vh - 40px - 32px); max-height: 780px; min-height: 500px; display: flex; flex-direction: column; position: relative; }
   .screen { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
@@ -361,7 +361,7 @@
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
             <div id="list-detail-emoji" style="width:48px;height:48px;border-radius:12px;background:#FAECE7;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0"></div>
             <div style="flex:1;min-width:0">
-              <div id="list-detail-title" style="font-family:'DM Serif Display',Georgia,serif;font-size:22px;font-weight:400;letter-spacing:-0.02em;color:#1A0F0A;line-height:1.15"></div>
+              <div id="list-detail-title" style="font-family:'DM Serif Display',Georgia,serif;font-size:22px;font-weight:400;letter-spacing:-0.02em;color:#2C2C2A;line-height:1.15"></div>
               <div id="list-detail-meta" style="font-size:13.5px;color:#5F5E5A;margin-top:3px"></div>
             </div>
           </div>
@@ -1425,7 +1425,7 @@ function showMatchReveal(friendProfile, score, categoryLabel, friendId) {
     + '<div class="pop-in" style="background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:320px;text-align:center;position:relative">'
     +   '<button onclick="closeMatchReveal()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:22px;color:#888780;cursor:pointer">×</button>'
     +   '<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#888780;margin-bottom:4px">' + escapeHtml(categoryLabel || 'Overall Match') + '</div>'
-    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.02em;color:#1A0F0A;margin-bottom:18px">You & ' + escapeHtml(name) + '</div>'
+    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.02em;color:#2C2C2A;margin-bottom:18px">You & ' + escapeHtml(name) + '</div>'
     +   '<div style="position:relative;width:180px;height:180px;margin:0 auto 18px">'
     +     '<svg width="180" height="180" viewBox="0 0 180 180" style="transform:rotate(-90deg)">'
     +       '<circle cx="90" cy="90" r="78" fill="none" stroke="#F1EFE8" stroke-width="12"/>'
@@ -1505,7 +1505,7 @@ function showListCompleteModal(cat) {
   overlay.innerHTML = ''
     + '<div class="pop-in" style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:320px;text-align:center">'
     +   '<div style="font-size:56px;margin-bottom:8px">🎉</div>'
-    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;letter-spacing:-0.02em;color:#1A0F0A;margin-bottom:6px;line-height:1.15">Your Top 10 ' + escapeHtml(cat) + ' is live!</div>'
+    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;letter-spacing:-0.02em;color:#2C2C2A;margin-bottom:6px;line-height:1.15">Your Top 10 ' + escapeHtml(cat) + ' is live!</div>'
     +   '<div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">See who matches your taste — head to the Match tab to compare.</div>'
     +   '<button class="btn-primary" onclick="document.getElementById(\'list-complete-modal\').remove();matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go(\'s-match\')" style="margin-bottom:8px">Reveal my matches →</button>'
     +   '<button class="btn-secondary" onclick="document.getElementById(\'list-complete-modal\').remove()" style="margin-bottom:0">Maybe later</button>'
@@ -1595,10 +1595,10 @@ function renderCatGrid() {
     var div = document.createElement('div');
     div.className = 'cat-card' + (selected ? ' selected' : '');
     // Single medium-tone fill, black border, no emoji chip. Selected = thicker border + subtle scale
-    div.style.cssText = 'background:' + pal.bg + 'AA;border:' + (selected ? '2.5px solid #1A0F0A' : '1.5px solid #1A0F0A') + ';border-radius:14px;padding:12px 8px 10px;cursor:pointer;text-align:center;touch-action:manipulation;'
+    div.style.cssText = 'background:' + pal.bg + 'AA;border:' + (selected ? '2.5px solid #2C2C2A' : '1.5px solid #2C2C2A') + ';border-radius:14px;padding:12px 8px 10px;cursor:pointer;text-align:center;touch-action:manipulation;'
       + 'transform:' + (selected ? 'scale(1.03)' : 'scale(1)') + ';transition:transform 0.15s ease';
     div.innerHTML = '<div style="font-size:28px;line-height:1;margin-bottom:6px">' + renderCatEmoji(cat.e, 28) + '</div>'
-      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:13px;letter-spacing:-0.01em;line-height:1.1;color:#1A0F0A">' + escapeHtml(cat.n) + '</div>';
+      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:13px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A">' + escapeHtml(cat.n) + '</div>';
     div.onclick = function() { selCat = cat.n; selCatEmoji = cat.e; renderCatGrid(); document.getElementById('cat-inp').value = ''; document.getElementById('cat-warn').style.display = 'none'; document.getElementById('cat-sugs').style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; };
     grid.appendChild(div);
   });
@@ -2659,10 +2659,10 @@ function renderLists() {
     var pal = getCategoryColor(l.category || l.n.replace('Top 10 ',''));
     var card = document.createElement('div');
     // Single medium-tone fill, black border, no emoji chip
-    card.style.cssText = 'background:' + pal.bg + 'AA;border:1.5px solid #1A0F0A;border-radius:18px;padding:16px;cursor:pointer';
+    card.style.cssText = 'background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer';
     card.innerHTML = '<div style="font-size:36px;line-height:1;margin-bottom:10px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 36) + '</div>'
-      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;letter-spacing:-0.01em;line-height:1.1;color:#1A0F0A;margin-bottom:4px">' + escapeHtml(l.n) + '</div>'
-      + '<div style="font-size:11px;color:#1A0F0A;opacity:0.7;font-weight:600">' + escapeHtml(l.m) + '</div>';
+      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A;margin-bottom:4px">' + escapeHtml(l.n) + '</div>'
+      + '<div style="font-size:11px;color:#2C2C2A;opacity:0.7;font-weight:600">' + escapeHtml(l.m) + '</div>';
     card.onclick = (function(list) { return function() { showListDetail(list); }; })(l);
     grid.appendChild(card);
   });
@@ -4015,7 +4015,7 @@ function showSetNewPasswordModal() {
   overlay.style.cssText = 'position:absolute;inset:0;background:rgba(20,10,4,0.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px';
   overlay.innerHTML = ''
     + '<div class="pop-in" style="background:#fff;border-radius:16px;padding:24px 20px;width:100%;max-width:320px">'
-    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;color:#1A0F0A;text-align:center;margin-bottom:8px">Set a new password</div>'
+    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;color:#2C2C2A;text-align:center;margin-bottom:8px">Set a new password</div>'
     +   '<div style="font-size:12px;color:#5F5E5A;text-align:center;margin-bottom:14px">Choose a new password for your Tenner account.</div>'
     +   '<input type="password" id="reset-new-password" placeholder="New password (at least 6 characters)" style="margin-bottom:8px">'
     +   '<div id="reset-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #F0997B"></div>'
@@ -4676,7 +4676,7 @@ function renderOnbStep() {
 function renderOnbStep1(body) {
   var current = (myProfile && myProfile.display_name) || '';
   body.innerHTML = ''
-    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#1A0F0A;text-align:center;margin-bottom:8px;line-height:1.15">What should we call you?</div>'
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#2C2C2A;text-align:center;margin-bottom:8px;line-height:1.15">What should we call you?</div>'
     + '<div style="font-size:13px;color:#5F5E5A;text-align:center;margin-bottom:20px">This is how friends will see you on Tenner.</div>'
     + '<input type="text" id="onb-name" value="' + escapeHtml(current) + '" placeholder="Your name" autocomplete="name" autofocus style="margin-bottom:6px;text-align:center">'
     + '<div id="onb-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #F0997B"></div>'
@@ -4699,7 +4699,7 @@ function renderOnbStep2(body) {
   var existingHandle = (myProfile && myProfile.handle) || '';
   var suggested = existingHandle || suggestHandleFromName((myProfile && myProfile.display_name) || '');
   body.innerHTML = ''
-    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#1A0F0A;text-align:center;margin-bottom:8px;line-height:1.15">Pick your @handle</div>'
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#2C2C2A;text-align:center;margin-bottom:8px;line-height:1.15">Pick your @handle</div>'
     + '<div style="font-size:13px;color:#5F5E5A;text-align:center;margin-bottom:20px">Friends can find you by @handle. It\'s permanent, so choose something you\'ll be happy with.</div>'
     + '<div style="display:flex;align-items:stretch;border:1px solid #D3D1C7;border-radius:8px;background:#fff;overflow:hidden;margin-bottom:4px">'
     +   '<div style="display:flex;align-items:center;padding:0 12px;background:#F1EFE8;color:#5F5E5A;font-size:16px;font-weight:600">@</div>'
@@ -4752,7 +4752,7 @@ async function onbStep2Next() {
 function renderOnbStep3(body) {
   var current = (myProfile && myProfile.phone) || '';
   body.innerHTML = ''
-    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#1A0F0A;text-align:center;margin-bottom:8px;line-height:1.15">Add your phone number</div>'
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#2C2C2A;text-align:center;margin-bottom:8px;line-height:1.15">Add your phone number</div>'
     + '<div style="font-size:13px;color:#5F5E5A;text-align:center;margin-bottom:20px">Friends who have your number can find you instantly. Only friends who already have your number can see you.</div>'
     + '<input type="tel" id="onb-phone" value="' + escapeHtml(current) + '" placeholder="(555) 555-5555" autocomplete="tel" onblur="formatPhoneInput(this)" style="margin-bottom:6px;text-align:center">'
     + '<div id="onb-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #F0997B"></div>'
@@ -4785,7 +4785,7 @@ function renderOnbStep4(body) {
   var currentD = (myProfile && myProfile.birthday && myProfile.birthday.split('-')[2]) || '';
   var monthOpts = ['<option value="">Month</option>','<option value="01">January</option>','<option value="02">February</option>','<option value="03">March</option>','<option value="04">April</option>','<option value="05">May</option>','<option value="06">June</option>','<option value="07">July</option>','<option value="08">August</option>','<option value="09">September</option>','<option value="10">October</option>','<option value="11">November</option>','<option value="12">December</option>'].map(function(o){ return o.replace('value="' + currentM + '"', 'value="' + currentM + '" selected'); }).join('');
   body.innerHTML = ''
-    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#1A0F0A;text-align:center;margin-bottom:8px;line-height:1.15">When\'s your birthday?</div>'
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#2C2C2A;text-align:center;margin-bottom:8px;line-height:1.15">When\'s your birthday?</div>'
     + '<div style="font-size:13px;color:#5F5E5A;text-align:center;margin-bottom:20px">Friends will get a heads-up so they can wish you a happy day. 🎂</div>'
     + '<div style="display:flex;gap:8px;margin-bottom:6px">'
     +   '<select id="onb-bday-month" onchange="populateOnbDay()" style="flex:1;text-align:center">' + monthOpts + '</select>'
@@ -6937,7 +6937,7 @@ function renderAdminUserDetail(p, counts, isAdminUser) {
     + '<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">'
     +   friendAvatarHtml(p, 56)
     +   '<div style="flex:1;min-width:0">'
-    +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.02em;color:#1A0F0A">' + escapeHtml(name) + adminBadge + '</div>'
+    +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.02em;color:#2C2C2A">' + escapeHtml(name) + adminBadge + '</div>'
     +     '<div style="font-size:11px;color:#5F5E5A">' + escapeHtml(p.email || '') + '</div>'
     +     '<div style="font-size:11px;color:#888780">' + (p.handle ? '@' + escapeHtml(p.handle) : '') + (p.handle && p.phone ? ' · ' : '') + escapeHtml(p.phone || '') + '</div>'
     +   '</div>'
@@ -7158,7 +7158,7 @@ async function openAdminListDetail(listId, origin, originUid) {
       + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
       +   '<div style="width:48px;height:48px;border-radius:12px;background:#FAECE7;display:flex;align-items:center;justify-content:center">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 26) + '</div>'
       +   '<div style="flex:1;min-width:0">'
-      +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.02em;color:#1A0F0A">' + escapeHtml(l.name || 'Untitled') + '</div>'
+      +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.02em;color:#2C2C2A">' + escapeHtml(l.name || 'Untitled') + '</div>'
       +     '<div style="font-size:11px;color:#888780">Updated ' + (l.updated_at ? new Date(l.updated_at).toLocaleString() : '—') + '</div>'
       +   '</div>'
       + '</div>'
@@ -7623,7 +7623,7 @@ async function renderWeeklyHeroCard() {
   var fg = wkPal.fg;
   var isDarkText = fg !== '#FFFFFF';
   var subOpacity = isDarkText ? '0.75' : '0.9';
-  var btnBg = isDarkText ? '#1A0F0A' : '#FFFFFF';
+  var btnBg = isDarkText ? '#2C2C2A' : '#FFFFFF';
   var btnFg = isDarkText ? '#FFFFFF' : wkPal.accent;
   var ghostBorder = isDarkText ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.45)';
   var ghostBg = isDarkText ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.2)';
@@ -7690,7 +7690,7 @@ function showRevealCelebration(wk) {
   overlay.innerHTML = ''
     + '<div class="pop-in" style="background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:320px;text-align:center">'
     +   '<div style="font-size:56px;margin-bottom:6px">🎊</div>'
-    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;color:#1A0F0A;margin-bottom:6px;line-height:1.15">The reveal is live!</div>'
+    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;color:#2C2C2A;margin-bottom:6px;line-height:1.15">The reveal is live!</div>'
     +   '<div style="font-size:14px;color:#5F5E5A;margin-bottom:6px">' + (wk.emoji||'📋') + ' Top 10 ' + escapeHtml(wk.category) + '</div>'
     +   '<div style="font-size:12px;color:#888780;margin-bottom:18px">See how your picks stack up against all of Tenner — and against your circle.</div>'
     +   cta
@@ -8033,30 +8033,29 @@ async function renderGifts() {
     var pal = visibleLists.length
       ? getCategoryColor(visibleLists.slice().sort(function(a,b){ return (b.items||[]).length - (a.items||[]).length; })[0].category)
       : getCategoryColor(name);
-    var isUrgent = entry.daysUntil <= 14;
-    var previewChips = visibleLists.slice(0, 3).map(function(l) {
-      return '<span style="display:inline-block;background:#FFFFFF;color:#1A0F0A;font-size:10px;font-weight:600;padding:3px 9px;border-radius:99px;border:1px solid #1A0F0A;margin-right:5px;margin-top:5px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 11) + ' ' + escapeHtml(l.category) + '</span>';
-    }).join('');
-    var ctaAction, ctaLabel;
+    var ctaAction, ctaLabel, listSummary;
     if (visibleLists.length === 0) {
       ctaLabel = 'Ask for a list →';
       ctaAction = '';
+      listSummary = 'No shared lists yet';
     } else {
       ctaLabel = 'See gifts →';
       ctaAction = 'onclick="openGiftGuide(\'' + p.id + '\')"';
+      var catNames = visibleLists.slice(0, 3).map(function(l){ return l.category; }).join(' · ');
+      var more = visibleLists.length > 3 ? ' · +' + (visibleLists.length - 3) : '';
+      listSummary = catNames + more;
     }
-    var badgeBg = isUrgent ? '#1A0F0A' : '#FFFFFF';
-    var badgeFg = isUrgent ? '#FFFFFF' : '#1A0F0A';
-    return '<div style="background:' + pal.bg + 'AA;border:1.5px solid #1A0F0A;border-radius:18px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden">'
-      + '<div style="display:inline-block;background:' + badgeBg + ';color:' + badgeFg + ';font-size:10px;font-weight:700;padding:5px 11px;border-radius:99px;letter-spacing:0.05em;margin-bottom:10px">' + daysLabel + ' · ' + dateLabel + '</div>'
-      + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
+    // Bento-style card: medium colored fill, black border, no white elements inside
+    return '<div style="background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden">'
+      + '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">'
       +   avatar
       +   '<div style="flex:1;min-width:0">'
-      +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.01em;line-height:1.15;color:#1A0F0A">' + escapeHtml(name) + '</div>'
+      +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.01em;line-height:1.15;color:#2C2C2A">' + escapeHtml(name) + '</div>'
+      +     '<div style="font-size:11px;font-weight:700;color:#2C2C2A;letter-spacing:0.03em;margin-top:4px">' + daysLabel + ' · ' + dateLabel + '</div>'
+      +     '<div style="font-size:11px;color:#2C2C2A;opacity:0.7;margin-top:4px;font-weight:600">' + escapeHtml(listSummary) + '</div>'
       +   '</div>'
       + '</div>'
-      + (previewChips ? '<div style="margin-bottom:12px">' + previewChips + '</div>' : '')
-      + '<button ' + ctaAction + ' style="background:#1A0F0A;color:#FFFFFF;border:none;border-radius:99px;padding:10px 20px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">' + ctaLabel + '</button>'
+      + '<button ' + ctaAction + ' style="background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;padding:10px 20px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">' + ctaLabel + '</button>'
       + '</div>';
   }
 
@@ -8155,10 +8154,10 @@ function renderGiftTileHtml(l, i) {
   var safeCat = String(l.category).replace(/'/g,"\\'");
   var subtitle = 'Top ' + count + ' pick' + (count === 1 ? '' : 's') + ' · ' + (isOpen ? 'tap to close ↑' : 'tap to shop ↓');
   // Single medium-tone fill, black border, no emoji chip
-  var html = '<div data-gift-tile-idx="' + i + '" style="' + span + 'background:' + pal.bg + 'AA;border:1.5px solid #1A0F0A;border-radius:18px;padding:16px;position:relative;overflow:hidden;cursor:pointer" onclick="toggleGiftTile(\'' + safeCat + '\')">'
+  var html = '<div data-gift-tile-idx="' + i + '" style="' + span + 'background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;position:relative;overflow:hidden;cursor:pointer" onclick="toggleGiftTile(\'' + safeCat + '\')">'
     +   '<div style="font-size:36px;line-height:1;margin-bottom:10px">' + renderCatEmoji(emoji, 36) + '</div>'
-    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;letter-spacing:-0.01em;line-height:1.1;color:#1A0F0A;margin-bottom:4px">' + escapeHtml(l.category) + '</div>'
-    +   '<div style="font-size:11px;font-weight:600;color:#1A0F0A;opacity:0.7;letter-spacing:0.02em">' + subtitle + '</div>';
+    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A;margin-bottom:4px">' + escapeHtml(l.category) + '</div>'
+    +   '<div style="font-size:11px;font-weight:600;color:#2C2C2A;opacity:0.7;letter-spacing:0.02em">' + subtitle + '</div>';
   if (isOpen) {
     var items = (l.items || []).slice(0, 5);
     html += '<div style="margin-top:14px;background:#FFFFFF;border-radius:14px;padding:6px" onclick="event.stopPropagation()">';
@@ -8167,7 +8166,7 @@ function renderGiftTileHtml(l, i) {
       html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 8px;' + (idx < items.length - 1 ? 'border-bottom:1px solid #F1EFE8;' : '') + '">'
         +   '<div style="width:22px;height:22px;border-radius:999px;background:' + pal.bg + '66;color:' + pal.accent + ';font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + (idx+1) + '</div>'
         +   '<div style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#2C2C2A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(item) + '</div>'
-        +   '<a href="' + url + '" target="_blank" rel="noopener sponsored nofollow" style="background:#1A0F0A;color:#FFF;text-decoration:none;font-size:11px;font-weight:600;padding:6px 12px;border-radius:999px;flex-shrink:0">Shop →</a>'
+        +   '<a href="' + url + '" target="_blank" rel="noopener sponsored nofollow" style="background:#2C2C2A;color:#FFF;text-decoration:none;font-size:11px;font-weight:600;padding:6px 12px;border-radius:999px;flex-shrink:0">Shop →</a>'
         + '</div>';
     });
     html += '</div>';
@@ -8215,7 +8214,7 @@ async function openGiftGuide(friendUserId) {
     + '<div style="display:inline-block;padding:4px;background:#FFFFFF;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,0.10)">'
     +   friendAvatarHtml(profile, 96)
     + '</div>'
-    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:30px;letter-spacing:-0.02em;color:#1A0F0A;margin-top:14px;line-height:1.15">Gifts for<br>' + escapeHtml(name) + '</div>'
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:30px;letter-spacing:-0.02em;color:#2C2C2A;margin-top:14px;line-height:1.15">Gifts for<br>' + escapeHtml(name) + '</div>'
     + countdown
     + '</div>';
 
