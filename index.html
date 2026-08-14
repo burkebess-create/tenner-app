@@ -1386,13 +1386,13 @@ function go(id) {
     renderMatch();
     renderTopbarAvatars();
   }
-  if (id === 's-circle') { renderCircleTopbarAvatar(); renderTodayPill(); renderCircleListInvites(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderWeeklyHeroCard(); renderProfileNudges(); updateNotificationBadge(); }
+  if (id === 's-circle') { renderCircleTopbarAvatar(); renderTodayPill(); renderCircleListInvites(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderWeeklyHeroCard(); renderProfileNudges(); refreshNotifications().then(function(){ renderCircleListInvites(); }); }
   if (id === 's-add-friends') {
     var sInp = document.getElementById('circle-friend-search'); if (sInp) sInp.value = '';
     var sRes = document.getElementById('circle-friend-search-result'); if (sRes) sRes.innerHTML = '';
     setTimeout(function(){ if (sInp) sInp.focus(); }, 100);
   }
-  if (id === 's-notifications') { loadListShareInvites().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
+  if (id === 's-notifications') { refreshNotifications().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
   if (id === 's-admin') { renderAdmin(); }
   if (id === 's-admin-user') { /* driven by openAdminUserDetail */ }
@@ -2802,10 +2802,20 @@ async function toggleListBlindFill(checked) {
 }
 
 var selListDetail = null;
+var _showListDetailRefreshing = false;
 function showListDetail(l) {
   selListDetail = l;
   var listItems = (l.items || []);
   var screen = document.getElementById('s-list-detail');
+  // Refresh comments so 💬 item badges reflect any new comments since app load.
+  // Guard against re-entering this function from within its own refresh callback.
+  if (!_showListDetailRefreshing) {
+    _showListDetailRefreshing = true;
+    refreshNotifications().then(function() {
+      if (screen.classList.contains('active') && selListDetail === l) showListDetail(l);
+      _showListDetailRefreshing = false;
+    }).catch(function(){ _showListDetailRefreshing = false; });
+  }
   _currentListCategory = l.category || l.n.replace('Top 10 ', '');
   document.getElementById('list-detail-emoji').innerHTML = renderCatEmoji(l.emoji || getCatEmoji(l.category), 30);
   document.getElementById('list-detail-emoji').onclick = function(){ openListEmojiPicker(); };
@@ -2845,14 +2855,18 @@ function showListDetail(l) {
       if (new Date(c.created_at).getTime() <= sinceMs) return;
       newCommentItems[c.item_name] = (newCommentItems[c.item_name] || 0) + 1;
     });
+    var listCatEsc = String(listCat).replace(/'/g, "\\'");
     listItems.forEach(function(item, i) {
+      var itemEsc = String(item).replace(/'/g, "\\'").replace(/"/g, '&quot;');
       var row = document.createElement('div');
       row.className = 'rank-item';
       row.style.marginBottom = '6px';
+      row.style.cursor = 'pointer';
+      row.setAttribute('onclick', "openItemComments('" + userId + "','" + listCatEsc + "','" + itemEsc + "')");
       var badge = newCommentItems[item]
         ? '<span style="display:inline-flex;align-items:center;gap:3px;background:#D85A30;color:#FFFFFF;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:8px;flex-shrink:0" title="' + newCommentItems[item] + ' new comment' + (newCommentItems[item] !== 1 ? 's' : '') + '">💬 ' + newCommentItems[item] + '</span>'
-        : '';
-      row.innerHTML = (l.ranked ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>') + '<span style="flex:1;font-size:13.5px;color:#2C2C2A">' + item + '</span>' + badge;
+        : '<span style="font-size:14px;color:#B8B5A8;margin-left:8px;flex-shrink:0" title="Comments">💬</span>';
+      row.innerHTML = (l.ranked ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>') + '<span style="flex:1;font-size:13.5px;color:#2C2C2A">' + escapeHtml(item) + '</span>' + badge;
       el.appendChild(row);
     });
   }
