@@ -724,13 +724,10 @@
           <div class="sec-label">Activity</div>
           <div id="home-feed-section"></div>
 
-          <div class="sec-label" style="margin-top:16px">Friends</div>
-          <div style="display:flex;gap:6px;margin-bottom:6px">
-            <input type="text" id="circle-friend-search" placeholder="Find friends by @handle or phone number" style="margin-bottom:0;flex:1;font-size:12px;padding:7px 10px">
-            <button class="btn-primary" onclick="circleSearchFriend()" style="width:auto;padding:7px 14px;margin-bottom:0;font-size:12px;white-space:nowrap">Search</button>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;margin-bottom:8px">
+            <div class="sec-label" style="margin-top:0;margin-bottom:0">Friends</div>
+            <button onclick="go('s-add-friends')" style="background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;padding:6px 13px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">+ Add friends</button>
           </div>
-          <button class="btn-primary" onclick="openInviteModal()" style="margin-bottom:8px;font-size:12px;padding:9px">+ Invite friends to Tenner via link, email, or text</button>
-          <div id="circle-friend-search-result" style="margin-bottom:8px"></div>
           <div id="circle-friend-requests"></div>
           <div id="circle-friends-list"></div>
 
@@ -751,6 +748,32 @@
           <span style="width:52px"></span>
         </div>
         <div class="content" id="fdetail-content"></div>
+      </div>
+
+      <!-- ═══ ADD FRIENDS ═══ -->
+      <div class="screen" id="s-add-friends">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-circle')">← Back</button>
+          <span style="font-size:13px;font-weight:600;color:#2C2C2A">Add Friends</span>
+          <span style="width:52px"></span>
+        </div>
+        <div class="content">
+          <div style="text-align:center;margin-bottom:18px">
+            <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;color:#2C2C2A;line-height:1.15;margin-bottom:6px">Grow your circle</div>
+            <div style="font-size:12.5px;color:#5F5E5A;line-height:1.5">Search for people already on Tenner, or invite friends who aren't yet.</div>
+          </div>
+
+          <div class="sec-label" style="margin-top:0">Search Tenner</div>
+          <div style="display:flex;gap:6px;margin-bottom:8px">
+            <input type="text" id="circle-friend-search" placeholder="@handle or phone number" style="margin-bottom:0;flex:1;font-size:13px;padding:9px 12px" onkeydown="if(event.key==='Enter')circleSearchFriend()">
+            <button class="btn-primary" onclick="circleSearchFriend()" style="width:auto;padding:9px 16px;margin-bottom:0;font-size:12px;white-space:nowrap">Search</button>
+          </div>
+          <div id="circle-friend-search-result" style="margin-bottom:20px"></div>
+
+          <div class="sec-label">Invite people not on Tenner</div>
+          <button class="btn-primary" onclick="openInviteModal()" style="margin-bottom:10px;font-size:13px;padding:12px">📤 Invite via link, email, or text</button>
+          <div style="font-size:11.5px;color:#888780;line-height:1.5;text-align:center;padding:6px 4px">You'll get a share sheet with a pre-composed message and your @handle so friends know who to add on Tenner.</div>
+        </div>
       </div>
 
       <!-- ═══ GROUP LIST DETAIL ═══ -->
@@ -1299,7 +1322,7 @@ function go(id) {
       's-match': 'nav-match',
       's-gifts': 'nav-gifts', 's-gift-guide': 'nav-gifts',
       's-all-tenner': 'nav-circle',
-      's-circle': 'nav-circle', 's-fdetail': 'nav-circle', 's-friend-list': 'nav-circle', 's-gift-ideas': 'nav-circle',
+      's-circle': 'nav-circle', 's-fdetail': 'nav-circle', 's-friend-list': 'nav-circle', 's-gift-ideas': 'nav-circle', 's-add-friends': 'nav-circle',
       // s-profile intentionally has no bnav mapping — reached via Circle topbar avatar
       's-notifications': 'nav-home'
     }[id];
@@ -1347,6 +1370,11 @@ function go(id) {
     renderMatch();
   }
   if (id === 's-circle') { renderCircleTopbarAvatar(); renderTodayPill(); renderCircleListInvites(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderWeeklyHeroCard(); renderProfileNudges(); updateNotificationBadge(); }
+  if (id === 's-add-friends') {
+    var sInp = document.getElementById('circle-friend-search'); if (sInp) sInp.value = '';
+    var sRes = document.getElementById('circle-friend-search-result'); if (sRes) sRes.innerHTML = '';
+    setTimeout(function(){ if (sInp) sInp.focus(); }, 100);
+  }
   if (id === 's-notifications') { loadListShareInvites().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
   if (id === 's-admin') { renderAdmin(); }
