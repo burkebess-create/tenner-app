@@ -38,11 +38,13 @@
   .sec-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #888780; font-weight: 700; margin: 20px 0 10px; }
 
   .bento { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .tile { border: 1.5px solid #2C2C2A; border-radius: 18px; padding: 16px; }
+  .tile { border: 1.5px solid #2C2C2A; border-radius: 18px; padding: 16px; cursor: pointer; transition: grid-column 0.15s ease; }
+  .tile.open { grid-column: 1 / -1; }
   .tile-emoji { font-size: 36px; line-height: 1; margin-bottom: 10px; }
   .tile-title { font-family: 'DM Serif Display', Georgia, serif; font-size: 20px; letter-spacing: -0.01em; line-height: 1.1; color: #2C2C2A; margin-bottom: 4px; }
   .tile-sub { font-size: 11px; font-weight: 600; color: #2C2C2A; opacity: 0.7; letter-spacing: 0.02em; }
-  .picks { margin-top: 14px; background: #FFFFFF; border-radius: 14px; padding: 6px; }
+  .picks { margin-top: 14px; background: #FFFFFF; border-radius: 14px; padding: 6px; display: none; }
+  .tile.open .picks { display: block; }
   .pick { display: flex; align-items: center; gap: 10px; padding: 10px 8px; }
   .pick + .pick { border-top: 1px solid #F1EFE8; }
   .pick .rank { width: 22px; height: 22px; border-radius: 999px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #2C2C2A; }
@@ -56,13 +58,10 @@
   .t-mustard .rank { background: #F5B53466; }
   .t-teal    { background: #2F9E8F99; }
   .t-teal .rank { background: #2F9E8F66; }
-  .t-forest  { background: #3A7A5C99; }
-  .t-forest .rank { background: #3A7A5C66; color: #fff; }
-  .t-plum    { background: #7A4A85AA; }
-  .t-plum .rank { background: #7A4A8566; color: #fff; }
-  .t-plum .tile-title, .t-plum .tile-sub { color: #fff; }
-  .t-forest .tile-title, .t-forest .tile-sub { color: #fff; }
   .t-teal .tile-title, .t-teal .tile-sub { color: #fff; }
+  .t-rose    { background: #D46A80AA; }
+  .t-rose .rank { background: #D46A8066; color: #fff; }
+  .t-rose .tile-title, .t-rose .tile-sub { color: #fff; }
 
   .footcta { background: #FDFCF8; border: 1.5px solid #2C2C2A; border-radius: 22px; padding: 24px 18px; text-align: center; margin-top: 26px; }
   .footcta h2 { font-family: 'DM Serif Display', Georgia, serif; font-size: 24px; letter-spacing: -0.02em; margin: 0 0 6px; color: #2C2C2A; font-weight: 400; }
@@ -85,7 +84,7 @@
 <div class="page">
 
   <div class="banner">
-    <strong>Example page.</strong> This is a demo of a Tenner gift guide as it appears inside the app — friend-specific gift suggestions built from someone's Top 10 lists. The Shop buttons below use live Amazon affiliate links so you can see the exact link format and disclosure Tenner uses everywhere.
+    <strong>Example page.</strong> This is a demo of a Tenner gift guide as it appears inside the app — friend-specific gift suggestions built from someone's Top 10 lists. Tap any tile to expand it. The Shop buttons use live Amazon affiliate links so you can see the exact link format and disclosure Tenner uses everywhere.
   </div>
 
   <!-- Hero -->
@@ -103,49 +102,84 @@
 
   <!-- Bento tiles -->
   <div class="sec-label">Inspired by their lists</div>
-  <div class="bento">
+  <div class="bento" id="bento">
 
-    <div class="tile t-coral" style="grid-column: 1 / -1;">
+    <!-- Movies (starts open) -->
+    <div class="tile t-coral open" onclick="toggleTile(this)">
       <div class="tile-emoji">🎬</div>
       <div class="tile-title">Movies</div>
-      <div class="tile-sub">Top 5 picks · tap to shop below</div>
-      <div class="picks">
-        <div class="pick"><div class="rank">1</div><div class="name">Inception</div>
-          <a class="shop" href="https://www.amazon.com/s?k=Inception%20movie%20gift%20ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
-        <div class="pick"><div class="rank">2</div><div class="name">The Dark Knight</div>
-          <a class="shop" href="https://www.amazon.com/s?k=The%20Dark%20Knight%20movie%20gift%20ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
-        <div class="pick"><div class="rank">3</div><div class="name">Pulp Fiction</div>
-          <a class="shop" href="https://www.amazon.com/s?k=Pulp%20Fiction%20movie%20gift%20ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
-        <div class="pick"><div class="rank">4</div><div class="name">Interstellar</div>
-          <a class="shop" href="https://www.amazon.com/s?k=Interstellar%20movie%20gift%20ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
-        <div class="pick"><div class="rank">5</div><div class="name">The Godfather</div>
-          <a class="shop" href="https://www.amazon.com/s?k=The%20Godfather%20movie%20gift%20ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+      <div class="tile-sub"><span class="closed-hint" style="display:none">Top 5 picks · tap to shop ↓</span><span class="open-hint">Top 5 picks · tap to close ↑</span></div>
+      <div class="picks" onclick="event.stopPropagation()">
+        <div class="pick"><div class="rank">1</div><div class="name">Goonies</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Goonies+movie+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">2</div><div class="name">Interstellar</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Interstellar+movie+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">3</div><div class="name">Spider-Man</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Spider-Man+movie+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">4</div><div class="name">Frozen</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Frozen+movie+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">5</div><div class="name">Monty Python and the Holy Grail</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Monty+Python+and+the+Holy+Grail+movie+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
       </div>
     </div>
 
-    <div class="tile t-mustard">
+    <!-- Books -->
+    <div class="tile t-mustard" onclick="toggleTile(this)">
       <div class="tile-emoji">📚</div>
       <div class="tile-title">Books</div>
-      <div class="tile-sub">Top 5 picks · tap to shop ↓</div>
+      <div class="tile-sub"><span class="closed-hint">Top 5 picks · tap to shop ↓</span><span class="open-hint" style="display:none">Top 5 picks · tap to close ↑</span></div>
+      <div class="picks" onclick="event.stopPropagation()">
+        <div class="pick"><div class="rank">1</div><div class="name">Pride and Prejudice</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Pride+and+Prejudice+book+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">2</div><div class="name">Lord of the Rings</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Lord+of+the+Rings+book+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">3</div><div class="name">Harry Potter</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Harry+Potter+book+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">4</div><div class="name">Twilight</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Twilight+book+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">5</div><div class="name">The Hunger Games</div>
+          <a class="shop" href="https://www.amazon.com/s?k=The+Hunger+Games+book+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+      </div>
     </div>
 
-    <div class="tile t-teal">
+    <!-- TV Shows -->
+    <div class="tile t-teal" onclick="toggleTile(this)">
       <div class="tile-emoji">📺</div>
       <div class="tile-title">TV Shows</div>
-      <div class="tile-sub">Top 5 picks · tap to shop ↓</div>
+      <div class="tile-sub"><span class="closed-hint">Top 5 picks · tap to shop ↓</span><span class="open-hint" style="display:none">Top 5 picks · tap to close ↑</span></div>
+      <div class="picks" onclick="event.stopPropagation()">
+        <div class="pick"><div class="rank">1</div><div class="name">The Office</div>
+          <a class="shop" href="https://www.amazon.com/s?k=The+Office+TV+show+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">2</div><div class="name">Ted Lasso</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Ted+Lasso+TV+show+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">3</div><div class="name">The Rookie</div>
+          <a class="shop" href="https://www.amazon.com/s?k=The+Rookie+TV+show+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">4</div><div class="name">The Big Bang Theory</div>
+          <a class="shop" href="https://www.amazon.com/s?k=The+Big+Bang+Theory+TV+show+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">5</div><div class="name">Friends</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Friends+TV+show+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+      </div>
     </div>
 
-    <div class="tile t-plum">
-      <div class="tile-emoji">🎵</div>
-      <div class="tile-title">Songs</div>
-      <div class="tile-sub">Top 5 picks · tap to shop ↓</div>
+    <!-- Candy Bars -->
+    <div class="tile t-rose" onclick="toggleTile(this)">
+      <div class="tile-emoji">🍫</div>
+      <div class="tile-title">Candy Bars</div>
+      <div class="tile-sub"><span class="closed-hint">Top 5 picks · tap to shop ↓</span><span class="open-hint" style="display:none">Top 5 picks · tap to close ↑</span></div>
+      <div class="picks" onclick="event.stopPropagation()">
+        <div class="pick"><div class="rank">1</div><div class="name">Snickers</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Snickers+candy+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">2</div><div class="name">Reese's Peanut Butter Cups</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Reese%27s+Peanut+Butter+Cups+candy+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">3</div><div class="name">Kit Kat</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Kit+Kat+candy+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">4</div><div class="name">Twix</div>
+          <a class="shop" href="https://www.amazon.com/s?k=Twix+candy+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+        <div class="pick"><div class="rank">5</div><div class="name">M&Ms</div>
+          <a class="shop" href="https://www.amazon.com/s?k=M%26Ms+candy+gift+ideas&s=review-rank&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
+      </div>
     </div>
 
-    <div class="tile t-forest">
-      <div class="tile-emoji">🍽️</div>
-      <div class="tile-title">Restaurants</div>
-      <div class="tile-sub">Gift cards · tap to shop ↓</div>
-    </div>
   </div>
 
   <div class="footcta">
@@ -163,6 +197,17 @@
   <a href="terms.html">Terms</a>
   <div style="margin-top:12px;font-size:11px">As an Amazon Associate, Tenner earns from qualifying purchases.</div>
 </footer>
+
+<script>
+  function toggleTile(el) {
+    var willOpen = !el.classList.contains('open');
+    el.classList.toggle('open');
+    var closedHint = el.querySelector('.closed-hint');
+    var openHint = el.querySelector('.open-hint');
+    if (closedHint) closedHint.style.display = willOpen ? 'none' : 'inline';
+    if (openHint) openHint.style.display = willOpen ? 'inline' : 'none';
+  }
+</script>
 
 </body>
 </html>
