@@ -352,7 +352,7 @@
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
           <div style="display:flex;align-items:center;gap:8px">
-            <button class="back-btn" onclick="go('s-notifications')" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
+            <button class="back-btn" onclick="openAlerts()" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
             <button class="back-btn" id="home-refresh-btn" onclick="doRefresh(this,function(){return loadState().then(renderHome);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg id="home-refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
             <div class="topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
           </div>
@@ -368,7 +368,8 @@
       <!-- ═══ NOTIFICATIONS ═══ -->
       <div class="screen" id="s-notifications">
         <div class="topbar">
-          <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
+          <button class="back-btn" onclick="go(_notifOrigin || 's-circle')">← Back</button>
+          <span style="font-size:13px;font-weight:600;color:#2C2C2A">Alerts</span>
           <button class="back-btn" onclick="doRefresh(this,function(){return refreshNotifications().then(function(){renderNotifications();});})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
         </div>
         <div style="display:flex;border-bottom:1px solid #E5E3DC;background:#FAF8F5">
@@ -723,7 +724,7 @@
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
           <div style="display:flex;align-items:center;gap:8px">
-            <button onclick="go('s-notifications')" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge-circle" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
+            <button onclick="openAlerts()" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge-circle" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
             <button onclick="doRefresh(this,function(){return loadFriends().then(renderCircleScreen);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
             <div id="circle-topbar-avatar" class="topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
           </div>
@@ -1317,6 +1318,16 @@ var _createFromHome = false;
 var selGroupIdx = 0;
 var creatingNewGroup = false;
 var pendingShareGroupId = null; // group to share a list with after it's saved
+
+var _notifOrigin = 's-circle'; // where the user was before opening Alerts
+
+// Bell taps route through here so the Back button on s-notifications can return
+// to the caller (My Lists or Circle usually).
+function openAlerts() {
+  var active = document.querySelector('.screen.active');
+  if (active && active.id !== 's-notifications') _notifOrigin = active.id;
+  go('s-notifications');
+}
 
 function go(id) {
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
