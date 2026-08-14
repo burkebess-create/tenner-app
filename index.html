@@ -932,6 +932,41 @@
             </div>
           </div>
 
+          <div class="sec-label">💬 Comment settings</div>
+          <div class="card no-hover" style="margin-bottom:12px">
+            <div style="font-size:11px;font-weight:700;color:#2C2C2A;margin-bottom:6px">Which comments do I see on friends' lists?</div>
+            <label style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;cursor:pointer;font-size:12px;color:#2C2C2A">
+              <input type="radio" name="comment-visibility" value="all" style="margin-top:2px;flex-shrink:0">
+              <span><strong>All comments</strong><br><span style="color:#5F5E5A;font-size:11px">See what anyone has said on friends' list items.</span></span>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;cursor:pointer;font-size:12px;color:#2C2C2A;border-top:1px solid #F1EFE8">
+              <input type="radio" name="comment-visibility" value="mutual" style="margin-top:2px;flex-shrink:0">
+              <span><strong>Only from people I know</strong><br><span style="color:#5F5E5A;font-size:11px">Hide comments from strangers — only show those left by my own friends.</span></span>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;cursor:pointer;font-size:12px;color:#2C2C2A;border-top:1px solid #F1EFE8">
+              <input type="radio" name="comment-visibility" value="none" style="margin-top:2px;flex-shrink:0">
+              <span><strong>None on friends' lists</strong><br><span style="color:#5F5E5A;font-size:11px">Only see comments on your own lists and replies to your comments.</span></span>
+            </label>
+
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid #F1EFE8;display:flex;justify-content:space-between;align-items:center;gap:12px">
+              <div style="flex:1">
+                <div style="font-size:12px;font-weight:700;color:#2C2C2A">Allow comments on my lists</div>
+                <div style="font-size:11px;color:#5F5E5A;margin-top:2px">Off means friends won't see a comment option on your list items.</div>
+              </div>
+              <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0">
+                <input type="checkbox" id="profile-allow-comments" style="opacity:0;width:0;height:0;position:absolute">
+                <span id="profile-allow-comments-track" style="position:absolute;inset:0;border-radius:99px;background:#D3D1C7;cursor:pointer;transition:background .2s">
+                  <span id="profile-allow-comments-thumb" style="position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s"></span>
+                </span>
+              </label>
+            </div>
+
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid #F1EFE8">
+              <button class="btn-secondary" onclick="confirmDeleteAllMyListComments()" style="width:100%;margin-bottom:0;color:#A32D2D;border-color:#F09595;font-size:12px">🗑️ Delete every comment on my lists</button>
+              <div style="font-size:10px;color:#888780;line-height:1.5;margin-top:6px;text-align:center">One-time cleanup — removes all comments others have left on your list items. Doesn't affect future comments.</div>
+            </div>
+          </div>
+
           <button class="btn-primary" onclick="saveProfile()" style="margin-top:10px">Save profile</button>
           <div id="profile-save-msg" style="display:none;font-size:11px;color:#27500A;background:#EAF3DE;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #97C459">Profile saved!</div>
 
@@ -4665,7 +4700,11 @@ async function saveProfile() {
   // Collect wishlist visibility (which of my list categories can show up in friends' gift guides)
   var visibleCats = [];
   document.querySelectorAll('input[name="wishlist-cat"]:checked').forEach(function(cb) { visibleCats.push(cb.value); });
-  myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, bio: bio || null, gift_visible_categories: visibleCats, updated_at: new Date().toISOString() };
+  // Comment preferences
+  var commentVisRadio = document.querySelector('input[name="comment-visibility"]:checked');
+  var commentVis = commentVisRadio ? commentVisRadio.value : 'all';
+  var allowComments = (document.getElementById('profile-allow-comments') || {}).checked;
+  myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, bio: bio || null, gift_visible_categories: visibleCats, comment_visibility_pref: commentVis, allow_comments_on_my_lists: !!allowComments, updated_at: new Date().toISOString() };
   if (existingPhoto) myProfile.photo = existingPhoto;
   if (sbClient && userId) {
     try {
@@ -4765,6 +4804,24 @@ function renderProfileHeader() {
   })();
   var sf = document.getElementById('profile-stat-friends'); if (sf) sf.textContent = myFriends.filter(function(f) { return f.status === 'accepted'; }).length;
   var sc = document.getElementById('profile-stat-circles'); if (sc) sc.textContent = MY_GROUPS.length;
+  // Comment settings: hydrate radio + toggle from saved prefs
+  var cvPref = (myProfile && myProfile.comment_visibility_pref) || 'all';
+  var cvRadio = document.querySelector('input[name="comment-visibility"][value="' + cvPref + '"]');
+  if (cvRadio) cvRadio.checked = true;
+  var allowChk = document.getElementById('profile-allow-comments');
+  var allowCurrent = !(myProfile && myProfile.allow_comments_on_my_lists === false);
+  if (allowChk) {
+    allowChk.checked = allowCurrent;
+    var track = document.getElementById('profile-allow-comments-track');
+    var thumb = document.getElementById('profile-allow-comments-thumb');
+    if (track) track.style.background = allowCurrent ? '#D85A30' : '#D3D1C7';
+    if (thumb) thumb.style.transform = allowCurrent ? 'translateX(18px)' : 'translateX(0)';
+    allowChk.onchange = function() {
+      var c = this.checked;
+      if (track) track.style.background = c ? '#D85A30' : '#D3D1C7';
+      if (thumb) thumb.style.transform = c ? 'translateX(18px)' : 'translateX(0)';
+    };
+  }
   var ot = document.getElementById('profile-on-tenner');
   if (ot) {
     var since = timeOnTenner(p);
@@ -5464,7 +5521,19 @@ async function renderNotifActivity(el) {
   }
 
   // ── SECTION 1b: Replies to threads I participated in (on OTHER people's items) ──
-  var replies = (MY_THREAD_REPLIES || []).slice(0, 20);
+  // Note: comments-on-me (SECTION 1) always shows regardless of viewer pref —
+  // those are comments on YOUR content; you always want to see them. The pref
+  // only affects visibility of others' comments on FRIENDS' lists. Replies to
+  // your own comments always show for the same reason (they're a response to
+  // you). Only the "mutual" pref filters replies — hides thread replies from
+  // people you don't know.
+  var pref = (myProfile && myProfile.comment_visibility_pref) || 'all';
+  var myFriendIdSet = {};
+  (myFriends || []).forEach(function(f){ if (f.status === 'accepted') myFriendIdSet[f.friendId] = true; });
+  var replies = (MY_THREAD_REPLIES || []).filter(function(c) {
+    if (pref === 'mutual') return c.from_user_id === c.list_owner_id || myFriendIdSet[c.from_user_id];
+    return true;
+  }).slice(0, 20);
   if (replies.length > 0) {
     html += '<div class="sec-label" style="margin-top:18px">Replies to your comments</div>';
     html += replies.map(function(c) {
@@ -9793,9 +9862,26 @@ function openItemComments(listOwnerId, category, itemName) {
 async function loadItemComments(listOwnerId, category, itemName) {
   var el = document.getElementById('item-comments-list');
   if (!sbClient || !el) return;
+  var isMyList = listOwnerId === userId;
+  // Update the comment input area based on owner's allow_comments_on_my_lists preference
+  await updateCommentInputVisibility(listOwnerId);
   try {
     var res = await sbClient.from('list_item_comments').select('id, from_user_id, comment, created_at, edited_at').eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', itemName).order('created_at', { ascending: true });
     var comments = res.data || [];
+    // Apply viewer's comment-visibility preference (only when viewing a friend's list)
+    if (!isMyList) {
+      var pref = (myProfile && myProfile.comment_visibility_pref) || 'all';
+      if (pref === 'none') {
+        el.innerHTML = '<div style="color:#888780;font-size:12px;padding:12px;text-align:center;background:#F1EFE8;border-radius:8px">Comments on friends\' lists are hidden by your settings. Change in Profile → Comment settings.</div>';
+        return;
+      }
+      if (pref === 'mutual') {
+        var myFriendIds = (myFriends || []).filter(function(f){ return f.status === 'accepted'; }).map(function(f){ return f.friendId; });
+        comments = comments.filter(function(c) {
+          return c.from_user_id === userId || c.from_user_id === listOwnerId || myFriendIds.indexOf(c.from_user_id) >= 0;
+        });
+      }
+    }
     if (!comments.length) { el.innerHTML = '<div style="color:#888780;font-size:12px;padding:8px 0">No comments yet. Be the first!</div>'; return; }
     el.innerHTML = comments.map(function(c) {
       var isMine = c.from_user_id === userId;
@@ -9887,6 +9973,56 @@ async function deleteItemComment(commentId) {
     await sbClient.from('list_item_comments').delete().eq('id', commentId).eq('from_user_id', userId);
     loadItemComments(activeCommentListOwner, activeCommentCategory, activeCommentItem);
   } catch(e) { showToast('Could not delete comment.'); }
+}
+
+// Hide the comment input + Reply button when list owner has disabled comments.
+// Also show a small notice so the viewer understands why they can't reply.
+async function updateCommentInputVisibility(listOwnerId) {
+  var inp = document.getElementById('item-comment-input');
+  if (!inp) return;
+  var wrap = inp.closest('form, div');
+  // Look up the owner's preference (skip check for our own lists — always allow)
+  if (listOwnerId === userId) { if (wrap) wrap.style.display = ''; return; }
+  try {
+    var pr = await sbClient.from('profiles').select('allow_comments_on_my_lists, display_name').eq('id', listOwnerId).maybeSingle();
+    var allowed = !(pr && pr.data && pr.data.allow_comments_on_my_lists === false);
+    var ownerName = (pr && pr.data && pr.data.display_name) || 'This user';
+    if (wrap) {
+      wrap.style.display = allowed ? '' : 'none';
+    }
+    // Add or remove a small "comments disabled" notice
+    var notice = document.getElementById('item-comments-disabled-notice');
+    if (!allowed) {
+      if (!notice) {
+        notice = document.createElement('div');
+        notice.id = 'item-comments-disabled-notice';
+        notice.style.cssText = 'font-size:11.5px;color:#5F5E5A;background:#F1EFE8;border-radius:8px;padding:10px 12px;text-align:center;margin-top:8px';
+        if (wrap && wrap.parentNode) wrap.parentNode.insertBefore(notice, wrap);
+      }
+      notice.textContent = ownerName + ' has turned off comments on their lists.';
+    } else if (notice) {
+      notice.remove();
+    }
+  } catch(e) { /* silent */ }
+}
+
+// Bulk-delete every comment others left on my list items (Option C in the settings)
+async function confirmDeleteAllMyListComments() {
+  if (!sbClient || !userId) return;
+  showConfirm('Delete all comments?', 'Removes every comment others have left on your list items. This can\'t be undone. Future comments (if you leave them allowed) will still be able to be posted.', 'Delete all', 'danger', async function() {
+    try {
+      var res = await sbClient.from('list_item_comments').delete().eq('list_owner_id', userId).neq('from_user_id', userId);
+      if (res.error) throw res.error;
+      MY_COMMENTS_ON_ME = [];
+      updateNotificationBadge();
+      showToast('All comments on your lists deleted.');
+      // Refresh views
+      if (document.getElementById('s-list-detail').classList.contains('active') && selListDetail) showListDetail(selListDetail);
+      if (document.getElementById('s-notifications').classList.contains('active')) renderNotifications();
+    } catch(e) {
+      showToast('Could not delete. Try again.');
+    }
+  });
 }
 
 async function submitItemComment() {
