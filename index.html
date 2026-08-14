@@ -387,6 +387,7 @@
             </div>
           </div>
           <div id="list-detail-items"></div>
+          <div id="list-detail-share-cta" style="margin-top:16px"></div>
           <div style="margin-top:14px;padding-top:12px;border-top:1px solid #F1EFE8;display:flex;align-items:center;justify-content:space-between">
             <div>
               <div style="font-size:12px;font-weight:600;color:#2C2C2A">Visible to friends</div>
@@ -2765,6 +2766,21 @@ function showListDetail(l) {
   document.getElementById('list-detail-meta').textContent = l.m;
   setPublicToggleUI(!!l.is_public);
   setBlindToggleUI(!!l.blind_fill);
+  // Prominent Share CTA — only show if the list has actual items to share
+  var cta = document.getElementById('list-detail-share-cta');
+  if (cta) {
+    if (listItems.length > 0) {
+      var catForCta = l.category || l.n.replace('Top 10 ', '');
+      var ctaPal = getCategoryColor(catForCta);
+      cta.innerHTML = '<div style="background:' + ctaPal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:18px 16px;text-align:center">'
+        + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.15;margin-bottom:4px">📸 Share your Top 10</div>'
+        + '<div style="font-size:11.5px;color:#2C2C2A;opacity:0.75;margin-bottom:14px;font-weight:600">Post to Instagram, TikTok, text it, or DM it — bring your friends to Tenner</div>'
+        + '<button onclick="shareListAsImage(selListDetail)" style="background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;padding:11px 22px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Get share image →</button>'
+        + '</div>';
+    } else {
+      cta.innerHTML = '';
+    }
+  }
   var el = document.getElementById('list-detail-items');
   el.innerHTML = '';
   if (listItems.length === 0) {
@@ -9136,16 +9152,34 @@ function shareListAsImage(listObj) {
     ctx.fillStyle = '#D4622A';
     ctx.fillText('MyTenner.com', W / 2, footTop + 100);
 
+    // Compose an Instagram/TikTok-friendly caption with the user's Tenner handle so
+    // when they paste it, viewers see who to add on Tenner.
+    var handle = (myProfile && myProfile.handle) ? '@' + myProfile.handle : '';
+    var caption = 'My Top 10 ' + cat + ' on Tenner ✨';
+    if (handle) caption += '\n\nNot on Tenner yet? Add me ' + handle + ' → mytenner.com';
+    else caption += '\n\nMake yours → mytenner.com';
+
     canvas.toBlob(function(blob) {
       var fname = 'top-10-' + cat.toLowerCase().replace(/\s+/g, '-') + '.png';
       var file = new File([blob], fname, { type: 'image/png' });
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: 'My Top 10 ' + cat }).catch(function(){});
-      } else {
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a'); a.href = url; a.download = fname; a.click();
-        setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-      }
+      // Copy caption first so it's on the clipboard even if the share sheet strips text
+      // (Instagram accepts the image but ignores the text param on Web Share). Users can
+      // paste it into the Instagram caption box.
+      var copyPromise = (navigator.clipboard && navigator.clipboard.writeText)
+        ? navigator.clipboard.writeText(caption).catch(function(){})
+        : Promise.resolve();
+      copyPromise.then(function() {
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: 'My Top 10 ' + cat, text: caption }).then(function(){
+            showToast('Caption copied — paste it if the app didn\'t auto-fill', 4500);
+          }).catch(function(){});
+        } else {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a'); a.href = url; a.download = fname; a.click();
+          setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+          showToast('Image saved · caption copied to clipboard', 4500);
+        }
+      });
     }, 'image/png');
   }
 }
