@@ -9749,12 +9749,17 @@ async function loadItemComments(listOwnerId, category, itemName) {
         : ((f && f.profile && f.profile.display_name) || 'Friend');
       var editedTag = c.edited_at ? ' <span style="font-size:10px;color:#888780;font-weight:400">· edited</span>' : '';
       var when = '<span style="font-size:10px;color:#888780;font-weight:400;margin-left:6px">' + timeAgo(c.created_at) + '</span>';
+      // Reply affordance for OTHERS' comments — focuses the input at the bottom and
+      // prepends '@Name ' so it clearly reads as a reply. Edit/Delete for MY comments.
+      var safeName = String(name).replace(/'/g, "\\'").replace(/"/g, '&quot;');
       var actions = isMine
         ? '<div style="display:flex;gap:8px;margin-top:6px">'
           +   '<button type="button" onclick="startEditItemComment(\'' + c.id + '\')" style="background:none;border:none;color:#5F5E5A;font-size:11px;padding:2px 0;cursor:pointer;font-family:inherit;text-decoration:underline">Edit</button>'
           +   '<button type="button" onclick="deleteItemComment(\'' + c.id + '\')" style="background:none;border:none;color:#A32D2D;font-size:11px;padding:2px 0;cursor:pointer;font-family:inherit;text-decoration:underline">Delete</button>'
           + '</div>'
-        : '';
+        : '<div style="display:flex;gap:8px;margin-top:6px">'
+          +   '<button type="button" onclick="replyToItemComment(\'' + safeName + '\')" style="background:none;border:none;color:#D85A30;font-size:11px;padding:2px 0;cursor:pointer;font-family:inherit;text-decoration:underline;font-weight:600">↩ Reply</button>'
+          + '</div>';
       return '<div data-comment-id="' + c.id + '" style="padding:10px 0;border-bottom:1px solid #F5F3EE">'
         + '<div style="font-size:11px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + editedTag + when + '</div>'
         + '<div class="comment-body" style="font-size:13px;color:#444;margin-top:3px">' + escapeHtml(c.comment) + '</div>'
@@ -9792,6 +9797,25 @@ async function saveEditItemComment(commentId) {
     await sbClient.from('list_item_comments').update({ comment: text, edited_at: now }).eq('id', commentId).eq('from_user_id', userId);
     loadItemComments(activeCommentListOwner, activeCommentCategory, activeCommentItem);
   } catch(e) { showToast('Could not save edit.'); }
+}
+
+// Focus the comment input, prefill '@Name ' so a fresh comment reads as a reply.
+// Since all comments in a thread are visible to every participant and everyone in
+// the thread gets notified of new comments, this is functionally the same as a
+// "true" reply — the @mention just makes the intent explicit.
+function replyToItemComment(name) {
+  var inp = document.getElementById('item-comment-input');
+  if (!inp) return;
+  var prefix = '@' + name + ' ';
+  // If they already started replying to this person, don't double-prefix
+  if (inp.value.indexOf(prefix) !== 0) {
+    inp.value = prefix + inp.value.replace(/^@[^\s]+\s*/, '');
+  }
+  inp.focus();
+  // Move cursor to end
+  inp.setSelectionRange(inp.value.length, inp.value.length);
+  // Scroll into view on small screens
+  inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 async function deleteItemComment(commentId) {
