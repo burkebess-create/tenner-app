@@ -369,7 +369,7 @@
       <div class="screen" id="s-notifications">
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
-          <button class="back-btn" onclick="doRefresh(this,function(){return loadListShareInvites().then(function(){renderNotifications();updateNotificationBadge();});})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+          <button class="back-btn" onclick="doRefresh(this,function(){return refreshNotifications().then(function(){renderNotifications();});})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
         </div>
         <div style="display:flex;border-bottom:1px solid #E5E3DC;background:#FAF8F5">
           <button id="notif-tab-invites" onclick="switchNotifTab('invites')" style="flex:1;padding:10px 0;font-size:12px;font-weight:600;border:none;background:none;cursor:pointer;color:#D85A30;border-bottom:2px solid #D85A30">Invites</button>
@@ -9395,6 +9395,44 @@ function setupRealtimeNotifications() {
         // Refresh activity tab if notifications screen is visible
         if (document.getElementById('s-notifications').classList.contains('active') && _notifTab === 'activity') renderNotifications();
       }
+    })
+    // Comments on MY lists — real-time push so notifications don't require refresh
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'list_item_comments',
+      filter: 'list_owner_id=eq.' + userId
+    }, function(payload) {
+      if (payload.new && payload.new.from_user_id !== userId) {
+        loadCommentsOnMe().then(function() {
+          updateNotificationBadge();
+          var f = myFriends.find(function(x){ return x.friendId === payload.new.from_user_id; });
+          var name = (f && f.profile && (f.profile.display_name || f.profile.handle)) || 'A friend';
+          showToast('💬 ' + name + ' commented on your ' + payload.new.category, 4500);
+          // Refresh views if visible
+          if (document.getElementById('s-notifications').classList.contains('active')) renderNotifications();
+          if (document.getElementById('s-home').classList.contains('active')) renderLists();
+          if (document.getElementById('s-list-detail').classList.contains('active') && selListDetail && (selListDetail.category || (selListDetail.n||'').replace('Top 10 ',''))===payload.new.category) showListDetail(selListDetail);
+        }).catch(console.warn);
+      }
+    })
+    // Any new comment (for thread-reply detection). We can't easily server-filter
+    // to "threads I participated in" from a channel, so we listen broadly and
+    // let loadThreadReplies + RLS filter server-side on refetch.
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'list_item_comments'
+    }, function(payload) {
+      if (!payload.new || payload.new.from_user_id === userId) return;
+      if (payload.new.list_owner_id === userId) return; // already covered above
+      // Refetch replies; if it's in a thread we participated in, RLS returns it
+      loadThreadReplies().then(function() {
+        updateNotificationBadge();
+        var wasNew = MY_THREAD_REPLIES.some(function(c){ return c.id === payload.new.id; });
+        if (wasNew) {
+          var f = myFriends.find(function(x){ return x.friendId === payload.new.from_user_id; });
+          var name = (f && f.profile && (f.profile.display_name || f.profile.handle)) || 'Someone';
+          showToast('↩ ' + name + ' replied in a comment thread', 4500);
+          if (document.getElementById('s-notifications').classList.contains('active')) renderNotifications();
+        }
+      }).catch(console.warn);
     })
     .subscribe(function(status) {
       if (status === 'SUBSCRIBED') console.log('[Realtime] connected');
