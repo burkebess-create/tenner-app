@@ -9793,8 +9793,10 @@ async function loadItemComments(listOwnerId, category, itemName) {
     el.innerHTML = comments.map(function(c) {
       var isMine = c.from_user_id === userId;
       var f = myFriends.find(function(x){ return x.friendId === c.from_user_id; });
+      // Always "You" for the viewer's own comments — their friends still see the
+      // display_name since isMine is evaluated per-viewer
       var name = isMine
-        ? ((myProfile && myProfile.display_name) || 'You')
+        ? 'You'
         : ((f && f.profile && f.profile.display_name) || 'Friend');
       // A comment starting with '@' is treated as a reply — indent + connector
       var isReply = /^@[^\s]+/.test(c.comment);
