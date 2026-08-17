@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gift Ideas by Category — Tenner</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+<meta name="description" content="Curated gift ideas by category — movies, books, TV shows, candy, travel, and more. Real recommendations with Amazon links.">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mytenner.com/gifts/">
+<meta property="og:title" content="Gift Ideas by Category — Tenner">
+<meta property="og:description" content="Curated gift ideas by category — movies, books, TV shows, candy, travel, and more.">
+<meta property="og:image" content="https://mytenner.com/og-image.png">
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; color: #2C2C2A; background: #FDFCF8; line-height: 1.55; }
+
+  header { background: #FDFCF8; border-bottom: 1px solid #EAE3DC; padding: 14px 20px; position: sticky; top: 0; z-index: 10; }
+  header .wrap { max-width: 800px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+  header img { height: 28px; object-fit: contain; }
+  header .cta { background: #D85A30; color: #fff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 999px; }
+
+  .page { max-width: 800px; margin: 0 auto; padding: 32px 20px 60px; }
+
+  .hero { text-align: center; margin-bottom: 32px; }
+  .hero h1 { font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; font-size: 40px; letter-spacing: -0.02em; margin: 0 0 10px; color: #1A0F0A; line-height: 1.1; }
+  .hero p { font-size: 16px; color: #5F5E5A; margin: 0 auto; max-width: 560px; }
+
+  .disclosure { background: #FFFFFF; border: 1px solid #EAE3DC; border-radius: 14px; padding: 12px 16px; margin-bottom: 32px; font-size: 12.5px; color: #5F5E5A; line-height: 1.55; text-align: center; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (min-width: 640px) { .grid { grid-template-columns: 1fr 1fr 1fr; } }
+
+  .tile { border: 1.5px solid #2C2C2A; border-radius: 20px; padding: 22px 18px; text-decoration: none; color: inherit; transition: transform 0.15s ease; display: block; }
+  .tile:hover { transform: translateY(-2px); }
+  .tile .emoji { font-size: 42px; line-height: 1; margin-bottom: 12px; }
+  .tile .cat { font-family: 'DM Serif Display', Georgia, serif; font-size: 22px; letter-spacing: -0.01em; line-height: 1.1; color: #2C2C2A; margin-bottom: 4px; }
+  .tile .sub { font-size: 12px; color: #2C2C2A; opacity: 0.7; font-weight: 600; }
+
+  /* Category tints */
+  .t-coral   { background: #E8927C99; }
+  .t-teal    { background: #2F9E8F99; } .t-teal .cat, .t-teal .sub { color: #fff; }
+  .t-mustard { background: #F5B53499; }
+  .t-rose    { background: #D46A80AA; } .t-rose .cat, .t-rose .sub { color: #fff; }
+  .t-sky     { background: #A8C8E899; }
+  .t-lavender{ background: #D9BEEC99; }
+
+  .footer-block { background: #F1EFE8; border-radius: 20px; padding: 28px 20px; margin-top: 36px; text-align: center; }
+  .footer-block h2 { font-family: 'DM Serif Display', Georgia, serif; font-size: 26px; letter-spacing: -0.02em; margin: 0 0 8px; color: #2C2C2A; font-weight: 400; }
+  .footer-block p { font-size: 14px; color: #5F5E5A; margin: 0 0 16px; }
+  .footer-block .btn { display: inline-block; background: #2C2C2A; color: #fff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 12px 24px; border-radius: 999px; }
+
+  footer { text-align: center; padding: 30px 20px; color: #888780; font-size: 12px; }
+  footer a { color: #888780; margin: 0 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="/"><img src="/logo-horizontal.png" alt="Tenner"></a>
+    <a href="/" class="cta">Launch Tenner →</a>
+  </div>
+</header>
+
+<div class="page">
+
+  <div class="hero">
+    <h1>Gift ideas by category</h1>
+    <p>Curated gift picks for every kind of person on your list — real recommendations, honest reviews, direct links to buy.</p>
+  </div>
+
+  <div class="disclosure">
+    Shop links throughout this site are Amazon affiliate links. As an Amazon Associate, Tenner earns from qualifying purchases at no extra cost to you.
+  </div>
+
+  <div class="grid">
+    <a href="/gifts/movies.html" class="tile t-coral"><div class="emoji">🎬</div><div class="cat">Movies</div><div class="sub">For film lovers</div></a>
+    <a href="/gifts/tv-shows.html" class="tile t-teal"><div class="emoji">📺</div><div class="cat">TV Shows</div><div class="sub">For binge-watchers</div></a>
+    <a href="/gifts/books.html" class="tile t-mustard"><div class="emoji">📚</div><div class="cat">Books</div><div class="sub">For readers</div></a>
+    <a href="/gifts/candy.html" class="tile t-rose"><div class="emoji">🍫</div><div class="cat">Candy</div><div class="sub">For sweet teeth</div></a>
+    <a href="/gifts/travel.html" class="tile t-sky"><div class="emoji">✈️</div><div class="cat">Travel</div><div class="sub">For wanderers</div></a>
+    <a href="/gifts/video-games.html" class="tile t-lavender"><div class="emoji">🎮</div><div class="cat">Video Games</div><div class="sub">For gamers</div></a>
+  </div>
+
+  <div class="footer-block">
+    <h2>Make your own Top 10 lists</h2>
+    <p>Tenner is a free app for making top 10 lists — movies, books, restaurants, anything — and comparing with friends.</p>
+    <a href="/" class="btn">Launch Tenner →</a>
+  </div>
+
+</div>
+
+<footer>
+  <a href="/">Home</a> ·
+  <a href="/about.html">About</a> ·
+  <a href="/privacy.html">Privacy</a> ·
+  <a href="/terms.html">Terms</a>
+  <div style="margin-top:12px;font-size:11px">As an Amazon Associate, Tenner earns from qualifying purchases.</div>
+</footer>
+
+</body>
+</html>
