@@ -1404,7 +1404,10 @@ function go(id) {
     }[id];
     if (activeNav) document.getElementById(activeNav) && document.getElementById(activeNav).classList.add('active');
   }
-  if (id === 's-home') { renderHome(); renderTopbarAvatars(); refreshNotifications().then(function(){ renderLists(); }); if (userId) showOnboardingIfNeeded(); }
+  if (id === 's-home') {
+    renderHome(); renderTopbarAvatars(); refreshNotifications().then(function(){ renderLists(); }); if (userId) showOnboardingIfNeeded();
+    attachPullToRefresh(document.querySelector('#s-home .content'), function() { return loadState().then(renderHome); });
+  }
   if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-fdetail' && selFriendId) renderFriendDetail();
   if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
@@ -1446,7 +1449,10 @@ function go(id) {
     renderMatch();
     renderTopbarAvatars();
   }
-  if (id === 's-circle') { renderCircleTopbarAvatar(); renderTodayPill(); renderCircleListInvites(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderWeeklyHeroCard(); renderProfileNudges(); refreshNotifications().then(function(){ renderCircleListInvites(); }); }
+  if (id === 's-circle') {
+    renderCircleTopbarAvatar(); renderTodayPill(); renderCircleListInvites(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderWeeklyHeroCard(); renderProfileNudges(); refreshNotifications().then(function(){ renderCircleListInvites(); });
+    attachPullToRefresh(document.querySelector('#s-circle .content'), function() { return loadFriends().then(renderCircleScreen); });
+  }
   if (id === 's-add-friends') {
     var sInp = document.getElementById('circle-friend-search'); if (sInp) sInp.value = '';
     var sRes = document.getElementById('circle-friend-search-result'); if (sRes) sRes.innerHTML = '';
@@ -1477,6 +1483,74 @@ function doRefresh(btn, asyncFn) {
     btn.disabled = false;
     if (svg) svg.classList.remove('spinning');
   });
+}
+
+// Pull-to-refresh: touch-drag from the top of a scroll container triggers
+// asyncFn(). Only fires when the scroll is already at the top. Shows a small
+// indicator that follows the finger and snaps back on release.
+function attachPullToRefresh(scrollEl, asyncFn) {
+  if (!scrollEl || scrollEl._ptrAttached) return;
+  scrollEl._ptrAttached = true;
+  var THRESHOLD = 60;      // pixels the user must drag before we fire
+  var MAX_PULL = 120;      // clamp so it doesn't drag forever
+  var startY = null, pulling = false, currentPull = 0, isRefreshing = false;
+
+  // Indicator overlay — sits at the top of the scroll parent, offscreen by default
+  var host = scrollEl.parentNode || scrollEl;
+  if (host.style && !host.style.position) host.style.position = 'relative';
+  var indicator = document.createElement('div');
+  indicator.className = 'ptr-indicator';
+  indicator.style.cssText = 'position:absolute;left:50%;transform:translate(-50%,-40px);top:6px;width:34px;height:34px;border-radius:99px;background:#FFFFFF;box-shadow:0 2px 8px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;color:#5F5E5A;z-index:20;transition:transform 0.18s ease,opacity 0.18s ease;opacity:0;pointer-events:none';
+  indicator.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+  host.appendChild(indicator);
+
+  function setIndicator(pull) {
+    var pct = Math.min(1, pull / THRESHOLD);
+    indicator.style.opacity = String(Math.min(1, pct * 1.2));
+    indicator.style.transform = 'translate(-50%,' + (Math.min(pull, MAX_PULL) - 40) + 'px) rotate(' + (pct * 180) + 'deg)';
+  }
+  function resetIndicator() {
+    indicator.style.opacity = '0';
+    indicator.style.transform = 'translate(-50%,-40px)';
+  }
+  function startRefreshing() {
+    isRefreshing = true;
+    indicator.style.transform = 'translate(-50%,20px)';
+    indicator.style.opacity = '1';
+    indicator.querySelector('svg').classList.add('spinning');
+    Promise.resolve().then(asyncFn).catch(console.warn).finally(function() {
+      indicator.querySelector('svg').classList.remove('spinning');
+      resetIndicator();
+      isRefreshing = false;
+    });
+  }
+
+  scrollEl.addEventListener('touchstart', function(e) {
+    if (isRefreshing) return;
+    if (scrollEl.scrollTop > 0) { startY = null; return; }
+    startY = e.touches[0].clientY;
+    pulling = true;
+    currentPull = 0;
+  }, { passive: true });
+
+  scrollEl.addEventListener('touchmove', function(e) {
+    if (!pulling || startY == null || isRefreshing) return;
+    if (scrollEl.scrollTop > 0) { pulling = false; resetIndicator(); return; }
+    var dy = e.touches[0].clientY - startY;
+    if (dy <= 0) { currentPull = 0; resetIndicator(); return; }
+    // Rubber-band: dampen past threshold
+    currentPull = dy < THRESHOLD ? dy : THRESHOLD + (dy - THRESHOLD) * 0.35;
+    setIndicator(currentPull);
+  }, { passive: true });
+
+  scrollEl.addEventListener('touchend', function() {
+    if (!pulling || isRefreshing) return;
+    pulling = false;
+    if (currentPull >= THRESHOLD) startRefreshing();
+    else resetIndicator();
+    startY = null;
+    currentPull = 0;
+  }, { passive: true });
 }
 
 // Which match scores this user has revealed. Synced with the `match_reveals` table
