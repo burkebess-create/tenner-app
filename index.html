@@ -2922,7 +2922,14 @@ function renderLists() {
     var commentBadge = unread > 0
       ? '<div style="position:absolute;top:10px;right:10px;background:#D85A30;color:#FFFFFF;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;display:flex;align-items:center;gap:3px;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="' + unread + ' new comment' + (unread !== 1 ? 's' : '') + '">💬 ' + unread + '</div>'
       : '';
+    // Progress pill for incomplete lists — makes it obvious at a glance which
+    // lists still need finishing, so users don't lose track after a partial fill.
+    var itemsFilled = (l.items || []).length;
+    var progressBadge = itemsFilled < 10
+      ? '<div style="position:absolute;top:10px;left:10px;background:#FFFFFF;color:#2C2C2A;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;border:1.5px solid #2C2C2A;box-shadow:0 2px 6px rgba(0,0,0,0.10)" title="Incomplete list">' + itemsFilled + '/10</div>'
+      : '';
     card.innerHTML = commentBadge
+      + progressBadge
       + '<div style="font-size:36px;line-height:1;margin-bottom:10px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 36) + '</div>'
       + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A;margin-bottom:4px">' + escapeHtml(l.n) + '</div>'
       + '<div style="font-size:11px;color:#2C2C2A;opacity:0.7;font-weight:600">' + escapeHtml(l.m) + '</div>';
@@ -5566,6 +5573,26 @@ function renderProfileNudges() {
       + '<button class="back-btn" onclick="go(\'s-profile\')" style="padding:5px 10px;font-size:11px">Add</button>'
       + '<button onclick="dismissNudge(\'birthday\')" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
       + '</div>');
+  }
+  // Incomplete-list nudge: surface the oldest list stuck below 10 items so users
+  // don't forget to finish. Only shows once, dismissible per-category.
+  var incomplete = (MY_LISTS || []).filter(function(l) { return (l.items || []).length < 10 && (l.items || []).length > 0; });
+  if (incomplete.length > 0) {
+    // Prefer oldest by updated_at when available, otherwise first in list
+    incomplete.sort(function(a, b) { return (a.updated_at || '').localeCompare(b.updated_at || ''); });
+    var target = incomplete[0];
+    var targetCat = target.category || (target.n || '').replace('Top 10 ', '');
+    var nudgeKey = 'incomplete_' + targetCat;
+    if (!dismissed[nudgeKey]) {
+      var count = (target.items || []).length;
+      var catEsc = String(targetCat).replace(/'/g, "\\'");
+      nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+        + '<div style="font-size:22px">' + renderCatEmoji(target.emoji || getCatEmoji(targetCat), 22) + '</div>'
+        + '<div style="flex:1;font-size:12px;color:#2C2C2A">Finish your Top 10 ' + escapeHtml(targetCat) + ' — you have ' + count + '.</div>'
+        + '<button class="back-btn" onclick="var l=MY_LISTS.find(function(x){return (x.category||x.n.replace(\'Top 10 \',\'\'))===\'' + catEsc + '\';}); if(l) showListDetail(l,\'s-circle\');" style="padding:5px 10px;font-size:11px">Finish</button>'
+        + '<button onclick="dismissNudge(\'' + nudgeKey + '\')" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
+        + '</div>');
+    }
   }
   host.innerHTML = nudges.join('');
 }
