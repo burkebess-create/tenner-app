@@ -4815,6 +4815,7 @@ async function saveProfile() {
   myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, bio: bio || null, gift_visible_categories: visibleCats, comment_visibility_pref: commentVis, allow_comments_on_my_lists: !!allowComments, updated_at: new Date().toISOString() };
   if (existingToken) myProfile.gift_share_token = existingToken;
   if (existingPhoto) myProfile.photo = existingPhoto;
+  var saveOk = true;
   if (sbClient && userId) {
     try {
       var res = await sbClient.from('profiles').upsert(myProfile);
@@ -4824,11 +4825,15 @@ async function saveProfile() {
         var safe = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, updated_at: myProfile.updated_at };
         if (existingPhoto) safe.photo = existingPhoto;
         var res2 = await sbClient.from('profiles').upsert(safe);
-        if (res2 && res2.error) console.warn('Profile fallback upsert error:', res2.error);
+        if (res2 && res2.error) { console.warn('Profile fallback upsert error:', res2.error); saveOk = false; }
       }
-    } catch(e) { console.warn('Profile save failed:', e); }
+    } catch(e) { console.warn('Profile save failed:', e); saveOk = false; }
   }
   renderProfileHeader();
+  if (!saveOk) {
+    showProfileError('Could not save profile. Please try again.');
+    return;
+  }
   var msg = document.getElementById('profile-save-msg');
   if (msg) { msg.style.display = 'block'; setTimeout(function() { msg.style.display = 'none'; }, 2000); }
 }
