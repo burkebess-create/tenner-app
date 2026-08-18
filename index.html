@@ -4239,9 +4239,17 @@ function myHandleLine() {
 function copyListInviteLink() {
   var url = getListInviteUrl();
   var textToCopy = url + myHandleLine();
+  // Prefer the native OS share sheet on mobile — feels native and lets users
+  // pick Messages / WhatsApp / DMs directly. Fall back to clipboard copy.
+  if (navigator.share) {
+    navigator.share({ title: 'Join me on Tenner', text: textToCopy, url: url }).catch(function() {
+      // User dismissed share sheet — no-op
+    });
+    return;
+  }
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(textToCopy).then(function() {
-      showConfirm('Link copied!', 'Share this with friends:\n\n' + textToCopy, 'Done', 'primary', function(){});
+      showToast('Link copied — paste it anywhere.');
     }).catch(function() {
       showConfirm('Invite link', textToCopy, 'Done', 'primary', function(){});
     });
@@ -6496,6 +6504,26 @@ async function renderFriendDetail() {
   var noteHtml = (isPendingInbound && f.message)
     ? '<div class="card no-hover" style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Their note</div><div style="font-size:13.5px;color:#2C2C2A;font-style:italic">“' + escapeHtml(f.message) + '”</div></div>'
     : '';
+
+  // ── MUTUAL-GROUP CONTEXT for pending inbound requests ────────────────
+  // Show "You're both in <Group Name>" so users understand the connection
+  // instead of feeling like it's a cold outreach from a stranger.
+  var mutualGroupHtml = '';
+  if (isPendingInbound && Array.isArray(MY_GROUPS)) {
+    var sharedGroups = MY_GROUPS.filter(function(g) {
+      return Array.isArray(g.memberIds) && g.memberIds.indexOf(selFriendId) >= 0;
+    });
+    if (sharedGroups.length > 0) {
+      var groupList = sharedGroups.slice(0, 3).map(function(g){ return '<strong>' + escapeHtml(g.n) + '</strong>'; }).join(', ');
+      var extraCount = sharedGroups.length - 3;
+      var extra = extraCount > 0 ? ' and ' + extraCount + ' more' : '';
+      mutualGroupHtml = '<div class="card no-hover" style="margin-bottom:12px;background:#F1EFE8;border-color:#D3D1C7;display:flex;align-items:center;gap:10px">'
+        + '<div style="font-size:18px">👥</div>'
+        + '<div style="flex:1;font-size:12px;color:#2C2C2A">You\'re both in ' + groupList + extra + '.</div>'
+        + '</div>';
+    }
+  }
+  noteHtml = mutualGroupHtml + noteHtml;
 
   // ── 2. MATCH SCORE CARD (placeholder — computed async) ──────────────
   var matchCardHtml = isAccepted ? '<div id="fdetail-match-card" style="margin-bottom:14px"></div>' : '';
