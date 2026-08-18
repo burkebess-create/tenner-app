@@ -967,6 +967,20 @@
             </div>
           </div>
 
+          <div class="sec-label">🎁 Your gift page</div>
+          <div class="card no-hover" style="margin-bottom:12px">
+            <div style="font-size:11px;color:#5F5E5A;line-height:1.55;margin-bottom:10px">Share this link with anyone — even people not on Tenner — so they can browse gift ideas built from your Top 10 lists.</div>
+            <div style="display:flex;align-items:stretch;gap:6px;margin-bottom:8px">
+              <input type="text" id="profile-gift-link" readonly style="margin-bottom:0;flex:1;font-size:12px;padding:9px 11px;background:#F7F6F2;color:#2C2C2A" onclick="this.select()">
+              <button class="btn-primary" onclick="copyMyGiftPageLink()" style="width:auto;padding:9px 14px;margin-bottom:0;font-size:12px;white-space:nowrap">Copy</button>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn-secondary" onclick="shareMyGiftPageLink()" style="flex:1;margin-bottom:0;font-size:12px;padding:9px">📤 Share</button>
+              <button class="btn-secondary" onclick="confirmRegenerateMyGiftPageToken()" style="flex:1;margin-bottom:0;font-size:12px;padding:9px;color:#A32D2D;border-color:#F09595">↻ Regenerate link</button>
+            </div>
+            <div style="font-size:10px;color:#888780;line-height:1.55;margin-top:8px">Only lists marked visible in <strong>Wishlist visibility</strong> above will appear on the shared page. Regenerate to invalidate the old link.</div>
+          </div>
+
           <button class="btn-primary" onclick="saveProfile()" style="margin-top:10px">Save profile</button>
           <div id="profile-save-msg" style="display:none;font-size:11px;color:#27500A;background:#EAF3DE;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #97C459">Profile saved!</div>
 
@@ -4289,6 +4303,66 @@ function openMatchWithFriend(friendId, origin) { matchFriendCtx = friendId; matc
 
 // Nudge a friend to fill out a specific category — uses Web Share API where available,
 // falls back to copying a pre-composed message to clipboard.
+// ── Public gift-page share link helpers ───────────────────────────────
+function myGiftPageUrl() {
+  var tok = myProfile && myProfile.gift_share_token;
+  return tok ? 'https://mytenner.com/g?t=' + tok : null;
+}
+
+function copyMyGiftPageLink() {
+  var url = myGiftPageUrl();
+  if (!url) { showToast('Save your profile first to generate a link.'); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(function() {
+      showToast('Gift page link copied!');
+    }).catch(function() {
+      showToast('Copy failed — long-press the link to select it.');
+    });
+  } else {
+    showToast('Long-press the link to select and copy it.');
+  }
+}
+
+async function shareMyGiftPageLink() {
+  var url = myGiftPageUrl();
+  if (!url) { showToast('Save your profile first to generate a link.'); return; }
+  var name = (myProfile && myProfile.display_name) ? myProfile.display_name.split(' ')[0] : '';
+  var text = (name ? 'Here\'s ' + name + '\'s' : 'Here\'s my') + ' gift page on Tenner — Top 10 lists turned into gift ideas.';
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: 'Tenner gift page', text: text, url: url });
+      return;
+    }
+  } catch(e) { if (e && e.name === 'AbortError') return; }
+  // Fallback: copy to clipboard
+  copyMyGiftPageLink();
+}
+
+function confirmRegenerateMyGiftPageToken() {
+  showConfirm(
+    'Regenerate your link?',
+    'This invalidates your current link — anyone who has it will get an error. A new link will be generated for you to share.',
+    'Regenerate', 'danger',
+    function() { regenerateMyGiftPageToken(); }
+  );
+}
+
+async function regenerateMyGiftPageToken() {
+  if (!sbClient) return;
+  try {
+    var r = await sbClient.rpc('regenerate_my_gift_share_token');
+    if (r.error) throw r.error;
+    var newToken = r.data;
+    if (myProfile) myProfile.gift_share_token = newToken;
+    var el = document.getElementById('profile-gift-link');
+    if (el) el.value = 'https://mytenner.com/g?t=' + newToken;
+    showToast('New link generated. Old link no longer works.');
+  } catch(e) {
+    console.warn('Regenerate token failed', e);
+    showToast('Could not regenerate. Try again.');
+  }
+}
+
 async function nudgeFriend(friendName, category) {
   var firstName = String(friendName).split(' ')[0];
   var msg = 'Hey ' + firstName + '! I want to compare our Top 10 ' + category + ' on Tenner. Fill yours out → https://mytenner.com' + myHandleLine();
@@ -4625,6 +4699,14 @@ async function loadProfile() {
     var res = await sbClient.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (res.data) myProfile = res.data;
   } catch(e) { console.warn('Profile load failed', e); }
+  // Auto-generate a public gift-share token for users who don't have one yet
+  // (post-SQL-backfill signups). Silent — the token appears next time we render.
+  if (myProfile && !myProfile.gift_share_token) {
+    try {
+      var g = await sbClient.rpc('regenerate_my_gift_share_token');
+      if (g && g.data) myProfile.gift_share_token = g.data;
+    } catch(e) { /* silent — column or function may not exist yet */ }
+  }
   try {
     var userRes = await sbClient.auth.getUser();
     var identities = (userRes.data && userRes.data.user && userRes.data.user.identities) || [];
@@ -4704,7 +4786,9 @@ async function saveProfile() {
   var commentVisRadio = document.querySelector('input[name="comment-visibility"]:checked');
   var commentVis = commentVisRadio ? commentVisRadio.value : 'all';
   var allowComments = (document.getElementById('profile-allow-comments') || {}).checked;
+  var existingToken = myProfile && myProfile.gift_share_token;
   myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, bio: bio || null, gift_visible_categories: visibleCats, comment_visibility_pref: commentVis, allow_comments_on_my_lists: !!allowComments, updated_at: new Date().toISOString() };
+  if (existingToken) myProfile.gift_share_token = existingToken;
   if (existingPhoto) myProfile.photo = existingPhoto;
   if (sbClient && userId) {
     try {
@@ -4804,6 +4888,12 @@ function renderProfileHeader() {
   })();
   var sf = document.getElementById('profile-stat-friends'); if (sf) sf.textContent = myFriends.filter(function(f) { return f.status === 'accepted'; }).length;
   var sc = document.getElementById('profile-stat-circles'); if (sc) sc.textContent = MY_GROUPS.length;
+  // Populate the public gift-page share link
+  var giftLinkEl = document.getElementById('profile-gift-link');
+  if (giftLinkEl) {
+    var tok = myProfile && myProfile.gift_share_token;
+    giftLinkEl.value = tok ? ('https://mytenner.com/g?t=' + tok) : 'Save profile to generate your link…';
+  }
   // Comment settings: hydrate radio + toggle from saved prefs
   var cvPref = (myProfile && myProfile.comment_visibility_pref) || 'all';
   var cvRadio = document.querySelector('input[name="comment-visibility"][value="' + cvPref + '"]');
@@ -9186,7 +9276,30 @@ function renderGiftTileHtml(l, i) {
   return html;
 }
 
+// Now redirects to the public /g page so affiliate links live outside the login.
+// The in-app s-gift-guide screen still exists but is no longer navigated to;
+// keeping it around avoids ripping out the old render code prematurely.
 async function openGiftGuide(friendUserId) {
+  if (!sbClient) return;
+  try {
+    var r = await sbClient.from('profiles').select('gift_share_token').eq('id', friendUserId).maybeSingle();
+    var token = r && r.data && r.data.gift_share_token;
+    if (token) {
+      // Open in a new tab so the user doesn't lose in-app state
+      var url = '/g?t=' + encodeURIComponent(token);
+      var win = window.open(url, '_blank');
+      // Popup-blocker fallback: navigate in same tab
+      if (!win) window.location.href = url;
+      return;
+    }
+    showToast('Your friend hasn\'t set up their gift page yet. Ask them to sign in and it\'ll auto-generate.');
+  } catch(e) { showToast('Could not open gift guide.'); }
+}
+
+// The original in-app render function is preserved below for backward compatibility
+// but is currently unreachable. Marked dead-code with a distinct name so it can be
+// removed in a later cleanup pass without risk.
+async function _openGiftGuide_deprecated_inapp(friendUserId) {
   if (_giftGuideFriendId !== friendUserId) _giftTilesOpen = {};
   _giftGuideFriendId = friendUserId;
   go('s-gift-guide');

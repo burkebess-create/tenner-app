@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gift Guide — Tenner</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+<meta name="description" content="A personalized gift guide from Tenner, built from someone's Top 10 lists.">
+<meta name="robots" content="noindex, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Gift Guide — Tenner">
+<meta property="og:description" content="Personalized gift ideas from a friend's Top 10 lists on Tenner.">
+<meta property="og:image" content="https://mytenner.com/og-image.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; color: #2C2C2A; background: #FDFCF8; line-height: 1.55; }
+
+  header { background: #FDFCF8; border-bottom: 1px solid #EAE3DC; padding: 14px 20px; position: sticky; top: 0; z-index: 10; }
+  header .wrap { max-width: 640px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+  header img { height: 28px; object-fit: contain; }
+  header .cta { background: #D85A30; color: #fff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 999px; }
+
+  .page { max-width: 640px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  .hero { border-radius: 24px; padding: 32px 20px 26px; text-align: center; margin-bottom: 20px; }
+  .avatar-ring { display: inline-block; padding: 5px; background: #FFFFFF; border-radius: 999px; box-shadow: 0 6px 18px rgba(0,0,0,0.10); }
+  .avatar { width: 92px; height: 92px; border-radius: 999px; background: #EAE3DC; color: #5F5E5A; font-size: 34px; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .hero h1 { font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; font-size: 30px; letter-spacing: -0.02em; margin: 14px 0 4px; line-height: 1.15; color: #2C2C2A; }
+  .hero .sub { font-size: 12px; color: #5F5E5A; margin: 6px 0 0; }
+  .hero .badge { display: inline-block; margin-top: 12px; background: #FFFFFF; border: 1px solid #F5C4B3; color: #D85A30; font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: 999px; letter-spacing: 0.02em; text-transform: uppercase; }
+
+  .disclosure { background: #FFFFFF; border: 1px solid #EAE3DC; border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: #5F5E5A; line-height: 1.55; text-align: center; }
+
+  .sec-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #888780; font-weight: 700; margin: 18px 0 10px; }
+
+  .bento { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tile { border: 1.5px solid #2C2C2A; border-radius: 18px; padding: 16px; cursor: pointer; }
+  .tile.open { grid-column: 1 / -1; }
+  .tile-emoji { font-size: 36px; line-height: 1; margin-bottom: 10px; }
+  .tile-title { font-family: 'DM Serif Display', Georgia, serif; font-size: 20px; letter-spacing: -0.01em; line-height: 1.1; color: #2C2C2A; margin-bottom: 4px; }
+  .tile-sub { font-size: 11px; font-weight: 600; color: #2C2C2A; opacity: 0.7; letter-spacing: 0.02em; }
+  .picks { margin-top: 14px; background: #FFFFFF; border-radius: 14px; padding: 6px; display: none; }
+  .tile.open .picks { display: block; }
+  .pick { display: flex; align-items: center; gap: 10px; padding: 10px 8px; }
+  .pick + .pick { border-top: 1px solid #F1EFE8; }
+  .pick .rank { width: 22px; height: 22px; border-radius: 999px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #2C2C2A; background: rgba(0,0,0,0.06); }
+  .pick .name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: #2C2C2A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pick .shop { background: #2C2C2A; color: #fff; text-decoration: none; font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 999px; flex-shrink: 0; }
+
+  /* Category tints — matches app palette */
+  .t-mustard   { background: #F5B534AA; }
+  .t-gold      { background: #EFCB68AA; }
+  .t-terracotta{ background: #C4593EAA; color: #fff; } .t-terracotta .tile-title, .t-terracotta .tile-sub { color:#fff; }
+  .t-blush     { background: #F5D0C8AA; }
+  .t-sage      { background: #B8D0A8AA; }
+  .t-forest    { background: #3A7A5CAA; color: #fff; } .t-forest .tile-title, .t-forest .tile-sub { color:#fff; }
+  .t-teal      { background: #2F9E8FAA; color: #fff; } .t-teal .tile-title, .t-teal .tile-sub { color:#fff; }
+  .t-mint      { background: #A8D8C8AA; }
+  .t-sky       { background: #A8C8E8AA; }
+  .t-dusk      { background: #5A7AAAAA; color: #fff; } .t-dusk .tile-title, .t-dusk .tile-sub { color:#fff; }
+  .t-lavender  { background: #D9BEECAA; }
+  .t-plum      { background: #7A4A85AA; color: #fff; } .t-plum .tile-title, .t-plum .tile-sub { color:#fff; }
+  .t-coral     { background: #E8927CAA; }
+  .t-rose      { background: #D46A80AA; color: #fff; } .t-rose .tile-title, .t-rose .tile-sub { color:#fff; }
+  .t-salmon    { background: #F5A896AA; }
+  .t-peach     { background: #F5C098AA; }
+
+  .footer-block { background: #F1EFE8; border-radius: 20px; padding: 26px 20px; margin-top: 28px; text-align: center; }
+  .footer-block h2 { font-family: 'DM Serif Display', Georgia, serif; font-size: 24px; letter-spacing: -0.02em; margin: 0 0 8px; color: #2C2C2A; font-weight: 400; }
+  .footer-block p { font-size: 14px; color: #5F5E5A; margin: 0 0 14px; }
+  .footer-block .btn { display: inline-block; background: #2C2C2A; color: #fff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 12px 22px; border-radius: 999px; }
+
+  footer { text-align: center; padding: 30px 20px; color: #888780; font-size: 12px; }
+  footer a { color: #888780; margin: 0 8px; }
+
+  .loading { text-align: center; padding: 60px 20px; color: #888780; }
+  .empty { text-align: center; padding: 40px 20px; color: #5F5E5A; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="/"><img src="/logo-horizontal.png" alt="Tenner"></a>
+    <a href="/" class="cta">Launch Tenner →</a>
+  </div>
+</header>
+
+<div class="page" id="page-root">
+  <div class="loading">Loading…</div>
+</div>
+
+<footer>
+  <a href="/">Home</a> · <a href="/gifts/">Gift categories</a> · <a href="/about.html">About</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a>
+  <div style="margin-top:12px;font-size:11px">As an Amazon Associate, Tenner earns from qualifying purchases.</div>
+</footer>
+
+<script>
+(function() {
+  var SUPABASE_URL = 'https://bbjpvlmkhvggtwyvpzrq.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_jeeTdNoqIJXBtx_1W1TscQ_cnRAcwHx';
+
+  // 16-color harmonized palette matching the app's STANDARD_CATEGORY_COLORS
+  var STANDARD_CATEGORY_COLORS = {
+    'Movies':'coral','TV Shows':'teal','Books':'mustard','Songs':'plum',
+    'Restaurants':'forest','Travel':'sky','Candy Bars':'rose','Sodas':'mint',
+    'Meals':'terracotta','Video Games':'lavender','Board Games':'gold',
+    'Sports Teams':'sage','Bands':'peach','Apps':'blush','Cocktails':'salmon',
+    'Beers':'gold','Podcasts':'dusk'
+  };
+  var PALETTE = ['mustard','gold','terracotta','blush','sage','forest','teal','mint','sky','dusk','lavender','plum','coral','rose','salmon','peach'];
+
+  function catColorKey(name) {
+    if (STANDARD_CATEGORY_COLORS[name]) return STANDARD_CATEGORY_COLORS[name];
+    // Hash
+    var s = String(name || '').toLowerCase(), h = 0;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return PALETTE[Math.abs(h) % PALETTE.length];
+  }
+
+  var GIFT_CATEGORY_SUFFIX = {
+    'Movies':'movie gift ideas', 'TV Shows':'TV show gift ideas',
+    'Books':'book gift ideas', 'Songs':'song gift ideas',
+    'Restaurants':'gift card', 'Travel':'travel gift ideas',
+    'Candy Bars':'candy gift ideas', 'Sodas':'soda gift ideas'
+  };
+
+  function singularize(cat) {
+    if (!cat) return cat;
+    if (/[^s]s$/i.test(cat)) return cat.slice(0, -1);
+    return cat;
+  }
+
+  function amazonSearchUrl(item, category) {
+    var suffix = GIFT_CATEGORY_SUFFIX[category];
+    if (!suffix) {
+      var noun = category ? singularize(category).toLowerCase().trim() : '';
+      suffix = noun ? (noun + ' gift ideas') : 'gift ideas';
+    }
+    var q = (item + ' ' + suffix).trim();
+    return 'https://www.amazon.com/s?k=' + encodeURIComponent(q).replace(/%20/g, '+') + '&tag=tenner09-20';
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function daysUntilBirthday(bdStr) {
+    if (!bdStr) return null;
+    var parts = bdStr.split('-');
+    if (parts.length < 3) return null;
+    var m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+    if (!m || !d) return null;
+    var today = new Date();
+    var target = new Date(today.getFullYear(), m - 1, d);
+    var msPerDay = 24 * 60 * 60 * 1000;
+    var midnightToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    var diff = Math.round((target - midnightToday) / msPerDay);
+    if (diff < 0) {
+      target = new Date(today.getFullYear() + 1, m - 1, d);
+      diff = Math.round((target - midnightToday) / msPerDay);
+    }
+    return diff;
+  }
+
+  function toggleTile(el) {
+    el.classList.toggle('open');
+    var sub = el.querySelector('.tile-sub');
+    var isOpen = el.classList.contains('open');
+    if (sub) sub.textContent = isOpen
+      ? sub.dataset.openHint || 'Tap to close ↑'
+      : sub.dataset.closedHint || 'Tap to shop ↓';
+  }
+  window.toggleTile = toggleTile;
+
+  function render(data) {
+    var root = document.getElementById('page-root');
+    if (!data) {
+      root.innerHTML = '<div class="empty"><div style="font-size:44px;margin-bottom:14px">🔗</div><div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;margin-bottom:6px;color:#2C2C2A">This link isn\'t valid.</div><div style="font-size:13px;color:#5F5E5A">It may have been regenerated. Ask your friend for a fresh link.</div></div>';
+      return;
+    }
+    var name = data.display_name || (data.handle ? '@' + data.handle : 'Your friend');
+    var initials = (data.display_name || data.handle || '?').split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+    document.title = 'Gifts for ' + name + ' — Tenner';
+
+    var lists = (data.lists || []).filter(function(l){ return (l.items||[]).length > 0; });
+    var heroPal = lists.length ? catColorKey(lists[0].category) : 'blush';
+
+    // Countdown
+    var days = daysUntilBirthday(data.birthday);
+    var bday = data.birthday ? new Date(data.birthday + 'T00:00:00') : null;
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var countdown = '';
+    if (bday) {
+      var dayStr = months[bday.getMonth()] + ' ' + bday.getDate();
+      var whenStr = days == null ? '' : (days === 0 ? 'TODAY 🎉' : days === 1 ? 'TOMORROW' : 'IN ' + days + ' DAYS');
+      countdown = '<div class="badge">🎂 ' + escapeHtml(dayStr) + (whenStr ? ' · ' + whenStr : '') + '</div>';
+    }
+
+    var heroBgColor = {
+      'mustard':'#F5B53422','gold':'#EFCB6822','terracotta':'#C4593E22','blush':'#F5D0C822',
+      'sage':'#B8D0A822','forest':'#3A7A5C22','teal':'#2F9E8F22','mint':'#A8D8C822',
+      'sky':'#A8C8E822','dusk':'#5A7AAA22','lavender':'#D9BEEC22','plum':'#7A4A8522',
+      'coral':'#E8927C22','rose':'#D46A8022','salmon':'#F5A89622','peach':'#F5C09822'
+    }[heroPal] || '#F5C09822';
+
+    var avatarHtml = data.photo
+      ? '<img src="' + escapeHtml(data.photo) + '" alt="">'
+      : escapeHtml(initials);
+
+    var html = '<div class="hero" style="background:linear-gradient(180deg,' + heroBgColor + ' 0%, #FDFCF8 100%)">'
+      + '<div class="avatar-ring"><div class="avatar">' + avatarHtml + '</div></div>'
+      + '<h1>Gifts for<br>' + escapeHtml(name) + '</h1>'
+      + '<div class="sub">Built from ' + escapeHtml(name) + '\'s Top 10 lists on Tenner</div>'
+      + countdown
+      + '</div>';
+
+    html += '<div class="disclosure">Shop links are Amazon affiliate links. As an Amazon Associate, Tenner earns from qualifying purchases at no extra cost to you.</div>';
+
+    if (!lists.length) {
+      html += '<div class="empty">' + escapeHtml(name) + ' hasn\'t shared any lists yet.</div>';
+    } else {
+      html += '<div class="sec-label">Inspired by their lists</div><div class="bento">';
+      lists.forEach(function(l) {
+        var pal = catColorKey(l.category);
+        var emoji = l.emoji || '📋';
+        var items = (l.items || []).slice(0, 5);
+        var count = items.length;
+        var closedHint = 'Top ' + count + ' pick' + (count !== 1 ? 's' : '') + ' · Tap to shop ↓';
+        var openHint = 'Top ' + count + ' pick' + (count !== 1 ? 's' : '') + ' · Tap to close ↑';
+        html += '<div class="tile t-' + pal + '" onclick="toggleTile(this)">'
+          + '<div class="tile-emoji">' + escapeHtml(emoji) + '</div>'
+          + '<div class="tile-title">' + escapeHtml(l.category) + '</div>'
+          + '<div class="tile-sub" data-closed-hint="' + escapeHtml(closedHint) + '" data-open-hint="' + escapeHtml(openHint) + '">' + escapeHtml(closedHint) + '</div>'
+          + '<div class="picks" onclick="event.stopPropagation()">';
+        items.forEach(function(it, i) {
+          var url = amazonSearchUrl(it, l.category);
+          html += '<div class="pick"><div class="rank">' + (i+1) + '</div><div class="name">' + escapeHtml(it) + '</div>'
+            + '<a class="shop" href="' + url + '" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>';
+        });
+        html += '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    html += '<div class="footer-block"><h2>Make your own Top 10 lists</h2>'
+      + '<p>Tenner is a free app for making Top 10 lists and comparing with friends.</p>'
+      + '<a href="/" class="btn">Launch Tenner →</a></div>';
+
+    root.innerHTML = html;
+  }
+
+  async function load() {
+    var q = new URLSearchParams(location.search);
+    var token = q.get('t') || (location.pathname.split('/g/')[1] || '').replace(/\/$/, '');
+    if (!token) {
+      document.getElementById('page-root').innerHTML = '<div class="empty"><div style="font-size:44px;margin-bottom:14px">🔗</div><div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;margin-bottom:6px;color:#2C2C2A">No gift-guide link provided.</div><div style="font-size:13px;color:#5F5E5A">Ask your friend for their share link.</div></div>';
+      return;
+    }
+    try {
+      var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      var res = await sb.rpc('get_public_gift_data', { share_token: token });
+      if (res.error) { console.warn(res.error); render(null); return; }
+      render(res.data);
+    } catch(e) { console.warn(e); render(null); }
+  }
+  load();
+})();
+</script>
+
+</body>
+</html>
