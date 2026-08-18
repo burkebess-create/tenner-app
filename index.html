@@ -1661,6 +1661,46 @@ function showToast(msg, duration) {
   setTimeout(function(){ if (banner.parentNode) banner.remove(); }, duration || 3000);
 }
 
+// Undo-toast pattern for destructive actions. Shows a toast with an "Undo"
+// button; if the user taps Undo before the timeout, onUndo() runs and onCommit
+// is NEVER called. Otherwise onCommit() runs when the toast expires. Caller is
+// responsible for hiding the item optimistically before calling — this only
+// manages the toast + timing.
+//
+// showUndoToast('List deleted', 'Undo', 5000, function commit() { /* real DB delete */ },
+//   function undo() { /* restore local state */ });
+function showUndoToast(msg, undoLabel, durationMs, onCommit, onUndo) {
+  var frame = document.querySelector('.frame') || document.body;
+  var existing = document.getElementById('toast-banner');
+  if (existing) existing.remove();
+  var banner = document.createElement('div');
+  banner.id = 'toast-banner';
+  banner.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#2C2C2A;color:#fff;font-size:12px;padding:12px 16px;border-radius:0 0 10px 10px;z-index:9999;display:flex;align-items:center;justify-content:space-between;gap:12px';
+  var text = document.createElement('span');
+  text.textContent = msg;
+  text.style.cssText = 'flex:1;text-align:left';
+  var btn = document.createElement('button');
+  btn.textContent = undoLabel || 'Undo';
+  btn.style.cssText = 'background:transparent;border:1px solid #FFFFFF;color:#FFFFFF;font-weight:700;font-size:12px;padding:6px 14px;border-radius:99px;cursor:pointer;font-family:inherit';
+  banner.appendChild(text);
+  banner.appendChild(btn);
+  frame.appendChild(banner);
+  var committed = false, undone = false;
+  var t = setTimeout(function() {
+    if (undone) return;
+    committed = true;
+    if (banner.parentNode) banner.remove();
+    try { onCommit && onCommit(); } catch(e) { console.warn('undo-toast commit failed', e); }
+  }, durationMs || 5000);
+  btn.onclick = function() {
+    if (committed) return;
+    undone = true;
+    clearTimeout(t);
+    if (banner.parentNode) banner.remove();
+    try { onUndo && onUndo(); } catch(e) { console.warn('undo-toast undo failed', e); }
+  };
+}
+
 function showConfirm(title, message, okLabel, style, onOk) {
   document.getElementById('confirm-title').textContent = title;
   document.getElementById('confirm-message').textContent = message;
@@ -3971,21 +4011,33 @@ function confirmDeleteList() {
   var idx = MY_LISTS.findIndex(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
   if (idx < 0) return;
   var l = MY_LISTS[idx];
-  showConfirm('Delete "' + l.n + '"?', 'This will permanently delete your list. This cannot be undone.', 'Delete list', 'danger', async function() {
-    if (sbClient && userId && cat) {
-      try {
-        var dr = await sbClient.from('lists').delete().eq('user_id', userId).eq('category', cat);
-        if (dr.error) throw dr.error;
-      } catch(e) {
-        console.warn('Delete list failed', e);
-        showToast('Could not delete list. Try again.');
-        return;
-      }
-    }
-    MY_LISTS.splice(idx, 1);
+  // Optimistically hide the list and show a 5s undo toast. Only after the toast
+  // expires do we actually hit the DB. If the user hits Undo, we restore.
+  showConfirm('Delete "' + l.n + '"?', 'You\'ll have 5 seconds to undo before it\'s gone for good.', 'Delete list', 'danger', function() {
+    var removed = MY_LISTS.splice(idx, 1)[0];
     saveState();
     renderLists();
     go('s-home');
+    showUndoToast('Deleted "' + l.n + '"', 'Undo', 5000,
+      function commit() {
+        if (!sbClient || !userId || !cat) return;
+        sbClient.from('lists').delete().eq('user_id', userId).eq('category', cat).then(function(dr) {
+          if (dr.error) {
+            console.warn('Delete list failed', dr.error);
+            // Best-effort restore since DB delete failed
+            MY_LISTS.splice(idx, 0, removed);
+            saveState();
+            renderLists();
+            showToast('Could not delete list — restored.');
+          }
+        });
+      },
+      function undo() {
+        MY_LISTS.splice(idx, 0, removed);
+        saveState();
+        renderLists();
+      }
+    );
   });
 }
 
@@ -6759,12 +6811,43 @@ async function respondToGroupInvite(groupId, accept) {
 }
 
 function confirmUnfriend(friendshipId, name) {
-  showConfirm('Remove friend?', 'Remove ' + name + ' from your friends? You can add them again later.', 'Remove', 'secondary', function() {
-    unfriend(friendshipId);
+  showConfirm('Remove friend?', 'You\'ll have 5 seconds to undo before it\'s final.', 'Remove', 'secondary', function() {
+    // Optimistically hide the friend and defer the DB delete so the user can undo
+    var idx = (myFriends || []).findIndex(function(f){ return f.id === friendshipId; });
+    if (idx < 0) return;
+    var removed = myFriends.splice(idx, 1)[0];
+    renderCircleFriends();
+    renderFriendsSection();
+    var wasOnFdetail = document.getElementById('s-fdetail').classList.contains('active');
+    if (wasOnFdetail) go('s-circle');
+    selFriendId = null;
+    showUndoToast('Removed ' + name, 'Undo', 5000,
+      function commit() {
+        if (!sbClient) return;
+        sbClient.from('friendships').delete().eq('id', friendshipId).then(function(res) {
+          if (res.error) {
+            console.warn('Unfriend commit failed', res.error);
+            myFriends.splice(idx, 0, removed);
+            renderCircleFriends();
+            renderFriendsSection();
+            showToast('Could not remove friend — restored.');
+          } else {
+            // Refresh from DB so profile data / counts are canonical
+            loadFriends().then(function(){ renderCircleFriends(); renderFriendsSection(); }).catch(function(){});
+          }
+        });
+      },
+      function undo() {
+        myFriends.splice(idx, 0, removed);
+        renderCircleFriends();
+        renderFriendsSection();
+      }
+    );
   });
 }
 
 async function unfriend(friendshipId) {
+  // Legacy immediate-delete kept for any callers that need the sync path
   if (!sbClient) return;
   try {
     var res = await sbClient.from('friendships').delete().eq('id', friendshipId);
