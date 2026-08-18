@@ -3587,6 +3587,35 @@ var groupListOrigin = 's-gdetail';
 var friendListOrigin = 's-fdetail';
 var listDetailOrigin = 's-home';
 
+// ── Unread tracking for friend lists (localStorage-based) ─────────────────
+// Stored as { "<friendId>|<category>": "<ISO timestamp of last view>" }.
+// A friend's list tile shows an unread dot when its updated_at is newer than
+// the timestamp we've recorded for the current viewer.
+function _seenKey() { return 'tenner_friend_list_seen_' + (userId || 'anon'); }
+function _readSeenMap() {
+  try { return JSON.parse(localStorage.getItem(_seenKey()) || '{}') || {}; } catch(e) { return {}; }
+}
+function _writeSeenMap(m) {
+  try { localStorage.setItem(_seenKey(), JSON.stringify(m)); } catch(e) {}
+}
+function getFriendListSeenAt(friendId, category) {
+  if (!friendId || !category) return null;
+  var m = _readSeenMap();
+  return m[friendId + '|' + category] || null;
+}
+function markFriendListSeen(friendId, category) {
+  if (!friendId || !category) return;
+  var m = _readSeenMap();
+  m[friendId + '|' + category] = new Date().toISOString();
+  _writeSeenMap(m);
+}
+function friendListHasUnread(friendId, updatedAt, category) {
+  if (!updatedAt) return false;
+  var seen = getFriendListSeenAt(friendId, category);
+  if (!seen) return true; // never opened
+  return new Date(updatedAt).getTime() > new Date(seen).getTime();
+}
+
 function openGroupListFill() {
   openFillGroupList(_groupListCat);
 }
@@ -5999,6 +6028,9 @@ function openFriendList(listData, origin) {
   // (which callers sometimes forget to set). Sync selFriendId so downstream navigation works.
   var ownerId = (listData && listData.user_id) || selFriendId;
   if (ownerId) selFriendId = ownerId;
+  // Mark this friend's list as viewed so the unread dot clears
+  var _seenCat = (listData && (listData.category || (listData.name || '').replace('Top 10 ', ''))) || null;
+  if (ownerId && _seenCat) markFriendListSeen(ownerId, _seenCat);
   var f = myFriends.find(function(x){ return x.friendId === ownerId; });
   var friendName = (f && f.profile && (f.profile.display_name || f.profile.handle))
     || (listData && listData.profile && (listData.profile.display_name || listData.profile.handle))
@@ -6509,8 +6541,12 @@ async function renderFriendDetail() {
           var lCount = (l.items || []).length;
           var isMutual = myCats.indexOf(cat) !== -1;
           var badge = isMutual ? '<div style="display:inline-block;background:#2C2C2A;color:#FFFFFF;font-size:9px;font-weight:700;padding:3px 8px;border-radius:99px;letter-spacing:0.03em;margin-bottom:8px">YOU BOTH HAVE THIS</div>' : '';
+          var unreadDot = friendListHasUnread(fid, l.updated_at, cat)
+            ? '<div style="position:absolute;top:10px;right:10px;width:10px;height:10px;background:#D85A30;border:2px solid #FFFFFF;border-radius:99px;box-shadow:0 1px 3px rgba(0,0,0,0.2)" title="New updates"></div>'
+            : '';
           var dataAttr = 'data-list=\'' + escapeHtml(JSON.stringify(l)).replace(/'/g, '&#39;') + '\'';
-          tilesGrid += '<div ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))" style="background:' + lPal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">'
+          tilesGrid += '<div ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))" style="background:' + lPal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer;position:relative">'
+            + unreadDot
             + badge
             + '<div style="font-size:36px;line-height:1;margin-bottom:10px">' + renderCatEmoji(lEmoji, 36) + '</div>'
             + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:16px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A;margin-bottom:4px">' + escapeHtml(cat) + '</div>'
