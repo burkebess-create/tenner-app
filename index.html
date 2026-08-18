@@ -9832,16 +9832,29 @@ function notifyFriendsOfUpdate(name, category) {
       var interested = (sameCatRes.data || []).map(function(r){ return r.user_id; });
       if (!interested.length) return;
       var profRes = await sbClient.from('profiles').select('id, email').in('id', interested);
+      var profiles = (profRes.data || []).filter(function(p){ return !!p.email; });
+      if (!profiles.length) return;
       var today = new Date().toISOString().slice(0, 10);
-      for (var i = 0; i < (profRes.data || []).length; i++) {
-        var p = profRes.data[i];
-        if (!p.email) continue;
-        var refKey = userId + '__' + category + '__' + today;
-        var chk = await sbClient.from('email_log').select('id').eq('user_id', p.id).eq('email_type', 'friend_update').eq('ref_key', refKey).maybeSingle();
-        if (chk.data) continue;
+      var refKey = userId + '__' + category + '__' + today;
+      // Batched dedupe: one query instead of N. Returns rows for anyone we've
+      // already emailed today for this (updater, category) — skip those.
+      var sentRes = await sbClient.from('email_log')
+        .select('user_id')
+        .in('user_id', profiles.map(function(p){ return p.id; }))
+        .eq('email_type', 'friend_update')
+        .eq('ref_key', refKey);
+      var alreadySent = {};
+      (sentRes.data || []).forEach(function(r){ alreadySent[r.user_id] = true; });
+      var toNotify = profiles.filter(function(p){ return !alreadySent[p.id]; });
+      if (!toNotify.length) return;
+      // Fire emails without awaiting so the UI thread doesn't stall
+      toNotify.forEach(function(p) {
         sendAppEmail('friend_update', p.email, { friend_name: name, category: category });
-        await sbClient.from('email_log').insert({ user_id: p.id, email_type: 'friend_update', ref_key: refKey });
-      }
+      });
+      // Batch the log inserts into a single query
+      sbClient.from('email_log').insert(
+        toNotify.map(function(p) { return { user_id: p.id, email_type: 'friend_update', ref_key: refKey }; })
+      ).then(function(){});
     } catch(e) { console.warn('friend_update fanout failed', e); }
   })();
 }
