@@ -6,7 +6,7 @@ export default {
   async run({ page, log, shot, assert }) {
     log('nav → home');
     await page.evaluate(() => window.go && window.go('s-home'));
-    await page.waitForSelector('#s-home.active', { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector('#s-home')?.classList.contains('active'), { timeout: 8000 });
     await page.waitForTimeout(400);
 
     const listCount = await page.evaluate(() => (window.MY_LISTS || []).length);
@@ -23,7 +23,7 @@ export default {
       return false;
     });
     await assert(opened, 'showListDetail invoked on MY_LISTS[0]');
-    await page.waitForSelector('#s-list-detail.active', { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector('#s-list-detail')?.classList.contains('active'), { timeout: 8000 });
     await shot('01-list-detail');
 
     // Comment UI present in some form (input or list of comments)

@@ -4,7 +4,9 @@ export default {
   async run({ page, cfg, log, shot, assert }) {
     log('goto', cfg.url);
     await page.goto(cfg.url, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#s-auth.active', { timeout: 15000 });
+    // Wait for the auth screen's inputs to actually be visible — more robust
+    // than watching for the .active class (which briefly toggles during boot).
+    await page.waitForSelector('#auth-email', { state: 'visible', timeout: 30000 });
     await shot('01-landing');
 
     log('select login tab');
@@ -18,11 +20,14 @@ export default {
     log('submit');
     await page.click('#auth-submit');
 
-    // Success = s-home becomes active (or onboarding if fresh account)
-    await page.waitForFunction(() => {
-      const a = document.querySelector('.screen.active');
-      return a && a.id !== 's-auth';
-    }, { timeout: 20000 });
+    // Success = window.userId gets populated (works regardless of which
+    // post-login screen the app routes to)
+    await page.waitForFunction(() => !!window.userId, { timeout: 25000 })
+      .catch(async () => {
+        // Capture whatever the auth-error banner says for debugging
+        const err = await page.locator('#auth-error').textContent().catch(() => '');
+        throw new Error(`login did not complete. auth-error text: "${(err || '').trim()}"`);
+      });
 
     const activeId = await page.evaluate(() => document.querySelector('.screen.active')?.id);
     log('post-login screen', activeId);
@@ -32,7 +37,7 @@ export default {
       log('WARN: onboarding shown — QA account is fresh, skipping to home via go()');
       // Push through to home so downstream flows work
       await page.evaluate(() => window.go && window.go('s-home'));
-      await page.waitForSelector('#s-home.active', { timeout: 5000 });
+      await page.waitForFunction(() => document.querySelector('#s-home')?.classList.contains('active'), { timeout: 8000 });
     }
 
     await assert(

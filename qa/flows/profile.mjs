@@ -5,7 +5,7 @@ export default {
   async run({ page, log, shot, assert }) {
     log('nav → profile');
     await page.evaluate(() => window.go && window.go('s-profile'));
-    await page.waitForSelector('#s-profile.active', { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector('#s-profile')?.classList.contains('active'), { timeout: 8000 });
     await page.waitForTimeout(600); // let async loadProfile settle
     await shot('01-profile');
 

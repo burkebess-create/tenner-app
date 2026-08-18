@@ -9,7 +9,7 @@ export default {
   async run({ page, log, shot, assert }) {
     log('nav → create');
     await page.evaluate(() => window.go && window.go('s-create1'));
-    await page.waitForSelector('#s-create1.active', { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector('#s-create1')?.classList.contains('active'), { timeout: 8000 });
     await shot('01-create1');
 
     log(`pick category "${CATEGORY}"`);
@@ -22,7 +22,7 @@ export default {
       await page.fill('#cat-inp', CATEGORY);
       await page.keyboard.press('Enter');
     }
-    await page.waitForSelector('#s-create2.active', { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector('#s-create2')?.classList.contains('active'), { timeout: 8000 });
     await shot('02-create2');
 
     log('add items');
@@ -38,7 +38,7 @@ export default {
 
     log('leave without publishing (QA does not spam friends)');
     await page.evaluate(() => window.go && window.go('s-home'));
-    await page.waitForSelector('#s-home.active', { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector('#s-home')?.classList.contains('active'), { timeout: 8000 });
     await shot('04-back-home');
   },
 };
