@@ -71,6 +71,12 @@ async function main() {
   page.on('console', m => {
     if (m.type() === 'error') events.push({ flow: '(console)', step: 'error', status: 'warn', note: m.text().slice(0, 300) });
   });
+  // Capture failing HTTP responses so 404s / 500s show their URL in the report
+  page.on('response', r => {
+    if (r.status() >= 400) {
+      events.push({ flow: '(network)', step: `HTTP ${r.status()}`, status: 'warn', note: r.url() });
+    }
+  });
 
   const startedAt = nowMs();
   for (const flow of runList) {
