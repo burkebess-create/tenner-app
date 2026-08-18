@@ -1,11 +1,31 @@
 // Tenner QA agent — drives the app in a real Chromium and writes a report.
 // Usage: node run.mjs   (env: TENNER_URL, QA_EMAIL, QA_PASSWORD, FLOWS)
 import { chromium } from 'playwright';
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Load qa/.env if present. Simple KEY=VALUE parser; quotes optional; # = comment.
+// Values already set in the shell environment win.
+(function loadEnv() {
+  const p = join(__dirname, '.env');
+  if (!existsSync(p)) return;
+  for (const raw of readFileSync(p, 'utf8').split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq < 0) continue;
+    const k = line.slice(0, eq).trim();
+    let v = line.slice(eq + 1).trim();
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+      v = v.slice(1, -1);
+    }
+    if (!(k in process.env)) process.env[k] = v;
+  }
+})();
+
 const RUN_ID = new Date().toISOString().replace(/[:.]/g, '-');
 const SHOT_DIR = join(__dirname, 'screenshots', RUN_ID);
 const REPORT_PATH = join(__dirname, 'reports', `${RUN_ID}.md`);

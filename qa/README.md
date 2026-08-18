@@ -21,14 +21,18 @@ environment; on a local machine run `npx playwright install chromium` once.
 
 ## Env
 
-Create `qa/.env` (gitignored) or export inline:
+Easiest: copy the example and fill in your test account.
 
 ```
-TENNER_URL=https://mytenner.com
-QA_EMAIL=qa+tenner@example.com
-QA_PASSWORD=super-secret
-QA_FRIEND_EMAIL=qa+friend@example.com   # optional, enables friend-flow tests
-QA_FRIEND_PASSWORD=super-secret
+cp qa/.env.example qa/.env
+# then edit qa/.env
+```
+
+`qa/.env` is gitignored — safe for credentials. Shell env vars still win
+if you'd rather pass them inline:
+
+```
+QA_EMAIL=you@example.com QA_PASSWORD=... npm run qa
 ```
 
 ## Run
