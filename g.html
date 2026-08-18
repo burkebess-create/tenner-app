@@ -19,7 +19,7 @@
   header { background: #FDFCF8; border-bottom: 1px solid #EAE3DC; padding: 14px 20px; position: sticky; top: 0; z-index: 10; }
   header .wrap { max-width: 640px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
   header img { height: 28px; object-fit: contain; }
-  header .cta { background: #D85A30; color: #fff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 999px; }
+  header .cta { background: #D85A30; color: #fff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 999px; border: none; cursor: pointer; font-family: inherit; }
 
   .page { max-width: 640px; margin: 0 auto; padding: 24px 20px 60px; }
 
@@ -70,7 +70,7 @@
   .footer-block { background: #F1EFE8; border-radius: 20px; padding: 26px 20px; margin-top: 28px; text-align: center; }
   .footer-block h2 { font-family: 'DM Serif Display', Georgia, serif; font-size: 24px; letter-spacing: -0.02em; margin: 0 0 8px; color: #2C2C2A; font-weight: 400; }
   .footer-block p { font-size: 14px; color: #5F5E5A; margin: 0 0 14px; }
-  .footer-block .btn { display: inline-block; background: #2C2C2A; color: #fff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 12px 22px; border-radius: 999px; }
+  .footer-block .btn { display: inline-block; background: #2C2C2A; color: #fff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 12px 22px; border-radius: 999px; border: none; cursor: pointer; font-family: inherit; }
 
   footer { text-align: center; padding: 30px 20px; color: #888780; font-size: 12px; }
   footer a { color: #888780; margin: 0 8px; }
@@ -84,7 +84,7 @@
 <header>
   <div class="wrap">
     <a href="/"><img src="/logo-horizontal.png" alt="Tenner"></a>
-    <a href="/" class="cta">Launch Tenner →</a>
+    <button id="header-cta" class="cta" onclick="backToTenner()">Launch Tenner →</button>
   </div>
 </header>
 
@@ -101,6 +101,51 @@
 (function() {
   var SUPABASE_URL = 'https://bbjpvlmkhvggtwyvpzrq.supabase.co';
   var SUPABASE_KEY = 'sb_publishable_jeeTdNoqIJXBtx_1W1TscQ_cnRAcwHx';
+
+  // Detect whether this tab was opened from inside the Tenner app (as opposed to
+  // someone visiting the shared link directly). Two signals:
+  //  1. window.opener exists (opened via window.open from same origin)
+  //  2. document.referrer is mytenner.com (came from within the site)
+  // If yes, the Back button closes this tab so the original app tab (still on
+  // the Gifts screen) regains focus. If no, we behave like a landing page.
+  var _openedFromApp = false;
+  try {
+    if (window.opener && !window.opener.closed) _openedFromApp = true;
+  } catch(e) {}
+  if (!_openedFromApp && document.referrer) {
+    try {
+      var ref = new URL(document.referrer);
+      if (ref.hostname === location.hostname) _openedFromApp = true;
+    } catch(e) {}
+  }
+
+  // Header CTA label updates based on context
+  function updateHeaderCtaLabel() {
+    var el = document.getElementById('header-cta');
+    if (el) el.textContent = _openedFromApp ? '← Back to Tenner' : 'Launch Tenner →';
+  }
+  updateHeaderCtaLabel();
+
+  // Back-to-app: try to close (works for tabs opened via window.open),
+  // fall back to browser back, then to a straight navigation.
+  window.backToTenner = function() {
+    if (_openedFromApp && window.opener && !window.opener.closed) {
+      try { window.opener.focus(); } catch(e) {}
+      try {
+        window.close();
+        // Some browsers refuse close() — check after a beat
+        setTimeout(function() {
+          if (!window.closed) window.location.href = '/';
+        }, 150);
+        return;
+      } catch(e) {}
+    }
+    if (_openedFromApp) {
+      // Referrer-only case (no opener) — try history back
+      if (window.history.length > 1) { window.history.back(); return; }
+    }
+    window.location.href = '/';
+  };
 
   // 16-color harmonized palette matching the app's STANDARD_CATEGORY_COLORS
   var STANDARD_CATEGORY_COLORS = {
@@ -247,9 +292,14 @@
       html += '</div>';
     }
 
-    html += '<div class="footer-block"><h2>Make your own Top 10 lists</h2>'
-      + '<p>Tenner is a free app for making Top 10 lists and comparing with friends.</p>'
-      + '<a href="/" class="btn">Launch Tenner →</a></div>';
+    var footBtnLabel = _openedFromApp ? '← Back to Tenner' : 'Launch Tenner →';
+    var footHeadline = _openedFromApp ? 'Head back to Tenner' : 'Make your own Top 10 lists';
+    var footBlurb = _openedFromApp
+      ? 'Return to your Gifts tab and keep exploring.'
+      : 'Tenner is a free app for making Top 10 lists and comparing with friends.';
+    html += '<div class="footer-block"><h2>' + footHeadline + '</h2>'
+      + '<p>' + footBlurb + '</p>'
+      + '<button class="btn" onclick="backToTenner()">' + footBtnLabel + '</button></div>';
 
     root.innerHTML = html;
   }
