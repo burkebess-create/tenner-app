@@ -1,0 +1,48 @@
+name: QA smoke tests
+
+on:
+  # Nightly at 07:00 UTC (~ midnight/2am your time depending on DST)
+  schedule:
+    - cron: '0 7 * * *'
+  # Run on demand from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: qa
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: qa/package.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run QA agent
+        env:
+          TENNER_URL: https://mytenner.com
+          QA_EMAIL: ${{ secrets.QA_EMAIL }}
+          QA_PASSWORD: ${{ secrets.QA_PASSWORD }}
+        run: npm run qa
+
+      # Always upload — even on failure — so we can see what broke
+      - name: Upload report + screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-report-${{ github.run_number }}
+          path: |
+            qa/reports/
+            qa/screenshots/
+          retention-days: 30
