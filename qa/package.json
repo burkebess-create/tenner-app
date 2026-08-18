@@ -1,0 +1,13 @@
+{
+  "name": "tenner-qa",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "qa": "node run.mjs",
+    "qa:headed": "HEADED=1 node run.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}

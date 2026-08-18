@@ -185,7 +185,72 @@
       suffix = noun ? (noun + ' gift ideas') : 'gift ideas';
     }
     var q = (item + ' ' + suffix).trim();
-    return 'https://www.amazon.com/s?k=' + encodeURIComponent(q).replace(/%20/g, '+') + '&tag=tenner09-20';
+    var base = 'https://www.amazon.com/s?k=' + encodeURIComponent(q).replace(/%20/g, '+') + '&tag=tenner09-20';
+    var rh = budgetRh();
+    return rh ? (base + '&rh=' + encodeURIComponent(rh)) : base;
+  }
+
+  // ── Budget filter (multi-select contiguous range) ──────────────────
+  var BUCKETS = [
+    { key: 'u25',    label: 'Under $25', minCents: 0,     maxCents: 2500 },
+    { key: '25-50',  label: '$25–$50',   minCents: 2500,  maxCents: 5000 },
+    { key: '50-100', label: '$50–$100',  minCents: 5000,  maxCents: 10000 },
+    { key: '100+',   label: '$100+',     minCents: 10000, maxCents: null }
+  ];
+  var budgetRange = null;
+
+  function budgetRh() {
+    if (!budgetRange) return '';
+    var last = BUCKETS.length - 1;
+    if (budgetRange.lowIdx === 0 && budgetRange.highIdx === last) return '';
+    var lo = BUCKETS[budgetRange.lowIdx];
+    var hi = BUCKETS[budgetRange.highIdx];
+    var minStr = lo.minCents > 0 ? String(lo.minCents) : '';
+    var maxStr = hi.maxCents != null ? String(hi.maxCents) : '';
+    return 'p_36:' + minStr + '-' + maxStr;
+  }
+
+  function toggleBucket(idx) {
+    var r = budgetRange;
+    if (!r) { budgetRange = { lowIdx: idx, highIdx: idx }; }
+    else if (idx < r.lowIdx) { r.lowIdx = idx; }
+    else if (idx > r.highIdx) { r.highIdx = idx; }
+    else if (r.lowIdx === r.highIdx && idx === r.lowIdx) { budgetRange = null; }
+    else if (idx === r.lowIdx) { r.lowIdx = idx + 1; }
+    else if (idx === r.highIdx) { r.highIdx = idx - 1; }
+    renderBudgetPills();
+    rewriteShopUrls();
+  }
+
+  function clearBudget() { budgetRange = null; renderBudgetPills(); rewriteShopUrls(); }
+  window.__tennerToggleBucket = toggleBucket;
+  window.__tennerClearBudget = clearBudget;
+
+  function renderBudgetPills() {
+    var host = document.getElementById('budget-pills-host');
+    if (!host) return;
+    var anyActive = !budgetRange;
+    var base = 'font-family:inherit;font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600;border:1px solid #D3D1C7;background:#FFF;color:#2C2C2A';
+    var active = 'font-family:inherit;font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600;border:1px solid #2C2C2A;background:#2C2C2A;color:#FFF';
+    var html = '<button type="button" style="' + (anyActive ? active : base) + '" onclick="__tennerClearBudget()">Any</button>';
+    html += BUCKETS.map(function(b, i) {
+      var on = budgetRange && i >= budgetRange.lowIdx && i <= budgetRange.highIdx;
+      return '<button type="button" style="' + (on ? active : base) + '" onclick="__tennerToggleBucket(' + i + ')">' + b.label + '</button>';
+    }).join('');
+    host.innerHTML = html;
+  }
+
+  function rewriteShopUrls() {
+    var rh = budgetRh();
+    document.querySelectorAll('a.shop').forEach(function(a) {
+      var b = a.getAttribute('data-base-href') || a.getAttribute('href');
+      if (!a.hasAttribute('data-base-href')) a.setAttribute('data-base-href', b);
+      var url;
+      try { url = new URL(b); } catch(e) { return; }
+      url.searchParams.delete('rh');
+      if (rh) url.searchParams.set('rh', rh);
+      a.setAttribute('href', url.toString());
+    });
   }
 
   function escapeHtml(s) {
@@ -266,8 +331,12 @@
 
     html += '<div class="disclosure">Shop links are Amazon affiliate links. As an Amazon Associate, Tenner earns from qualifying purchases at no extra cost to you.</div>';
 
-    // Cross-link to the general categories page in case the visitor wants broader ideas
-    html += '<div style="text-align:center;font-size:12px;color:#5F5E5A;margin:0 0 18px;padding:10px 14px;background:#F1EFE8;border-radius:12px">Prefer general gift ideas by category? <a href="/gifts/" style="color:#D85A30;text-decoration:underline;font-weight:600">Browse Tenner\'s gift categories →</a></div>';
+    if (lists.length) {
+      html += '<div style="margin:8px 0 16px">'
+        + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#888780;font-weight:700;margin-bottom:8px;text-align:center">Budget</div>'
+        + '<div id="budget-pills-host" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center"></div>'
+        + '</div>';
+    }
 
     if (!lists.length) {
       html += '<div class="empty">' + escapeHtml(name) + ' hasn\'t shared any lists yet.</div>';
@@ -295,6 +364,8 @@
       html += '</div>';
     }
 
+    html += '<div style="text-align:center;font-size:12px;color:#5F5E5A;margin:22px 0 0;padding:10px 14px;background:#F1EFE8;border-radius:12px">Prefer general gift ideas by category? <a href="/gifts/" style="color:#D85A30;text-decoration:underline;font-weight:600">Browse Tenner\'s gift categories →</a></div>';
+
     var footBtnLabel = _openedFromApp ? '← Back to Tenner' : 'Launch Tenner →';
     var footHeadline = _openedFromApp ? 'Head back to Tenner' : 'Make your own Top 10 lists';
     var footBlurb = _openedFromApp
@@ -305,6 +376,8 @@
       + '<button class="btn" onclick="backToTenner()">' + footBtnLabel + '</button></div>';
 
     root.innerHTML = html;
+    renderBudgetPills();
+    rewriteShopUrls();
   }
 
   async function load() {
