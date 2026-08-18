@@ -7018,7 +7018,7 @@ async function saveState() {
 async function saveListToDb(listObj) {
   if (!sbClient || !userId) return;
   try {
-    await sbClient.from('lists').upsert({
+    var res = await sbClient.from('lists').upsert({
       user_id: userId,
       name: listObj.n,
       category: listObj.category || listObj.n.replace('Top 10 ', ''),
@@ -7029,6 +7029,7 @@ async function saveListToDb(listObj) {
       blind_fill: !!listObj.blind_fill,
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id,category' });
+    if (res && res.error) throw res.error;
   } catch(e) { console.warn('List save to DB failed', e); throw e; }
 }
 
@@ -9483,8 +9484,13 @@ async function saveListDataOnly() {
   var blindToggle = document.getElementById('create-blind-fill-toggle');
   var prevBlind = blindToggle ? !!blindToggle.checked : (existing >= 0 ? !!(MY_LISTS[existing] && MY_LISTS[existing].blind_fill) : false);
   var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic, blind_fill: prevBlind };
+  try {
+    await saveListToDb(listObj);
+  } catch(e) {
+    showToast('Could not save. Try again.');
+    throw e;
+  }
   if (existing >= 0) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
-  await saveListToDb(listObj);
 }
 
 async function saveList() {
@@ -9503,6 +9509,14 @@ async function saveList() {
   var blindToggle = document.getElementById('create-blind-fill-toggle');
   var prevBlind = blindToggle ? !!blindToggle.checked : (isUpdate ? !!(MY_LISTS[existing] && MY_LISTS[existing].blind_fill) : false);
   var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic, blind_fill: prevBlind };
+  // Write to DB FIRST — only mutate local state on success. Otherwise a failed
+  // sync leaves a phantom list in localStorage that never reaches Supabase.
+  try {
+    await saveListToDb(listObj);
+  } catch(e) {
+    showToast('Could not save list. Please try again.');
+    return;
+  }
   if (isUpdate) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
   var isFreshComplete = !isUpdate && itemCount === 10;
   var dest = listOrigin;
@@ -9510,7 +9524,6 @@ async function saveList() {
   editingListIdx = -1;
   if (dest === 's-cg3') selList = existing >= 0 ? existing : MY_LISTS.length - 1;
   saveState();
-  try { await saveListToDb(listObj); } catch(e) { showToast('List saved locally — cloud sync failed. Try again.'); }
   // Notify friends of update
   if (isUpdate && myFriends.filter(function(f){return f.status==='accepted';}).length > 0) {
     var senderName = (myProfile && myProfile.display_name) || 'Someone';
