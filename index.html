@@ -10174,10 +10174,11 @@ async function submitItemComment() {
   if (!inp || !inp.value.trim() || !sbClient) return;
   var text = inp.value.trim().slice(0, 280);
   try {
-    await sbClient.from('list_item_comments').insert({ from_user_id: userId, list_owner_id: activeCommentListOwner, category: activeCommentCategory, item_name: activeCommentItem, comment: text });
+    var res = await sbClient.from('list_item_comments').insert({ from_user_id: userId, list_owner_id: activeCommentListOwner, category: activeCommentCategory, item_name: activeCommentItem, comment: text });
+    if (res.error) throw res.error;
     inp.value = '';
     loadItemComments(activeCommentListOwner, activeCommentCategory, activeCommentItem);
-  } catch(e) { showToast('Could not post comment.'); }
+  } catch(e) { showToast('Could not post comment. Try again.'); }
 }
 
 // ── Feature A: In-group recent activity ────────────────────────────────────
