@@ -3962,7 +3962,14 @@ function confirmDeleteGroup() {
     'danger',
     async function() {
       if (sbClient && g.id) {
-        try { await sbClient.from('groups').delete().eq('id', g.id); } catch(e) { console.warn('Group delete failed', e); }
+        try {
+          var res = await sbClient.from('groups').delete().eq('id', g.id);
+          if (res.error) throw res.error;
+        } catch(e) {
+          console.warn('Group delete failed', e);
+          showToast('Could not delete group. Try again.');
+          return;
+        }
       }
       MY_GROUPS.splice(selGroupIdx, 1);
       selGroupIdx = 0;
@@ -6706,13 +6713,17 @@ function confirmUnfriend(friendshipId, name) {
 async function unfriend(friendshipId) {
   if (!sbClient) return;
   try {
-    await sbClient.from('friendships').delete().eq('id', friendshipId);
+    var res = await sbClient.from('friendships').delete().eq('id', friendshipId);
+    if (res.error) throw res.error;
     await loadFriends();
     renderCircleFriends();
     renderFriendsSection();
     selFriendId = null;
     if (document.getElementById('s-fdetail').classList.contains('active')) go('s-circle');
-  } catch(e) { console.warn('Unfriend failed', e); }
+  } catch(e) {
+    console.warn('Unfriend failed', e);
+    showToast('Could not remove friend. Try again.');
+  }
 }
 
 async function confirmAdminLeaveGroup(idx) {
@@ -6740,7 +6751,14 @@ function confirmLeaveGroup(idx) {
   if (!g) return;
   showConfirm('Leave group?', 'Leave "' + g.n + '"? You can be re-invited later.', 'Leave', 'secondary', async function() {
     if (sbClient && g.id) {
-      try { await sbClient.from('group_members').delete().eq('group_id', g.id).eq('user_id', userId); } catch(e) { console.warn('Leave group failed', e); }
+      try {
+        var res = await sbClient.from('group_members').delete().eq('group_id', g.id).eq('user_id', userId);
+        if (res.error) throw res.error;
+      } catch(e) {
+        console.warn('Leave group failed', e);
+        showToast('Could not leave group. Try again.');
+        return;
+      }
     }
     MY_GROUPS.splice(idx, 1);
     renderCircleGroups();
