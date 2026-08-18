@@ -60,6 +60,10 @@
 
   <div class="sec-label">Top sports team picks</div>
 
+  <div id="dynamic-source" style="display:none;font-size:11px;color:#5F5E5A;background:#F1EFE8;border-radius:10px;padding:8px 12px;margin-bottom:12px;text-align:center">Loading top picks from the Tenner community…</div>
+
+  <div id="picks-container" data-category="Sports Teams" data-suffix="sports team gift ideas">
+
   <div class="pick"><div class="rank">1</div><div class="body"><div class="title">Dallas Cowboys (NFL)</div><div class="desc">Highest-selling merch in the NFL. Jerseys, hats, tailgate gear, home decor.</div></div><a class="shop" href="https://www.amazon.com/s?k=Dallas+Cowboys+gift+fan&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
 
   <div class="pick"><div class="rank">2</div><div class="body"><div class="title">Kansas City Chiefs (NFL)</div><div class="desc">Mahomes-era merch, Super Bowl champion gear, red-and-gold everything.</div></div><a class="shop" href="https://www.amazon.com/s?k=Kansas+City+Chiefs+gift+fan&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
@@ -84,6 +88,8 @@
 
   <div class="pick"><div class="rank">12</div><div class="body"><div class="title">Manchester United (Soccer)</div><div class="desc">Global-scale merch — home and away kits, scarves, training gear.</div></div><a class="shop" href="https://www.amazon.com/s?k=Manchester+United+gift+fan&tag=tenner09-20" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>
 
+  </div>
+
   <div class="sec-label">Related gift categories</div>
   <div class="related">
     <a href="/gifts/sneakers.html">👟 Sneakers</a>
@@ -101,5 +107,7 @@
   <a href="/">Home</a> · <a href="/gifts/">Gift categories</a> · <a href="/about.html">About</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a>
   <div style="margin-top:12px;font-size:11px">As an Amazon Associate, Tenner earns from qualifying purchases.</div>
 </footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/gifts/dynamic-picks.js"></script>
 </body>
 </html>
