@@ -10442,15 +10442,19 @@ async function loadItemComments(listOwnerId, category, itemName) {
       // Reply affordance for OTHERS' comments — focuses the input at the bottom and
       // prepends '@Name ' so it clearly reads as a reply. Edit/Delete for MY comments.
       var safeName = String(name).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      // WhatsApp/iMessage-style `…` overflow menu for own comments, Reply link for others.
       var actions = isMine
-        ? '<div style="display:flex;gap:8px;margin-top:6px">'
-          +   '<button type="button" onclick="startEditItemComment(\'' + c.id + '\')" style="background:none;border:none;color:#5F5E5A;font-size:11px;padding:2px 0;cursor:pointer;font-family:inherit;text-decoration:underline">Edit</button>'
-          +   '<button type="button" onclick="deleteItemComment(\'' + c.id + '\')" style="background:none;border:none;color:#A32D2D;font-size:11px;padding:2px 0;cursor:pointer;font-family:inherit;text-decoration:underline">Delete</button>'
+        ? '<div style="position:absolute;top:8px;right:0">'
+          +   '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\')" style="background:none;border:none;color:#888780;font-size:16px;padding:0 6px;cursor:pointer;font-family:inherit;line-height:1" title="More">⋯</button>'
+          +   '<div id="cmenu-' + c.id + '" style="display:none;position:absolute;right:0;top:22px;background:#FFFFFF;border:1px solid #D3D1C7;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.12);z-index:20;min-width:120px;overflow:hidden">'
+          +     '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\');startEditItemComment(\'' + c.id + '\')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#2C2C2A;font-size:12px;padding:10px 14px;cursor:pointer;font-family:inherit">Edit</button>'
+          +     '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\');deleteItemComment(\'' + c.id + '\')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#A32D2D;font-size:12px;padding:10px 14px;cursor:pointer;font-family:inherit;border-top:1px solid #F1EFE8">Delete</button>'
+          +   '</div>'
           + '</div>'
         : '<div style="display:flex;gap:8px;margin-top:6px">'
           +   '<button type="button" onclick="replyToItemComment(\'' + safeName + '\')" style="background:none;border:none;color:#D85A30;font-size:11px;padding:2px 0;cursor:pointer;font-family:inherit;text-decoration:underline;font-weight:600">↩ Reply</button>'
           + '</div>';
-      return '<div data-comment-id="' + c.id + '" style="padding:10px 0;border-bottom:1px solid #F5F3EE;' + indentStyle + '">'
+      return '<div data-comment-id="' + c.id + '" style="position:relative;padding:10px 0;border-bottom:1px solid #F5F3EE;' + indentStyle + '">'
         + '<div style="font-size:11px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + editedTag + when + '</div>'
         + '<div class="comment-body" style="font-size:13px;color:#444;margin-top:3px">' + escapeHtml(c.comment) + '</div>'
         + actions
@@ -10458,6 +10462,19 @@ async function loadItemComments(listOwnerId, category, itemName) {
     }).join('');
   } catch(e) { el.innerHTML = '<div style="color:#A32D2D;font-size:12px">Failed to load.</div>'; }
 }
+
+// Toggle the `…` overflow menu on a comment row. Also closes any other open menus.
+function toggleCommentMenu(commentId) {
+  var target = document.getElementById('cmenu-' + commentId);
+  document.querySelectorAll('[id^="cmenu-"]').forEach(function(el) { if (el !== target) el.style.display = 'none'; });
+  if (!target) return;
+  target.style.display = target.style.display === 'block' ? 'none' : 'block';
+}
+// Global click-outside handler to close comment menus
+document.addEventListener('click', function(e) {
+  if (e.target.closest && (e.target.closest('[id^="cmenu-"]') || (e.target.textContent === '⋯'))) return;
+  document.querySelectorAll('[id^="cmenu-"]').forEach(function(el) { el.style.display = 'none'; });
+});
 
 // Swap a comment body into an editable textarea with Save/Cancel
 function startEditItemComment(commentId) {
