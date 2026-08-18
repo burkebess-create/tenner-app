@@ -5447,8 +5447,18 @@ function updateNotificationBadge() {
 }
 
 // Refresh the unread count without rendering the full screen (called on app load / tab changes)
-function refreshNotifications() {
-  return Promise.all([loadListShareInvites(), loadCommentsOnMe(), loadThreadReplies(), loadLastAlertsSeenAt()]).then(updateNotificationBadge);
+async function refreshNotifications() {
+  // Guard against firing before the Supabase session token is attached to the
+  // client. Without this, early calls hit the REST endpoints as anonymous and
+  // return 401, so the Alerts badge doesn't populate on first load.
+  if (sbClient) {
+    try {
+      var s = await sbClient.auth.getSession();
+      if (!s || !s.data || !s.data.session) return;
+    } catch(e) { return; }
+  }
+  await Promise.all([loadListShareInvites(), loadCommentsOnMe(), loadThreadReplies(), loadLastAlertsSeenAt()]);
+  updateNotificationBadge();
 }
 
 async function loadLastAlertsSeenAt() {
