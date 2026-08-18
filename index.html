@@ -8150,11 +8150,11 @@ function editAdminWeekly(id) {
 
 function saveAdminWeekly(id) {
   var category = (document.getElementById('aw-category').value || '').trim();
-  if (!category) { alert('Category is required.'); return; }
+  if (!category) { showToast('Category is required.'); return; }
   var emoji = (document.getElementById('aw-emoji').value || '').trim() || '📋';
   var weekStart = document.getElementById('aw-week-start').value;
   var revealLocal = document.getElementById('aw-reveal').value;
-  if (!weekStart || !revealLocal) { alert('Week start and reveal time are required.'); return; }
+  if (!weekStart || !revealLocal) { showToast('Week start and reveal time are required.'); return; }
   var revealAt = new Date(revealLocal).toISOString();
   var description = (document.getElementById('aw-description').value || '').trim() || null;
   var payload = { category: category, emoji: emoji, week_start: weekStart, reveal_at: revealAt, description: description };
@@ -8163,7 +8163,7 @@ function saveAdminWeekly(id) {
     ? sbClient.from('weekly_lists').update(payload).eq('id', id)
     : sbClient.from('weekly_lists').insert(payload);
   q.then(function(r) {
-    if (r.error) { alert('Error: ' + r.error.message); return; }
+    if (r.error) { showToast('Error: ' + r.error.message); return; }
     var m = document.getElementById('admin-weekly-modal'); if (m) m.remove();
     showToast('Saved');
     loadWeeklyLists().then(renderAdmin);
@@ -8173,7 +8173,7 @@ function saveAdminWeekly(id) {
 function deleteAdminWeekly(id) {
   showConfirm('Delete this weekly list?', 'Users\' individual lists in that category are not affected — only the weekly prompt itself is removed.', 'Delete', 'danger', function() {
     sbClient.from('weekly_lists').delete().eq('id', id).then(function(r) {
-      if (r.error) { alert('Error: ' + r.error.message); return; }
+      if (r.error) { showToast('Error: ' + r.error.message); return; }
       showToast('Deleted');
       loadWeeklyLists().then(renderAdmin);
     });
@@ -8216,7 +8216,7 @@ function banUser(uid, name) {
   var reason = prompt('Reason for banning ' + name + ' (optional):', '');
   if (reason === null) return;
   sbClient.from('profiles').update({ is_banned: true, banned_at: new Date().toISOString(), banned_reason: reason || null }).eq('id', uid).then(function(r) {
-    if (r.error) { alert('Error: ' + r.error.message); return; }
+    if (r.error) { showToast('Error: ' + r.error.message); return; }
     showToast('User banned');
     renderAdmin();
   });
@@ -8225,7 +8225,7 @@ function banUser(uid, name) {
 function unbanUser(uid) {
   showConfirm('Unban this user?', 'They will regain access on next reload.', 'Unban', 'primary', function() {
     sbClient.from('profiles').update({ is_banned: false, banned_at: null, banned_reason: null }).eq('id', uid).then(function(r) {
-      if (r.error) { alert('Error: ' + r.error.message); return; }
+      if (r.error) { showToast('Error: ' + r.error.message); return; }
       showToast('User unbanned');
       renderAdmin();
     });
@@ -8233,10 +8233,10 @@ function unbanUser(uid) {
 }
 
 function sendUserPasswordReset(email) {
-  if (!email) { alert('No email on file for this user.'); return; }
+  if (!email) { showToast('No email on file for this user.'); return; }
   showConfirm('Send password reset link?', 'An email will be sent to ' + email + ' with a link to set a new password.', 'Send', 'primary', function() {
     sbClient.auth.resetPasswordForEmail(email).then(function(r) {
-      if (r.error) { alert('Error: ' + r.error.message); return; }
+      if (r.error) { showToast('Error: ' + r.error.message); return; }
       showToast('Reset link sent to ' + email);
     });
   });
@@ -8538,7 +8538,7 @@ async function openAdminListDetail(listId, origin, originUid) {
 function deleteAdminList(id, name) {
   showConfirm('Delete list "' + (name || 'Untitled') + '"?', 'This permanently removes the list from the owner\'s account. This cannot be undone.', 'Delete', 'danger', function() {
     sbClient.from('lists').delete().eq('id', id).then(function(r) {
-      if (r.error) { alert('Error: ' + r.error.message); return; }
+      if (r.error) { showToast('Error: ' + r.error.message); return; }
       showToast('List deleted');
       renderAdmin();
     });
@@ -8600,7 +8600,7 @@ async function renderAdminCats(el) {
 function retireAdminCat(id, name) {
   showConfirm('Retire "' + name + '"?', 'This removes the category from the category picker for new lists. Existing user lists in this category stay intact. You can restore it later.', 'Retire', 'primary', function() {
     sbClient.from('categories').update({ retired_at: new Date().toISOString() }).eq('id', id).then(function(r) {
-      if (r.error) { alert('Error: ' + r.error.message); return; }
+      if (r.error) { showToast('Error: ' + r.error.message); return; }
       showToast('Category retired');
       loadCategoriesFromDb().then(renderAdmin);
     });
@@ -8609,7 +8609,7 @@ function retireAdminCat(id, name) {
 
 function restoreAdminCat(id) {
   sbClient.from('categories').update({ retired_at: null }).eq('id', id).then(function(r) {
-    if (r.error) { alert('Error: ' + r.error.message); return; }
+    if (r.error) { showToast('Error: ' + r.error.message); return; }
     showToast('Category restored');
     loadCategoriesFromDb().then(renderAdmin);
   });
@@ -8671,7 +8671,7 @@ function onAdminEmojiText(val) {
 function onAdminEmojiUpload(input) {
   var f = input.files && input.files[0];
   if (!f) return;
-  if (f.size > 10 * 1024 * 1024) { alert('Image too large. Please use one under 10 MB.'); input.value = ''; return; }
+  if (f.size > 10 * 1024 * 1024) { showToast('Image too large. Please use one under 10 MB.'); input.value = ''; return; }
   var reader = new FileReader();
   reader.onload = function(e) {
     // Resize to max 128×128 to keep the data URL small
@@ -8700,14 +8700,14 @@ function onAdminEmojiUpload(input) {
 
 function saveAdminCat() {
   var name = (document.getElementById('ac-name').value || '').trim();
-  if (!name) { alert('Name is required.'); return; }
+  if (!name) { showToast('Name is required.'); return; }
   var seasonal = document.getElementById('ac-seasonal').checked;
   var active_from = null, active_to = null;
   if (seasonal) {
     active_from = (document.getElementById('ac-from').value || '').trim();
     active_to   = (document.getElementById('ac-to').value   || '').trim();
     if (!/^\d{2}-\d{2}$/.test(active_from) || !/^\d{2}-\d{2}$/.test(active_to)) {
-      alert('Dates must be MM-DD (e.g. 10-31).'); return;
+      showToast('Dates must be MM-DD (e.g. 10-31).'); return;
     }
   }
   var payload = {
@@ -8722,7 +8722,7 @@ function saveAdminCat() {
     ? sbClient.from('categories').update(payload).eq('id', id)
     : sbClient.from('categories').insert(payload);
   q.then(function(r) {
-    if (r.error) { alert('Error: ' + r.error.message); return; }
+    if (r.error) { showToast('Error: ' + r.error.message); return; }
     closeAdminCatModal();
     showToast('Saved');
     loadCategoriesFromDb().then(renderAdmin);
@@ -8732,7 +8732,7 @@ function saveAdminCat() {
 function deleteAdminCat(id, name) {
   showConfirm('Delete "' + name + '"?', 'This removes the category and all of its autofill items. Existing user lists in this category are NOT deleted.', 'Delete', 'danger', function() {
     sbClient.from('categories').delete().eq('id', id).then(function(r) {
-      if (r.error) { alert('Error: ' + r.error.message); return; }
+      if (r.error) { showToast('Error: ' + r.error.message); return; }
       showToast('Deleted');
       loadCategoriesFromDb().then(renderAdmin);
     });
@@ -8775,14 +8775,14 @@ function addAdminItem() {
   sbClient.from('category_items').select('sort_order').eq('category_id', _adminSelectedCatId).order('sort_order', {ascending:false}).limit(1).then(function(r) {
     var next = ((r.data && r.data[0] && r.data[0].sort_order) || 0) + 1;
     sbClient.from('category_items').insert({ category_id: _adminSelectedCatId, item_text: v, sort_order: next }).then(function(r2) {
-      if (r2.error) { alert('Error: ' + r2.error.message); return; }
+      if (r2.error) { showToast('Error: ' + r2.error.message); return; }
       loadCategoriesFromDb().then(renderAdmin);
     });
   });
 }
 
 function openBulkAddItems() {
-  if (!_adminSelectedCatId) { alert('Pick a category first.'); return; }
+  if (!_adminSelectedCatId) { showToast('Pick a category first.'); return; }
   var cat = (CATS_FULL || []).find(function(c){ return c.id === _adminSelectedCatId; });
   var catName = cat ? cat.name : '';
   var frame = document.querySelector('.frame') || document.body;
@@ -8834,13 +8834,13 @@ function onBulkAddFile(input) {
 async function submitBulkAddItems() {
   if (!_adminSelectedCatId) return;
   var text = (document.getElementById('bulk-add-text').value || '').trim();
-  if (!text) { alert('Nothing to add.'); return; }
+  if (!text) { showToast('Nothing to add.'); return; }
   var dedupe = document.getElementById('bulk-add-dedupe').checked;
   var lines = text.split(/\r?\n/).map(function(x){ return x.trim(); }).filter(Boolean);
-  if (!lines.length) { alert('Nothing to add.'); return; }
+  if (!lines.length) { showToast('Nothing to add.'); return; }
   // Fetch existing items so we can determine next sort_order and dedupe
   var exRes = await sbClient.from('category_items').select('item_text, sort_order').eq('category_id', _adminSelectedCatId);
-  if (exRes.error) { alert('Error: ' + exRes.error.message); return; }
+  if (exRes.error) { showToast('Error: ' + exRes.error.message); return; }
   var existing = exRes.data || [];
   var existingLower = new Set(existing.map(function(r){ return (r.item_text||'').toLowerCase(); }));
   var maxOrder = existing.reduce(function(m, r){ return Math.max(m, r.sort_order || 0); }, 0);
@@ -8852,13 +8852,13 @@ async function submitBulkAddItems() {
     maxOrder++;
     toInsert.push({ category_id: _adminSelectedCatId, item_text: line, sort_order: maxOrder });
   });
-  if (!toInsert.length) { alert('All items were duplicates. Nothing added.'); return; }
+  if (!toInsert.length) { showToast('All items were duplicates. Nothing added.'); return; }
   // Insert in chunks of 100 to avoid huge payloads
   var chunks = [];
   for (var i = 0; i < toInsert.length; i += 100) chunks.push(toInsert.slice(i, i+100));
   for (var j = 0; j < chunks.length; j++) {
     var r = await sbClient.from('category_items').insert(chunks[j]);
-    if (r.error) { alert('Error after ' + (j*100) + ' rows: ' + r.error.message); break; }
+    if (r.error) { showToast('Error after ' + (j*100) + ' rows: ' + r.error.message); break; }
   }
   closeBulkAddModal();
   showToast('Added ' + toInsert.length + (skipped ? ' (' + skipped + ' duplicates skipped)' : ''));
@@ -8870,14 +8870,14 @@ function editAdminItem(id) {
   var v = prompt('Edit item text:'); if (v === null) return;
   v = v.trim(); if (!v) return;
   sbClient.from('category_items').update({ item_text: v }).eq('id', id).then(function(r) {
-    if (r.error) { alert('Error: ' + r.error.message); return; }
+    if (r.error) { showToast('Error: ' + r.error.message); return; }
     loadCategoriesFromDb().then(renderAdmin);
   });
 }
 
 function deleteAdminItem(id) {
   sbClient.from('category_items').delete().eq('id', id).then(function(r) {
-    if (r.error) { alert('Error: ' + r.error.message); return; }
+    if (r.error) { showToast('Error: ' + r.error.message); return; }
     loadCategoriesFromDb().then(renderAdmin);
   });
 }
@@ -8910,7 +8910,7 @@ function setFeedbackStatus(id, status) {
   sbClient.from('feedback').select('user_email, message').eq('id', id).maybeSingle().then(function(fetched) {
     var fb = fetched.data;
     sbClient.from('feedback').update({ status: status }).eq('id', id).then(function(r) {
-      if (r.error) { alert('Error: ' + r.error.message); return; }
+      if (r.error) { showToast('Error: ' + r.error.message); return; }
       // Only email on meaningful transitions, and only if we have the submitter's email
       if (fb && fb.user_email && (status === 'in_progress' || status === 'resolved')) {
         sendAppEmail('feedback_update', fb.user_email, { status: status, message: fb.message });
