@@ -3,10 +3,33 @@ export default {
   name: 'auth',
   async run({ page, cfg, log, shot, assert }) {
     log('goto', cfg.url);
-    await page.goto(cfg.url, { waitUntil: 'domcontentloaded' });
-    // Wait for the auth screen's inputs to actually be visible — more robust
-    // than watching for the .active class (which briefly toggles during boot).
-    await page.waitForSelector('#auth-email', { state: 'visible', timeout: 30000 });
+    const resp = await page.goto(cfg.url, { waitUntil: 'domcontentloaded' });
+    log('http status', String(resp?.status()));
+    log('final url', page.url());
+    log('page title', await page.title());
+    await shot('00-initial');
+
+    try {
+      await page.waitForSelector('#auth-email', { state: 'visible', timeout: 30000 });
+    } catch (e) {
+      // Dump a rich diagnostic so we can see what the browser actually got
+      const diag = await page.evaluate(() => ({
+        activeScreen: document.querySelector('.screen.active')?.id || null,
+        hasFrame: !!document.querySelector('.frame'),
+        frameCount: document.querySelectorAll('.frame').length,
+        hasAuthEmail: !!document.querySelector('#auth-email'),
+        authEmailDisplay: document.querySelector('#auth-email')
+          ? window.getComputedStyle(document.querySelector('#auth-email')).display : 'N/A',
+        sAuthDisplay: document.querySelector('#s-auth')
+          ? window.getComputedStyle(document.querySelector('#s-auth')).display : 'N/A',
+        bodyLen: document.body.innerHTML.length,
+        bodyPreview: document.body.innerText.slice(0, 300).replace(/\s+/g, ' ').trim(),
+        hasSupabase: typeof window.supabase !== 'undefined',
+        userAgent: navigator.userAgent.slice(0, 80),
+      }));
+      log('DIAGNOSTIC', JSON.stringify(diag));
+      throw e;
+    }
     await shot('01-landing');
 
     log('select login tab');
