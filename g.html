@@ -266,6 +266,9 @@
 
     html += '<div class="disclosure">Shop links are Amazon affiliate links. As an Amazon Associate, Tenner earns from qualifying purchases at no extra cost to you.</div>';
 
+    // Cross-link to the general categories page in case the visitor wants broader ideas
+    html += '<div style="text-align:center;font-size:12px;color:#5F5E5A;margin:0 0 18px;padding:10px 14px;background:#F1EFE8;border-radius:12px">Prefer general gift ideas by category? <a href="/gifts/" style="color:#D85A30;text-decoration:underline;font-weight:600">Browse Tenner\'s gift categories →</a></div>';
+
     if (!lists.length) {
       html += '<div class="empty">' + escapeHtml(name) + ' hasn\'t shared any lists yet.</div>';
     } else {
