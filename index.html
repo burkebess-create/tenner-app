@@ -5155,6 +5155,7 @@ function renderProfileHeader() {
 
 async function loadFriends() {
   if (!sbClient || !userId) return;
+  if (!(await awaitSessionReady())) return;
   try {
     var res = await sbClient.from('friendships').select('*').or('requester_id.eq.' + userId + ',addressee_id.eq.' + userId);
     if (res.error) throw res.error;
@@ -5663,16 +5664,20 @@ function updateNotificationBadge() {
 }
 
 // Refresh the unread count without rendering the full screen (called on app load / tab changes)
+// Session-ready gate. Any function that queries Supabase REST during boot
+// should `await awaitSessionReady()` first — otherwise the request may go out
+// before the JWT is attached, returning 401. Resolves to true if a session is
+// present, false otherwise (caller should bail out).
+async function awaitSessionReady() {
+  if (!sbClient) return false;
+  try {
+    var s = await sbClient.auth.getSession();
+    return !!(s && s.data && s.data.session);
+  } catch (e) { return false; }
+}
+
 async function refreshNotifications() {
-  // Guard against firing before the Supabase session token is attached to the
-  // client. Without this, early calls hit the REST endpoints as anonymous and
-  // return 401, so the Alerts badge doesn't populate on first load.
-  if (sbClient) {
-    try {
-      var s = await sbClient.auth.getSession();
-      if (!s || !s.data || !s.data.session) return;
-    } catch(e) { return; }
-  }
+  if (!(await awaitSessionReady())) return;
   await Promise.all([loadListShareInvites(), loadCommentsOnMe(), loadThreadReplies(), loadLastAlertsSeenAt()]);
   updateNotificationBadge();
 }
@@ -5753,6 +5758,7 @@ async function loadThreadReplies() {
 async function loadListShareInvites() {
   MY_LIST_SHARE_INVITES = [];
   if (!sbClient || !userId) return;
+  if (!(await awaitSessionReady())) return;
   try {
     var res = await sbClient.from('list_share_invites').select('*').eq('to_user_id', userId).is('dismissed_at', null);
     var invites = res.data || [];
@@ -7432,12 +7438,7 @@ async function loadCategoriesFromDb() {
 
 async function checkAdminStatus() {
   if (!sbClient || !userId) { IS_ADMIN = false; return; }
-  // Wait for the Supabase session token to be attached before querying —
-  // otherwise the request goes out anonymous and RLS returns 401.
-  try {
-    var s = await sbClient.auth.getSession();
-    if (!s || !s.data || !s.data.session) { IS_ADMIN = false; return; }
-  } catch (e) { IS_ADMIN = false; return; }
+  if (!(await awaitSessionReady())) { IS_ADMIN = false; return; }
   try {
     var res = await sbClient.from('admins').select('user_id').eq('user_id', userId).maybeSingle();
     IS_ADMIN = !!(res.data);
@@ -7461,6 +7462,9 @@ async function checkIfBanned() {
 
 async function loadState() {
   if (sbClient && userId) {
+    // Wait for session token attachment before any REST calls. Otherwise the
+    // parallel queries below can beat the JWT and return 401.
+    if (!(await awaitSessionReady())) return;
     try {
       console.time('loadState:total');
       // Ban check runs first — if banned, this signs the user out and reloads
