@@ -4363,6 +4363,31 @@ async function regenerateMyGiftPageToken() {
   }
 }
 
+// Generic "please fill out your Tenner lists so I can get gift ideas" nudge —
+// used from the Gifts tab when a friend has no visible lists yet. Sends via the
+// native share sheet (or clipboard fallback).
+async function askFriendForLists(friendName) {
+  var firstName = String(friendName).split(' ')[0];
+  var handleTag = (myProfile && myProfile.handle) ? ' (find me @' + myProfile.handle + ')' : '';
+  var msg = 'Hey ' + firstName + '! I want to grab you something you\'d actually love. Fill out your Top 10 lists on Tenner so I can get some ideas' + handleTag + ' → https://mytenner.com';
+  var title = 'Fill out your Top 10 lists on Tenner';
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: title, text: msg, url: 'https://mytenner.com' });
+      showToast('Nudge sent!');
+      return;
+    }
+  } catch(e) { if (e && e.name === 'AbortError') return; }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(msg);
+      showToast('Message copied — paste it in any chat');
+      return;
+    }
+  } catch(e) {}
+  showToast('Copy this: ' + msg, 6000);
+}
+
 async function nudgeFriend(friendName, category) {
   var firstName = String(friendName).split(' ')[0];
   var msg = 'Hey ' + firstName + '! I want to compare our Top 10 ' + category + ' on Tenner. Fill yours out → https://mytenner.com' + myHandleLine();
@@ -9135,19 +9160,20 @@ async function renderGifts() {
       ? getCategoryColor(visibleLists.slice().sort(function(a,b){ return (b.items||[]).length - (a.items||[]).length; })[0].category)
       : getCategoryColor(name);
     var ctaLabel, listSummary, cardClick;
+    var safeName = String(name).replace(/'/g, "\\'");
     if (visibleLists.length === 0) {
       ctaLabel = 'Ask for a list →';
-      cardClick = '';
-      listSummary = 'No shared lists yet';
+      cardClick = 'onclick="askFriendForLists(\'' + safeName + '\')" style="cursor:pointer"';
+      listSummary = 'No shared lists yet — tap to ask';
     } else {
       ctaLabel = 'See gifts →';
-      cardClick = 'onclick="openGiftGuide(\'' + p.id + '\')"';
+      cardClick = 'onclick="openGiftGuide(\'' + p.id + '\')" style="cursor:pointer"';
       var catNames = visibleLists.slice(0, 3).map(function(l){ return l.category; }).join(' · ');
       var more = visibleLists.length > 3 ? ' · +' + (visibleLists.length - 3) : '';
       listSummary = catNames + more;
     }
     // Bento-style card: medium colored fill, black border, whole card is the tap target
-    return '<div ' + cardClick + ' style="background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden' + (visibleLists.length ? ';cursor:pointer' : '') + '">'
+    return '<div ' + cardClick.replace('style="cursor:pointer"', '') + ' style="background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden;cursor:pointer">'
       + '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">'
       +   avatar
       +   '<div style="flex:1;min-width:0">'
