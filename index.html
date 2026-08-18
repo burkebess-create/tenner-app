@@ -1407,6 +1407,7 @@ function go(id) {
   if (id === 's-home') {
     renderHome(); renderTopbarAvatars(); refreshNotifications().then(function(){ renderLists(); }); if (userId) showOnboardingIfNeeded();
     attachPullToRefresh(document.querySelector('#s-home .content'), function() { return loadState().then(renderHome); });
+    renderDirtyBanner();
   }
   if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-fdetail' && selFriendId) renderFriendDetail();
@@ -7282,6 +7283,65 @@ async function saveListToDb(listObj) {
   } catch(e) { console.warn('List save to DB failed', e); throw e; }
 }
 
+// ── Dirty-list retry queue ────────────────────────────────────────────────
+// When a list save fails (offline, RLS hiccup), we stash the listObj in
+// localStorage keyed by category. On next successful loadState() we replay the
+// queue. A small banner surfaces to let the user know something is pending.
+var DIRTY_LISTS_KEY = 'tenner_dirty_lists';
+function _readDirtyLists() {
+  try { return JSON.parse(localStorage.getItem(DIRTY_LISTS_KEY) || '{}') || {}; } catch(e) { return {}; }
+}
+function _writeDirtyLists(m) {
+  try { localStorage.setItem(DIRTY_LISTS_KEY, JSON.stringify(m)); } catch(e) {}
+}
+function markListDirty(listObj) {
+  var cat = listObj && (listObj.category || (listObj.n || '').replace('Top 10 ', ''));
+  if (!cat) return;
+  var m = _readDirtyLists();
+  m[cat] = listObj;
+  _writeDirtyLists(m);
+  renderDirtyBanner();
+}
+function clearListDirty(cat) {
+  if (!cat) return;
+  var m = _readDirtyLists();
+  delete m[cat];
+  _writeDirtyLists(m);
+  renderDirtyBanner();
+}
+async function retryDirtyLists() {
+  if (!sbClient || !userId) return;
+  var m = _readDirtyLists();
+  var cats = Object.keys(m);
+  if (!cats.length) return;
+  for (var i = 0; i < cats.length; i++) {
+    var cat = cats[i];
+    try {
+      await saveListToDb(m[cat]);
+      clearListDirty(cat);
+    } catch(e) { /* still dirty — will try again next time */ }
+  }
+}
+function renderDirtyBanner() {
+  var host = document.getElementById('dirty-lists-banner');
+  var m = _readDirtyLists();
+  var count = Object.keys(m).length;
+  if (!host) {
+    if (!count) return;
+    // Inject into Home content top on demand
+    var homeContent = document.querySelector('#s-home .content');
+    if (!homeContent) return;
+    host = document.createElement('div');
+    host.id = 'dirty-lists-banner';
+    host.style.cssText = 'background:#FFF3D6;border:1px solid #F5B534;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#5F5000;display:flex;align-items:center;gap:8px';
+    homeContent.insertBefore(host, homeContent.firstChild);
+  }
+  if (!count) { host.style.display = 'none'; return; }
+  host.style.display = 'flex';
+  host.innerHTML = '<span style="flex:1">⚠️ ' + count + ' list' + (count !== 1 ? 's' : '') + ' waiting to sync to the cloud.</span>'
+    + '<button onclick="retryDirtyLists().then(function(){ showToast(\'Retry attempted.\'); })" style="background:#5F5000;color:#FFFFFF;border:none;font-size:11px;font-weight:600;padding:5px 10px;border-radius:99px;cursor:pointer;font-family:inherit">Retry now</button>';
+}
+
 async function loadCategoriesFromDb() {
   if (!sbClient || !userId) return;
   try {
@@ -7357,6 +7417,8 @@ async function loadState() {
       loadCategoriesFromDb();
       loadMatchReveals();
       loadWeeklyLists();
+      // Retry any list saves that failed on a previous session (dirty queue)
+      retryDirtyLists();
       // Run the independent lists + group-membership queries in parallel
       console.time('loadState:lists+memberships');
       var results = await Promise.all([
@@ -9764,13 +9826,16 @@ async function saveList() {
   var blindToggle = document.getElementById('create-blind-fill-toggle');
   var prevBlind = blindToggle ? !!blindToggle.checked : (isUpdate ? !!(MY_LISTS[existing] && MY_LISTS[existing].blind_fill) : false);
   var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic, blind_fill: prevBlind };
-  // Write to DB FIRST — only mutate local state on success. Otherwise a failed
-  // sync leaves a phantom list in localStorage that never reaches Supabase.
+  // Try DB write first. On failure, queue for retry — user can keep working
+  // and we'll sync next time loadState() runs (or when they hit "Retry now").
+  var syncedOk = true;
   try {
     await saveListToDb(listObj);
+    clearListDirty(selCat);
   } catch(e) {
-    showToast('Could not save list. Please try again.');
-    return;
+    syncedOk = false;
+    markListDirty(listObj);
+    showToast('Saved locally — will retry sync automatically.');
   }
   if (isUpdate) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
   var isFreshComplete = !isUpdate && itemCount === 10;
