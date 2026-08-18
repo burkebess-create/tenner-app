@@ -1730,7 +1730,7 @@ function showToast(msg, duration) {
   if (existing) existing.remove();
   var banner = document.createElement('div');
   banner.id = 'toast-banner';
-  banner.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#2C2C2A;color:#fff;font-size:11px;padding:10px 16px;border-radius:0 0 10px 10px;z-index:9999;text-align:center;pointer-events:none';
+  banner.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#2C2C2A;color:#fff;font-size:11px;padding:10px 16px;border-radius:0 0 20px 20px;z-index:9999;text-align:center;pointer-events:none';
   banner.textContent = msg;
   frame.appendChild(banner);
   setTimeout(function(){ if (banner.parentNode) banner.remove(); }, duration || 3000);
@@ -1750,7 +1750,7 @@ function showUndoToast(msg, undoLabel, durationMs, onCommit, onUndo) {
   if (existing) existing.remove();
   var banner = document.createElement('div');
   banner.id = 'toast-banner';
-  banner.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#2C2C2A;color:#fff;font-size:12px;padding:12px 16px;border-radius:0 0 10px 10px;z-index:9999;display:flex;align-items:center;justify-content:space-between;gap:12px';
+  banner.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#2C2C2A;color:#fff;font-size:12px;padding:12px 16px;border-radius:0 0 20px 20px;z-index:9999;display:flex;align-items:center;justify-content:space-between;gap:12px';
   var text = document.createElement('span');
   text.textContent = msg;
   text.style.cssText = 'flex:1;text-align:left';
@@ -2900,7 +2900,7 @@ function renderLists() {
   if (!container) return;
   container.innerHTML = '';
   if (MY_LISTS.length === 0) {
-    container.innerHTML = '<div style="text-align:center;padding:16px 0;color:#888780;font-size:12px">No lists yet. Tap <strong>Create</strong> to make your first top 10!</div>';
+    container.innerHTML = '<div style="text-align:center;padding:16px 0;color:#888780;font-size:12px">No lists yet. Tap <strong>+ Create a new list</strong> above to make your first Top 10.</div>';
     return;
   }
   // Count unread comments per category so we can badge whole list tiles
