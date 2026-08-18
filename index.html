@@ -7280,6 +7280,12 @@ async function loadCategoriesFromDb() {
 
 async function checkAdminStatus() {
   if (!sbClient || !userId) { IS_ADMIN = false; return; }
+  // Wait for the Supabase session token to be attached before querying —
+  // otherwise the request goes out anonymous and RLS returns 401.
+  try {
+    var s = await sbClient.auth.getSession();
+    if (!s || !s.data || !s.data.session) { IS_ADMIN = false; return; }
+  } catch (e) { IS_ADMIN = false; return; }
   try {
     var res = await sbClient.from('admins').select('user_id').eq('user_id', userId).maybeSingle();
     IS_ADMIN = !!(res.data);
