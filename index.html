@@ -10364,12 +10364,15 @@ function replyToItemComment(name) {
   inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-async function deleteItemComment(commentId) {
-  if (!sbClient || !confirm('Delete this comment?')) return;
-  try {
-    await sbClient.from('list_item_comments').delete().eq('id', commentId).eq('from_user_id', userId);
-    loadItemComments(activeCommentListOwner, activeCommentCategory, activeCommentItem);
-  } catch(e) { showToast('Could not delete comment.'); }
+function deleteItemComment(commentId) {
+  if (!sbClient) return;
+  showConfirm('Delete this comment?', 'This can\'t be undone.', 'Delete', 'danger', async function() {
+    try {
+      var res = await sbClient.from('list_item_comments').delete().eq('id', commentId).eq('from_user_id', userId);
+      if (res.error) throw res.error;
+      loadItemComments(activeCommentListOwner, activeCommentCategory, activeCommentItem);
+    } catch(e) { showToast('Could not delete comment. Try again.'); }
+  });
 }
 
 // Hide the comment input + Reply button when list owner has disabled comments.
