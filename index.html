@@ -1408,6 +1408,7 @@ function go(id) {
     renderHome(); renderTopbarAvatars(); refreshNotifications().then(function(){ renderLists(); }); if (userId) showOnboardingIfNeeded();
     attachPullToRefresh(document.querySelector('#s-home .content'), function() { return loadState().then(renderHome); });
     renderDirtyBanner();
+    renderCachedBanner();
   }
   if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-fdetail' && selFriendId) renderFriendDetail();
@@ -4013,7 +4014,12 @@ async function renderGroupDetail() {
   var isAdmin = !!g.isAdmin;
   var sharedListsHtml = '<div class="sec-label">Shared Lists</div>';
   if (sharedLists.length === 0) {
-    sharedListsHtml += '<div style="font-size:11px;color:#888780;padding:8px 0">No lists shared with this group yet. Share one so everyone can fill it out and compare.</div>';
+    sharedListsHtml += '<div class="card no-hover" style="background:#FFF3D6;border-color:#F5B534;display:flex;align-items:center;gap:10px;margin:4px 0 8px">'
+      + '<div style="font-size:22px">📋</div>'
+      + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#5F5000">You haven\'t sent a list to this group yet.</div>'
+      + '<div style="font-size:11px;color:#5F5000;opacity:0.85;margin-top:2px">Share one so everyone can fill it out and compare.</div></div>'
+      + '<button class="add-btn" style="background:#5F5000;color:#fff;border-color:#5F5000;font-size:11px;padding:6px 12px" onclick="openShareToGroupPicker()">Share</button>'
+      + '</div>';
   } else {
     sharedListsHtml += sharedLists.map(function(sl) {
       var cat = sl.category;
@@ -7311,6 +7317,26 @@ async function saveListToDb(listObj) {
   } catch(e) { console.warn('List save to DB failed', e); throw e; }
 }
 
+// Flag set when loadState falls back to localStorage because Supabase errored.
+// Powers the "using cached data" banner on Home.
+var _usingCachedLists = false;
+function renderCachedBanner() {
+  var host = document.getElementById('cached-data-banner');
+  if (!host) {
+    if (!_usingCachedLists) return;
+    var homeContent = document.querySelector('#s-home .content');
+    if (!homeContent) return;
+    host = document.createElement('div');
+    host.id = 'cached-data-banner';
+    host.style.cssText = 'background:#FFEBE0;border:1px solid #F5B091;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#7A2E00;display:flex;align-items:center;gap:8px';
+    homeContent.insertBefore(host, homeContent.firstChild);
+  }
+  if (!_usingCachedLists) { host.style.display = 'none'; return; }
+  host.style.display = 'flex';
+  host.innerHTML = '<span style="flex:1">📶 Showing saved data. Reconnecting…</span>'
+    + '<button onclick="loadState().then(function(){ renderHome(); showToast(\'Reconnected.\'); })" style="background:#7A2E00;color:#FFFFFF;border:none;font-size:11px;font-weight:600;padding:5px 10px;border-radius:99px;cursor:pointer;font-family:inherit">Retry</button>';
+}
+
 // ── Dirty-list retry queue ────────────────────────────────────────────────
 // When a list save fails (offline, RLS hiccup), we stash the listObj in
 // localStorage keyed by category. On next successful loadState() we replay the
@@ -7464,10 +7490,17 @@ async function loadState() {
         MY_LISTS = listsRes.data.map(function(l) {
           return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category, emoji: l.emoji || getCatEmoji(l.category), is_public: !!l.is_public, blind_fill: !!l.blind_fill, updated_at: l.updated_at, created_at: l.created_at };
         });
+        _usingCachedLists = false;
+      } else if (listsRes.error) {
+        // Cloud load errored — fall back to cached and flag it so the banner shows
+        var lErr = localStorage.getItem('tenner_lists');
+        if (lErr) { MY_LISTS = JSON.parse(lErr); _usingCachedLists = true; }
       } else {
         var l = localStorage.getItem('tenner_lists');
         if (l) MY_LISTS = JSON.parse(l);
+        _usingCachedLists = false;
       }
+      renderCachedBanner();
 
       // Fetch the group records by primary key, but WITHOUT the photo column —
       // group photos are large base64 data URLs and pulling them inline was the
