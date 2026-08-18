@@ -352,8 +352,8 @@
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
           <div style="display:flex;align-items:center;gap:8px">
-            <button class="back-btn" onclick="openAlerts()" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
-            <button class="back-btn" id="home-refresh-btn" onclick="doRefresh(this,function(){return loadState().then(renderHome);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg id="home-refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+            <button class="back-btn" onclick="openAlerts()" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
+            <button class="back-btn" id="home-refresh-btn" onclick="doRefresh(this,function(){return loadState().then(renderHome);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:8px"><svg id="home-refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
             <div class="topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
           </div>
         </div>
@@ -370,7 +370,7 @@
         <div class="topbar">
           <button class="back-btn" onclick="go(_notifOrigin || 's-circle')">← Back</button>
           <span style="font-size:13px;font-weight:600;color:#2C2C2A">Alerts</span>
-          <button class="back-btn" onclick="doRefresh(this,function(){return refreshNotifications().then(function(){renderNotifications();});})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+          <button class="back-btn" onclick="doRefresh(this,function(){return refreshNotifications().then(function(){renderNotifications();});})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
         </div>
         <div style="display:flex;border-bottom:1px solid #E5E3DC;background:#FAF8F5">
           <button id="notif-tab-invites" onclick="switchNotifTab('invites')" style="flex:1;padding:10px 0;font-size:12px;font-weight:600;border:none;background:none;cursor:pointer;color:#D85A30;border-bottom:2px solid #D85A30">Invites</button>
@@ -724,8 +724,8 @@
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
           <div style="display:flex;align-items:center;gap:8px">
-            <button onclick="openAlerts()" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge-circle" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
-            <button onclick="doRefresh(this,function(){return loadFriends().then(renderCircleScreen);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+            <button onclick="openAlerts()" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge-circle" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
+            <button onclick="doRefresh(this,function(){return loadFriends().then(renderCircleScreen);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
             <div id="circle-topbar-avatar" class="topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
           </div>
         </div>
@@ -1048,7 +1048,7 @@
         <div class="topbar">
           <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
           <div style="display:flex;align-items:center;gap:8px">
-            <button class="back-btn" onclick="doRefresh(this,function(){return loadFriends().then(renderGifts);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+            <button class="back-btn" onclick="doRefresh(this,function(){return loadFriends().then(renderGifts);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
             <div class="topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
           </div>
         </div>
@@ -3013,7 +3013,12 @@ function showListDetail(l, origin) {
   if (!_showListDetailRefreshing) {
     _showListDetailRefreshing = true;
     refreshNotifications().then(function() {
-      if (screen.classList.contains('active') && selListDetail === l) showListDetail(l);
+      // Guard against stale re-renders: only re-render if the user is still on
+      // list-detail AND still viewing the same list (identity + category check)
+      var stillActive = screen.classList.contains('active');
+      var stillSameList = selListDetail === l
+        || (selListDetail && l && (selListDetail.category || (selListDetail.n||'').replace('Top 10 ','')) === (l.category || (l.n||'').replace('Top 10 ','')));
+      if (stillActive && stillSameList) showListDetail(l);
       _showListDetailRefreshing = false;
     }).catch(function(){ _showListDetailRefreshing = false; });
   }
@@ -4911,11 +4916,17 @@ async function loadProfile() {
   }
   try {
     var userRes = await sbClient.auth.getUser();
-    var identities = (userRes.data && userRes.data.user && userRes.data.user.identities) || [];
+    var authUser = userRes.data && userRes.data.user;
+    var identities = (authUser && authUser.identities) || [];
     var hasPassword = identities.some(function(i){ return i.provider === 'email'; });
     var isGoogle = identities.some(function(i){ return i.provider === 'google'; });
     if (myProfile) myProfile._hasPassword = hasPassword;
     else myProfile = { _hasPassword: hasPassword };
+    // Fall back to auth.users.created_at when the profiles row lacks the column,
+    // so the "Joined" pill can render on the own profile screen (finding #10).
+    if (myProfile && !myProfile.created_at && authUser && authUser.created_at) {
+      myProfile.created_at = authUser.created_at;
+    }
     var pwStatus = document.getElementById('profile-pw-status');
     if (pwStatus) pwStatus.textContent = hasPassword ? '••••••••' : (isGoogle ? 'Signed in with Google' : 'Not set — magic link only');
     var pwBtn = document.getElementById('profile-pw-btn');
@@ -6912,7 +6923,7 @@ async function respondToGroupInvite(groupId, accept) {
 }
 
 function confirmUnfriend(friendshipId, name) {
-  showConfirm('Remove friend?', 'You\'ll have 5 seconds to undo before it\'s final.', 'Remove', 'secondary', function() {
+  showConfirm('Remove friend?', 'You\'ll have 5 seconds to undo before it\'s final.', 'Remove', 'danger', function() {
     // Optimistically hide the friend and defer the DB delete so the user can undo
     var idx = (myFriends || []).findIndex(function(f){ return f.id === friendshipId; });
     if (idx < 0) return;
@@ -6987,7 +6998,7 @@ async function confirmAdminLeaveGroup(idx) {
 function confirmLeaveGroup(idx) {
   var g = MY_GROUPS[idx];
   if (!g) return;
-  showConfirm('Leave group?', 'Leave "' + g.n + '"? You can be re-invited later.', 'Leave', 'secondary', async function() {
+  showConfirm('Leave group?', 'Leave "' + g.n + '"? You can be re-invited later.', 'Leave', 'danger', async function() {
     if (sbClient && g.id) {
       try {
         var res = await sbClient.from('group_members').delete().eq('group_id', g.id).eq('user_id', userId);
