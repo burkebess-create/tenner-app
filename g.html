@@ -264,10 +264,38 @@
     try {
       var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       var res = await sb.rpc('get_public_gift_data', { share_token: token });
-      if (res.error) { console.warn(res.error); render(null); return; }
+      if (res.error) {
+        console.error('RPC error:', res.error);
+        showDebug('RPC error', res.error.message || JSON.stringify(res.error), token);
+        return;
+      }
+      if (res.data == null) {
+        showDebug('No profile found for token', 'The RPC succeeded but returned null. Token may not exist in the database.', token);
+        return;
+      }
       render(res.data);
-    } catch(e) { console.warn(e); render(null); }
+    } catch(e) {
+      console.error(e);
+      showDebug('Exception', String(e && e.message || e), token);
+    }
   }
+
+  function showDebug(title, msg, token) {
+    // Fallback UI that shows debugging info during setup. Once things work end-to-end,
+    // this only fires on genuinely invalid tokens.
+    var root = document.getElementById('page-root');
+    root.innerHTML = '<div class="empty">'
+      + '<div style="font-size:44px;margin-bottom:14px">🔗</div>'
+      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;margin-bottom:6px;color:#2C2C2A">This link isn\'t valid.</div>'
+      + '<div style="font-size:13px;color:#5F5E5A;margin-bottom:20px">It may have been regenerated. Ask your friend for a fresh link.</div>'
+      + '<details style="margin-top:20px;text-align:left;background:#F1EFE8;border-radius:8px;padding:12px;font-size:11px;color:#5F5E5A"><summary style="cursor:pointer;font-weight:600">Debug info</summary>'
+      + '<div style="margin-top:8px"><strong>' + title + '</strong></div>'
+      + '<div style="margin-top:4px;font-family:monospace;font-size:10px;word-break:break-all">' + (msg || '') + '</div>'
+      + '<div style="margin-top:8px"><strong>Token:</strong> <span style="font-family:monospace;font-size:10px;word-break:break-all">' + (token || '(none)') + '</span></div>'
+      + '</details>'
+      + '</div>';
+  }
+
   load();
 })();
 </script>
