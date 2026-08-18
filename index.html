@@ -10393,6 +10393,16 @@ function openItemComments(listOwnerId, category, itemName) {
   document.getElementById('item-comments-list').innerHTML = '<div style="color:#888780;font-size:12px">Loading…</div>';
   modal.style.display = 'flex';
   loadItemComments(listOwnerId, category, itemName);
+  // Fire-and-forget: record that this user just opened the thread. Powers
+  // the "Seen by @friend" line under the latest comment for other participants.
+  markCommentThreadRead(listOwnerId, category, itemName);
+}
+
+function markCommentThreadRead(listOwnerId, category, itemName) {
+  if (!sbClient || !userId || !listOwnerId || !category || !itemName) return;
+  sbClient.from('comment_thread_reads').upsert({
+    user_id: userId, list_owner_id: listOwnerId, category: category, item_name: itemName, last_read_at: new Date().toISOString()
+  }, { onConflict: 'user_id,list_owner_id,category,item_name' }).then(function(){});
 }
 
 async function loadItemComments(listOwnerId, category, itemName) {
@@ -10424,6 +10434,34 @@ async function loadItemComments(listOwnerId, category, itemName) {
       }
     }
     if (!comments.length) { el.innerHTML = '<div style="color:#888780;font-size:12px;padding:8px 0">No comments yet. Be the first!</div>'; return; }
+    // Read receipts: who's viewed this thread AFTER the latest comment?
+    var lastComment = comments[comments.length - 1];
+    var seenByHtml = '';
+    try {
+      var readsRes = await sbClient.from('comment_thread_reads')
+        .select('user_id, last_read_at')
+        .eq('list_owner_id', listOwnerId)
+        .eq('category', category)
+        .eq('item_name', itemName);
+      var lastMs = new Date(lastComment.created_at).getTime();
+      var seenIds = (readsRes.data || [])
+        .filter(function(r){ return r.user_id !== userId && new Date(r.last_read_at).getTime() >= lastMs; })
+        .map(function(r){ return r.user_id; });
+      if (seenIds.length > 0) {
+        var seenNames = seenIds.map(function(id) {
+          if (id === listOwnerId && listOwnerId !== userId) {
+            // Look up owner's display name via loaded friend record or profile map
+            var of = myFriends.find(function(x){ return x.friendId === id; });
+            return (of && of.profile && of.profile.display_name) || 'List owner';
+          }
+          var mf = myFriends.find(function(x){ return x.friendId === id; });
+          return (mf && mf.profile && mf.profile.display_name) || 'Someone';
+        });
+        var displayed = seenNames.slice(0, 3).join(', ');
+        var extra = seenNames.length > 3 ? ' +' + (seenNames.length - 3) : '';
+        seenByHtml = '<div style="font-size:10px;color:#888780;padding:6px 0 2px;font-style:italic">👁 Seen by ' + escapeHtml(displayed) + extra + '</div>';
+      }
+    } catch(e) { /* silent — read receipts are optional */ }
     el.innerHTML = comments.map(function(c) {
       var isMine = c.from_user_id === userId;
       var f = myFriends.find(function(x){ return x.friendId === c.from_user_id; });
@@ -10459,7 +10497,7 @@ async function loadItemComments(listOwnerId, category, itemName) {
         + '<div class="comment-body" style="font-size:13px;color:#444;margin-top:3px">' + renderCommentBody(c.comment) + '</div>'
         + actions
         + '</div>';
-    }).join('');
+    }).join('') + seenByHtml;
   } catch(e) { el.innerHTML = '<div style="color:#A32D2D;font-size:12px">Failed to load.</div>'; }
 }
 
