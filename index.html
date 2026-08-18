@@ -382,7 +382,7 @@
       <!-- ═══ LIST DETAIL ═══ -->
       <div class="screen" id="s-list-detail">
         <div class="topbar" style="padding-top:22px;padding-bottom:14px">
-          <button class="back-btn" onclick="go('s-home')">← Back</button>
+          <button class="back-btn" onclick="go(listDetailOrigin||'s-home')">← Back</button>
           <div style="display:flex;gap:10px;margin-left:auto">
             <button onclick="copyListInviteLink()" title="Copy link" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#F1EFE8;border:none;color:#5F5E5A;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
             <button onclick="shareCurrentList()" title="Share" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#F1EFE8;border:none;color:#5F5E5A;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
@@ -2876,8 +2876,15 @@ async function toggleListBlindFill(checked) {
 
 var selListDetail = null;
 var _showListDetailRefreshing = false;
-function showListDetail(l) {
+function showListDetail(l, origin) {
   selListDetail = l;
+  // Track where the user came from so the Back button returns there instead of
+  // always bouncing to My Lists. Callers pass an explicit origin (e.g.
+  // 's-notifications' from the Alerts feed); otherwise we default to 's-home'.
+  // Skip resetting during the internal refresh re-entry (see _showListDetailRefreshing)
+  // so a passed origin from the first call isn't clobbered.
+  if (origin) listDetailOrigin = origin;
+  else if (!_showListDetailRefreshing) listDetailOrigin = 's-home';
   var listItems = (l.items || []);
   var screen = document.getElementById('s-list-detail');
   // Refresh comments so 💬 item badges reflect any new comments since app load.
@@ -3578,6 +3585,7 @@ var GROUP_SHARED_LISTS = {}; // groupId -> [{category, shared_by}] cache for the
 var _groupListCat = '';
 var groupListOrigin = 's-gdetail';
 var friendListOrigin = 's-fdetail';
+var listDetailOrigin = 's-home';
 
 function openGroupListFill() {
   openFillGroupList(_groupListCat);
@@ -5740,7 +5748,7 @@ async function renderNotifActivity(el) {
 function openItemCommentsFromNotif(category, itemName) {
   var l = MY_LISTS.find(function(x){ return (x.category || x.n.replace('Top 10 ','')) === category; });
   if (!l) { showToast('That list is no longer available.'); return; }
-  showListDetail(l);
+  showListDetail(l, 's-notifications');
   setTimeout(function() {
     if (typeof openItemComments === 'function') openItemComments(userId, category, itemName);
   }, 100);
@@ -5810,7 +5818,7 @@ async function acceptListInvite(inviteId, cat, origin) {
 
 function openFilledListFromNotif(cat) {
   var l = MY_LISTS.find(function(x){ return (x.category || x.n.replace('Top 10 ','')) === cat; });
-  if (l) showListDetail(l);
+  if (l) showListDetail(l, 's-notifications');
 }
 
 // "Dismiss" — mark dismissed + read. Kept in DB (not deleted) for the 90-day
