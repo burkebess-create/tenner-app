@@ -2,8 +2,10 @@
 export default {
   name: 'auth',
   async run({ page, cfg, log, shot, assert }) {
-    log('goto', cfg.url);
-    const resp = await page.goto(cfg.url, { waitUntil: 'domcontentloaded' });
+    // ?skipIntro bypasses the first-visit redirect to about.html
+    const url = cfg.url.replace(/\/?$/, '/') + '?skipIntro=1';
+    log('goto', url);
+    const resp = await page.goto(url, { waitUntil: 'domcontentloaded' });
     log('http status', String(resp?.status()));
     log('final url', page.url());
     log('page title', await page.title());
