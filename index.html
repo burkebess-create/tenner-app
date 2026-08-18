@@ -10456,11 +10456,36 @@ async function loadItemComments(listOwnerId, category, itemName) {
           + '</div>';
       return '<div data-comment-id="' + c.id + '" style="position:relative;padding:10px 0;border-bottom:1px solid #F5F3EE;' + indentStyle + '">'
         + '<div style="font-size:11px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + editedTag + when + '</div>'
-        + '<div class="comment-body" style="font-size:13px;color:#444;margin-top:3px">' + escapeHtml(c.comment) + '</div>'
+        + '<div class="comment-body" style="font-size:13px;color:#444;margin-top:3px">' + renderCommentBody(c.comment) + '</div>'
         + actions
         + '</div>';
     }).join('');
   } catch(e) { el.innerHTML = '<div style="color:#A32D2D;font-size:12px">Failed to load.</div>'; }
+}
+
+// Render a comment body with @mentions turned into styled chips. Escapes HTML
+// first, then wraps any @Name pattern in a friend-scoped chip. Names may
+// contain spaces (Reply flow prefixes the full display_name), so we match
+// against known friend names + our own display_name rather than a naive regex.
+function renderCommentBody(text) {
+  var safe = escapeHtml(text || '');
+  // Build a candidate list: my display name + all friend display names + handles
+  var names = [];
+  if (myProfile && myProfile.display_name) names.push({ name: myProfile.display_name, id: userId });
+  if (myProfile && myProfile.handle) names.push({ name: myProfile.handle, id: userId });
+  (myFriends || []).forEach(function(f) {
+    var p = f.profile || {};
+    if (p.display_name) names.push({ name: p.display_name, id: f.friendId });
+    if (p.handle) names.push({ name: p.handle, id: f.friendId });
+  });
+  // Longest first so "@John Smith" matches before "@John"
+  names.sort(function(a,b){ return b.name.length - a.name.length; });
+  // Escape special regex chars in names
+  names.forEach(function(n) {
+    var pat = new RegExp('@' + n.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?=\\W|$)', 'g');
+    safe = safe.replace(pat, '<span style="color:#D85A30;font-weight:600;background:#FAECE7;padding:1px 6px;border-radius:6px;cursor:pointer" onclick="selFriendId=\'' + n.id + '\';go(\'s-fdetail\')" title="View profile">@' + escapeHtml(n.name) + '</span>');
+  });
+  return safe;
 }
 
 // Toggle the `…` overflow menu on a comment row. Also closes any other open menus.
