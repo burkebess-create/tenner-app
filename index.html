@@ -860,6 +860,7 @@
           <div id="friend-list-reactions" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>
           <div id="friend-list-changes" style="display:none;margin-bottom:12px"></div>
           <div id="friend-list-items"></div>
+          <button id="friend-list-comment-btn" style="display:none;width:100%;margin-top:10px;background:#FFFFFF;border:1px solid #D3D1C7;border-radius:12px;padding:11px 14px;font-family:inherit;font-size:13px;font-weight:600;color:#2C2C2A;cursor:pointer;align-items:center;justify-content:center;gap:8px">💬 Comment on this list</button>
           <div id="friend-list-cta" style="margin-top:16px"></div>
         </div>
       </div>
@@ -6322,14 +6323,24 @@ function openFriendList(listData, origin) {
     var _cat = cat;
     el.innerHTML = items.map(function(item, i) {
       var itemEsc = item.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-      return '<div class="rank-item" style="margin-bottom:6px;cursor:pointer" onclick="openItemComments(\'' + escapeHtml(_ownerId || '') + '\',\'' + escapeHtml(_cat) + '\',\'' + itemEsc + '\')">'
+      return '<div class="rank-item" data-item-name="' + escapeHtml(item) + '" style="margin-bottom:6px;cursor:pointer" onclick="openItemComments(\'' + escapeHtml(_ownerId || '') + '\',\'' + escapeHtml(_cat) + '\',\'' + itemEsc + '\')">'
         + (listData.is_ranked !== false ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>')
-        + '<span style="flex:1;font-size:13.5px;color:#2C2C2A">' + escapeHtml(item) + '</span>'
+        + '<span style="flex:1;font-size:13.5px;color:#2C2C2A;min-width:0;overflow-wrap:break-word">' + escapeHtml(item) + '</span>'
+        + '<span class="item-reactions-inline" style="display:flex;gap:3px;margin-left:6px;flex-shrink:0"></span>'
         + '<span style="font-size:14px;color:#888780;margin-left:6px">💬</span>'
         + '</div>';
     }).join('');
     var reactionsEl = document.getElementById('friend-list-reactions');
     if (reactionsEl && _ownerId) loadAndRenderReactions(_ownerId, _cat, reactionsEl);
+    // Decorate friend's items with per-item reaction badges. Targets the friend-list
+    // container specifically so it doesn't clash with the own list-detail loader.
+    decorateItemsWithReactions(_ownerId, _cat, '#friend-list-items');
+    // Wire up the whole-list comment button
+    var lcBtn = document.getElementById('friend-list-comment-btn');
+    if (lcBtn && _ownerId) {
+      lcBtn.style.display = 'flex';
+      lcBtn.onclick = function() { openItemComments(_ownerId, _cat, '__list__'); };
+    }
   }
 
   // CTA: show "Fill out yours" only if user doesn't already have this list
@@ -10504,7 +10515,7 @@ async function toggleReaction(listOwnerId, category, emoji, btn, itemName) {
 // Fetch every reaction on this list's items and paint a compact pill row next
 // to each item so users see "🔥 3 ❤️ 1" without having to open every item's
 // modal. Runs asynchronously after the row DOM has been laid out.
-async function decorateItemsWithReactions(listOwnerId, category) {
+async function decorateItemsWithReactions(listOwnerId, category, scopeSel) {
   if (!sbClient || !listOwnerId || !category) return;
   try {
     var res = await sbClient.from('list_reactions')
@@ -10519,7 +10530,8 @@ async function decorateItemsWithReactions(listOwnerId, category) {
       if (!byItem[r.item_name]) byItem[r.item_name] = {};
       byItem[r.item_name][r.emoji] = (byItem[r.item_name][r.emoji] || 0) + 1;
     });
-    document.querySelectorAll('#list-detail-items .rank-item').forEach(function(row) {
+    var scope = scopeSel || '#list-detail-items';
+    document.querySelectorAll(scope + ' .rank-item').forEach(function(row) {
       var name = row.getAttribute('data-item-name');
       if (!name) return;
       var counts = byItem[name];
