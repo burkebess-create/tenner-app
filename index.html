@@ -7511,6 +7511,30 @@ async function loadCategoriesFromDb() {
       var arr = (itemsByCat[c.id] || []).map(function(it) { return it.item_text; });
       ITEMS[c.name] = arr;
     });
+    // Also fold in weekly_list_items so users filling a weekly prompt get the
+    // admin's preloaded suggestions in the typeahead + chip rail. Merges with
+    // any existing entries under the same category name (dedupes case-insensitive).
+    try {
+      var wRes = await sbClient.from('weekly_list_items').select('item_text, weekly_lists!inner(category)');
+      if (wRes.data && wRes.data.length) {
+        var byCat = {};
+        wRes.data.forEach(function(r) {
+          var cat = r.weekly_lists && r.weekly_lists.category;
+          if (!cat) return;
+          (byCat[cat] = byCat[cat] || []).push(r.item_text);
+        });
+        Object.keys(byCat).forEach(function(cat) {
+          var existing = ITEMS[cat] || [];
+          var seen = {};
+          existing.forEach(function(x){ seen[String(x).toLowerCase()] = true; });
+          byCat[cat].forEach(function(x) {
+            var k = String(x).toLowerCase();
+            if (!seen[k]) { existing.push(x); seen[k] = true; }
+          });
+          ITEMS[cat] = existing;
+        });
+      }
+    } catch(e) { /* weekly_list_items table may not exist yet — silent */ }
     DB_CATS_LOADED = true;
   } catch (e) { console.warn('loadCategoriesFromDb failed', e); }
 }
