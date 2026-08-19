@@ -1159,7 +1159,7 @@
       </div>
 
       <!-- CONFIRM MODAL -->
-      <div id="confirm-modal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end;border-radius:36px;overflow:hidden">
+      <div id="confirm-modal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:500;align-items:flex-end;border-radius:36px;overflow:hidden">
         <div style="background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%">
           <div id="confirm-title" style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:5px"></div>
           <div id="confirm-message" style="font-size:13.5px;color:#5F5E5A;margin-bottom:16px"></div>
@@ -10565,21 +10565,18 @@ async function loadItemReactions(listOwnerId, category, itemName, containerEl) {
       var catEsc = String(category).replace(/'/g,"\\'");
       return '<button onclick="toggleReaction(\'' + listOwnerId + '\',\'' + catEsc + '\',\'' + e + '\',this,\'' + itemEsc + '\')" style="background:' + (active?'#FAECE7':'#F5F3EE') + ';border:1px solid ' + (active?'#D4622A':'#E8E6DF') + ';border-radius:20px;padding:4px 10px;font-size:13px;cursor:pointer;margin:2px">' + e + (n?' '+n:'') + '</button>';
     }).join('');
-    var totalReacts = reactions.length;
-    var seeWho = totalReacts > 0
-      ? '<button onclick="showItemReactionAudience()" style="background:none;border:none;color:#5F5E5A;font-size:11px;padding:4px 6px;cursor:pointer;font-family:inherit;text-decoration:underline;margin-left:auto">See who reacted</button>'
+    // Always-visible "who reacted" line below the pills — no click needed.
+    var whoLines = Object.keys(whoByEmoji).map(function(e) {
+      var names = whoByEmoji[e];
+      var shown = names.slice(0, 3).map(escapeHtml).join(', ');
+      var extra = names.length > 3 ? ' +' + (names.length - 3) : '';
+      return '<span style="white-space:nowrap;margin-right:8px">' + e + ' ' + shown + extra + '</span>';
+    }).join('');
+    var whoRow = whoLines
+      ? '<div style="width:100%;font-size:11px;color:#5F5E5A;margin-top:6px;line-height:1.5">' + whoLines + '</div>'
       : '';
-    containerEl.innerHTML = pills + seeWho;
+    containerEl.innerHTML = pills + whoRow;
   } catch(e) { console.warn('loadItemReactions', e); }
-}
-
-// Modal listing everyone who reacted on the currently-open item thread.
-function showItemReactionAudience() {
-  var map = window._itemReactionsByEmoji || {};
-  var keys = Object.keys(map);
-  if (!keys.length) { showToast('No reactions to show.'); return; }
-  var lines = keys.map(function(e) { return e + ' ' + map[e].join(', '); });
-  showConfirm('Reactions', lines.join('\n'), 'Done', 'primary', function(){});
 }
 
 function openItemComments(listOwnerId, category, itemName) {
