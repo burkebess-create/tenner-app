@@ -1485,7 +1485,16 @@ function go(id) {
     var sRes = document.getElementById('circle-friend-search-result'); if (sRes) sRes.innerHTML = '';
     setTimeout(function(){ if (sInp) sInp.focus(); }, 100);
   }
-  if (id === 's-notifications') { refreshNotifications().then(function(){ renderNotifications(); markNotificationsRead().then(updateNotificationBadge); }); }
+  if (id === 's-notifications') {
+    refreshNotifications().then(function() {
+      // Smart default: land on Invites when the user has any pending invites,
+      // otherwise fall back to Activity so the tab isn't empty on open.
+      var hasInvites = (MY_LIST_SHARE_INVITES || []).filter(function(i){ return !i.dismissed_at; }).length > 0
+        || (MY_PENDING_GROUP_INVITES || []).length > 0;
+      switchNotifTab(hasInvites ? 'invites' : 'activity');
+      markNotificationsRead().then(updateNotificationBadge);
+    });
+  }
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
   if (id === 's-admin') { renderAdmin(); }
   if (id === 's-admin-user') { /* driven by openAdminUserDetail */ }
