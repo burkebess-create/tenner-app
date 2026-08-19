@@ -10412,6 +10412,15 @@ function openShareImagePreview(payload) {
 var REACTION_EMOJIS = ['❤️','😂','🔥','🙌','😮'];
 var activeCommentListOwner = null, activeCommentCategory = null, activeCommentItem = null;
 
+// Tapping a reaction pill on your own list shows who left that reaction.
+// Standard social-app expectation: see who reacted to your content.
+function showReactionAudience(emoji) {
+  var names = (window._reactionsByEmoji && window._reactionsByEmoji[emoji]) || [];
+  if (!names.length) { showToast('No reactions to show.'); return; }
+  var label = names.length + ' friend' + (names.length !== 1 ? 's' : '') + ' reacted with ' + emoji;
+  showConfirm(label, names.join('\n'), 'Done', 'primary', function(){});
+}
+
 async function loadOwnListReactions(listOwnerId, category, containerEl) {
   if (!sbClient || !containerEl) return;
   try {
@@ -10429,12 +10438,16 @@ async function loadOwnListReactions(listOwnerId, category, containerEl) {
     reactions.forEach(function(r) {
       if (!whoByEmoji[r.emoji]) whoByEmoji[r.emoji] = [];
       var f = myFriends.find(function(x){ return x.friendId === r.from_user_id; });
-      var name = (f && f.profile && (f.profile.display_name || f.profile.handle)) || 'Friend';
+      var p = (f && f.profile) || {};
+      var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
       whoByEmoji[r.emoji].push(name);
     });
+    // Stash for the tap handler so we don't have to serialize names into onclick
+    window._reactionsByEmoji = whoByEmoji;
     var pills = Object.keys(counts).map(function(e) {
       var who = (whoByEmoji[e] || []).join(', ');
-      return '<div title="' + escapeHtml(who) + '" style="background:#F5F3EE;border:1px solid #E8E6DF;border-radius:20px;padding:4px 10px;font-size:13px;cursor:default">' + e + ' ' + counts[e] + '</div>';
+      var eEsc = e.replace(/'/g, "\\'");
+      return '<div onclick="showReactionAudience(\'' + eEsc + '\')" title="' + escapeHtml(who) + '" style="background:#F5F3EE;border:1px solid #E8E6DF;border-radius:20px;padding:4px 10px;font-size:13px;cursor:pointer">' + e + ' ' + counts[e] + '</div>';
     }).join('');
     var label = containerEl.querySelector('div');
     if (label) label.textContent = 'Reactions from friends';
