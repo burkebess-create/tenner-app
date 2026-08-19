@@ -7754,8 +7754,10 @@ async function renderMatch() {
       if (overallRanked.length >= 2) {
         var most = overallRanked[0];
         var least = overallRanked[overallRanked.length-1];
-        var mostName = (most.friend.profile && most.friend.profile.display_name) || 'Friend';
-        var leastName = (least.friend.profile && least.friend.profile.display_name) || 'Friend';
+        var mp = most.friend.profile || {};
+        var lp = least.friend.profile || {};
+        var mostName = mp.display_name || (mp.handle ? '@' + mp.handle : 'A friend');
+        var leastName = lp.display_name || (lp.handle ? '@' + lp.handle : 'a friend');
         overallHtml += '<div class="info-box" style="margin-bottom:4px"><div style="font-size:13.5px;color:#2C2C2A"><strong>' + mostName + '</strong> is your closest match overall · <strong>' + leastName + '</strong> is your most different</div></div>';
       }
     }
