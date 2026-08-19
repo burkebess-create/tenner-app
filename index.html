@@ -223,6 +223,14 @@
   .list-sel-btn.active { background: #FAECE7; color: #993C1D; border-color: #D85A30; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   .spinning { display: inline-block; animation: spin 0.7s linear infinite; }
+  /* Brief attention-getter for a CTA once the prerequisite step is done —
+     scales up subtly with a colored ring, then settles. */
+  @keyframes cta-pulse {
+    0%   { transform: scale(1);    box-shadow: 0 0 0 0 rgba(216,90,48,0.55); }
+    50%  { transform: scale(1.04); box-shadow: 0 0 0 8px rgba(216,90,48,0); }
+    100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(216,90,48,0); }
+  }
+  .cta-pulsing { animation: cta-pulse 0.8s ease-out 2; }
 
   /* Long unbroken strings must wrap inside their container, not push it wider.
      Grid/flex children get an implicit min-width:auto that we override to 0
@@ -483,7 +491,7 @@
             <span style="font-size:13.5px;color:#2C2C2A">Ranked list (1 = favorite)</span>
             <label class="toggle"><input type="checkbox" id="ranked-tog" checked><span class="toggle-slider"></span></label>
           </div>
-          <button class="btn-primary" onclick="goToCreateStep2()">Continue →</button>
+          <button class="btn-primary" id="create1-continue-btn" onclick="goToCreateStep2()">Continue →</button>
         </div>
       </div>
 
@@ -1862,6 +1870,19 @@ function checkListComplete() {
   }
 }
 
+// After a category is picked, scroll the Continue button into view and briefly
+// pulse it — gives instant "what's next" feedback without changing the flow
+// (Continue still gates on the Ranked toggle just above it).
+function nudgeCreate1Continue() {
+  var btn = document.getElementById('create1-continue-btn');
+  if (!btn) return;
+  try { btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch(e) { btn.scrollIntoView(); }
+  btn.classList.remove('cta-pulsing');
+  // Force reflow so re-adding the class restarts the animation
+  void btn.offsetWidth;
+  btn.classList.add('cta-pulsing');
+}
+
 function renderCatGrid() {
   var grid = document.getElementById('cat-grid');
   grid.innerHTML = '';
@@ -1876,7 +1897,7 @@ function renderCatGrid() {
       + 'transform:' + (selected ? 'scale(1.02)' : 'scale(1)') + ';transition:transform 0.15s ease';
     div.innerHTML = '<div style="font-size:36px;line-height:1;margin-bottom:10px">' + renderCatEmoji(cat.e, 36) + '</div>'
       + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A">Top 10 ' + escapeHtml(cat.n) + '</div>';
-    div.onclick = function() { selCat = cat.n; selCatEmoji = cat.e; renderCatGrid(); document.getElementById('cat-inp').value = ''; document.getElementById('cat-warn').style.display = 'none'; document.getElementById('cat-sugs').style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; };
+    div.onclick = function() { selCat = cat.n; selCatEmoji = cat.e; renderCatGrid(); document.getElementById('cat-inp').value = ''; document.getElementById('cat-warn').style.display = 'none'; document.getElementById('cat-sugs').style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; nudgeCreate1Continue(); };
     grid.appendChild(div);
   });
 }
@@ -1983,7 +2004,7 @@ function onCatType(val) {
       var div = document.createElement('div');
       div.className = 'sug-item';
       div.textContent = c.e + ' ' + c.n;
-      div.onclick = function() { selCat = c.n; selCatEmoji = c.e; renderCatGrid(); document.getElementById('cat-inp').value = c.n; sugs.style.display = 'none'; warn.style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; };
+      div.onclick = function() { selCat = c.n; selCatEmoji = c.e; renderCatGrid(); document.getElementById('cat-inp').value = c.n; sugs.style.display = 'none'; warn.style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; nudgeCreate1Continue(); };
       sugs.appendChild(div);
     });
     sugs.style.display = 'block';
