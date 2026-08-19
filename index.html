@@ -1609,10 +1609,20 @@ function closeMatchReveal() {
     markMatchSeen(ctx.friendId, ctx.categoryLabel, ctx.score);
   }
   window._matchRevealCtx = null;
-  // If we're on the Match screen, re-render so the newly-seen score displays normally
+  // If we're on the Match screen, re-render so the newly-seen score displays normally.
+  // Preserve the currently-selected By-List tab so the user isn't kicked back to
+  // the first tab after tapping "See the details".
   var matchScreen = document.getElementById('s-match');
   if (matchScreen && matchScreen.classList.contains('active') && typeof renderMatch === 'function') {
-    renderMatch();
+    var prevTab = window._selectedMatchTab;
+    Promise.resolve(renderMatch()).then(function() {
+      if (!prevTab) return;
+      // Find the tab button whose text matches the previously-selected category and click it
+      var btns = document.querySelectorAll('#match-screen-content .list-sel-btn');
+      for (var i = 0; i < btns.length; i++) {
+        if (btns[i].textContent === prevTab) { btns[i].click(); break; }
+      }
+    });
   }
 }
 
@@ -7915,7 +7925,8 @@ async function renderMatch() {
         sideBodyHtml = nav
           + '<div id="sbs-track-' + i + '" ontouchstart="sbsTouchStart(event,' + i + ')" ontouchend="sbsTouchEnd(event,' + i + ',' + ordered.length + ')" style="width:100%;overflow:hidden">' + slides + '</div>';
       } else if (isOneOnOne) {
-        var singleFname = (comps[0].friend.profile && comps[0].friend.profile.display_name) || 'Friend';
+        var _sfp = (comps[0].friend.profile) || {};
+        var singleFname = _sfp.display_name || (_sfp.handle ? '@' + _sfp.handle : 'A friend');
         var oneBody = pairBody(comps[0]);
         sideLabel = 'Side-by-side: You vs ' + escapeHtml(singleFname);
         sideBodyHtml = pairHeader(singleFname) + oneBody.rows;
@@ -8008,6 +8019,7 @@ function sbsTouchEnd(e, i, count) {
 function showMatchTab(btn, cat) {
   document.querySelectorAll('#match-screen-content .list-sel-btn').forEach(function(b){b.classList.remove('active');});
   btn.classList.add('active');
+  window._selectedMatchTab = cat; // persist so re-renders (e.g. after reveal) can restore
   var cats = window._matchCats || [];
   cats.forEach(function(c, i) {
     var panel = document.getElementById('match-panel-' + i);
@@ -10506,9 +10518,10 @@ async function loadItemComments(listOwnerId, category, itemName) {
       var f = myFriends.find(function(x){ return x.friendId === c.from_user_id; });
       // Always "You" for the viewer's own comments — their friends still see the
       // display_name since isMine is evaluated per-viewer
+      var _cf = (f && f.profile) || {};
       var name = isMine
         ? 'You'
-        : ((f && f.profile && f.profile.display_name) || 'Friend');
+        : (_cf.display_name || (_cf.handle ? '@' + _cf.handle : 'A friend'));
       // A comment starting with '@' is treated as a reply — indent + connector
       var isReply = /^@[^\s]+/.test(c.comment);
       var indentStyle = isReply
