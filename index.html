@@ -2931,14 +2931,17 @@ function renderLists() {
     var card = document.createElement('div');
     // Single medium-tone fill, black border, no emoji chip
     card.style.cssText = 'position:relative;background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer';
-    var commentBadge = unread > 0
-      ? '<div style="position:absolute;top:10px;right:10px;background:#D85A30;color:#FFFFFF;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;display:flex;align-items:center;gap:3px;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="' + unread + ' new comment' + (unread !== 1 ? 's' : '') + '">💬 ' + unread + '</div>'
-      : '';
     // Progress pill for incomplete lists — makes it obvious at a glance which
     // lists still need finishing, so users don't lose track after a partial fill.
     var itemsFilled = (l.items || []).length;
     var progressBadge = itemsFilled < 10
-      ? '<div style="position:absolute;top:10px;left:10px;background:#FFFFFF;color:#2C2C2A;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;border:1.5px solid #2C2C2A;box-shadow:0 2px 6px rgba(0,0,0,0.10)" title="Incomplete list">' + itemsFilled + '/10</div>'
+      ? '<div style="position:absolute;top:10px;right:10px;background:#FFFFFF;color:#2C2C2A;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;border:1.5px solid #2C2C2A;box-shadow:0 2px 6px rgba(0,0,0,0.10)" title="Incomplete list">' + itemsFilled + '/10</div>'
+      : '';
+    // Comment badge shares the top-right corner — if a progress pill is also
+    // present, stack the comment badge below it so neither covers the emoji.
+    var commentBadgeTop = itemsFilled < 10 ? '38px' : '10px';
+    var commentBadge = unread > 0
+      ? '<div style="position:absolute;top:' + commentBadgeTop + ';right:10px;background:#D85A30;color:#FFFFFF;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;display:flex;align-items:center;gap:3px;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="' + unread + ' new comment' + (unread !== 1 ? 's' : '') + '">💬 ' + unread + '</div>'
       : '';
     card.innerHTML = commentBadge
       + progressBadge
