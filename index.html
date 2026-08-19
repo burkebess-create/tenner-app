@@ -2338,11 +2338,11 @@ function attachLiveDrag(el) {
   var listEl = null;
 
   function onDown(e) {
-    // Skip action buttons, suggestion popups, and any input/textarea so the
-    // browser's default focus + keyboard behavior can fire cleanly. Kindle
-    // Silk in particular fails to focus inputs when a pointerdown handler
-    // above them starts capturing.
-    if (e.target.closest('button, .sugs, input, textarea')) return;
+    // Skip only explicit action buttons and suggestion popups. Inputs are OK
+    // to start drag tracking on — we differentiate tap-to-edit vs. drag by
+    // the movement threshold below (no preventDefault, so focus still fires
+    // naturally when there's no movement).
+    if (e.target.closest('button, .sugs')) return;
     startY = e.clientY;
     startX = e.clientX;
     pointerId = e.pointerId;
