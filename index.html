@@ -9105,14 +9105,26 @@ async function renderAdminFeedback(el) {
       + '</div>'
       + '<div style="font-size:13.5px;color:#2C2C2A;white-space:pre-wrap">' + escapeHtml(f.message) + '</div>'
       + '<div style="font-size:9px;color:#888780;margin-top:4px">' + escapeHtml(when) + '</div>'
-      + '<div style="display:flex;gap:4px;margin-top:6px">'
+      + '<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">'
       + '<button class="back-btn" onclick="setFeedbackStatus(\'' + f.id + '\',\'in_progress\')">Working on it</button>'
       + '<button class="back-btn" onclick="setFeedbackStatus(\'' + f.id + '\',\'resolved\')">Resolve</button>'
       + '<button class="back-btn" onclick="setFeedbackStatus(\'' + f.id + '\',\'new\')">Reopen</button>'
+      + '<button class="back-btn" style="color:#A32D2D;border-color:#F09595;margin-left:auto" onclick="confirmDeleteFeedback(\'' + f.id + '\')">Delete</button>'
       + '</div>'
       + '</div>';
   }).join('');
   el.innerHTML = '<div style="padding:12px">' + (rows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No feedback yet.</div>') + '</div>';
+}
+
+function confirmDeleteFeedback(id) {
+  showConfirm('Delete this feedback?', 'This permanently removes the feedback message. This cannot be undone.', 'Delete', 'danger', async function() {
+    try {
+      var res = await sbClient.from('feedback').delete().eq('id', id);
+      if (res.error) throw res.error;
+      showToast('Feedback deleted.');
+      renderAdmin();
+    } catch(e) { showToast('Could not delete: ' + (e.message || e)); }
+  });
 }
 
 function setFeedbackStatus(id, status) {
