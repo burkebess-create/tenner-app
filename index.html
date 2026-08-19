@@ -155,13 +155,18 @@
     display: flex; align-items: center; gap: 8px; padding: 8px 10px;
     border-radius: 8px; background: #fff; border: 1px solid #E8E6DF; margin-bottom: 5px;
   }
-  /* Drag-only behavior applies exclusively to the editor list, not read-only views */
+  /* Drag-only behavior applies exclusively to the editor list, not read-only views.
+     touch-action:manipulation lets the browser handle taps + scroll normally
+     (critical for Kindle Silk to focus inputs and open the keyboard). We only
+     switch to touch-action:none once a drag is actually in progress. */
   #items-list .rank-item {
-    cursor: grab; touch-action: none; will-change: transform;
+    cursor: grab; touch-action: manipulation; will-change: transform;
     user-select: none; -webkit-user-select: none; -moz-user-select: none; -webkit-touch-callout: none;
   }
+  #items-list .rank-item.dragging { touch-action: none; }
   #items-list .rank-item input, #items-list .rank-item textarea {
     user-select: text; -webkit-user-select: text; -moz-user-select: text; -webkit-touch-callout: default;
+    touch-action: manipulation;
   }
   #items-list.dragging-active .rank-item input,
   #items-list.dragging-active .rank-item textarea,
@@ -518,7 +523,7 @@
           </div>
           <div id="add-area">
             <div style="display:flex;gap:7px;margin-bottom:5px">
-              <input type="text" id="item-inp" placeholder="Type to search or add an item..." oninput="onItemType(this.value)" onkeydown="if(event.key==='Enter')doAddItem()" style="margin-bottom:0;flex:1">
+              <input type="text" id="item-inp" placeholder="Type to search or add an item..." oninput="onItemType(this.value)" onkeydown="if(event.key==='Enter')doAddItem()" style="margin-bottom:0;flex:1;touch-action:manipulation" autocomplete="off" autocorrect="off">
               <button onclick="doAddItem()" style="padding:9px 14px;border-radius:8px;border:none;background:#D85A30;color:#fff;font-size:18px;cursor:pointer;flex-shrink:0">+</button>
             </div>
             <div class="sugs" id="item-sugs"></div>
@@ -2333,9 +2338,11 @@ function attachLiveDrag(el) {
   var listEl = null;
 
   function onDown(e) {
-    // Skip only explicit action buttons and suggestion popups — inputs are OK,
-    // we differentiate tap-to-edit vs. drag by the movement threshold below.
-    if (e.target.closest('button, .sugs')) return;
+    // Skip action buttons, suggestion popups, and any input/textarea so the
+    // browser's default focus + keyboard behavior can fire cleanly. Kindle
+    // Silk in particular fails to focus inputs when a pointerdown handler
+    // above them starts capturing.
+    if (e.target.closest('button, .sugs, input, textarea')) return;
     startY = e.clientY;
     startX = e.clientX;
     pointerId = e.pointerId;
