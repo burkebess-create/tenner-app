@@ -10509,6 +10509,16 @@ async function toggleReaction(listOwnerId, category, emoji, btn, itemName) {
     else { await sbClient.from('list_reactions').insert({ from_user_id: userId, list_owner_id: listOwnerId, category: category, item_name: item, emoji: emoji }); }
     if (item) loadItemReactions(listOwnerId, category, item, btn.parentElement);
     else loadAndRenderReactions(listOwnerId, category, btn.parentElement);
+    // Also refresh the inline row-level pills so the change is visible behind
+    // the modal without the user having to leave and come back.
+    if (item && item !== '__list__') {
+      // Detect which list view is active and re-decorate its items
+      if (document.getElementById('s-list-detail') && document.getElementById('s-list-detail').classList.contains('active')) {
+        decorateItemsWithReactions(listOwnerId, category);
+      } else if (document.getElementById('s-friend-list') && document.getElementById('s-friend-list').classList.contains('active')) {
+        decorateItemsWithReactions(listOwnerId, category, '#friend-list-items');
+      }
+    }
   } catch(e) { console.warn('toggleReaction', e); }
 }
 
@@ -10517,6 +10527,10 @@ async function toggleReaction(listOwnerId, category, emoji, btn, itemName) {
 // modal. Runs asynchronously after the row DOM has been laid out.
 async function decorateItemsWithReactions(listOwnerId, category, scopeSel) {
   if (!sbClient || !listOwnerId || !category) return;
+  var scope = scopeSel || '#list-detail-items';
+  // Always clear existing decoration first — otherwise removing the last
+  // reaction on an item leaves the stale pill on-screen forever.
+  document.querySelectorAll(scope + ' .rank-item .item-reactions-inline').forEach(function(h) { h.innerHTML = ''; });
   try {
     var res = await sbClient.from('list_reactions')
       .select('from_user_id, emoji, item_name')
@@ -10530,7 +10544,6 @@ async function decorateItemsWithReactions(listOwnerId, category, scopeSel) {
       if (!byItem[r.item_name]) byItem[r.item_name] = {};
       byItem[r.item_name][r.emoji] = (byItem[r.item_name][r.emoji] || 0) + 1;
     });
-    var scope = scopeSel || '#list-detail-items';
     document.querySelectorAll(scope + ' .rank-item').forEach(function(row) {
       var name = row.getAttribute('data-item-name');
       if (!name) return;
