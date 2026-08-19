@@ -8320,8 +8320,9 @@ async function renderAdminWeekly(el) {
     return '<div class="card no-hover" style="margin-bottom:6px">'
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
       +   '<div style="flex:1"><strong style="font-size:13px">' + (w.emoji||'📋') + ' Top 10 ' + escapeHtml(w.category) + '</strong>' + badge + '</div>'
-      +   '<div><button class="back-btn" onclick="editAdminWeekly(\'' + w.id + '\')" style="margin-right:4px">Edit</button>'
-      +   '<button class="back-btn" onclick="openAdminWeeklyItems(\'' + w.id + '\')" style="margin-right:4px">Items</button>'
+      +   '<div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end"><button class="back-btn" onclick="editAdminWeekly(\'' + w.id + '\')">Edit</button>'
+      +   '<button class="back-btn" onclick="openAdminWeeklyItems(\'' + w.id + '\')">Items</button>'
+      +   '<button class="back-btn" onclick="promoteWeeklyToCategory(\'' + w.id + '\')" style="color:#1F7268;border-color:#8BC7BB">↑ Promote</button>'
       +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminWeekly(\'' + w.id + '\')">Delete</button></div>'
       + '</div>'
       + '<div style="font-size:11px;color:#5F5E5A;margin-top:4px">Week of ' + escapeHtml(w.week_start) + ' · Reveals ' + revealFmt + '</div>'
@@ -8402,6 +8403,56 @@ function saveAdminWeekly(id) {
     var m = document.getElementById('admin-weekly-modal'); if (m) m.remove();
     showToast('Saved');
     loadWeeklyLists().then(renderAdmin);
+  });
+}
+
+// Promote a weekly list to a permanent category. Users' existing picks under
+// that category name (from `lists`) automatically flow into the new category
+// because `lists.category` is a text-name match, not a FK. Also copies
+// weekly_list_items → category_items so typeahead suggestions carry over.
+async function promoteWeeklyToCategory(weeklyId) {
+  var w = (WEEKLY_LISTS || []).find(function(x){ return x.id === weeklyId; });
+  if (!w) { showToast('Weekly list not found.'); return; }
+  var body = 'Creates a permanent "' + w.category + '" category. Users\' existing picks under this name automatically become part of it (same-name match). Suggested items are copied over. This weekly stays in place as history.';
+  showConfirm('Promote "' + w.category + '"?', body, 'Promote', 'primary', async function() {
+    try {
+      // 1. Check if category with same name already exists (case-insensitive)
+      var existingRes = await sbClient.from('categories').select('id, name').ilike('name', w.category);
+      var existingCat = (existingRes.data || []).find(function(c){ return c.name.toLowerCase() === w.category.toLowerCase(); });
+      var catId;
+      if (existingCat) {
+        catId = existingCat.id;
+      } else {
+        // 2. Insert new category. Pick next sort_order.
+        var soRes = await sbClient.from('categories').select('sort_order').order('sort_order', { ascending: false }).limit(1);
+        var nextSort = ((soRes.data && soRes.data[0] && soRes.data[0].sort_order) || 0) + 1;
+        var insRes = await sbClient.from('categories').insert({ name: w.category, emoji: w.emoji || '📋', sort_order: nextSort }).select().maybeSingle();
+        if (insRes.error) throw insRes.error;
+        catId = insRes.data.id;
+      }
+      // 3. Copy weekly_list_items → category_items (dedupe against existing)
+      var wItemsRes = await sbClient.from('weekly_list_items').select('item_text, sort_order').eq('weekly_list_id', weeklyId).order('sort_order');
+      var wItems = wItemsRes.data || [];
+      if (wItems.length) {
+        var existingItemsRes = await sbClient.from('category_items').select('item_text, sort_order').eq('category_id', catId);
+        var existingLower = {};
+        (existingItemsRes.data || []).forEach(function(x){ existingLower[x.item_text.toLowerCase()] = true; });
+        var maxSort = 0;
+        (existingItemsRes.data || []).forEach(function(x){ if (x.sort_order > maxSort) maxSort = x.sort_order; });
+        var toInsert = wItems
+          .filter(function(x){ return !existingLower[x.item_text.toLowerCase()]; })
+          .map(function(x){ maxSort += 1; return { category_id: catId, item_text: x.item_text, sort_order: maxSort }; });
+        if (toInsert.length) {
+          var ciRes = await sbClient.from('category_items').insert(toInsert);
+          if (ciRes.error) throw ciRes.error;
+        }
+      }
+      showToast(existingCat ? 'Merged into existing "' + w.category + '" category.' : 'Promoted to permanent category.');
+      await loadCategoriesFromDb();
+      renderAdmin();
+    } catch(e) {
+      showToast('Promote failed: ' + (e.message || e));
+    }
   });
 }
 
