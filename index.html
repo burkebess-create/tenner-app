@@ -224,6 +224,17 @@
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   .spinning { display: inline-block; animation: spin 0.7s linear infinite; }
 
+  /* Long unbroken strings must wrap inside their container, not push it wider.
+     Grid/flex children get an implicit min-width:auto that we override to 0
+     so 1fr columns actually stay 1fr when a giant word lands in them. */
+  #lists-list > div { min-width: 0; }
+  #lists-list > div > * { min-width: 0; }
+  #lists-list > div > div > div { overflow-wrap: anywhere; word-break: break-word; hyphens: auto; -webkit-hyphens: auto; }
+  #list-detail-items .rank-item > span,
+  .rank-item > span { min-width: 0; overflow-wrap: anywhere; word-break: break-word; hyphens: auto; -webkit-hyphens: auto; }
+  #list-detail-title, #fdetail-title { overflow-wrap: anywhere; word-break: break-word; hyphens: auto; -webkit-hyphens: auto; }
+  #cat-grid > div > div { overflow-wrap: anywhere; word-break: break-word; hyphens: auto; -webkit-hyphens: auto; }
+
   /* --- Accent palette additions --- */
   /* Teal (social/friend/match) */
   .accent-teal   { color: #2F9E8F !important; }
