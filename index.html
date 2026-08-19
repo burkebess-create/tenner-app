@@ -1119,6 +1119,7 @@
             <div id="item-comments-title" style="font-size:12px;font-weight:600;color:#2C2C2A"></div>
             <button onclick="document.getElementById('item-comments-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;padding:0 4px">×</button>
           </div>
+          <div id="item-reactions-row" style="display:flex;flex-wrap:wrap;gap:4px;padding-bottom:8px;border-bottom:1px solid #F1EFE8;margin-bottom:10px"></div>
           <div id="item-comments-list" style="flex:1;overflow-y:auto;margin-bottom:12px"></div>
           <div style="display:flex;gap:8px;align-items:flex-end;width:100%">
             <div style="flex:1 1 auto;min-width:0">
@@ -3135,10 +3136,24 @@ function showListDetail(l, origin) {
     reactionsEl.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;margin-top:12px;padding-top:10px;border-top:1px solid #F1EFE8';
     el.parentNode.insertBefore(reactionsEl, el.nextSibling);
   }
-  reactionsEl.innerHTML = '<div style="font-size:10px;color:#888780;width:100%;margin-bottom:4px">Reactions from friends</div>';
+  var listLabel = l.n || ('Top 10 ' + _currentListCategory);
+  reactionsEl.innerHTML = '<div style="font-size:10px;color:#888780;width:100%;margin-bottom:4px">Reactions from your friends on your ' + escapeHtml(listLabel) + ' list</div>';
   if (userId && _currentListCategory) {
     loadOwnListReactions(userId, _currentListCategory, reactionsEl);
   }
+
+  // Whole-list comment thread — sits below reactions. Uses the existing item
+  // comments modal with a sentinel item_name so all list-scoped comments share
+  // the same "thread" without a schema change.
+  var listCommentBtn = document.getElementById('list-detail-comment-btn');
+  if (!listCommentBtn) {
+    listCommentBtn = document.createElement('button');
+    listCommentBtn.id = 'list-detail-comment-btn';
+    listCommentBtn.style.cssText = 'width:100%;margin-top:10px;background:#FFFFFF;border:1px solid #D3D1C7;border-radius:12px;padding:11px 14px;font-family:inherit;font-size:13px;font-weight:600;color:#2C2C2A;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px';
+    reactionsEl.parentNode.insertBefore(listCommentBtn, reactionsEl.nextSibling);
+  }
+  listCommentBtn.innerHTML = '💬 Comment on this list';
+  listCommentBtn.onclick = function() { openItemComments(userId, _currentListCategory, '__list__'); };
 
   go('s-list-detail');
 }
@@ -10424,7 +10439,7 @@ function showReactionAudience(emoji) {
 async function loadOwnListReactions(listOwnerId, category, containerEl) {
   if (!sbClient || !containerEl) return;
   try {
-    var res = await sbClient.from('list_reactions').select('from_user_id, emoji').eq('list_owner_id', listOwnerId).eq('category', category);
+    var res = await sbClient.from('list_reactions').select('from_user_id, emoji').eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', '');
     var reactions = res.data || [];
     if (reactions.length === 0) {
       var label = containerEl.querySelector('div');
@@ -10450,7 +10465,8 @@ async function loadOwnListReactions(listOwnerId, category, containerEl) {
       return '<div onclick="showReactionAudience(\'' + eEsc + '\')" title="' + escapeHtml(who) + '" style="background:#F5F3EE;border:1px solid #E8E6DF;border-radius:20px;padding:4px 10px;font-size:13px;cursor:pointer">' + e + ' ' + counts[e] + '</div>';
     }).join('');
     var label = containerEl.querySelector('div');
-    if (label) label.textContent = 'Reactions from friends';
+    // Keep whatever caller set (e.g. "Reactions from your friends on your …") —
+    // just don't overwrite the pre-populated specific label with a generic one.
     containerEl.innerHTML += pills;
   } catch(e) { console.warn('loadOwnListReactions', e); }
 }
@@ -10458,7 +10474,7 @@ async function loadOwnListReactions(listOwnerId, category, containerEl) {
 async function loadAndRenderReactions(listOwnerId, category, containerEl) {
   if (!sbClient || !containerEl) return;
   try {
-    var res = await sbClient.from('list_reactions').select('from_user_id, emoji').eq('list_owner_id', listOwnerId).eq('category', category);
+    var res = await sbClient.from('list_reactions').select('from_user_id, emoji').eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', '');
     var reactions = res.data || [];
     var counts = {}, myReactions = new Set();
     reactions.forEach(function(r){ counts[r.emoji] = (counts[r.emoji] || 0) + 1; if (r.from_user_id === userId) myReactions.add(r.emoji); });
@@ -10469,24 +10485,64 @@ async function loadAndRenderReactions(listOwnerId, category, containerEl) {
   } catch(e) { console.warn('loadReactions', e); }
 }
 
-async function toggleReaction(listOwnerId, category, emoji, btn) {
+async function toggleReaction(listOwnerId, category, emoji, btn, itemName) {
   if (!sbClient || !userId) return;
+  var item = itemName || '';
   try {
-    var existing = await sbClient.from('list_reactions').select('id').eq('from_user_id', userId).eq('list_owner_id', listOwnerId).eq('category', category).eq('emoji', emoji).maybeSingle();
+    var existing = await sbClient.from('list_reactions').select('id').eq('from_user_id', userId).eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', item).eq('emoji', emoji).maybeSingle();
     if (existing.data) { await sbClient.from('list_reactions').delete().eq('id', existing.data.id); }
-    else { await sbClient.from('list_reactions').insert({ from_user_id: userId, list_owner_id: listOwnerId, category: category, emoji: emoji }); }
-    loadAndRenderReactions(listOwnerId, category, btn.parentElement);
+    else { await sbClient.from('list_reactions').insert({ from_user_id: userId, list_owner_id: listOwnerId, category: category, item_name: item, emoji: emoji }); }
+    if (item) loadItemReactions(listOwnerId, category, item, btn.parentElement);
+    else loadAndRenderReactions(listOwnerId, category, btn.parentElement);
   } catch(e) { console.warn('toggleReaction', e); }
+}
+
+// Load + render the per-item reaction pill row inside the item comments modal.
+async function loadItemReactions(listOwnerId, category, itemName, containerEl) {
+  if (!sbClient || !containerEl) return;
+  try {
+    var res = await sbClient.from('list_reactions').select('from_user_id, emoji').eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', itemName);
+    var reactions = res.data || [];
+    var counts = {}; var mineByEmoji = {};
+    reactions.forEach(function(r){
+      counts[r.emoji] = (counts[r.emoji] || 0) + 1;
+      if (r.from_user_id === userId) mineByEmoji[r.emoji] = true;
+    });
+    containerEl.innerHTML = REACTION_EMOJIS.map(function(e) {
+      var n = counts[e] || 0;
+      var active = !!mineByEmoji[e];
+      var itemEsc = String(itemName).replace(/'/g,"\\'");
+      var catEsc = String(category).replace(/'/g,"\\'");
+      return '<button onclick="toggleReaction(\'' + listOwnerId + '\',\'' + catEsc + '\',\'' + e + '\',this,\'' + itemEsc + '\')" style="background:' + (active?'#FAECE7':'#F5F3EE') + ';border:1px solid ' + (active?'#D4622A':'#E8E6DF') + ';border-radius:20px;padding:4px 10px;font-size:13px;cursor:pointer;margin:2px">' + e + (n?' '+n:'') + '</button>';
+    }).join('');
+  } catch(e) { console.warn('loadItemReactions', e); }
 }
 
 function openItemComments(listOwnerId, category, itemName) {
   activeCommentListOwner = listOwnerId; activeCommentCategory = category; activeCommentItem = itemName;
   var modal = document.getElementById('item-comments-modal');
   if (!modal) return;
-  document.getElementById('item-comments-title').textContent = '💬 ' + itemName;
+  // '__list__' sentinel = comments on the whole list rather than one item.
+  // Give the modal a friendly title in that case.
+  var title = (itemName === '__list__')
+    ? '💬 Top 10 ' + category
+    : '💬 ' + itemName;
+  document.getElementById('item-comments-title').textContent = title;
   document.getElementById('item-comments-list').innerHTML = '<div style="color:#888780;font-size:12px">Loading…</div>';
   modal.style.display = 'flex';
   loadItemComments(listOwnerId, category, itemName);
+  // Per-item reactions row: hidden for whole-list sentinel (that has its own
+  // reaction UI on the list detail screen)
+  var rrow = document.getElementById('item-reactions-row');
+  if (rrow) {
+    if (itemName === '__list__') {
+      rrow.style.display = 'none';
+      rrow.innerHTML = '';
+    } else {
+      rrow.style.display = 'flex';
+      loadItemReactions(listOwnerId, category, itemName, rrow);
+    }
+  }
   // Fire-and-forget: record that this user just opened the thread. Powers
   // the "Seen by @friend" line under the latest comment for other participants.
   markCommentThreadRead(listOwnerId, category, itemName);
