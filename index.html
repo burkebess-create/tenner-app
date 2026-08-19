@@ -372,7 +372,7 @@
 
       <div class="screen" id="s-home">
         <div class="topbar">
-          <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
+          <img src="logo-horizontal.png" alt="Tenner" onclick="go('s-circle')" style="height:28px;object-fit:contain;cursor:pointer" title="Home">
           <div style="display:flex;align-items:center;gap:8px">
             <button class="back-btn" onclick="openAlerts()" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
             <button class="back-btn" id="home-refresh-btn" onclick="doRefresh(this,function(){return loadState().then(renderHome);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:8px"><svg id="home-refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
@@ -728,7 +728,7 @@
       <div class="screen" id="s-match">
         <div class="topbar">
           <button class="back-btn" id="match-back-btn" onclick="go(matchOrigin || 's-circle')" style="font-size:11px;display:none">← Back</button>
-          <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
+          <img src="logo-horizontal.png" alt="Tenner" onclick="go('s-circle')" style="height:28px;object-fit:contain;cursor:pointer" title="Home">
           <div class="topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
         </div>
         <div class="content" id="match-screen-content">
@@ -744,7 +744,7 @@
       <!-- ═══ CIRCLE = APP HOME / PRIMARY FEED (NOT s-home; s-home is My Lists) ═══ -->
       <div class="screen" id="s-circle">
         <div class="topbar">
-          <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
+          <img src="logo-horizontal.png" alt="Tenner" onclick="go('s-circle')" style="height:28px;object-fit:contain;cursor:pointer" title="Home">
           <div style="display:flex;align-items:center;gap:8px">
             <button onclick="openAlerts()" title="Alerts" style="position:relative;display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span id="notif-badge-circle" style="display:none;position:absolute;top:-2px;right:-2px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span></button>
             <button onclick="doRefresh(this,function(){return loadFriends().then(renderCircleScreen);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
@@ -1069,7 +1069,7 @@
       <!-- ═══ GIFTS ═══ -->
       <div class="screen" id="s-gifts">
         <div class="topbar">
-          <img src="logo-horizontal.png" alt="Tenner" style="height:28px;object-fit:contain">
+          <img src="logo-horizontal.png" alt="Tenner" onclick="go('s-circle')" style="height:28px;object-fit:contain;cursor:pointer" title="Home">
           <div style="display:flex;align-items:center;gap:8px">
             <button class="back-btn" onclick="doRefresh(this,function(){return loadFriends().then(renderGifts);})" title="Refresh" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:8px;background:transparent;border:none;color:#5F5E5A;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
             <div class="topbar-avatar" onclick="go('s-profile')" style="cursor:pointer" title="Profile"></div>
