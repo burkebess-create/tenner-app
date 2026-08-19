@@ -226,14 +226,17 @@
 
   /* Long unbroken strings must wrap inside their container, not push it wider.
      Grid/flex children get an implicit min-width:auto that we override to 0
-     so 1fr columns actually stay 1fr when a giant word lands in them. */
+     so 1fr columns actually stay 1fr when a giant word lands in them.
+     overflow-wrap:break-word prefers wrapping at spaces first and only splits
+     inside a word when no space-break can make it fit (unlike `anywhere`,
+     which will pre-emptively split words even when they'd wrap cleanly). */
   #lists-list > div { min-width: 0; }
   #lists-list > div > * { min-width: 0; }
-  #lists-list > div > div > div { overflow-wrap: anywhere; word-break: break-word; hyphens: auto; -webkit-hyphens: auto; }
+  #lists-list > div > div > div { overflow-wrap: break-word; }
   #list-detail-items .rank-item > span,
-  .rank-item > span { min-width: 0; overflow-wrap: anywhere; word-break: break-word; hyphens: auto; -webkit-hyphens: auto; }
-  #list-detail-title, #fdetail-title { overflow-wrap: anywhere; word-break: break-word; hyphens: auto; -webkit-hyphens: auto; }
-  #cat-grid > div > div { overflow-wrap: anywhere; word-break: break-word; hyphens: auto; -webkit-hyphens: auto; }
+  .rank-item > span { min-width: 0; overflow-wrap: break-word; }
+  #list-detail-title, #fdetail-title { overflow-wrap: break-word; }
+  #cat-grid > div > div { overflow-wrap: break-word; }
 
   /* --- Accent palette additions --- */
   /* Teal (social/friend/match) */
