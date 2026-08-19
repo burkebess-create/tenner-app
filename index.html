@@ -8297,6 +8297,7 @@ async function renderAdminWeekly(el) {
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
       +   '<div style="flex:1"><strong style="font-size:13px">' + (w.emoji||'📋') + ' Top 10 ' + escapeHtml(w.category) + '</strong>' + badge + '</div>'
       +   '<div><button class="back-btn" onclick="editAdminWeekly(\'' + w.id + '\')" style="margin-right:4px">Edit</button>'
+      +   '<button class="back-btn" onclick="openAdminWeeklyItems(\'' + w.id + '\')" style="margin-right:4px">Items</button>'
       +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminWeekly(\'' + w.id + '\')">Delete</button></div>'
       + '</div>'
       + '<div style="font-size:11px;color:#5F5E5A;margin-top:4px">Week of ' + escapeHtml(w.week_start) + ' · Reveals ' + revealFmt + '</div>'
@@ -8377,6 +8378,86 @@ function saveAdminWeekly(id) {
     var m = document.getElementById('admin-weekly-modal'); if (m) m.remove();
     showToast('Saved');
     loadWeeklyLists().then(renderAdmin);
+  });
+}
+
+// Manage the suggested-items list for a specific weekly prompt. Mirrors the
+// category-items admin flow but scoped to one weekly_lists row.
+async function openAdminWeeklyItems(weeklyId) {
+  if (!sbClient || !weeklyId) return;
+  var frame = document.querySelector('.frame') || document.body;
+  var existing = document.getElementById('admin-weekly-items-modal');
+  if (existing) existing.remove();
+  var w = (WEEKLY_LISTS || []).find(function(x){ return x.id === weeklyId; }) || {};
+  var overlay = document.createElement('div');
+  overlay.id = 'admin-weekly-items-modal';
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px';
+  overlay.innerHTML = ''
+    + '<div style="background:#fff;border-radius:12px;padding:16px;width:100%;max-width:360px;max-height:90%;overflow-y:auto">'
+    +   '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    +     '<div style="font-size:14px;font-weight:700">' + (w.emoji || '📋') + ' Items · ' + escapeHtml(w.category || '') + '</div>'
+    +     '<button class="back-btn" onclick="document.getElementById(\'admin-weekly-items-modal\').remove()" style="border:none;background:none;font-size:18px">×</button>'
+    +   '</div>'
+    +   '<div style="display:flex;gap:6px;margin-bottom:8px">'
+    +     '<input type="text" id="awi-new" placeholder="New item text…" style="flex:1;margin-bottom:0;font-size:13px">'
+    +     '<button class="btn-primary" style="width:auto;padding:9px 16px;margin-bottom:0" onclick="addAdminWeeklyItem(\'' + weeklyId + '\')">Add</button>'
+    +   '</div>'
+    +   '<button class="btn-secondary" onclick="openBulkAddWeeklyItems(\'' + weeklyId + '\')" style="margin-bottom:10px">Bulk add (paste list)</button>'
+    +   '<div id="awi-list" style="max-height:340px;overflow-y:auto"><div style="color:#888;font-size:12px;padding:12px;text-align:center">Loading…</div></div>'
+    + '</div>';
+  frame.appendChild(overlay);
+  loadAdminWeeklyItems(weeklyId);
+}
+
+async function loadAdminWeeklyItems(weeklyId) {
+  var host = document.getElementById('awi-list');
+  if (!host) return;
+  var res = await sbClient.from('weekly_list_items').select('*').eq('weekly_list_id', weeklyId).order('sort_order');
+  if (res.error) { host.innerHTML = '<div style="color:#A32D2D;font-size:12px;padding:8px">' + escapeHtml(res.error.message) + '</div>'; return; }
+  var rows = (res.data || []).map(function(it) {
+    return '<div class="card no-hover" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding:8px 10px">'
+      + '<span style="font-size:12px">' + escapeHtml(it.item_text) + '</span>'
+      + '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminWeeklyItem(\'' + it.id + '\',\'' + weeklyId + '\')">×</button>'
+      + '</div>';
+  }).join('');
+  host.innerHTML = rows || '<div style="color:#888;font-size:12px;padding:16px;text-align:center">No items yet.</div>';
+}
+
+function addAdminWeeklyItem(weeklyId) {
+  var v = (document.getElementById('awi-new').value || '').trim();
+  if (!v) return;
+  sbClient.from('weekly_list_items').select('sort_order').eq('weekly_list_id', weeklyId).order('sort_order', {ascending:false}).limit(1).then(function(r) {
+    var next = ((r.data && r.data[0] && r.data[0].sort_order) || 0) + 1;
+    sbClient.from('weekly_list_items').insert({ weekly_list_id: weeklyId, item_text: v, sort_order: next }).then(function(r2) {
+      if (r2.error) { showToast('Error: ' + r2.error.message); return; }
+      document.getElementById('awi-new').value = '';
+      loadAdminWeeklyItems(weeklyId);
+    });
+  });
+}
+
+function deleteAdminWeeklyItem(itemId, weeklyId) {
+  showConfirm('Delete this suggestion?', 'This removes it from the weekly prompt only. Users\' actual list picks are unaffected.', 'Delete', 'danger', function() {
+    sbClient.from('weekly_list_items').delete().eq('id', itemId).then(function(r) {
+      if (r.error) { showToast('Error: ' + r.error.message); return; }
+      loadAdminWeeklyItems(weeklyId);
+    });
+  });
+}
+
+function openBulkAddWeeklyItems(weeklyId) {
+  var text = prompt('Paste items (one per line):');
+  if (!text) return;
+  var lines = text.split(/\r?\n/).map(function(s){ return s.trim(); }).filter(Boolean);
+  if (!lines.length) { showToast('Nothing to add.'); return; }
+  sbClient.from('weekly_list_items').select('sort_order').eq('weekly_list_id', weeklyId).order('sort_order', {ascending:false}).limit(1).then(function(r) {
+    var next = ((r.data && r.data[0] && r.data[0].sort_order) || 0) + 1;
+    var toInsert = lines.map(function(line){ return { weekly_list_id: weeklyId, item_text: line, sort_order: next++ }; });
+    sbClient.from('weekly_list_items').insert(toInsert).then(function(r2) {
+      if (r2.error) { showToast('Error: ' + r2.error.message); return; }
+      showToast('Added ' + toInsert.length + ' items.');
+      loadAdminWeeklyItems(weeklyId);
+    });
   });
 }
 
