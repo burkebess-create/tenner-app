@@ -156,14 +156,14 @@
     border-radius: 8px; background: #fff; border: 1px solid #E8E6DF; margin-bottom: 5px;
   }
   /* Drag-only behavior applies exclusively to the editor list, not read-only views.
-     touch-action:manipulation lets the browser handle taps + scroll normally
-     (critical for Kindle Silk to focus inputs and open the keyboard). We only
-     switch to touch-action:none once a drag is actually in progress. */
+     touch-action:none on the row is required — otherwise iOS interprets a
+     downward drag as a page-scroll and cancels the reorder gesture. Child
+     inputs override with touch-action:manipulation below so they still open
+     the keyboard on Kindle Silk / any browser. */
   #items-list .rank-item {
-    cursor: grab; touch-action: manipulation; will-change: transform;
+    cursor: grab; touch-action: none; will-change: transform;
     user-select: none; -webkit-user-select: none; -moz-user-select: none; -webkit-touch-callout: none;
   }
-  #items-list .rank-item.dragging { touch-action: none; }
   #items-list .rank-item input, #items-list .rank-item textarea {
     user-select: text; -webkit-user-select: text; -moz-user-select: text; -webkit-touch-callout: default;
     touch-action: manipulation;
