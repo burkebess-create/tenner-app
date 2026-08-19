@@ -756,6 +756,7 @@
           <div id="today-pill-host"></div>
           <div id="circle-stories-row-host"></div>
           <div id="circle-list-invites-host"></div>
+          <div id="streak-pill-host"></div>
           <div id="weekly-hero-card"></div>
           <div class="sec-label">Activity</div>
           <div id="home-feed-section"></div>
@@ -1477,7 +1478,7 @@ function go(id) {
     renderTopbarAvatars();
   }
   if (id === 's-circle') {
-    renderCircleTopbarAvatar(); renderTodayPill(); renderCircleListInvites(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderWeeklyHeroCard(); renderProfileNudges(); refreshNotifications().then(function(){ renderCircleListInvites(); });
+    renderCircleTopbarAvatar(); renderTodayPill(); renderCircleListInvites(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderWeeklyHeroCard(); renderStreakPill(); renderProfileNudges(); refreshNotifications().then(function(){ renderCircleListInvites(); });
     attachPullToRefresh(document.querySelector('#s-circle .content'), function() { return loadFriends().then(renderCircleScreen); });
   }
   if (id === 's-add-friends') {
@@ -9328,6 +9329,70 @@ async function loadWeeklyParticipation(weeklyList) {
 }
 
 // The "current" weekly list = the one whose week_start is today's Monday (or the most recent past one still before its reveal)
+// ── Weekly streak ────────────────────────────────────────────────────────
+// Consecutive REVEALED weeklies the user has filled (matching category name,
+// with the list updated during that week's window). The current not-yet-
+// revealed week doesn't count against you — but if you fill it now, it's
+// already banked toward next week's streak count.
+function computeWeeklyStreak() {
+  var wls = (WEEKLY_LISTS || []).slice();
+  if (!wls.length) return 0;
+  wls.sort(function(a, b){ return (b.week_start || '').localeCompare(a.week_start || ''); });
+  var now = Date.now();
+  var streak = 0;
+  for (var i = 0; i < wls.length; i++) {
+    var w = wls[i];
+    var reveal = new Date(w.reveal_at).getTime();
+    if (reveal > now) continue; // skip not-yet-revealed weeks
+    var wStart = new Date(w.week_start + 'T00:00:00').getTime();
+    var nextStart = wls[i - 1] ? new Date(wls[i - 1].week_start + 'T00:00:00').getTime() : (wStart + 14 * 86400000);
+    var hit = (MY_LISTS || []).some(function(l) {
+      var lcat = (l.category || (l.n || '').replace('Top 10 ', ''));
+      if (String(lcat).toLowerCase() !== String(w.category).toLowerCase()) return false;
+      if (!l.updated_at) return false;
+      var t = new Date(l.updated_at).getTime();
+      return t >= wStart && t < nextStart;
+    });
+    if (hit) streak++;
+    else break;
+  }
+  return streak;
+}
+
+// Human-friendly countdown for the weekly reveal. Examples: "in 2d 4h",
+// "in 3h 12m", "TONIGHT at 8:00pm", "TOMORROW at 8:00pm", "in 4m".
+function formatRevealCountdown(revealDate) {
+  var now = new Date();
+  var msLeft = revealDate.getTime() - now.getTime();
+  if (msLeft <= 0) return 'now';
+  var mins = Math.floor(msLeft / 60000);
+  var hours = Math.floor(mins / 60);
+  var days = Math.floor(hours / 24);
+  var sameDay = now.toDateString() === revealDate.toDateString();
+  var tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+  var isTomorrow = tomorrow.toDateString() === revealDate.toDateString();
+  var timeStr = revealDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase();
+  if (sameDay) return 'TONIGHT at ' + timeStr;
+  if (isTomorrow) return 'TOMORROW at ' + timeStr;
+  if (days >= 1) return 'in ' + days + 'd ' + (hours % 24) + 'h';
+  if (hours >= 1) return 'in ' + hours + 'h ' + (mins % 60) + 'm';
+  return 'in ' + mins + 'm';
+}
+
+// Render the "🔥 N-week streak" pill on Circle. Above the weekly hero card.
+function renderStreakPill() {
+  var host = document.getElementById('streak-pill-host');
+  if (!host) return;
+  var n = computeWeeklyStreak();
+  if (n < 2) { host.innerHTML = ''; return; } // Only show at 2+ so it feels earned
+  var flame = n >= 8 ? '🔥🔥🔥' : (n >= 4 ? '🔥🔥' : '🔥');
+  host.innerHTML = '<div style="background:linear-gradient(135deg,#FFF3D6,#F5B534);border:1px solid #EBAA1F;border-radius:14px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">'
+    + '<div style="font-size:22px;line-height:1">' + flame + '</div>'
+    + '<div style="flex:1"><div style="font-size:13px;font-weight:700;color:#5F5000">' + n + '-week streak</div>'
+    + '<div style="font-size:11px;color:#5F5000;opacity:0.85;margin-top:1px">You\'ve filled ' + n + ' weekly lists in a row. Keep going.</div></div>'
+    + '</div>';
+}
+
 function getCurrentWeeklyList() {
   if (!WEEKLY_LISTS.length) return null;
   var now = new Date();
@@ -9356,7 +9421,10 @@ async function renderWeeklyHeroCard() {
   var reveal = new Date(wk.reveal_at);
   var revealed = now >= reveal;
   var hasIt = userHasListInCategory(wk.category);
-  var revealFmt = reveal.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + ' · ' + reveal.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZoneName:'short' });
+  // Live countdown drives more anticipation than a static timestamp.
+  var revealFmt = revealed
+    ? reveal.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' })
+    : formatRevealCountdown(reveal);
   var wkPal = getCategoryColor(wk.category, { id: wk.id });
   var bg = 'linear-gradient(135deg,' + wkPal.bg + ',' + wkPal.accent + ')';
   var fg = wkPal.fg;
