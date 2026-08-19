@@ -2271,7 +2271,7 @@ var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
   var h = document.getElementById('done-banner-hint');
   if (!h) return;
   var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  h.textContent = reducedMotion ? 'Use ▲ ▼ arrows to reorder your ranking.' : 'Drag items to reorder your ranking.';
+  h.textContent = 'Drag items to reorder your ranking.';
 })();
 
 function renderItems() {
@@ -2432,7 +2432,7 @@ function updateProg() {
   var aa = document.getElementById('add-area');
   if (pf) pf.style.width = Math.round(n/10*100) + '%';
   if (pc) pc.textContent = n + '/10';
-  var hints = ['Add your first item below','Great start! Keep going...','Nice! ' + (10-n) + ' more to go...','Looking good! ' + (10-n) + ' left...','Halfway there!','More than halfway!','Almost there...','So close!','Just one more!', IS_TOUCH ? 'List complete! Tap ▲▼ to reorder.' : 'List complete! Drag to reorder.'];
+  var hints = ['Add your first item below','Great start! Keep going...','Nice! ' + (10-n) + ' more to go...','Looking good! ' + (10-n) + ' left...','Halfway there!','More than halfway!','Almost there...','So close!','Just one more!', IS_TOUCH ? 'List complete! Press and hold, then drag to reorder.' : 'List complete! Click and drag to reorder.'];
   if (ph) ph.textContent = hints[Math.min(n, 9)];
   if (db) db.style.display = n >= 10 ? 'block' : 'none';
   if (aa) aa.style.display = n >= 10 ? 'none' : 'block';
