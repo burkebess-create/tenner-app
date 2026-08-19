@@ -3120,13 +3120,17 @@ function showListDetail(l, origin) {
       row.className = 'rank-item';
       row.style.marginBottom = '6px';
       row.style.cursor = 'pointer';
+      row.setAttribute('data-item-name', item);
       row.setAttribute('onclick', "openItemComments('" + userId + "','" + listCatEsc + "','" + itemEsc + "')");
       var badge = newCommentItems[item]
         ? '<span style="display:inline-flex;align-items:center;gap:3px;background:#D85A30;color:#FFFFFF;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:8px;flex-shrink:0" title="' + newCommentItems[item] + ' new comment' + (newCommentItems[item] !== 1 ? 's' : '') + '">💬 ' + newCommentItems[item] + '</span>'
         : '<span style="font-size:14px;color:#B8B5A8;margin-left:8px;flex-shrink:0" title="Comments">💬</span>';
-      row.innerHTML = (l.ranked ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>') + '<span style="flex:1;font-size:13.5px;color:#2C2C2A">' + escapeHtml(item) + '</span>' + badge;
+      row.innerHTML = (l.ranked ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>') + '<span style="flex:1;font-size:13.5px;color:#2C2C2A;min-width:0;overflow-wrap:break-word">' + escapeHtml(item) + '</span>'
+        + '<span class="item-reactions-inline" style="display:flex;gap:3px;margin-left:6px;flex-shrink:0"></span>' + badge;
       el.appendChild(row);
     });
+    // Fetch item reactions once and decorate each row asynchronously
+    decorateItemsWithReactions(userId, listCat);
   }
   // Reactions on own list
   var reactionsEl = document.getElementById('list-detail-reactions');
@@ -10497,25 +10501,85 @@ async function toggleReaction(listOwnerId, category, emoji, btn, itemName) {
   } catch(e) { console.warn('toggleReaction', e); }
 }
 
+// Fetch every reaction on this list's items and paint a compact pill row next
+// to each item so users see "🔥 3 ❤️ 1" without having to open every item's
+// modal. Runs asynchronously after the row DOM has been laid out.
+async function decorateItemsWithReactions(listOwnerId, category) {
+  if (!sbClient || !listOwnerId || !category) return;
+  try {
+    var res = await sbClient.from('list_reactions')
+      .select('from_user_id, emoji, item_name')
+      .eq('list_owner_id', listOwnerId)
+      .eq('category', category)
+      .neq('item_name', '');
+    var rows = res.data || [];
+    if (!rows.length) return;
+    var byItem = {};
+    rows.forEach(function(r) {
+      if (!byItem[r.item_name]) byItem[r.item_name] = {};
+      byItem[r.item_name][r.emoji] = (byItem[r.item_name][r.emoji] || 0) + 1;
+    });
+    document.querySelectorAll('#list-detail-items .rank-item').forEach(function(row) {
+      var name = row.getAttribute('data-item-name');
+      if (!name) return;
+      var counts = byItem[name];
+      if (!counts) return;
+      var host = row.querySelector('.item-reactions-inline');
+      if (!host) return;
+      // Show up to the 3 most-reacted emojis, compact pill each
+      var pairs = Object.keys(counts).map(function(e){ return { e: e, n: counts[e] }; })
+        .sort(function(a,b){ return b.n - a.n; }).slice(0, 3);
+      host.innerHTML = pairs.map(function(p) {
+        return '<span style="display:inline-flex;align-items:center;gap:2px;background:#F5F3EE;border:1px solid #E8E6DF;border-radius:99px;padding:1px 6px;font-size:11px;color:#2C2C2A;line-height:1.4">' + p.e + (p.n > 1 ? ' ' + p.n : '') + '</span>';
+      }).join('');
+    });
+  } catch(e) { console.warn('decorateItemsWithReactions', e); }
+}
+
 // Load + render the per-item reaction pill row inside the item comments modal.
 async function loadItemReactions(listOwnerId, category, itemName, containerEl) {
   if (!sbClient || !containerEl) return;
   try {
     var res = await sbClient.from('list_reactions').select('from_user_id, emoji').eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', itemName);
     var reactions = res.data || [];
-    var counts = {}; var mineByEmoji = {};
+    var counts = {}; var mineByEmoji = {}; var whoByEmoji = {};
     reactions.forEach(function(r){
       counts[r.emoji] = (counts[r.emoji] || 0) + 1;
       if (r.from_user_id === userId) mineByEmoji[r.emoji] = true;
+      if (!whoByEmoji[r.emoji]) whoByEmoji[r.emoji] = [];
+      var f = myFriends.find(function(x){ return x.friendId === r.from_user_id; });
+      var name;
+      if (r.from_user_id === userId) name = 'You';
+      else {
+        var p = (f && f.profile) || {};
+        name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
+      }
+      whoByEmoji[r.emoji].push(name);
     });
-    containerEl.innerHTML = REACTION_EMOJIS.map(function(e) {
+    // Stash for the tap handler
+    window._itemReactionsByEmoji = whoByEmoji;
+    var pills = REACTION_EMOJIS.map(function(e) {
       var n = counts[e] || 0;
       var active = !!mineByEmoji[e];
       var itemEsc = String(itemName).replace(/'/g,"\\'");
       var catEsc = String(category).replace(/'/g,"\\'");
       return '<button onclick="toggleReaction(\'' + listOwnerId + '\',\'' + catEsc + '\',\'' + e + '\',this,\'' + itemEsc + '\')" style="background:' + (active?'#FAECE7':'#F5F3EE') + ';border:1px solid ' + (active?'#D4622A':'#E8E6DF') + ';border-radius:20px;padding:4px 10px;font-size:13px;cursor:pointer;margin:2px">' + e + (n?' '+n:'') + '</button>';
     }).join('');
+    var totalReacts = reactions.length;
+    var seeWho = totalReacts > 0
+      ? '<button onclick="showItemReactionAudience()" style="background:none;border:none;color:#5F5E5A;font-size:11px;padding:4px 6px;cursor:pointer;font-family:inherit;text-decoration:underline;margin-left:auto">See who reacted</button>'
+      : '';
+    containerEl.innerHTML = pills + seeWho;
   } catch(e) { console.warn('loadItemReactions', e); }
+}
+
+// Modal listing everyone who reacted on the currently-open item thread.
+function showItemReactionAudience() {
+  var map = window._itemReactionsByEmoji || {};
+  var keys = Object.keys(map);
+  if (!keys.length) { showToast('No reactions to show.'); return; }
+  var lines = keys.map(function(e) { return e + ' ' + map[e].join(', '); });
+  showConfirm('Reactions', lines.join('\n'), 'Done', 'primary', function(){});
 }
 
 function openItemComments(listOwnerId, category, itemName) {
