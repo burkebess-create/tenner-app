@@ -1860,7 +1860,7 @@ function renderCatGrid() {
     div.style.cssText = 'background:' + pal.bg + 'AA;border:' + (selected ? '2.5px solid #2C2C2A' : '1.5px solid #2C2C2A') + ';border-radius:18px;padding:16px;cursor:pointer;text-align:left;touch-action:manipulation;'
       + 'transform:' + (selected ? 'scale(1.02)' : 'scale(1)') + ';transition:transform 0.15s ease';
     div.innerHTML = '<div style="font-size:36px;line-height:1;margin-bottom:10px">' + renderCatEmoji(cat.e, 36) + '</div>'
-      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A">' + escapeHtml(cat.n) + '</div>';
+      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A">Top 10 ' + escapeHtml(cat.n) + '</div>';
     div.onclick = function() { selCat = cat.n; selCatEmoji = cat.e; renderCatGrid(); document.getElementById('cat-inp').value = ''; document.getElementById('cat-warn').style.display = 'none'; document.getElementById('cat-sugs').style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; };
     grid.appendChild(div);
   });
