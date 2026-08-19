@@ -10680,6 +10680,20 @@ async function loadAndRenderReactions(listOwnerId, category, containerEl) {
 async function toggleReaction(listOwnerId, category, emoji, btn, itemName) {
   if (!sbClient || !userId) return;
   var item = itemName || '';
+  // Block self-reactions on ranked lists — the ranking is already the
+  // endorsement, and self-reactions inflate the count in a way that dilutes
+  // friends' actual engagement. Unranked lists (bucket lists) still allow it
+  // since there's no ordering to serve as an implicit endorsement.
+  if (listOwnerId === userId) {
+    var ownList = (MY_LISTS || []).find(function(l){
+      return (l.category || (l.n || '').replace('Top 10 ','')) === category;
+    });
+    var isRanked = !ownList || ownList.ranked !== false; // default = ranked
+    if (isRanked) {
+      showToast('Your ranking says it all — reactions are for your friends.');
+      return;
+    }
+  }
   try {
     var existing = await sbClient.from('list_reactions').select('id').eq('from_user_id', userId).eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', item).eq('emoji', emoji).maybeSingle();
     if (existing.data) { await sbClient.from('list_reactions').delete().eq('id', existing.data.id); }
