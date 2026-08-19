@@ -1139,10 +1139,9 @@
             <div style="font-size:14px;font-weight:600;color:#2C2C2A">Invite someone</div>
             <button onclick="closeInviteModal()" style="border:none;background:none;font-size:20px;color:#888780;cursor:pointer;padding:0 4px">×</button>
           </div>
-          <div style="font-size:11px;font-weight:600;color:#5F5E5A;margin-bottom:4px">Email or phone numbers</div>
-          <textarea id="invite-email" rows="2" placeholder="friend@example.com, 555-867-5309&#10;Add multiple, separated by commas" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:12px;font-family:inherit;resize:none;margin-bottom:10px;color:#2C2C2A"></textarea>
           <div style="font-size:11px;font-weight:600;color:#5F5E5A;margin-bottom:4px">Message (optional)</div>
-          <textarea id="invite-message" rows="3" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:12px;font-family:inherit;resize:none;margin-bottom:12px;color:#2C2C2A"></textarea>
+          <textarea id="invite-message" rows="3" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:12px;font-family:inherit;resize:none;margin-bottom:8px;color:#2C2C2A"></textarea>
+          <div style="font-size:11px;color:#888780;margin-bottom:12px;line-height:1.4">Choose how to send — your email or messages app will open where you can pick recipients from your contacts.</div>
           <button class="btn-primary" id="invite-share-btn" onclick="nativeShareInvite()" style="margin-bottom:8px;display:none">📤 Share invite</button>
           <button class="btn-primary" onclick="sendInviteEmail()" style="margin-bottom:8px">✉️ Send invite email</button>
           <button class="btn-secondary" onclick="sendInviteText()" style="margin-bottom:8px">💬 Send text instead</button>
@@ -4300,8 +4299,6 @@ function openListInviteModal() {
   var defaultMsg = senderName + handleTag + ' shared their Top 10 ' + selCat + ' list on Tenner!\n\nFill out yours and see how you compare:\n' + url + myHandleLine();
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
-  var emailEl = document.getElementById('invite-email');
-  if (emailEl) emailEl.value = '';
   var shareBtn = document.getElementById('invite-share-btn');
   if (shareBtn) shareBtn.style.display = navigator.share ? 'block' : 'none';
   document.getElementById('invite-modal').style.display = 'flex';
@@ -4315,8 +4312,6 @@ function openInviteModalForGroup() {
   var defaultMsg = senderName + handleTag + ' is inviting you to join "' + groupName + '" on Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nJoin here: https://mytenner.com/' + myHandleLine();
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
-  var emailEl = document.getElementById('invite-email');
-  if (emailEl) emailEl.value = '';
   var shareBtn = document.getElementById('invite-share-btn');
   if (shareBtn) shareBtn.style.display = navigator.share ? 'block' : 'none';
   document.getElementById('invite-modal').style.display = 'flex';
@@ -4332,8 +4327,6 @@ function openInviteModal() {
   var defaultMsg = body + join + '\n\nSign up → https://mytenner.com/' + findLine + '\n\n— ' + senderName;
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
-  var emailEl = document.getElementById('invite-email');
-  if (emailEl) emailEl.value = '';
   var shareBtn = document.getElementById('invite-share-btn');
   if (shareBtn) shareBtn.style.display = navigator.share ? 'block' : 'none';
   document.getElementById('invite-modal').style.display = 'flex';
@@ -4344,8 +4337,6 @@ function closeInviteModal() {
 }
 
 function sendInviteEmail() {
-  var raw = (document.getElementById('invite-email') || {}).value || '';
-  var emails = raw.split(/[,\n]+/).map(function(s){ return s.trim(); }).filter(Boolean).join(',');
   var message = (document.getElementById('invite-message') || {}).value || '';
   var isListInvite = message.indexOf('Top 10') !== -1;
   var subject;
@@ -4357,17 +4348,18 @@ function sendInviteEmail() {
     var groupName = groupNameEl ? groupNameEl.value.trim() : '';
     subject = encodeURIComponent('You\'re invited to join' + (groupName ? ' "' + groupName + '"' : ' a group') + ' on Tenner');
   }
-  window.location.href = 'mailto:' + encodeURIComponent(emails) + '?subject=' + subject + '&body=' + encodeURIComponent(message);
+  // Empty recipient — user picks contacts in their own mail app
+  window.location.href = 'mailto:?subject=' + subject + '&body=' + encodeURIComponent(message);
   closeInviteModal();
 }
 
 function sendInviteText() {
-  var raw = (document.getElementById('invite-email') || {}).value || '';
-  var numbers = raw.split(/[,\n]+/).map(function(s){ return s.trim(); }).filter(Boolean).join(',');
   var message = (document.getElementById('invite-message') || {}).value || '';
   var body = encodeURIComponent(message);
-  var sep = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? '&' : '?';
-  window.location.href = 'sms:' + encodeURIComponent(numbers) + sep + 'body=' + body;
+  // sms: with empty recipient — user picks contacts in Messages. iOS uses & as
+  // the separator after the address; Android/most-others use ?.
+  var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  window.location.href = isIOS ? ('sms:&body=' + body) : ('sms:?body=' + body);
   closeInviteModal();
 }
 
@@ -7155,8 +7147,6 @@ function openCircleInviteModal() {
   var defaultMsg = senderName + ' is inviting you to join Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nSign up here: ' + url;
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
-  var emailEl = document.getElementById('invite-email');
-  if (emailEl) emailEl.value = '';
   var shareBtn = document.getElementById('invite-share-btn');
   if (shareBtn) shareBtn.style.display = navigator.share ? 'block' : 'none';
   document.getElementById('invite-modal').style.display = 'flex';
