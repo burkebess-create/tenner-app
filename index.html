@@ -996,6 +996,13 @@
             </div>
           </div>
 
+          <div class="sec-label">✉️ Email preferences</div>
+          <div class="card no-hover" style="margin-bottom:12px;display:flex;align-items:center;gap:10px;padding:14px 16px">
+            <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#2C2C2A">Manage which emails you receive</div>
+            <div style="font-size:11px;color:#5F5E5A;line-height:1.5;margin-top:2px">Social alerts, weekly rhythm, reminders, product tips.</div></div>
+            <button class="back-btn" onclick="go('s-email-prefs')" style="font-size:11px;padding:6px 12px;flex-shrink:0">Manage</button>
+          </div>
+
           <div class="sec-label">🎁 Your gift page</div>
           <div class="card no-hover" style="margin-bottom:12px">
             <div style="font-size:11px;color:#5F5E5A;line-height:1.55;margin-bottom:10px">Share this link with anyone — even people not on Tenner — so they can browse gift ideas built from your Top 10 lists.</div>
@@ -1030,6 +1037,24 @@
             <button class="btn-secondary" onclick="go('s-admin')" style="margin-bottom:0">Open admin panel</button>
           </div>
 
+        </div>
+      </div>
+
+      <!-- ═══ EMAIL PREFERENCES ═══ -->
+      <div class="screen" id="s-email-prefs">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-profile')">← Back</button>
+          <img src="logo-horizontal.png" alt="Tenner" onclick="go('s-circle')" style="height:28px;object-fit:contain;cursor:pointer" title="Home">
+          <div style="width:36px"></div>
+        </div>
+        <div class="content">
+          <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;margin:8px 0 4px;color:#2C2C2A">Email preferences</div>
+          <div style="font-size:13px;color:#5F5E5A;margin-bottom:20px">Choose which Tenner emails you want to receive. Essential emails (welcome, account) always send.</div>
+          <div id="email-prefs-list"></div>
+          <div style="margin-top:24px;padding-top:16px;border-top:1px solid #EAE3DC">
+            <button class="btn-secondary" onclick="unsubscribeAllNonEssential()" style="color:#A32D2D;border-color:#F09595">Unsubscribe from all non-essential</button>
+          </div>
+          <div id="email-prefs-status" style="display:none;margin-top:12px;font-size:12px;text-align:center;padding:10px;border-radius:8px;background:#EAF3DE;color:#27500A;border:1px solid #97C459"></div>
         </div>
       </div>
 
@@ -1502,6 +1527,7 @@ function go(id) {
     });
   }
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
+  if (id === 's-email-prefs') { renderEmailPrefs(); }
   if (id === 's-admin') { renderAdmin(); }
   if (id === 's-admin-user') { /* driven by openAdminUserDetail */ }
   if (id === 's-admin-list') { /* driven by openAdminListDetail */ }
@@ -5012,6 +5038,74 @@ async function sendWelcomeEmailIfNeeded() {
       ref_key: userId
     });
   } catch(e) { console.warn('welcome email check failed', e); }
+}
+
+// ── Email preference center ───────────────────────────────────────────────
+var EMAIL_PREF_CATEGORIES = [
+  { key: 'social',    label: 'Social alerts', desc: 'Comments on your lists, friend requests, list shares, friend updates' },
+  { key: 'weekly',    label: 'Weekly rhythm', desc: 'Weekly-list reveal, streak-in-danger, weekly nudges' },
+  { key: 'reminders', label: 'Reminders',      desc: 'Birthday reminders 14 days out' },
+  { key: 'product',   label: 'Product & tips', desc: 'Occasional feature announcements and tips' }
+];
+var _emailPrefsCache = null;
+
+async function loadEmailPrefs() {
+  if (!sbClient || !userId) return {};
+  try {
+    var res = await sbClient.from('user_email_prefs').select('prefs').eq('user_id', userId).maybeSingle();
+    if (res.error) throw res.error;
+    _emailPrefsCache = (res.data && res.data.prefs) || {};
+    return _emailPrefsCache;
+  } catch(e) { console.warn('loadEmailPrefs failed', e); return {}; }
+}
+
+async function renderEmailPrefs() {
+  var host = document.getElementById('email-prefs-list');
+  if (!host) return;
+  host.innerHTML = '<div style="font-size:12px;color:#888780;padding:16px;text-align:center">Loading…</div>';
+  var prefs = await loadEmailPrefs();
+  host.innerHTML = EMAIL_PREF_CATEGORIES.map(function(cat) {
+    // Default = opted in unless explicitly set to false
+    var enabled = prefs[cat.key] !== false;
+    return '<div class="card no-hover" style="margin-bottom:10px;display:flex;align-items:center;gap:12px;padding:14px 16px">'
+      + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A;margin-bottom:2px">' + escapeHtml(cat.label) + '</div>'
+      + '<div style="font-size:12px;color:#5F5E5A;line-height:1.45">' + escapeHtml(cat.desc) + '</div></div>'
+      + '<label class="toggle" style="flex-shrink:0"><input type="checkbox" ' + (enabled ? 'checked' : '') + ' onchange="setEmailPref(\'' + cat.key + '\',this.checked)"><span class="toggle-slider"></span></label>'
+      + '</div>';
+  }).join('');
+}
+
+async function setEmailPref(category, enabled) {
+  if (!sbClient || !userId) return;
+  try {
+    var current = _emailPrefsCache || {};
+    current[category] = !!enabled;
+    _emailPrefsCache = current;
+    var res = await sbClient.from('user_email_prefs').upsert({ user_id: userId, prefs: current, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (res.error) throw res.error;
+    showEmailPrefsStatus('Preferences saved.');
+  } catch(e) { showToast('Could not save: ' + (e.message || e)); }
+}
+
+function showEmailPrefsStatus(msg) {
+  var el = document.getElementById('email-prefs-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(function() { el.style.display = 'none'; }, 2000);
+}
+
+async function unsubscribeAllNonEssential() {
+  showConfirm('Unsubscribe from all non-essential emails?', 'You\'ll only receive welcome and account-related emails going forward. You can re-enable anytime here.', 'Unsubscribe all', 'danger', async function() {
+    var all = { social: false, weekly: false, reminders: false, product: false };
+    _emailPrefsCache = all;
+    try {
+      var res = await sbClient.from('user_email_prefs').upsert({ user_id: userId, prefs: all, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+      if (res.error) throw res.error;
+      renderEmailPrefs();
+      showEmailPrefsStatus('Unsubscribed from all non-essential emails.');
+    } catch(e) { showToast('Could not unsubscribe: ' + (e.message || e)); }
+  });
 }
 
 async function loadProfile() {
@@ -10483,6 +10577,11 @@ function setupRealtimeNotifications() {
     savePendingInvite(fillVal, fromVal);
     history.replaceState(null, '', window.location.pathname);
   }
+  // ?openPrefs=1 → email footer deep link to the preference center
+  if (_qs.get('openPrefs') === '1') {
+    window.__pendingOpenPrefs = true;
+    history.replaceState(null, '', window.location.pathname);
+  }
 
   initSupabase();
   initPasswordRecoveryFlow();
@@ -10509,6 +10608,11 @@ function setupRealtimeNotifications() {
         try { await loadProfile(); } catch(e) {}
         startOnboardingIfNeeded();
       })();
+      // Deep link from email footer → open preference center after sign-in
+      if (window.__pendingOpenPrefs) {
+        window.__pendingOpenPrefs = false;
+        setTimeout(function() { go('s-email-prefs'); }, 300);
+      }
       // Prefer in-memory invite (same page load); fall back to persisted
       // invite that survived the email-confirmation reload.
       var invite = window.pendingFill ? { fill: window.pendingFill, from: window.pendingFrom || null } : getPendingInvite();

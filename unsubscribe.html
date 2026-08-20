@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unsubscribe — Tenner</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+<meta name="robots" content="noindex, nofollow">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; color: #2C2C2A; background: #FDFCF8; line-height: 1.55; min-height: 100vh; display: flex; flex-direction: column; }
+  header { padding: 18px 20px; text-align: center; border-bottom: 1px solid #EAE3DC; }
+  header img { height: 32px; object-fit: contain; }
+  main { flex: 1; padding: 40px 20px; max-width: 480px; margin: 0 auto; width: 100%; }
+  h1 { font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; font-size: 30px; letter-spacing: -0.02em; margin: 0 0 12px; color: #2C2C2A; }
+  p { font-size: 15px; color: #5F5E5A; margin: 0 0 16px; }
+  .card { background: #FFFFFF; border: 1px solid #EAE3DC; border-radius: 16px; padding: 24px; margin-bottom: 16px; }
+  .status { text-align: center; padding: 40px 24px; }
+  .status .icon { font-size: 56px; margin-bottom: 12px; }
+  .btn { display: inline-block; background: #2C2C2A; color: #FFFFFF; text-decoration: none; font-family: inherit; font-size: 14px; font-weight: 600; padding: 12px 22px; border-radius: 99px; border: none; cursor: pointer; margin-right: 8px; }
+  .btn.secondary { background: #FFFFFF; color: #2C2C2A; border: 1px solid #D3D1C7; }
+  .btn.danger { background: #A32D2D; color: #FFFFFF; }
+  footer { text-align: center; padding: 24px 20px; color: #888780; font-size: 12px; }
+  footer a { color: #888780; margin: 0 8px; }
+</style>
+</head>
+<body>
+<header><img src="/logo-horizontal.png" alt="Tenner"></header>
+<main id="main">
+  <div class="status"><div class="icon">⏳</div><div>Processing…</div></div>
+</main>
+<footer>
+  <a href="/">Home</a> · <a href="/about.html">About</a> · <a href="/privacy.html">Privacy</a>
+</footer>
+<script>
+(function() {
+  var SUPABASE_URL = 'https://bbjpvlmkhvggtwyvpzrq.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_jeeTdNoqIJXBtx_1W1TscQ_cnRAcwHx';
+  var q = new URLSearchParams(location.search);
+  var token = q.get('t');
+  var category = q.get('c') || 'all';
+  var main = document.getElementById('main');
+
+  var CATEGORY_LABELS = {
+    social: 'Social alerts (comments, reactions, friend requests, list shares)',
+    weekly: 'Weekly rhythm (weekly reveal, streak-in-danger, weekly nudges)',
+    reminders: 'Reminders (birthdays)',
+    product: 'Product & tips',
+    all: 'all non-essential emails'
+  };
+
+  function render(html) { main.innerHTML = html; }
+  function showError(msg) {
+    render('<div class="status"><div class="icon">⚠️</div><h1>Something went wrong</h1><p>' + msg + '</p><a class="btn secondary" href="/">Back to Tenner</a></div>');
+  }
+  function showSuccess() {
+    var catLabel = CATEGORY_LABELS[category] || 'these emails';
+    render(
+      '<div class="status">'
+      + '<div class="icon">✅</div>'
+      + '<h1>You\'re unsubscribed</h1>'
+      + '<p>You won\'t receive <strong>' + catLabel + '</strong> from Tenner going forward.</p>'
+      + '<p style="margin-top:20px">Want finer control? Sign in and manage every email type.</p>'
+      + '<a class="btn" href="/">Open Tenner</a>'
+      + (category !== 'all' ? '<button class="btn danger" onclick="unsubAll()">Unsubscribe from all non-essential</button>' : '')
+      + '</div>'
+    );
+  }
+  function showLoading(text) {
+    render('<div class="status"><div class="icon">⏳</div><div>' + text + '</div></div>');
+  }
+
+  window.unsubAll = async function() {
+    showLoading('Unsubscribing from everything…');
+    var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    try {
+      var res = await sb.rpc('unsubscribe_by_token', { p_token: token, p_category: 'all' });
+      if (res.error || !res.data) throw new Error(res.error && res.error.message || 'Token not recognized');
+      category = 'all';
+      showSuccess();
+    } catch (e) { showError(String(e.message || e)); }
+  };
+
+  async function run() {
+    if (!token) { showError('This unsubscribe link is missing its token. Please use the link from your email.'); return; }
+    var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    try {
+      var res = await sb.rpc('unsubscribe_by_token', { p_token: token, p_category: category });
+      if (res.error) throw res.error;
+      if (!res.data) { showError('This unsubscribe link isn\'t valid. It may have already been used.'); return; }
+      showSuccess();
+    } catch (e) { showError(String(e.message || e)); }
+  }
+  run();
+})();
+</script>
+</body>
+</html>

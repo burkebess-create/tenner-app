@@ -15,7 +15,27 @@ const CORS_HEADERS = {
 
 const APP_URL = "https://mytenner.com/";
 
-function baseTemplate(preheader: string, contentHtml: string) {
+// Every email type maps to a preference category. 'essential' emails always
+// send regardless of prefs — welcome, feedback status changes, security.
+const EMAIL_TYPE_TO_CATEGORY: Record<string, string> = {
+  new_comment:     "social",
+  friend_request:  "social",
+  list_share:      "social",
+  friend_update:   "social",
+  weekly_reveal:   "weekly",
+  streak_in_danger:"weekly",
+  birthday_reminder:    "reminders",
+  birthday_reminder_14: "reminders",
+  welcome:         "essential",
+  feedback_update: "essential",
+};
+
+function baseTemplate(preheader: string, contentHtml: string, unsubToken?: string, category?: string) {
+  const unsubBlock = unsubToken
+    ? `<a href="${APP_URL}unsubscribe.html?t=${unsubToken}${category ? `&c=${category}` : ""}">Unsubscribe from these</a>
+       · <a href="${APP_URL}unsubscribe.html?t=${unsubToken}&c=all">Unsubscribe from all</a>
+       · <a href="${APP_URL}?openPrefs=1">Manage email preferences</a><br>`
+    : ``;
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -47,6 +67,7 @@ function baseTemplate(preheader: string, contentHtml: string) {
     <div class="foot">
       Tenner — Top 10 lists with friends<br>
       <a href="${APP_URL}">${APP_URL}</a><br>
+      ${unsubBlock}
       You're getting this because you have a Tenner account.
     </div>
   </div>
@@ -65,7 +86,7 @@ function templateWelcome(data: any) {
        2. <strong>Add friends</strong> to your Circle.<br>
        3. <strong>Compare</strong> — see how your picks stack up.</p>
     <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Make my first list →</a></p>`;
-  return { subject: "Welcome to Tenner 🎉", html: baseTemplate(preheader, body) };
+  return { subject: "Welcome to Tenner 🎉", html: baseTemplate(preheader, body, data.__unsub_token, data.__category) };
 }
 
 function templateBirthdayReminder(data: any) {
@@ -76,7 +97,7 @@ function templateBirthdayReminder(data: any) {
     <h1>🎂 ${escapeHtml(friendName)}'s birthday is in ${days} days</h1>
     <p>Open Tenner to see a curated gift guide based on ${escapeHtml(friendName)}'s Top 10 lists — books, movies, songs, and things they've told you they love.</p>
     <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">See gift ideas →</a></p>`;
-  return { subject: `${friendName}'s birthday in ${days} days 🎂`, html: baseTemplate(preheader, body) };
+  return { subject: `${friendName}'s birthday in ${days} days 🎂`, html: baseTemplate(preheader, body, data.__unsub_token, data.__category) };
 }
 
 function templateWeeklyReveal(data: any) {
@@ -88,7 +109,7 @@ function templateWeeklyReveal(data: any) {
     <p>This week's Tenner list — <strong>${emoji} Top 10 ${escapeHtml(cat)}</strong> — is now revealed.</p>
     <p>See how your picks stack up against your friends, and check out what the entire Tenner community picked.</p>
     <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">See the reveal →</a></p>`;
-  return { subject: `🎊 Tenner reveal: Top 10 ${cat}`, html: baseTemplate(preheader, body) };
+  return { subject: `🎊 Tenner reveal: Top 10 ${cat}`, html: baseTemplate(preheader, body, data.__unsub_token, data.__category) };
 }
 
 function templateFeedbackUpdate(data: any) {
@@ -106,7 +127,7 @@ function templateFeedbackUpdate(data: any) {
     <p style="background:#F1EFE8;padding:12px 14px;border-radius:10px;font-style:italic;color:#5F5E5A">${escapeHtml(message)}</p>
     ${status === "resolved" ? "<p>Thanks for helping make Tenner better. Keep the ideas coming!</p>" : "<p>We're on it — we'll let you know when it's resolved.</p>"}
     <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Open Tenner →</a></p>`;
-  return { subject: `Tenner feedback update: ${statusLabel}`, html: baseTemplate(preheader, body) };
+  return { subject: `Tenner feedback update: ${statusLabel}`, html: baseTemplate(preheader, body, data.__unsub_token, data.__category) };
 }
 
 function templateFriendUpdate(data: any) {
@@ -117,7 +138,7 @@ function templateFriendUpdate(data: any) {
     <h1>${escapeHtml(friendName)} updated their Top 10 ${escapeHtml(cat)}</h1>
     <p>Their picks changed — your match score with them might have shifted too. See what's new.</p>
     <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">See the update →</a></p>`;
-  return { subject: `${friendName} updated their Top 10 ${cat}`, html: baseTemplate(preheader, body) };
+  return { subject: `${friendName} updated their Top 10 ${cat}`, html: baseTemplate(preheader, body, data.__unsub_token, data.__category) };
 }
 
 function templateNewComment(data: any) {
@@ -144,7 +165,7 @@ function templateNewComment(data: any) {
     <p>${bodyIntro}</p>
     <p style="background:#F1EFE8;padding:12px 14px;border-radius:10px;font-style:italic;color:#5F5E5A">"${escapeHtml(commentText)}"</p>
     <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Reply on Tenner →</a></p>`;
-  return { subject, html: baseTemplate(preheader, body) };
+  return { subject, html: baseTemplate(preheader, body, data.__unsub_token, data.__category) };
 }
 
 function templateFriendRequest(data: any) {
@@ -157,7 +178,7 @@ function templateFriendRequest(data: any) {
     <p>They'd like to add you as a friend on Tenner so you can compare Top 10 lists.</p>
     ${message ? `<p style="background:#F1EFE8;padding:12px 14px;border-radius:10px;font-style:italic;color:#5F5E5A">"${escapeHtml(message)}"</p>` : ""}
     <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Respond on Tenner →</a></p>`;
-  return { subject: `${requesterName} wants to add you on Tenner`, html: baseTemplate(preheader, body) };
+  return { subject: `${requesterName} wants to add you on Tenner`, html: baseTemplate(preheader, body, data.__unsub_token, data.__category) };
 }
 
 function templateListShare(data: any) {
@@ -169,27 +190,60 @@ function templateListShare(data: any) {
     <h1>🎯 ${escapeHtml(senderName)}${escapeHtml(senderHandle)} shared a list with you</h1>
     <p>${escapeHtml(senderName)} wants you to fill out your own <strong>Top 10 ${escapeHtml(cat)}</strong> so you can compare with theirs on Tenner.</p>
     <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Fill out my Top 10 →</a></p>`;
-  return { subject: `${senderName} shared a Top 10 ${cat} list with you`, html: baseTemplate(preheader, body) };
+  return { subject: `${senderName} shared a Top 10 ${cat} list with you`, html: baseTemplate(preheader, body, data.__unsub_token, data.__category) };
 }
 
 function escapeHtml(str: string) {
   return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
 
-async function sendResend(to: string, subject: string, html: string) {
+async function sendResend(to: string, subject: string, html: string, headers?: Record<string, string>) {
   const apiKey = Deno.env.get("RESEND_API_KEY");
   const from = Deno.env.get("FROM_EMAIL") || "Tenner <hello@mytenner.com>";
   if (!apiKey) throw new Error("RESEND_API_KEY not configured");
+  const body: any = { from, to: [to], subject, html };
+  if (headers && Object.keys(headers).length) body.headers = headers;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ from, to: [to], subject, html }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const errText = await res.text();
     throw new Error(`Resend error ${res.status}: ${errText}`);
   }
   return await res.json();
+}
+
+// Look up recipient's preference row (opt-out check + unsubscribe token for
+// email footer links). Uses the service role key so it can read across users.
+async function fetchRecipientPrefs(toEmail: string): Promise<{ userId: string; token: string; prefs: Record<string, boolean> } | null> {
+  const url = Deno.env.get("SUPABASE_URL");
+  const srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !srk) return null;
+  try {
+    // 1. Look up user_id by email (profiles table has one row per user)
+    const pRes = await fetch(`${url}/rest/v1/profiles?select=id&email=eq.${encodeURIComponent(toEmail)}&limit=1`, {
+      headers: { apikey: srk, Authorization: `Bearer ${srk}` },
+    });
+    const profs = await pRes.json();
+    const userId = profs?.[0]?.id;
+    if (!userId) return null;
+    // 2. Look up prefs row
+    const uRes = await fetch(`${url}/rest/v1/user_email_prefs?select=prefs,unsubscribe_token&user_id=eq.${encodeURIComponent(userId)}&limit=1`, {
+      headers: { apikey: srk, Authorization: `Bearer ${srk}` },
+    });
+    const prefsRows = await uRes.json();
+    const row = prefsRows?.[0];
+    return {
+      userId,
+      token: row?.unsubscribe_token || "",
+      prefs: row?.prefs || {},
+    };
+  } catch (e) {
+    console.warn("fetchRecipientPrefs failed:", e);
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -200,20 +254,45 @@ Deno.serve(async (req) => {
     const { type, to, data } = await req.json();
     if (!type || !to) throw new Error("type and to are required");
 
+    // Preference check — skip if the recipient opted out of this category.
+    // 'essential' emails always go through (welcome / feedback_update / security).
+    const category = EMAIL_TYPE_TO_CATEGORY[type] || "essential";
+    const recipient = await fetchRecipientPrefs(to);
+    if (category !== "essential" && recipient) {
+      const allowed = recipient.prefs?.[category];
+      // Default = opted in (true) if the key is missing. Only skip when explicitly false.
+      if (allowed === false) {
+        return new Response(JSON.stringify({ ok: true, skipped: "user opted out of " + category }), {
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    const unsubToken = recipient?.token || "";
+    const enrichedData = { ...(data || {}), __unsub_token: unsubToken, __category: category };
+
     let tpl;
     switch (type) {
-      case "welcome":            tpl = templateWelcome(data || {}); break;
-      case "birthday_reminder":  tpl = templateBirthdayReminder(data || {}); break;
-      case "weekly_reveal":      tpl = templateWeeklyReveal(data || {}); break;
-      case "feedback_update":    tpl = templateFeedbackUpdate(data || {}); break;
-      case "friend_update":      tpl = templateFriendUpdate(data || {}); break;
-      case "new_comment":        tpl = templateNewComment(data || {}); break;
-      case "friend_request":     tpl = templateFriendRequest(data || {}); break;
-      case "list_share":         tpl = templateListShare(data || {}); break;
+      case "welcome":            tpl = templateWelcome(enrichedData); break;
+      case "birthday_reminder":  tpl = templateBirthdayReminder(enrichedData); break;
+      case "weekly_reveal":      tpl = templateWeeklyReveal(enrichedData); break;
+      case "feedback_update":    tpl = templateFeedbackUpdate(enrichedData); break;
+      case "friend_update":      tpl = templateFriendUpdate(enrichedData); break;
+      case "new_comment":        tpl = templateNewComment(enrichedData); break;
+      case "friend_request":     tpl = templateFriendRequest(enrichedData); break;
+      case "list_share":         tpl = templateListShare(enrichedData); break;
       default: throw new Error(`Unknown email type: ${type}`);
     }
 
-    const result = await sendResend(to, tpl.subject, tpl.html);
+    // List-Unsubscribe headers for Gmail/Apple Mail one-click unsubscribe.
+    // Required for good deliverability; recipients see a native "Unsubscribe"
+    // button next to the sender name.
+    const extraHeaders: Record<string, string> = {};
+    if (unsubToken) {
+      extraHeaders["List-Unsubscribe"] = `<${APP_URL}unsubscribe.html?t=${unsubToken}&c=${category}>`;
+      extraHeaders["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
+    }
+    const result = await sendResend(to, tpl.subject, tpl.html, extraHeaders);
     return new Response(JSON.stringify({ ok: true, id: result.id }), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
