@@ -126,16 +126,25 @@ function templateNewComment(data: any) {
   const itemName = data.item_name || "one of your picks";
   const commentText = data.comment_text || "";
   const isWholeList = data.is_whole_list === true || itemName === "__list__";
-  const target = isWholeList
-    ? `your Top 10 ${escapeHtml(cat)} list`
-    : `<strong>${escapeHtml(itemName)}</strong> on your Top 10 ${escapeHtml(cat)}`;
-  const preheader = `${commenterName} commented on ${isWholeList ? cat : itemName}`;
+
+  const subject = isWholeList
+    ? `${commenterName} commented on your Top 10 ${cat} list`
+    : `${commenterName} commented on one of your Top 10 ${cat}`;
+
+  const preheader = isWholeList
+    ? `${commenterName} commented on your Top 10 ${cat} list.`
+    : `${commenterName} commented on "${itemName}".`;
+
+  const bodyIntro = isWholeList
+    ? `${escapeHtml(commenterName)} left a comment on your <strong>Top 10 ${escapeHtml(cat)}</strong> list:`
+    : `${escapeHtml(commenterName)} commented on <strong>${escapeHtml(itemName)}</strong> from your <strong>Top 10 ${escapeHtml(cat)}</strong>:`;
+
   const body = `
     <h1>💬 ${escapeHtml(commenterName)} commented</h1>
-    <p>${escapeHtml(commenterName)} left a comment on ${target}:</p>
+    <p>${bodyIntro}</p>
     <p style="background:#F1EFE8;padding:12px 14px;border-radius:10px;font-style:italic;color:#5F5E5A">"${escapeHtml(commentText)}"</p>
     <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Reply on Tenner →</a></p>`;
-  return { subject: `${commenterName} commented on your ${isWholeList ? cat : itemName}`, html: baseTemplate(preheader, body) };
+  return { subject, html: baseTemplate(preheader, body) };
 }
 
 function templateFriendRequest(data: any) {
