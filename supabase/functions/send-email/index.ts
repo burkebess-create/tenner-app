@@ -120,6 +120,49 @@ function templateFriendUpdate(data: any) {
   return { subject: `${friendName} updated their Top 10 ${cat}`, html: baseTemplate(preheader, body) };
 }
 
+function templateNewComment(data: any) {
+  const commenterName = data.commenter_name || "A friend";
+  const cat = data.category || "list";
+  const itemName = data.item_name || "one of your picks";
+  const commentText = data.comment_text || "";
+  const isWholeList = data.is_whole_list === true || itemName === "__list__";
+  const target = isWholeList
+    ? `your Top 10 ${escapeHtml(cat)} list`
+    : `<strong>${escapeHtml(itemName)}</strong> on your Top 10 ${escapeHtml(cat)}`;
+  const preheader = `${commenterName} commented on ${isWholeList ? cat : itemName}`;
+  const body = `
+    <h1>💬 ${escapeHtml(commenterName)} commented</h1>
+    <p>${escapeHtml(commenterName)} left a comment on ${target}:</p>
+    <p style="background:#F1EFE8;padding:12px 14px;border-radius:10px;font-style:italic;color:#5F5E5A">"${escapeHtml(commentText)}"</p>
+    <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Reply on Tenner →</a></p>`;
+  return { subject: `${commenterName} commented on your ${isWholeList ? cat : itemName}`, html: baseTemplate(preheader, body) };
+}
+
+function templateFriendRequest(data: any) {
+  const requesterName = data.requester_name || "Someone";
+  const requesterHandle = data.requester_handle ? ` (@${data.requester_handle})` : "";
+  const message = data.message || "";
+  const preheader = `${requesterName} wants to add you as a friend on Tenner.`;
+  const body = `
+    <h1>👋 ${escapeHtml(requesterName)}${escapeHtml(requesterHandle)} wants to connect</h1>
+    <p>They'd like to add you as a friend on Tenner so you can compare Top 10 lists.</p>
+    ${message ? `<p style="background:#F1EFE8;padding:12px 14px;border-radius:10px;font-style:italic;color:#5F5E5A">"${escapeHtml(message)}"</p>` : ""}
+    <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Respond on Tenner →</a></p>`;
+  return { subject: `${requesterName} wants to add you on Tenner`, html: baseTemplate(preheader, body) };
+}
+
+function templateListShare(data: any) {
+  const senderName = data.sender_name || "A friend";
+  const senderHandle = data.sender_handle ? ` (@${data.sender_handle})` : "";
+  const cat = data.category || "list";
+  const preheader = `${senderName} shared a Top 10 ${cat} list with you.`;
+  const body = `
+    <h1>🎯 ${escapeHtml(senderName)}${escapeHtml(senderHandle)} shared a list with you</h1>
+    <p>${escapeHtml(senderName)} wants you to fill out your own <strong>Top 10 ${escapeHtml(cat)}</strong> so you can compare with theirs on Tenner.</p>
+    <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Fill out my Top 10 →</a></p>`;
+  return { subject: `${senderName} shared a Top 10 ${cat} list with you`, html: baseTemplate(preheader, body) };
+}
+
 function escapeHtml(str: string) {
   return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
@@ -155,6 +198,9 @@ Deno.serve(async (req) => {
       case "weekly_reveal":      tpl = templateWeeklyReveal(data || {}); break;
       case "feedback_update":    tpl = templateFeedbackUpdate(data || {}); break;
       case "friend_update":      tpl = templateFriendUpdate(data || {}); break;
+      case "new_comment":        tpl = templateNewComment(data || {}); break;
+      case "friend_request":     tpl = templateFriendRequest(data || {}); break;
+      case "list_share":         tpl = templateListShare(data || {}); break;
       default: throw new Error(`Unknown email type: ${type}`);
     }
 

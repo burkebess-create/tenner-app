@@ -2802,6 +2802,7 @@ async function sendToSelectedFriends() {
     try {
       var res = await sbClient.from('list_share_invites').insert({ from_user_id: userId, to_user_id: ids[i], category: selCat });
       if (res.error && res.error.code !== '23505') console.warn('Share failed for friend', ids[i], res.error);
+      if (!res.error) notifyFriendOfListShare(ids[i], selCat);
     } catch(e) { console.warn(e); }
   }
   _shareSelectedFriends.clear();
@@ -2934,6 +2935,7 @@ async function shareCreateListToFriend(friendId, btn) {
     try {
       var res = await sbClient.from('list_share_invites').insert({ from_user_id: userId, to_user_id: friendId, category: selCat });
       if (res.error && res.error.code !== '23505') throw res.error;
+      if (!res.error) notifyFriendOfListShare(friendId, selCat);
     } catch(e) { console.warn('Friend share failed', e); }
   }
   if (btn) { btn.textContent = 'Sent ✓'; btn.disabled = true; btn.style.color = '#3B6D11'; btn.style.borderColor = '#3B6D11'; }
@@ -3277,12 +3279,34 @@ async function shareListWithFriend(friendId, cat, btn) {
     try {
       var res = await sbClient.from('list_share_invites').insert({ from_user_id: userId, to_user_id: friendId, category: cat });
       if (res.error && res.error.code !== '23505') throw res.error; // 23505 = already invited
+      // Fresh invite (not a duplicate) → notify by email too
+      if (!res.error) notifyFriendOfListShare(friendId, cat);
     } catch(e) { console.warn('Share invite failed', e); }
   }
   btn.textContent = 'Sent ✓';
   btn.style.color = '#3B6D11';
   btn.style.borderColor = '#3B6D11';
   btn.disabled = true;
+}
+
+async function notifyFriendOfListShare(friendId, cat) {
+  if (!sbClient || !friendId || !cat) return;
+  try {
+    var pr = await sbClient.from('profiles').select('email').eq('id', friendId).maybeSingle();
+    if (!pr.data || !pr.data.email) return;
+    // Rate-limit: one list-share email per (recipient, sender, category, day)
+    var today = new Date().toISOString().slice(0, 10);
+    var refKey = userId + '__' + cat + '__' + today;
+    var chk = await sbClient.from('email_log').select('id').eq('user_id', friendId).eq('email_type', 'list_share').eq('ref_key', refKey).maybeSingle();
+    if (chk.data) return;
+    var senderName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
+    sendAppEmail('list_share', pr.data.email, {
+      sender_name: senderName,
+      sender_handle: (myProfile && myProfile.handle) || '',
+      category: cat
+    });
+    await sbClient.from('email_log').insert({ user_id: friendId, email_type: 'list_share', ref_key: refKey });
+  } catch(e) { console.warn('notifyFriendOfListShare failed', e); }
 }
 
 // Remind a friend about a previously-shared list. If they dismissed it within the
@@ -5369,7 +5393,27 @@ async function sendFriendRequest(addresseeId) {
     document.getElementById('friend-search-result').innerHTML = '<div style="font-size:11px;color:#27500A;background:#EAF3DE;padding:8px;border-radius:8px">Friend request sent!</div>';
     await loadFriends();
     renderFriendsSection();
+    notifyAddresseeOfFriendRequest(addresseeId, note);
   } catch(e) { document.getElementById('friend-search-result').innerHTML = '<div style="font-size:11px;color:#A32D2D">Could not send request.</div>'; }
+}
+
+async function notifyAddresseeOfFriendRequest(addresseeId, message) {
+  if (!sbClient || !addresseeId) return;
+  try {
+    var pr = await sbClient.from('profiles').select('email').eq('id', addresseeId).maybeSingle();
+    if (!pr.data || !pr.data.email) return;
+    // Rate-limit to one email per (addressee, requester) — no repeats if the
+    // user withdraws + re-sends. `ref_key` = the requester's userId.
+    var chk = await sbClient.from('email_log').select('id').eq('user_id', addresseeId).eq('email_type', 'friend_request').eq('ref_key', userId).maybeSingle();
+    if (chk.data) return;
+    var requesterName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'Someone');
+    sendAppEmail('friend_request', pr.data.email, {
+      requester_name: requesterName,
+      requester_handle: (myProfile && myProfile.handle) || '',
+      message: message || ''
+    });
+    await sbClient.from('email_log').insert({ user_id: addresseeId, email_type: 'friend_request', ref_key: userId });
+  } catch(e) { console.warn('notifyAddresseeOfFriendRequest failed', e); }
 }
 
 async function withdrawFriendRequest(friendshipId, name) {
@@ -11169,7 +11213,34 @@ async function submitItemComment() {
     inp.value = '';
     autoGrowCommentInput(inp);
     loadItemComments(activeCommentListOwner, activeCommentCategory, activeCommentItem);
+    // Fire-and-forget email to the list owner (skip if commenting on own list).
+    // Dedupe key includes the day so we don't spam if someone comments a lot.
+    if (activeCommentListOwner && activeCommentListOwner !== userId) {
+      notifyListOwnerOfComment(activeCommentListOwner, activeCommentCategory, activeCommentItem, text);
+    }
   } catch(e) { showToast('Could not post comment. Try again.'); }
+}
+
+async function notifyListOwnerOfComment(ownerId, category, itemName, commentText) {
+  if (!sbClient || !ownerId) return;
+  try {
+    var pr = await sbClient.from('profiles').select('email').eq('id', ownerId).maybeSingle();
+    if (!pr.data || !pr.data.email) return;
+    var today = new Date().toISOString().slice(0, 10);
+    // Rate-limit: one comment email per (owner, commenter, category, item, day)
+    var refKey = userId + '__' + category + '__' + (itemName || '') + '__' + today;
+    var chk = await sbClient.from('email_log').select('id').eq('user_id', ownerId).eq('email_type', 'new_comment').eq('ref_key', refKey).maybeSingle();
+    if (chk.data) return;
+    var commenterName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
+    sendAppEmail('new_comment', pr.data.email, {
+      commenter_name: commenterName,
+      category: category,
+      item_name: itemName,
+      comment_text: commentText,
+      is_whole_list: itemName === '__list__'
+    });
+    await sbClient.from('email_log').insert({ user_id: ownerId, email_type: 'new_comment', ref_key: refKey });
+  } catch(e) { console.warn('notifyListOwnerOfComment failed', e); }
 }
 
 // ── Feature A: In-group recent activity ────────────────────────────────────
