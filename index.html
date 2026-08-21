@@ -762,7 +762,10 @@
           <div id="circle-list-invites-host"></div>
           <div id="streak-pill-host"></div>
           <div id="weekly-hero-card"></div>
-          <div class="sec-label">Activity</div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin:24px 0 12px">
+            <div class="sec-label" style="margin:0">Recent from your circle</div>
+            <a onclick="window.__forceNotifTab='activity';openAlerts()" style="font-size:11px;color:#D85A30;text-decoration:underline;cursor:pointer;font-weight:600">See all activity →</a>
+          </div>
           <div id="home-feed-section"></div>
 
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;margin-bottom:8px">
@@ -1632,11 +1635,14 @@ function go(id) {
   }
   if (id === 's-notifications') {
     refreshNotifications().then(function() {
-      // Smart default: land on Invites when the user has any pending invites,
-      // otherwise fall back to Activity so the tab isn't empty on open.
+      // Respect explicit tab request from callers (e.g. "See all activity" link
+      // on Circle). Otherwise smart-default: Invites when the user has any
+      // pending invites, else Activity so the tab isn't empty on open.
+      var forced = window.__forceNotifTab;
+      window.__forceNotifTab = null;
       var hasInvites = (MY_LIST_SHARE_INVITES || []).filter(function(i){ return !i.dismissed_at; }).length > 0
         || (MY_PENDING_GROUP_INVITES || []).length > 0;
-      switchNotifTab(hasInvites ? 'invites' : 'activity');
+      switchNotifTab(forced || (hasInvites ? 'invites' : 'activity'));
       markNotificationsRead().then(updateNotificationBadge);
     });
   }
@@ -6266,7 +6272,10 @@ async function renderNotifActivity(el) {
     el.innerHTML = html; return;
   }
   try {
-    var res = await sbClient.from('lists').select('user_id, name, category, emoji, items, updated_at').in('user_id', friendIds).order('updated_at', { ascending: false }).limit(30);
+    // Public-only, matching Circle's Recent activity feed for consistency.
+    // (Blind-fill lists are still filtered further below — only shown if you
+    // have your own list in the same category.)
+    var res = await sbClient.from('lists').select('user_id, name, category, emoji, items, updated_at, blind_fill').in('user_id', friendIds).eq('is_public', true).order('updated_at', { ascending: false }).limit(30);
     var recentLists = res.data || [];
     var _myCats = MY_LISTS.map(function(l){ return l.category || l.n.replace('Top 10 ',''); });
     recentLists = recentLists.filter(function(l){
