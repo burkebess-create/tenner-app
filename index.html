@@ -891,6 +891,13 @@
             </div>
           </div>
 
+          <!-- Sign out — wide white tile, above the bento grid -->
+          <div onclick="signOut()" style="background:#FFFFFF;border:1.5px solid #2C2C2A;border-radius:18px;padding:14px 16px;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;gap:12px">
+            <div style="font-size:22px;line-height:1">🚪</div>
+            <div style="flex:1;font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A">Sign out</div>
+            <div style="font-size:16px;color:#888780">›</div>
+          </div>
+
           <!-- Bento tile grid — each tile → sub-screen -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div onclick="go('s-profile-edit')" style="background:#F5D0C8AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
@@ -1100,7 +1107,6 @@
                 <div style="font-size:11px;font-weight:600;color:#2C2C2A" id="profile-email">—</div>
                 <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Signed in</div>
               </div>
-              <button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="signOut()">Sign out</button>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px">
               <div>
