@@ -4988,7 +4988,7 @@ function authErrorText(err) {
   if (msg && typeof msg === 'string' && msg.trim()) return msg;
   if (err.status || err.code) return 'Error ' + (err.status || err.code) + '. Please try again.';
   try { console.warn('Auth error object:', err); } catch(e) {}
-  return 'Something went wrong. Please try again or contact burkebess@gmail.com if it keeps happening.';
+  return 'Something went wrong. Please try again or contact contact@mytenner.com if it keeps happening.';
 }
 
 async function submitAuth() {
@@ -7820,7 +7820,7 @@ async function checkIfBanned() {
     var res = await sbClient.from('profiles').select('is_banned, banned_reason').eq('id', userId).maybeSingle();
     if (res.data && res.data.is_banned) {
       var reason = res.data.banned_reason ? '\n\nReason: ' + res.data.banned_reason : '';
-      alert('Your account has been suspended.' + reason + '\n\nContact burkebess@gmail.com if you believe this is a mistake.');
+      alert('Your account has been suspended.' + reason + '\n\nContact contact@mytenner.com if you believe this is a mistake.');
       await sbClient.auth.signOut();
       location.reload();
       return true;
