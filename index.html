@@ -45,6 +45,15 @@
 <meta name="twitter:title" content="Tenner — Top 10 Lists">
 <meta name="twitter:description" content="Rank what you love. Compare with people you know.">
 <meta name="twitter:image" content="https://mytenner.com/og-image.png">
+<!-- PWA / Add-to-Home-Screen -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#D85A30">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Tenner">
+<link rel="apple-touch-icon" href="/logo-square.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/logo-square-compressed.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -347,6 +356,41 @@
       }
     } catch (e) {}
   })();
+
+  // ── PWA service worker registration ────────────────────────────────
+  // Registers the offline shell + push handler. Fires once per page load;
+  // browser dedupes if the same version is already installed.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('/service-worker.js').catch(function(err) {
+        console.warn('SW registration failed:', err);
+      });
+    });
+  }
+
+  // Capture the beforeinstallprompt event so the app can show its own
+  // "Install Tenner" button when the browser considers the site installable
+  // (Chrome, Edge, Android). iOS Safari doesn't fire this — it uses the
+  // native Share → Add to Home Screen flow, which we hint about separately.
+  window.__deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    window.__deferredInstallPrompt = e;
+    // Show a subtle install button if the app has already surfaced its UI
+    var btn = document.getElementById('pwa-install-btn');
+    if (btn) btn.style.display = 'inline-flex';
+  });
+  window.addEventListener('appinstalled', function() {
+    window.__deferredInstallPrompt = null;
+    var btn = document.getElementById('pwa-install-btn');
+    if (btn) btn.style.display = 'none';
+  });
+  window.triggerPwaInstall = function() {
+    var p = window.__deferredInstallPrompt;
+    if (!p) return;
+    p.prompt();
+    p.userChoice.then(function() { window.__deferredInstallPrompt = null; });
+  };
 </script>
 <div class="outer">
   <!-- Desktop sidebar (hidden below 900px, hidden on touch devices) -->
@@ -427,6 +471,10 @@
           </div>
           <div style="text-align:center;margin-top:8px;font-size:11px;color:#888780;line-height:1.55">
             <a href="gifts/" style="color:#5F5E5A;text-decoration:underline">Browse gift ideas</a>
+          </div>
+          <!-- PWA install button — only shows on browsers that support beforeinstallprompt (Chrome/Edge/Android). Hidden by default; the JS toggles it on. -->
+          <div style="text-align:center;margin-top:14px">
+            <button id="pwa-install-btn" onclick="triggerPwaInstall()" style="display:none;align-items:center;gap:6px;background:#FFFFFF;border:1px solid #D3D1C7;color:#2C2C2A;font-family:inherit;font-size:12px;font-weight:600;padding:8px 16px;border-radius:99px;cursor:pointer">📲 Install Tenner as an app</button>
           </div>
         </div>
       </div>

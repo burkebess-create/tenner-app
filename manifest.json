@@ -1,0 +1,26 @@
+{
+  "name": "Tenner — Top 10 Lists with Friends",
+  "short_name": "Tenner",
+  "description": "Rank what you love. Compare with people you know.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FDFCF8",
+  "theme_color": "#D85A30",
+  "icons": [
+    {
+      "src": "/logo-square.png",
+      "sizes": "607x607",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-square-compressed.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["social", "lifestyle", "productivity"]
+}
