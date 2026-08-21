@@ -3,6 +3,7 @@
 // Sends:
 //   - Birthday reminders (14 days out) to users whose friends have upcoming birthdays
 //   - Weekly reveal announcements when a weekly_lists.reveal_at just passed
+//   - Feedback digest to contact@mytenner.com summarizing new feedback (past 24h)
 //
 // Environment secrets required:
 //   RESEND_API_KEY               your Resend API key
@@ -183,6 +184,50 @@ async function runWeeklyRevealEmails(supabase: any) {
   return sentCount;
 }
 
+// Digest email to Tenner ops summarizing feedback submitted in the past 24h.
+// Sent to a fixed inbox (contact@mytenner.com) — no dedupe needed since the
+// window itself prevents overlap between runs. Silent no-op if nothing new.
+async function runFeedbackDigest(supabase: any) {
+  console.log("Running feedback digest...");
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: rows, error } = await supabase
+    .from("feedback")
+    .select("user_email, category, message, status, created_at")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  if (!rows || rows.length === 0) return 0;
+
+  const catLabel: Record<string, string> = {
+    idea: "💡 Idea",
+    bug: "🐛 Bug",
+    other: "📝 Other",
+  };
+  const itemsHtml = rows.map((f: any) => {
+    const when = f.created_at ? new Date(f.created_at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) : '';
+    const tag = catLabel[f.category] || `📝 ${f.category || 'other'}`;
+    return `<div style="border:1px solid #EAE3DC;border-radius:12px;padding:14px 16px;margin-bottom:10px">
+      <div style="font-size:11px;color:#888780;margin-bottom:6px;display:flex;justify-content:space-between;gap:8px">
+        <span><strong style="color:#2C2C2A">${escapeHtml(f.user_email || 'anonymous')}</strong> · ${tag}</span>
+        <span>${escapeHtml(when)}</span>
+      </div>
+      <div style="font-size:14px;color:#2C2C2A;white-space:pre-wrap;line-height:1.5">${escapeHtml(f.message || '')}</div>
+    </div>`;
+  }).join('');
+
+  const subject = `📬 Tenner feedback digest — ${rows.length} new ${rows.length === 1 ? 'item' : 'items'}`;
+  const html = baseTemplate(
+    `${rows.length} new feedback item${rows.length === 1 ? '' : 's'} in the past 24h.`,
+    `<h1>📬 Feedback digest</h1>
+     <p><strong>${rows.length}</strong> new feedback submission${rows.length === 1 ? '' : 's'} in the past 24 hours.</p>
+     ${itemsHtml}
+     <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Open admin panel →</a></p>`
+  );
+
+  await sendResend("contact@mytenner.com", subject, html);
+  return rows.length;
+}
+
 Deno.serve(async (_req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -191,11 +236,13 @@ Deno.serve(async (_req) => {
 
     const birthdaySent = await runBirthdayReminders(supabase);
     const weeklySent = await runWeeklyRevealEmails(supabase);
+    const feedbackDigested = await runFeedbackDigest(supabase);
 
     return new Response(JSON.stringify({
       ok: true,
       birthday_reminders_sent: birthdaySent,
       weekly_reveals_sent: weeklySent,
+      feedback_digest_items: feedbackDigested,
     }), { headers: { "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
