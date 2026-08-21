@@ -78,10 +78,32 @@
   /* All overlays/modals constrained to the phone frame */
   .phone-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; z-index: 100; border-radius: 36px; overflow: hidden; }
   .phone-overlay.centered { align-items: center; }
-  /* Desktop sidebar */
-  .desktop-sidebar { display: none; width: 200px; flex-shrink: 0; }
-  @media (min-width: 700px) {
-    .desktop-sidebar { display: block; }
+  /* Desktop chrome — sidebar nav + centered phone frame, kicks in ≥900px.
+     Below 900px stays with the phone-frame-only look. */
+  .desktop-sidebar { display: none; }
+  @media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+    body { padding: 0; background: #F5F3EE; align-items: stretch; }
+    .outer { min-height: 100vh; align-items: stretch; gap: 0; }
+    .desktop-sidebar { display: flex; flex-direction: column; width: 240px; background: #FFFFFF; border-right: 1px solid #EAE3DC; padding: 24px 14px; flex-shrink: 0; gap: 4px; overflow-y: auto; }
+    .desktop-sidebar .ds-brand { font-family: 'DM Serif Display', Georgia, serif; font-size: 26px; letter-spacing: -0.02em; color: #2C2C2A; padding: 6px 12px 22px; }
+    .desktop-sidebar .ds-nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; cursor: pointer; color: #5F5E5A; font-size: 14px; font-weight: 600; transition: background 0.15s; user-select: none; }
+    .desktop-sidebar .ds-nav-item:hover { background: #F5F3EE; }
+    .desktop-sidebar .ds-nav-item.active { background: #FAECE7; color: #D85A30; }
+    .desktop-sidebar .ds-nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .desktop-sidebar .ds-nav-item .ds-badge { margin-left: auto; background: #D85A30; color: #fff; font-size: 10px; font-weight: 700; min-width: 18px; height: 18px; border-radius: 9px; padding: 0 5px; line-height: 18px; text-align: center; display: none; }
+    .desktop-sidebar .ds-nav-item .ds-badge.on { display: inline-block; }
+    .desktop-sidebar .ds-spacer { flex: 1; }
+    .desktop-sidebar .ds-profile { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px; cursor: pointer; background: #F5F3EE; margin-top: 8px; }
+    .desktop-sidebar .ds-profile:hover { background: #EAE3DC; }
+    .desktop-sidebar .ds-profile .ds-avatar { width: 32px; height: 32px; border-radius: 999px; background: #FAECE7; color: #993C1D; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+    .desktop-sidebar .ds-profile .ds-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .desktop-sidebar .ds-profile .ds-name { font-size: 13px; font-weight: 600; color: #2C2C2A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Center the phone frame in the remaining space and shrink it to iPhone-scale so it doesn't feel zoomed in */
+    .phone-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .phone { zoom: 0.85; }
+    /* Hide bottom nav on desktop — sidebar replaces it */
+    .bnav { display: none !important; }
   }
   @media (hover: none) and (pointer: coarse) {
     html, body { overflow: hidden; overscroll-behavior: none; }
@@ -314,6 +336,43 @@
   })();
 </script>
 <div class="outer">
+  <!-- Desktop sidebar (hidden below 900px, hidden on touch devices) -->
+  <aside class="desktop-sidebar" id="desktop-sidebar">
+    <div class="ds-brand" onclick="go('s-circle')" style="cursor:pointer">Tenner</div>
+    <div class="ds-nav-item" data-ds-screen="s-home" onclick="go('s-home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <span>My Lists</span>
+    </div>
+    <div class="ds-nav-item" data-ds-screen="s-create1" onclick="go('s-create1')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>Create</span>
+    </div>
+    <div class="ds-nav-item" data-ds-screen="s-circle" onclick="go('s-circle')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      <span>Circle</span>
+      <span class="ds-badge" id="ds-badge-circle"></span>
+    </div>
+    <div class="ds-nav-item" data-ds-screen="s-match" onclick="matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go('s-match')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      <span>Match</span>
+    </div>
+    <div class="ds-nav-item" data-ds-screen="s-gifts" onclick="go('s-gifts')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>
+      <span>Gifts</span>
+      <span class="ds-badge" id="ds-badge-gifts"></span>
+    </div>
+    <div class="ds-nav-item" data-ds-screen="s-notifications" onclick="openAlerts()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      <span>Alerts</span>
+      <span class="ds-badge" id="ds-badge-alerts"></span>
+    </div>
+    <div class="ds-spacer"></div>
+    <div class="ds-profile" onclick="go('s-profile')">
+      <div class="ds-avatar" id="ds-avatar">?</div>
+      <div class="ds-name" id="ds-name">Profile</div>
+    </div>
+  </aside>
+
   <!-- PHONE FRAME -->
   <div class="phone-wrap">
   <div class="phone">
@@ -1551,6 +1610,62 @@ function openAlerts() {
   go('s-notifications');
 }
 
+// Desktop sidebar sync — mirrors the same "active nav" logic used for bnav.
+// Groups sub-screens map to their parent tab so the sidebar highlight matches.
+function syncDesktopSidebar(id) {
+  var sb = document.getElementById('desktop-sidebar');
+  if (!sb) return;
+  var mapping = {
+    's-home': 's-home', 's-list-detail': 's-home',
+    's-create1': 's-create1', 's-create2': 's-create1', 's-create3': 's-create1',
+    's-cg1': 's-circle', 's-cg2': 's-circle', 's-cg3': 's-circle',
+    's-gdetail': 's-circle', 's-groups': 's-circle', 's-gsettings': 's-circle',
+    's-match': 's-match',
+    's-gifts': 's-gifts', 's-gift-guide': 's-gifts',
+    's-all-tenner': 's-circle',
+    's-circle': 's-circle', 's-fdetail': 's-circle', 's-friend-list': 's-circle', 's-gift-ideas': 's-circle', 's-add-friends': 's-circle',
+    's-notifications': 's-notifications'
+  };
+  var target = mapping[id] || null;
+  sb.querySelectorAll('.ds-nav-item').forEach(function(el) {
+    el.classList.toggle('active', el.getAttribute('data-ds-screen') === target);
+  });
+}
+
+// Update sidebar avatar + name from myProfile. Called after profile loads.
+function syncDesktopSidebarProfile() {
+  var av = document.getElementById('ds-avatar');
+  var nm = document.getElementById('ds-name');
+  if (!av || !nm) return;
+  var p = myProfile || {};
+  var name = p.display_name || (p.handle ? '@' + p.handle : (currentUserEmail || 'Profile'));
+  var initials = String(name).split(' ').map(function(w){ return w[0]; }).join('').toUpperCase().slice(0, 2) || '?';
+  if (p.photo) av.innerHTML = '<img src="' + p.photo + '">';
+  else av.textContent = initials;
+  nm.textContent = name;
+}
+
+// Update sidebar badges to reflect the same counts driving bnav dots.
+function syncDesktopSidebarBadges() {
+  var invites = (MY_LIST_SHARE_INVITES || []).filter(function(i){ return !i.read_at; }).length;
+  var pendingCircle = ((typeof myFriends !== 'undefined') ? myFriends : []).filter(function(f){ return f.status === 'pending' && !f.isRequester; }).length
+    + ((typeof MY_PENDING_GROUP_INVITES !== 'undefined') ? (MY_PENDING_GROUP_INVITES || []).length : 0);
+  var comments = (typeof unreadCommentsCount === 'function') ? unreadCommentsCount() : 0;
+  var alertsTotal = invites + comments;
+  function set(id, n) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (n > 0) { el.textContent = n > 9 ? '9+' : String(n); el.classList.add('on'); }
+    else { el.classList.remove('on'); }
+  }
+  set('ds-badge-alerts', alertsTotal);
+  set('ds-badge-circle', pendingCircle);
+  // gifts badge — same source as bnav gifts-badge if present
+  var giftsBadge = document.getElementById('gifts-badge');
+  var giftsN = giftsBadge && giftsBadge.style.display !== 'none' ? parseInt(giftsBadge.textContent, 10) : 0;
+  set('ds-badge-gifts', isNaN(giftsN) ? 0 : giftsN);
+}
+
 function go(id) {
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
   document.getElementById(id).classList.add('active');
@@ -1577,6 +1692,9 @@ function go(id) {
     }[id];
     if (activeNav) document.getElementById(activeNav) && document.getElementById(activeNav).classList.add('active');
   }
+  // Sync desktop-sidebar active state to the same mapping as bnav (plus explicit
+  // s-profile and s-notifications states since sidebar has entries for those).
+  syncDesktopSidebar(id);
   if (id === 's-home') {
     renderHome(); renderTopbarAvatars(); refreshNotifications().then(function(){ renderLists(); }); if (userId) showOnboardingIfNeeded();
     attachPullToRefresh(document.querySelector('#s-home .content'), function() { return loadState().then(renderHome); });
@@ -5388,6 +5506,8 @@ function renderProfileHeader() {
   var name = p.display_name || currentUserEmail || '—';
   var handle = p.handle ? '@' + p.handle : '@—';
   var initials = name.split(' ').map(function(w) { return w[0]; }).join('').toUpperCase().slice(0, 2) || '?';
+  // Sync desktop sidebar avatar/name as well
+  if (typeof syncDesktopSidebarProfile === 'function') syncDesktopSidebarProfile();
   // Two avatar spots: the hub header and the edit sub-screen preview.
   ['profile-avatar', 'profile-avatar-edit'].forEach(function(id) {
     var av = document.getElementById(id);
@@ -6010,6 +6130,7 @@ function updateNotificationBadge() {
     if (n > 0) { badge.textContent = n > 9 ? '9+' : n; badge.style.display = 'block'; }
     else { badge.style.display = 'none'; }
   });
+  if (typeof syncDesktopSidebarBadges === 'function') syncDesktopSidebarBadges();
 }
 
 // Refresh the unread count without rendering the full screen (called on app load / tab changes)
