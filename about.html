@@ -20,13 +20,17 @@
   .cta { display: inline-block; background: #E26B5C; color: #fff; padding: 14px 32px; border-radius: 999px; text-decoration: none; font-weight: 600; font-size: 16px; }
   .cta:hover { background: #D05A4B; }
   main { max-width: 720px; margin: 0 auto; padding: 0 24px 80px; }
-  section { margin-top: 28px; }
-  h2 { font-family: 'DM Serif Display', Georgia, serif; font-size: 26px; font-weight: 400; letter-spacing: -0.02em; color: #1A0F0A; margin: 0 0 6px; }
-  section p { margin: 0; }
-  .features { display: grid; grid-template-columns: 1fr; gap: 18px; margin-top: 16px; }
+  section { margin-top: 32px; }
+  h2 { font-family: 'DM Serif Display', Georgia, serif; font-size: 26px; font-weight: 400; letter-spacing: -0.02em; color: #1A0F0A; margin: 0 0 10px; }
+  section p { margin: 0 0 10px; }
+  .features { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 16px; }
   .feature { background: #fff; border-radius: 16px; padding: 20px; border: 1px solid #EAE3DC; }
   .feature h3 { margin: 0 0 6px; font-size: 17px; }
-  .feature p { margin: 0; color: #555; font-size: 15px; }
+  .feature p { margin: 0; color: #555; font-size: 14.5px; line-height: 1.5; }
+  .callout { background: #FFF; border: 1px solid #F5B091; border-radius: 20px; padding: 24px; margin-top: 18px; }
+  .callout h3 { font-family: 'DM Serif Display', Georgia, serif; font-size: 22px; font-weight: 400; margin: 0 0 8px; color: #993C1D; }
+  .callout p { margin: 0 0 10px; color: #5F3300; font-size: 15px; }
+  .callout .btn { display: inline-block; background: #D85A30; color: #fff; text-decoration: none; font-weight: 600; font-size: 14px; padding: 10px 20px; border-radius: 99px; margin-top: 6px; }
   footer { text-align: center; padding: 32px 24px 48px; color: #888; font-size: 14px; border-top: 1px solid #EAE3DC; }
   footer a { color: #E26B5C; text-decoration: none; margin: 0 10px; }
   footer a:hover { text-decoration: underline; }
@@ -46,39 +50,64 @@
   <main>
     <section>
       <h2>What is Tenner?</h2>
-      <p>Tenner is a social app for making and sharing top 10 lists — your favorite movies, restaurants, songs, books, vacation spots, anything. See how your picks compare with friends and groups, react to each other's lists, and discover new things through the people you trust.</p>
+      <p>Tenner is a social app for making and sharing top 10 lists — your favorite movies, restaurants, songs, books, vacation spots, anything. See how your picks compare with friends and groups, react and comment on each other's lists, and discover new things through the people you trust.</p>
     </section>
 
     <section>
       <h2>How it works</h2>
       <div class="features">
         <div class="feature">
-          <h3>Make a list</h3>
-          <p>Pick a category — movies, restaurants, songs, or create your own custom category — and rank your top 10.</p>
+          <h3>📝 Make a list</h3>
+          <p>Pick a category — or create your own — and rank your top 10. Ranked or unranked, your call.</p>
         </div>
         <div class="feature">
-          <h3>Share with friends</h3>
-          <p>Send your list to friends or post it to a group to see how everyone ranks the same things.</p>
+          <h3>👥 Share with friends &amp; groups</h3>
+          <p>Send a list to specific friends, or post it to a group to see how everyone ranks the same things.</p>
         </div>
         <div class="feature">
-          <h3>Compare side by side</h3>
-          <p>See which picks overlap, which surprise you, and what's at the top across your circle.</p>
+          <h3>📊 Match scores &amp; reveals</h3>
+          <p>See how aligned your picks are with each friend — a suspenseful "tap to reveal" moment makes every comparison feel like a game.</p>
         </div>
         <div class="feature">
-          <h3>Blind fill</h3>
-          <p>Choose whether group members fill out their lists without seeing each other's — then reveal together — or see each other's picks from the start.</p>
+          <h3>🙈 Blind fill</h3>
+          <p>Have your group fill out the same list without seeing each other's — then reveal together for a big moment.</p>
+        </div>
+        <div class="feature">
+          <h3>💬 Comments &amp; reactions</h3>
+          <p>React with an emoji, drop a comment on a friend's list, or reply back — the fun's in the debate.</p>
+        </div>
+        <div class="feature">
+          <h3>🎊 Weekly Tenner lists</h3>
+          <p>A new prompt every week — "Top 10 Comfort Foods," "Top 10 Concerts," you name it. Build a streak by filling every week's list.</p>
+        </div>
+        <div class="feature">
+          <h3>🌎 See all of Tenner</h3>
+          <p>After each weekly reveals, compare your picks against the entire Tenner community — not just your circle.</p>
+        </div>
+        <div class="feature">
+          <h3>🎁 Personalized gift pages</h3>
+          <p>Every user gets a shareable gift page built from their Top 10 lists. Send the link to family — even people not on Tenner — and they can shop for you with zero guesswork.</p>
         </div>
       </div>
     </section>
 
     <section>
+      <div class="callout">
+        <h3>🎁 Great for gift-giving</h3>
+        <p>Never wonder what to get someone again. Every Tenner user has a personalized gift page you can browse — showing the movies they'd love, restaurants they'd eat at, sneakers they'd wear, and more, all pulled straight from their Top 10 lists.</p>
+        <p>Not on Tenner? You can still browse curated gift categories built from Tenner's community picks.</p>
+        <a href="gifts/" class="btn">Browse gift ideas →</a>
+      </div>
+    </section>
+
+    <section>
       <h2>What Tenner is all about</h2>
-      <p>The best relationships are built on shared interests, learning about (and from) each other, and a healthy dose of friendly trash talk about whose favorites are clearly superior. Tenner brings friends, family, and groups together to discover what you have in common, learn what makes each other tick, and spark the kind of conversations that make every relationship and group dynamic better. And along the way, by sharing and comparing lists with the people you know, you might just stumble onto your new favorite movie, TV show, restaurant, book, or you-fill-in-the-blank.</p>
+      <p>The best relationships are built on shared interests, learning about (and from) each other, and a healthy dose of friendly trash talk about whose favorites are clearly superior. Tenner brings friends, family, and groups together to discover what you have in common, learn what makes each other tick, and spark the kind of conversations that make every relationship better. And along the way — by sharing and comparing lists with the people you know — you might just stumble onto your new favorite movie, TV show, restaurant, book, or you-fill-in-the-blank.</p>
     </section>
 
     <section>
       <h2>What data we collect</h2>
-      <p>To make Tenner work, we collect your email and (if you sign in with Google) your name and profile picture. We store the lists, friends, and groups you create. We may use this data to suggest gift ideas based on friends' lists, show app-wide aggregated insights, and personalize recommendations. We never sell your raw personal data. For full details, see <a href="privacy.html">Tenner's Privacy Policy</a> and <a href="terms.html">Tenner's Terms of Service</a>. By using Tenner, you agree to both.</p>
+      <p>To make Tenner work, we collect your email and (if you sign in with Google) your name and profile picture. We store the lists you create, the friends and groups you connect with, the comments and reactions you post, and your email preferences. We may use this data to suggest gift ideas based on friends' lists, show app-wide aggregated insights (like the most-picked movie across all of Tenner), and personalize recommendations. You control which emails you receive from Tenner in your profile settings — and you can unsubscribe from any category at any time. We never sell your raw personal data. For full details, see <a href="privacy.html">Tenner's Privacy Policy</a> and <a href="terms.html">Tenner's Terms of Service</a>. By using Tenner, you agree to both.</p>
     </section>
 
     <section>
@@ -88,7 +117,6 @@
   </main>
 
   <footer>
-    <a href="example-gift-guide.html">Example Gift Guide</a> ·
     <a href="privacy.html">Privacy Policy</a> ·
     <a href="terms.html">Terms of Service</a> ·
     <a href="mailto:burkebess@gmail.com">Contact</a>
