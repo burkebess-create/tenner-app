@@ -6,12 +6,12 @@
 //   - Everything else (API, dynamic assets) → network-first, no cache
 // Bump CACHE_VERSION whenever the shell files change so old caches get cleared.
 
-const CACHE_VERSION = 'tenner-v1';
+const CACHE_VERSION = 'tenner-v2';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
   '/logo-horizontal.png',
-  '/logo-square.png',
+  '/icon-app.png',
   '/manifest.json'
 ];
 
@@ -65,8 +65,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'Tenner', {
       body: data.body || '',
-      icon: '/logo-square.png',
-      badge: '/logo-square.png',
+      icon: '/icon-app.png',
+      badge: '/icon-app.png',
       data: { url: data.url || '/' }
     })
   );
