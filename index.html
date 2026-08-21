@@ -99,9 +99,13 @@
     .desktop-sidebar .ds-profile .ds-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .desktop-sidebar .ds-profile .ds-name { font-size: 13px; font-weight: 600; color: #2C2C2A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-    /* Center the phone frame in the remaining space and shrink it to iPhone-scale so it doesn't feel zoomed in */
-    .phone-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .phone { zoom: 0.85; }
+    /* Strip the phone-chrome entirely on desktop — no bezel, no rounded
+       corners, no dark background. The content column becomes a plain
+       webpage-style panel centered in the viewport. */
+    .phone-wrap { flex: 1; display: flex; align-items: stretch; justify-content: center; padding: 0; }
+    .phone { width: 480px; max-width: 480px; min-width: 0; background: transparent; border-radius: 0; padding: 0; box-shadow: none; zoom: 0.9; }
+    .phone::before, .phone::after { display: none; }
+    .frame { border-radius: 0; height: 100vh; max-height: none; min-height: 0; background: #FFFFFF; box-shadow: 0 0 0 1px #EAE3DC; }
     /* Hide bottom nav on desktop — sidebar replaces it */
     .bnav { display: none !important; }
   }
