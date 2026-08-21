@@ -878,39 +878,83 @@
           <span style="width:52px"></span>
         </div>
         <div class="content">
-          <div style="text-align:center;padding:16px 0 18px">
-            <label style="position:relative;display:inline-block;cursor:pointer;margin:0 auto 10px">
-              <div id="profile-avatar" style="width:72px;height:72px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden">?</div>
-              <span style="position:absolute;right:-2px;bottom:-2px;width:22px;height:22px;border-radius:50%;background:#D85A30;color:#fff;display:flex;align-items:center;justify-content:center;border:2px solid #fff"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
-              <input type="file" accept="image/*" onchange="onProfilePhotoUpload(this)" style="display:none">
-            </label>
-            <div id="profile-display-name" style="font-size:13px;font-weight:600;color:#2C2C2A">—</div>
+          <!-- Big header card: photo + name + handle + stats -->
+          <div style="text-align:center;padding:16px 0 20px">
+            <div id="profile-avatar" style="width:88px;height:88px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:30px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 12px">?</div>
+            <div id="profile-display-name" style="font-family:'DM Serif Display',Georgia,serif;font-size:22px;color:#2C2C2A;line-height:1.15">—</div>
             <div id="profile-handle-display" style="font-size:13.5px;color:#5F5E5A;margin-top:2px">@—</div>
             <div id="profile-on-tenner" style="font-size:10px;color:#888780;margin-top:4px;display:none"></div>
-            <div style="display:flex;justify-content:center;gap:20px;margin-top:12px">
-              <div style="text-align:center"><div id="profile-stat-lists" style="font-size:16px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9px;color:#5F5E5A">Lists</div></div>
-              <div style="text-align:center"><div id="profile-stat-friends" style="font-size:16px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9px;color:#5F5E5A">Friends</div></div>
-              <div style="text-align:center"><div id="profile-stat-circles" style="font-size:16px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9px;color:#5F5E5A">Groups</div></div>
+            <div style="display:flex;justify-content:center;gap:22px;margin-top:14px">
+              <div style="text-align:center"><div id="profile-stat-lists" style="font-size:17px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9.5px;color:#5F5E5A;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Lists</div></div>
+              <div style="text-align:center"><div id="profile-stat-friends" style="font-size:17px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9.5px;color:#5F5E5A;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Friends</div></div>
+              <div style="text-align:center"><div id="profile-stat-circles" style="font-size:17px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9.5px;color:#5F5E5A;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Groups</div></div>
             </div>
           </div>
-          <div class="sec-label">Account</div>
-          <div class="card no-hover" style="margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid #F1EFE8">
-              <div>
-                <div style="font-size:11px;font-weight:600;color:#2C2C2A" id="profile-email">—</div>
-                <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Signed in</div>
-              </div>
-              <button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="signOut()">Sign out</button>
+
+          <!-- Bento tile grid — each tile → sub-screen -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div onclick="go('s-profile-edit')" style="background:#F5D0C8AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
+              <div style="font-size:30px;line-height:1;margin-bottom:8px">✏️</div>
+              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Edit profile</div>
+              <div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">Name, handle, bio, birthday</div>
             </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px">
-              <div>
-                <div style="font-size:11px;font-weight:600;color:#2C2C2A">Password</div>
-                <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px" id="profile-pw-status">••••••••</div>
+            <div onclick="go('s-profile-comments')" style="background:#B8D0A8AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
+              <div style="font-size:30px;line-height:1;margin-bottom:8px">💬</div>
+              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Comment settings</div>
+              <div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">Who can comment, cleanup</div>
+            </div>
+            <div onclick="go('s-profile-gift')" style="background:#EFCB68AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
+              <div style="font-size:30px;line-height:1;margin-bottom:8px">🎁</div>
+              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Your gift page</div>
+              <div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">Share link, wishlist categories</div>
+            </div>
+            <div onclick="go('s-email-prefs')" style="background:#A8C8E8AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
+              <div style="font-size:30px;line-height:1;margin-bottom:8px">✉️</div>
+              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Email preferences</div>
+              <div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">What emails you receive</div>
+            </div>
+            <div onclick="go('s-profile-account')" style="background:#D9BEECAA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
+              <div style="font-size:30px;line-height:1;margin-bottom:8px">🔒</div>
+              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Account &amp; security</div>
+              <div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">Password, sign out</div>
+            </div>
+            <div onclick="go('s-profile-feedback')" style="background:#A8D8C8AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
+              <div style="font-size:30px;line-height:1;margin-bottom:8px">💡</div>
+              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Feedback</div>
+              <div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">Ideas or bug reports</div>
+            </div>
+            <div id="profile-admin-tile" onclick="go('s-admin')" style="display:none;grid-column:1/-1;background:#2C2C2A;border:1.5px solid #2C2C2A;border-radius:18px;padding:14px 16px;cursor:pointer;color:#FFFFFF">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="font-size:24px;line-height:1">⚡</div>
+                <div style="flex:1"><div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;line-height:1.1">Admin panel</div>
+                <div style="font-size:10px;opacity:0.7;font-weight:600;margin-top:3px">Categories, weekly lists, feedback, users</div></div>
+                <div style="font-size:16px;opacity:0.5">›</div>
               </div>
-              <button class="back-btn" id="profile-pw-btn" onclick="openChangePassword()">Change</button>
             </div>
           </div>
-          <div class="sec-label">Profile Info</div>
+        </div>
+      </div>
+
+      <!-- ═══ PROFILE — Edit ═══ -->
+      <div class="screen" id="s-profile-edit">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-profile')">← Back</button>
+          <img src="logo-horizontal.png" alt="Tenner" onclick="go('s-circle')" style="height:28px;object-fit:contain;cursor:pointer" title="Home">
+          <div style="width:52px"></div>
+        </div>
+        <div class="content">
+          <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;margin:8px 0 4px;color:#2C2C2A">Edit profile</div>
+          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">Your name, handle, birthday, and photo.</div>
+
+          <div style="text-align:center;padding:0 0 16px">
+            <label style="position:relative;display:inline-block;cursor:pointer">
+              <div id="profile-avatar-edit" style="width:88px;height:88px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:28px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden">?</div>
+              <span style="position:absolute;right:-2px;bottom:-2px;width:26px;height:26px;border-radius:50%;background:#D85A30;color:#fff;display:flex;align-items:center;justify-content:center;border:2px solid #fff"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+              <input type="file" accept="image/*" onchange="onProfilePhotoUpload(this)" style="display:none">
+            </label>
+            <div style="font-size:10.5px;color:#888780;margin-top:6px">Tap photo to change</div>
+          </div>
+
           <div class="card no-hover">
             <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
               <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Display name</div>
@@ -931,7 +975,7 @@
               <input type="tel" id="profile-phone-input" placeholder="(555) 555-5555" onblur="formatPhoneInput(this)" style="margin-bottom:4px;font-size:12px;padding:6px 8px">
               <div style="font-size:10px;color:#888780;line-height:1.4">Friends can find you by phone number to send you a friend request.</div>
             </div>
-            <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
+            <div style="padding:6px 0">
               <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Birthday (month &amp; day)</div>
               <div style="display:flex;gap:6px">
                 <select id="profile-bday-month" onchange="onBdayMonthChange()" style="flex:1;margin-bottom:0;font-size:12px;padding:6px 8px">
@@ -946,21 +990,24 @@
                 </select>
               </div>
             </div>
-            <div style="padding:6px 0;display:flex;justify-content:space-between;align-items:center">
-              <span style="font-size:13.5px;color:#5F5E5A">Email</span>
-              <span style="font-size:13.5px;color:#2C2C2A" id="profile-email-info">—</span>
-            </div>
           </div>
 
-          <div class="sec-label">🎁 Wishlist visibility</div>
-          <div class="card no-hover" style="margin-bottom:12px">
-            <div style="font-size:11px;color:#5F5E5A;margin-bottom:8px">Which of your lists should show up as gift ideas when friends look at your birthday?</div>
-            <div id="wishlist-categories" style="display:flex;flex-wrap:wrap;gap:6px">
-              <div style="font-size:11px;color:#888780">Create a list first, then come back to pick which ones can show up.</div>
-            </div>
-          </div>
+          <button class="btn-primary" onclick="saveProfile()" style="margin-top:14px">Save changes</button>
+          <div id="profile-save-msg" style="display:none;font-size:11px;color:#27500A;background:#EAF3DE;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #97C459">Profile saved!</div>
+        </div>
+      </div>
 
-          <div class="sec-label">💬 Comment settings</div>
+      <!-- ═══ PROFILE — Comment settings ═══ -->
+      <div class="screen" id="s-profile-comments">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-profile')">← Back</button>
+          <img src="logo-horizontal.png" alt="Tenner" onclick="go('s-circle')" style="height:28px;object-fit:contain;cursor:pointer" title="Home">
+          <div style="width:52px"></div>
+        </div>
+        <div class="content">
+          <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;margin:8px 0 4px;color:#2C2C2A">Comment settings</div>
+          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">Control who can comment on your lists and what comments you see.</div>
+
           <div class="card no-hover" style="margin-bottom:12px">
             <div style="font-size:11px;font-weight:700;color:#2C2C2A;margin-bottom:6px">Which comments do I see on friends' lists?</div>
             <label style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;cursor:pointer;font-size:12px;color:#2C2C2A">
@@ -988,21 +1035,29 @@
                 </span>
               </label>
             </div>
-
-            <div style="margin-top:12px;padding-top:12px;border-top:1px solid #F1EFE8">
-              <button class="btn-secondary" onclick="confirmDeleteAllMyListComments()" style="width:100%;margin-bottom:0;color:#A32D2D;border-color:#F09595;font-size:12px">🗑️ Delete every comment on my lists</button>
-              <div style="font-size:10px;color:#888780;line-height:1.5;margin-top:6px;text-align:center">One-time cleanup — removes all comments others have left on your list items. Doesn't affect future comments.</div>
-            </div>
           </div>
 
-          <div class="sec-label">✉️ Email preferences</div>
-          <div class="card no-hover" style="margin-bottom:12px;display:flex;align-items:center;gap:10px;padding:14px 16px">
-            <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#2C2C2A">Manage which emails you receive</div>
-            <div style="font-size:11px;color:#5F5E5A;line-height:1.5;margin-top:2px">Social alerts, weekly rhythm, reminders, product tips.</div></div>
-            <button class="back-btn" onclick="go('s-email-prefs')" style="font-size:11px;padding:6px 12px;flex-shrink:0">Manage</button>
-          </div>
+          <button class="btn-primary" onclick="saveProfile()" style="margin-bottom:14px">Save changes</button>
 
-          <div class="sec-label">🎁 Your gift page</div>
+          <div class="card no-hover" style="margin-top:8px">
+            <div style="font-size:12px;font-weight:700;color:#2C2C2A;margin-bottom:4px">🗑️ One-time cleanup</div>
+            <div style="font-size:11px;color:#5F5E5A;line-height:1.5;margin-bottom:10px">Removes all comments others have left on your list items. Doesn't affect future comments — those still follow your settings above.</div>
+            <button class="btn-secondary" onclick="confirmDeleteAllMyListComments()" style="margin-bottom:0;color:#A32D2D;border-color:#F09595;font-size:12px">Delete every comment on my lists</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PROFILE — Gift page ═══ -->
+      <div class="screen" id="s-profile-gift">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-profile')">← Back</button>
+          <img src="logo-horizontal.png" alt="Tenner" onclick="go('s-circle')" style="height:28px;object-fit:contain;cursor:pointer" title="Home">
+          <div style="width:52px"></div>
+        </div>
+        <div class="content">
+          <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;margin:8px 0 4px;color:#2C2C2A">Your gift page</div>
+          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">A shareable link so friends and family can shop for you — even people who aren't on Tenner.</div>
+
           <div class="card no-hover" style="margin-bottom:12px">
             <div style="font-size:11px;color:#5F5E5A;line-height:1.55;margin-bottom:10px">Share this link with anyone — even people not on Tenner — so they can browse gift ideas built from your Top 10 lists.</div>
             <div style="display:flex;align-items:stretch;gap:6px;margin-bottom:8px">
@@ -1013,13 +1068,68 @@
               <button class="btn-secondary" onclick="shareMyGiftPageLink()" style="flex:1;margin-bottom:0;font-size:12px;padding:9px">📤 Share</button>
               <button class="btn-secondary" onclick="confirmRegenerateMyGiftPageToken()" style="flex:1;margin-bottom:0;font-size:12px;padding:9px;color:#A32D2D;border-color:#F09595">↻ Regenerate link</button>
             </div>
-            <div style="font-size:10px;color:#888780;line-height:1.55;margin-top:8px">Only lists marked visible in <strong>Wishlist visibility</strong> above will appear on the shared page. Regenerate to invalidate the old link.</div>
+            <div style="font-size:10px;color:#888780;line-height:1.55;margin-top:8px">Regenerate to invalidate the old link — useful if you shared it somewhere public.</div>
           </div>
 
-          <button class="btn-primary" onclick="saveProfile()" style="margin-top:10px">Save profile</button>
-          <div id="profile-save-msg" style="display:none;font-size:11px;color:#27500A;background:#EAF3DE;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #97C459">Profile saved!</div>
+          <div class="sec-label" style="margin-top:20px">Wishlist visibility</div>
+          <div class="card no-hover" style="margin-bottom:12px">
+            <div style="font-size:11px;color:#5F5E5A;margin-bottom:8px">Which of your lists should show up as gift ideas on your gift page (and when friends look at your birthday)?</div>
+            <div id="wishlist-categories" style="display:flex;flex-wrap:wrap;gap:6px">
+              <div style="font-size:11px;color:#888780">Create a list first, then come back to pick which ones can show up.</div>
+            </div>
+          </div>
 
-          <div class="sec-label" style="margin-top:16px">Feedback</div>
+          <button class="btn-primary" onclick="saveProfile()" style="margin-top:4px">Save changes</button>
+        </div>
+      </div>
+
+      <!-- ═══ PROFILE — Account ═══ -->
+      <div class="screen" id="s-profile-account">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-profile')">← Back</button>
+          <img src="logo-horizontal.png" alt="Tenner" onclick="go('s-circle')" style="height:28px;object-fit:contain;cursor:pointer" title="Home">
+          <div style="width:52px"></div>
+        </div>
+        <div class="content">
+          <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;margin:8px 0 4px;color:#2C2C2A">Account &amp; security</div>
+          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">Your login, password, and account actions.</div>
+
+          <div class="card no-hover" style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid #F1EFE8">
+              <div>
+                <div style="font-size:11px;font-weight:600;color:#2C2C2A" id="profile-email">—</div>
+                <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Signed in</div>
+              </div>
+              <button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="signOut()">Sign out</button>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px">
+              <div>
+                <div style="font-size:11px;font-weight:600;color:#2C2C2A">Password</div>
+                <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px" id="profile-pw-status">••••••••</div>
+              </div>
+              <button class="back-btn" id="profile-pw-btn" onclick="openChangePassword()">Change</button>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid #F1EFE8;margin-top:10px">
+              <div>
+                <div style="font-size:11px;font-weight:600;color:#2C2C2A">Email address</div>
+                <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px" id="profile-email-info">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PROFILE — Feedback ═══ -->
+      <div class="screen" id="s-profile-feedback">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-profile')">← Back</button>
+          <img src="logo-horizontal.png" alt="Tenner" onclick="go('s-circle')" style="height:28px;object-fit:contain;cursor:pointer" title="Home">
+          <div style="width:52px"></div>
+        </div>
+        <div class="content">
+          <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;margin:8px 0 4px;color:#2C2C2A">Feedback</div>
+          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">Ideas, bug reports, or anything on your mind.</div>
+
           <div class="card no-hover" style="margin-bottom:12px">
             <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:8px">Found a bug or have an idea? Let us know.</div>
             <select id="feedback-category" style="margin-bottom:6px;font-size:12px;padding:6px 8px">
@@ -1027,17 +1137,16 @@
               <option value="bug">Bug report</option>
               <option value="other">Other</option>
             </select>
-            <textarea id="feedback-message" placeholder="Tell us what's on your mind…" maxlength="1000" style="width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;resize:none;height:80px;margin-bottom:6px"></textarea>
+            <textarea id="feedback-message" placeholder="Tell us what's on your mind…" maxlength="1000" style="width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;resize:none;height:100px;margin-bottom:6px"></textarea>
             <button class="btn-primary" onclick="submitFeedback()" style="margin-bottom:0">Submit feedback</button>
           </div>
-
-          <div id="profile-admin-section" style="display:none">
-            <div class="sec-label" style="margin-top:16px">Admin</div>
-            <button class="btn-secondary" onclick="go('s-admin')" style="margin-bottom:0">Open admin panel</button>
-          </div>
-
         </div>
       </div>
+
+      <!-- Hidden container for legacy element references. Removed 'profile-admin-section' from DOM
+           since the admin tile in the hub replaces it — but the old ID is preserved as a no-op
+           in case any old code paths still touch it. -->
+      <div id="profile-admin-section" style="display:none"></div>
 
       <!-- ═══ EMAIL PREFERENCES ═══ -->
       <div class="screen" id="s-email-prefs">
@@ -1526,6 +1635,11 @@ function go(id) {
     });
   }
   if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
+  // All profile sub-screens re-run loadProfile so their form fields populate,
+  // avatars refresh, and the admin tile visibility recomputes when navigating.
+  if (id === 's-profile-edit' || id === 's-profile-comments' || id === 's-profile-gift' || id === 's-profile-account' || id === 's-profile-feedback') {
+    loadProfile();
+  }
   if (id === 's-email-prefs') { renderEmailPrefs(); }
   if (id === 's-admin') { renderAdmin(); }
   if (id === 's-admin-user') { /* driven by openAdminUserDetail */ }
@@ -5109,10 +5223,12 @@ async function unsubscribeAllNonEssential() {
 
 async function loadProfile() {
   if (!sbClient || !userId) return;
-  // Refresh admin flag & show/hide admin section
+  // Refresh admin flag & show/hide admin surfaces (legacy section + new hub tile)
   await checkAdminStatus();
   var adminSec = document.getElementById('profile-admin-section');
   if (adminSec) adminSec.style.display = IS_ADMIN ? 'block' : 'none';
+  var adminTile = document.getElementById('profile-admin-tile');
+  if (adminTile) adminTile.style.display = IS_ADMIN ? 'block' : 'none';
   try {
     var res = await sbClient.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (res.data) myProfile = res.data;
@@ -5235,6 +5351,9 @@ async function saveProfile() {
   }
   var msg = document.getElementById('profile-save-msg');
   if (msg) { msg.style.display = 'block'; setTimeout(function() { msg.style.display = 'none'; }, 2000); }
+  // Global toast — makes success visible on any sub-screen even if the inline
+  // #profile-save-msg element isn't on the currently-active screen.
+  showToast('Profile saved.');
 }
 
 function showProfileError(msg) {
@@ -5257,14 +5376,16 @@ function renderProfileHeader() {
   var name = p.display_name || currentUserEmail || '—';
   var handle = p.handle ? '@' + p.handle : '@—';
   var initials = name.split(' ').map(function(w) { return w[0]; }).join('').toUpperCase().slice(0, 2) || '?';
-  var av = document.getElementById('profile-avatar');
-  if (av) {
+  // Two avatar spots: the hub header and the edit sub-screen preview.
+  ['profile-avatar', 'profile-avatar-edit'].forEach(function(id) {
+    var av = document.getElementById(id);
+    if (!av) return;
     if (p.photo) {
       av.innerHTML = '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover">';
     } else {
       av.textContent = initials;
     }
-  }
+  });
   var dn = document.getElementById('profile-display-name'); if (dn) dn.textContent = name;
   var hd = document.getElementById('profile-handle-display'); if (hd) hd.textContent = handle;
   var ni = document.getElementById('profile-name-input'); if (ni) ni.value = p.display_name || '';
