@@ -9090,9 +9090,10 @@ async function openAdminUserDetail(uid) {
     var pr = await sbClient.from('profiles').select('*').eq('id', uid).maybeSingle();
     if (!pr.data) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">User not found.</div>'; return; }
     var profile = pr.data;
-    var [listsC, friendsC, groupsC, feedbackC, emailC, adminChk] = await Promise.all([
+    var [listsC, friendsC, friendsPendingC, groupsC, feedbackC, emailC, adminChk] = await Promise.all([
       sbClient.from('lists').select('id', { count: 'exact', head: true }).eq('user_id', uid),
       sbClient.from('friendships').select('id', { count: 'exact', head: true }).or('requester_id.eq.' + uid + ',addressee_id.eq.' + uid).eq('status', 'accepted'),
+      sbClient.from('friendships').select('id', { count: 'exact', head: true }).or('requester_id.eq.' + uid + ',addressee_id.eq.' + uid).eq('status', 'pending'),
       sbClient.from('group_members').select('group_id', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'accepted'),
       sbClient.from('feedback').select('id', { count: 'exact', head: true }).eq('user_id', uid),
       sbClient.from('email_log').select('id', { count: 'exact', head: true }).eq('user_id', uid),
@@ -9101,6 +9102,7 @@ async function openAdminUserDetail(uid) {
     var counts = {
       lists: listsC.count || 0,
       friends: friendsC.count || 0,
+      friendsPending: friendsPendingC.count || 0,
       groups: groupsC.count || 0,
       feedback: feedbackC.count || 0,
       emails: emailC.count || 0
@@ -9146,7 +9148,7 @@ function renderAdminUserDetail(p, counts, isAdminUser) {
     // Numbers row
     + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:14px;text-align:center">'
     +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.lists + '</div><div style="font-size:9px">Lists</div></div>'
-    +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.friends + '</div><div style="font-size:9px">Friends</div></div>'
+    +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px" title="' + counts.friends + ' accepted · ' + counts.friendsPending + ' pending"><div style="font-size:16px;font-weight:800">' + counts.friends + (counts.friendsPending > 0 ? '<span style="font-size:11px;color:#B36833">+' + counts.friendsPending + '</span>' : '') + '</div><div style="font-size:9px">Friends</div></div>'
     +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.groups + '</div><div style="font-size:9px">Groups</div></div>'
     +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.feedback + '</div><div style="font-size:9px">Feedback</div></div>'
     +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.emails + '</div><div style="font-size:9px">Emails</div></div>'
@@ -9161,7 +9163,7 @@ function renderAdminUserDetail(p, counts, isAdminUser) {
     + '</div>'
     // Expandable sections
     + adminUserSection('lists',    'Lists (' + counts.lists + ')',    counts.lists    > 0, p.id)
-    + adminUserSection('friends',  'Friends (' + counts.friends + ')', counts.friends > 0, p.id)
+    + adminUserSection('friends',  'Friends (' + counts.friends + ')' + (counts.friendsPending > 0 ? ' · Pending (' + counts.friendsPending + ')' : ''), (counts.friends + counts.friendsPending) > 0, p.id)
     + adminUserSection('groups',   'Groups (' + counts.groups + ')',   counts.groups  > 0, p.id)
     + adminUserSection('feedback', 'Feedback (' + counts.feedback + ')', counts.feedback > 0, p.id)
     + adminUserSection('emails',   'Email history (' + counts.emails + ')', counts.emails > 0, p.id)
@@ -9204,15 +9206,34 @@ async function toggleAdminUserSection(key, uid) {
         }).join('');
         bodyEl.innerHTML = rows || '<div style="font-size:11px;color:#888;padding:6px">No lists.</div>';
       } else if (key === 'friends') {
-        var f = await sbClient.from('friendships').select('requester_id, addressee_id, status, created_at').or('requester_id.eq.' + uid + ',addressee_id.eq.' + uid).eq('status', 'accepted');
-        var ids = (f.data || []).map(function(x){ return x.requester_id === uid ? x.addressee_id : x.requester_id; }).filter(Boolean);
-        if (!ids.length) { bodyEl.innerHTML = '<div style="font-size:11px;color:#888;padding:6px">No friends yet.</div>'; return; }
-        var pr = await sbClient.from('profiles').select('id, display_name, handle, email').in('id', ids);
-        var rows2 = (pr.data || []).map(function(fp) {
-          return '<div class="card no-hover" onclick="openAdminUserDetail(\'' + fp.id + '\')" style="margin-bottom:4px;padding:8px 10px;cursor:pointer"><div style="display:flex;align-items:center;gap:8px">'
+        // Include pending rows too so the admin can see stalled friendship
+        // requests (e.g. someone accepted request never sent back).
+        var f = await sbClient.from('friendships').select('requester_id, addressee_id, status, created_at').or('requester_id.eq.' + uid + ',addressee_id.eq.' + uid).in('status', ['accepted', 'pending']);
+        var rowsData = f.data || [];
+        if (!rowsData.length) { bodyEl.innerHTML = '<div style="font-size:11px;color:#888;padding:6px">No friends or pending requests.</div>'; return; }
+        var otherIds = rowsData.map(function(x){ return x.requester_id === uid ? x.addressee_id : x.requester_id; }).filter(Boolean);
+        var pr = await sbClient.from('profiles').select('id, display_name, handle, email').in('id', otherIds);
+        var byId = {}; (pr.data || []).forEach(function(p) { byId[p.id] = p; });
+        // Sort accepted first, then pending; within each group, most recent first
+        rowsData.sort(function(a, b) {
+          if (a.status !== b.status) return a.status === 'accepted' ? -1 : 1;
+          return (b.created_at || '').localeCompare(a.created_at || '');
+        });
+        var rows2 = rowsData.map(function(row) {
+          var otherId = row.requester_id === uid ? row.addressee_id : row.requester_id;
+          var fp = byId[otherId] || { id: otherId };
+          var isPending = row.status === 'pending';
+          var direction = row.requester_id === uid ? 'sent' : 'received';
+          var pill = !isPending
+            ? '<span style="font-size:9px;background:#D6F0EA;color:#1F7268;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.03em">ACCEPTED</span>'
+            : (direction === 'sent'
+                ? '<span style="font-size:9px;background:#FFF3D6;color:#5F5000;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.03em" title="This user sent the request; waiting on the other person">PENDING · SENT</span>'
+                : '<span style="font-size:9px;background:#FFF3D6;color:#5F5000;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.03em" title="This user received the request; needs to accept">PENDING · RECEIVED</span>');
+          return '<div class="card no-hover" onclick="openAdminUserDetail(\'' + otherId + '\')" style="margin-bottom:4px;padding:8px 10px;cursor:pointer"><div style="display:flex;align-items:center;gap:8px">'
             + friendAvatarHtml(fp, 28)
             + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600">' + escapeHtml(fp.display_name || '—') + '</div><div style="font-size:10px;color:#888780">' + (fp.handle ? '@' + escapeHtml(fp.handle) : escapeHtml(fp.email || '')) + '</div></div>'
-            + '<span style="color:#D3D1C7">›</span></div></div>';
+            + pill
+            + '<span style="color:#D3D1C7;margin-left:4px">›</span></div></div>';
         }).join('');
         bodyEl.innerHTML = rows2;
       } else if (key === 'groups') {
