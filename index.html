@@ -4792,7 +4792,7 @@ function sendInviteText() {
 
 function nativeShareInvite() {
   var message = (document.getElementById('invite-message') || {}).value || '';
-  var url = 'https://mytenner.com/';
+  var url = 'https://mytenner.com/' + (userId ? '?from=' + encodeURIComponent(userId) : '');
   if (navigator.share) {
     navigator.share({ title: 'Join me on Tenner', text: message, url: url })
       .then(function(){ closeInviteModal(); })
@@ -4803,7 +4803,7 @@ function nativeShareInvite() {
 }
 
 function copyInviteLink() {
-  var url = 'https://mytenner.com/';
+  var url = 'https://mytenner.com/' + (userId ? '?from=' + encodeURIComponent(userId) : '');
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(url).then(function() {
       closeInviteModal();
