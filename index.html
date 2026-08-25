@@ -6130,11 +6130,21 @@ function renderProfileNudges() {
   var dismissed = {};
   try { dismissed = JSON.parse(sessionStorage.getItem('tenner_nudges_dismissed') || '{}'); } catch(e) {}
   var nudges = [];
+  // Display name — most important, so render first. Not dismissible (unlike
+  // phone and birthday) since a missing name causes friends to see "@handle
+  // updated their Top 10…" instead of your actual name across the app.
+  if (!myProfile.display_name) {
+    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+      + '<div style="font-size:22px">✏️</div>'
+      + '<div style="flex:1;font-size:12px;color:#2C2C2A">Add your name so friends see you as more than a handle.</div>'
+      + '<button class="back-btn" onclick="go(\'s-profile-edit\')" style="padding:5px 10px;font-size:11px">Add</button>'
+      + '</div>');
+  }
   if (!myProfile.phone && !dismissed.phone) {
     nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
       + '<div style="font-size:22px">📞</div>'
       + '<div style="flex:1;font-size:12px;color:#2C2C2A">Add your phone number so friends can find you.</div>'
-      + '<button class="back-btn" onclick="go(\'s-profile\')" style="padding:5px 10px;font-size:11px">Add</button>'
+      + '<button class="back-btn" onclick="go(\'s-profile-edit\')" style="padding:5px 10px;font-size:11px">Add</button>'
       + '<button onclick="dismissNudge(\'phone\')" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
       + '</div>');
   }
@@ -6142,7 +6152,7 @@ function renderProfileNudges() {
     nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
       + '<div style="font-size:22px">🎂</div>'
       + '<div style="flex:1;font-size:12px;color:#2C2C2A">Add your birthday so friends know when to celebrate.</div>'
-      + '<button class="back-btn" onclick="go(\'s-profile\')" style="padding:5px 10px;font-size:11px">Add</button>'
+      + '<button class="back-btn" onclick="go(\'s-profile-edit\')" style="padding:5px 10px;font-size:11px">Add</button>'
       + '<button onclick="dismissNudge(\'birthday\')" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
       + '</div>');
   }
