@@ -1314,17 +1314,17 @@
           <span style="font-size:12px;font-weight:600;color:#2C2C2A">Admin</span>
           <span style="width:60px"></span>
         </div>
-        <div style="display:flex;border-bottom:1px solid #E5E3DC;background:#FAF8F5;overflow-x:auto">
-          <button id="admin-tab-cats"     onclick="switchAdminTab('cats')"     style="flex:1;min-width:70px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#D85A30;border-bottom:2px solid #D85A30">Categories</button>
-          <button id="admin-tab-items"    onclick="switchAdminTab('items')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Items</button>
-          <button id="admin-tab-weekly"   onclick="switchAdminTab('weekly')"   style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Weekly</button>
-          <button id="admin-tab-insights" onclick="switchAdminTab('insights')" style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Insights</button>
-          <button id="admin-tab-users"    onclick="switchAdminTab('users')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Users</button>
-          <button id="admin-tab-lists"    onclick="switchAdminTab('lists')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Lists</button>
-          <button id="admin-tab-feedback" onclick="switchAdminTab('feedback')" style="flex:1;min-width:70px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Feedback</button>
-          <button id="admin-tab-invites"  onclick="switchAdminTab('invites')"  style="flex:1;min-width:70px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Invites</button>
-        </div>
         <div class="content" id="admin-content"></div>
+      </div>
+
+      <!-- ═══ ADMIN — GROUP DETAIL ═══ -->
+      <div class="screen" id="s-admin-group">
+        <div class="topbar">
+          <button class="back-btn" onclick="switchAdminTab('groups');go('s-admin')">← Back</button>
+          <span style="font-size:12px;font-weight:600;color:#2C2C2A">Group</span>
+          <span style="width:60px"></span>
+        </div>
+        <div class="content" id="admin-group-content"></div>
       </div>
 
       <!-- ═══ ADMIN — USER DETAIL ═══ -->
@@ -8606,7 +8606,7 @@ function showMatchTab(btn, cat) {
 // ADMIN + FEEDBACK
 // ═══════════════════════════════════════════════════════════════
 
-var _adminTab = 'cats';
+var _adminTab = 'hub';
 var _adminSelectedCatId = null;
 var _adminEditingCat = null;   // holds {id?, name, emoji, is_seasonal, active_from, active_to} while editing
 var _adminEmojiPreview = '📋'; // current emoji value in the editor (unicode or data URL)
@@ -8644,28 +8644,233 @@ async function submitFeedback() {
 
 function switchAdminTab(tab) {
   _adminTab = tab;
-  ['cats','items','weekly','insights','users','lists','feedback','invites'].forEach(function(t) {
-    var b = document.getElementById('admin-tab-' + t);
-    if (!b) return;
-    if (t === tab) { b.style.color = '#D85A30'; b.style.borderBottomColor = '#D85A30'; }
-    else           { b.style.color = '#888780'; b.style.borderBottomColor = 'transparent'; }
-  });
   renderAdmin();
+}
+
+// Admin hub — tile grid replaces the old tab strip. Each tile navigates into a
+// dedicated section by setting _adminTab + re-rendering. Section renderers
+// prepend a "← Admin home" back button.
+function renderAdminHub(el) {
+  var tiles = [
+    { key: 'cats',     label: 'Categories',    emoji: '📂', desc: 'Built-in category catalog',        bg: '#F5D0C8AA' },
+    { key: 'items',    label: 'Category items',emoji: '📝', desc: 'Suggested items per category',     bg: '#B8D0A8AA' },
+    { key: 'weekly',   label: 'Weekly lists',  emoji: '🎊', desc: 'This week\'s prompt + backlog',    bg: '#EFCB68AA' },
+    { key: 'insights', label: 'Insights',      emoji: '📊', desc: 'Trending user-created categories', bg: '#A8C8E8AA' },
+    { key: 'users',    label: 'Users',         emoji: '👥', desc: 'Search + moderate accounts',       bg: '#D9BEECAA' },
+    { key: 'groups',   label: 'Groups',        emoji: '🎁', desc: 'Search + moderate groups',         bg: '#F5A896AA' },
+    { key: 'lists',    label: 'Lists',         emoji: '📋', desc: 'Audit all user lists',             bg: '#A8D8C8AA' },
+    { key: 'feedback', label: 'Feedback',      emoji: '💬', desc: 'User feedback inbox',              bg: '#F5B534AA' },
+    { key: 'invites',  label: 'Invites',       emoji: '🎯', desc: 'Recruiter leaderboard',            bg: '#E8927CAA' }
+  ];
+  el.innerHTML = '<div style="padding:14px 12px">'
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;letter-spacing:-0.02em;color:#2C2C2A;margin-bottom:14px">Admin</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+    + tiles.map(function(t) {
+        return '<div onclick="switchAdminTab(\'' + t.key + '\')" style="background:' + t.bg + ';border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">'
+          + '<div style="font-size:30px;line-height:1;margin-bottom:8px">' + t.emoji + '</div>'
+          + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">' + escapeHtml(t.label) + '</div>'
+          + '<div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">' + escapeHtml(t.desc) + '</div>'
+          + '</div>';
+      }).join('')
+    + '</div></div>';
+}
+
+function _adminBackToHubBtn() {
+  return '<div style="padding:10px 12px 0"><button class="back-btn" onclick="switchAdminTab(\'hub\')" style="font-size:11px">← Admin home</button></div>';
 }
 
 async function renderAdmin() {
   var el = document.getElementById('admin-content');
   if (!el) return;
   if (!IS_ADMIN) { el.innerHTML = '<div style="padding:20px;text-align:center;color:#888">Not authorized.</div>'; return; }
+  if (_adminTab === 'hub' || !_adminTab) return renderAdminHub(el);
+  el.innerHTML = _adminBackToHubBtn() + '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
+  // Wrap each render call so the back button stays even during load
+  var content = document.createElement('div');
+  content.id = '_admin-section-body';
+  el.innerHTML = _adminBackToHubBtn();
+  el.appendChild(content);
+  if (_adminTab === 'cats')     return renderAdminCats(content);
+  if (_adminTab === 'items')    return renderAdminItems(content);
+  if (_adminTab === 'weekly')   return renderAdminWeekly(content);
+  if (_adminTab === 'insights') return renderAdminInsights(content);
+  if (_adminTab === 'users')    return renderAdminUsers(content);
+  if (_adminTab === 'groups')   return renderAdminGroups(content);
+  if (_adminTab === 'lists')    return renderAdminLists(content);
+  if (_adminTab === 'feedback') return renderAdminFeedback(content);
+  if (_adminTab === 'invites')  return renderAdminInvites(content);
+}
+
+// --- Groups tab ---
+var _adminGroupSearch = '';
+
+async function renderAdminGroups(el) {
+  el.innerHTML = '<div style="padding:12px 12px 4px">'
+    + '<input type="text" id="admin-group-search" placeholder="Search groups by name…" value="' + escapeHtml(_adminGroupSearch) + '" oninput="_adminGroupSearch=this.value;renderAdminGroups(this.closest(\'#_admin-section-body\'))" style="width:100%;margin-bottom:8px;font-size:13px;padding:8px 10px">'
+    + '</div><div id="admin-groups-list" style="padding:0 12px 20px"><div style="color:#888;font-size:12px;padding:20px;text-align:center">Loading…</div></div>';
+  var host = document.getElementById('admin-groups-list');
+  try {
+    var q = sbClient.from('groups').select('id, name, emoji, created_at, created_by').order('created_at', {ascending: false}).limit(200);
+    if (_adminGroupSearch) q = q.ilike('name', '%' + _adminGroupSearch + '%');
+    var r = await q;
+    if (r.error) throw r.error;
+    var groups = r.data || [];
+    if (!groups.length) { host.innerHTML = '<div style="color:#888;font-size:12px;padding:20px;text-align:center">No groups found.</div>'; return; }
+    // Fetch member counts + creator names in bulk
+    var gids = groups.map(function(g){ return g.id; });
+    var creatorIds = Array.from(new Set(groups.map(function(g){ return g.created_by; }).filter(Boolean)));
+    var [memRes, creatorRes] = await Promise.all([
+      sbClient.from('group_members').select('group_id').in('group_id', gids),
+      creatorIds.length ? sbClient.from('profiles').select('id, display_name, handle').in('id', creatorIds) : Promise.resolve({ data: [] })
+    ]);
+    var memberCounts = {};
+    (memRes.data || []).forEach(function(m){ memberCounts[m.group_id] = (memberCounts[m.group_id] || 0) + 1; });
+    var creatorById = {};
+    (creatorRes.data || []).forEach(function(p){ creatorById[p.id] = p; });
+    host.innerHTML = groups.map(function(g) {
+      var c = creatorById[g.created_by] || {};
+      var creatorName = c.display_name || (c.handle ? '@' + c.handle : '—');
+      return '<div class="card" onclick="openAdminGroupDetail(\'' + g.id + '\')" style="margin-bottom:6px;padding:10px 12px;cursor:pointer">'
+        + '<div style="display:flex;align-items:center;gap:10px">'
+        + '<div style="font-size:22px;flex-shrink:0">' + (g.emoji || '🎉') + '</div>'
+        + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">' + escapeHtml(g.name || 'Untitled group') + '</div>'
+        + '<div style="font-size:10px;color:#888780;margin-top:1px">' + (memberCounts[g.id] || 0) + ' member' + ((memberCounts[g.id] || 0) !== 1 ? 's' : '') + ' · created by ' + escapeHtml(creatorName) + ' · ' + (g.created_at ? new Date(g.created_at).toLocaleDateString() : '') + '</div></div>'
+        + '<span style="color:#D3D1C7">›</span></div></div>';
+    }).join('');
+  } catch(e) {
+    host.innerHTML = '<div style="padding:20px;color:#A32D2D;font-size:12px">Error: ' + escapeHtml(e.message || String(e)) + '</div>';
+  }
+}
+
+var _adminGroupCache = null;
+
+async function openAdminGroupDetail(gid) {
+  go('s-admin-group');
+  var el = document.getElementById('admin-group-content');
+  if (!el) return;
   el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
-  if (_adminTab === 'cats') return renderAdminCats(el);
-  if (_adminTab === 'items') return renderAdminItems(el);
-  if (_adminTab === 'weekly') return renderAdminWeekly(el);
-  if (_adminTab === 'insights') return renderAdminInsights(el);
-  if (_adminTab === 'users') return renderAdminUsers(el);
-  if (_adminTab === 'lists') return renderAdminLists(el);
-  if (_adminTab === 'feedback') return renderAdminFeedback(el);
-  if (_adminTab === 'invites') return renderAdminInvites(el);
+  try {
+    var [gr, mems, sharedLists] = await Promise.all([
+      sbClient.from('groups').select('*').eq('id', gid).maybeSingle(),
+      sbClient.from('group_members').select('user_id, role, joined_at, status').eq('group_id', gid),
+      sbClient.from('group_lists').select('category, shared_by, created_at').eq('group_id', gid)
+    ]);
+    if (!gr.data) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">Group not found.</div>'; return; }
+    var g = gr.data;
+    var members = mems.data || [];
+    var slists = sharedLists.data || [];
+    var uids = Array.from(new Set(members.map(function(m){ return m.user_id; }).filter(Boolean)));
+    var creatorId = g.created_by;
+    if (creatorId && uids.indexOf(creatorId) === -1) uids.push(creatorId);
+    var profRes = uids.length ? await sbClient.from('profiles').select('id, display_name, handle, email').in('id', uids) : { data: [] };
+    var byId = {}; (profRes.data || []).forEach(function(p){ byId[p.id] = p; });
+    _adminGroupCache = { group: g, members: members, sharedLists: slists, byId: byId };
+
+    var creator = byId[creatorId] || {};
+    var creatorName = creator.display_name || (creator.handle ? '@' + creator.handle : '—');
+
+    var membersHtml = members
+      .sort(function(a, b){ if (a.role !== b.role) return a.role === 'admin' ? -1 : 1; return 0; })
+      .map(function(m) {
+        var p = byId[m.user_id] || {};
+        var mname = p.display_name || (p.handle ? '@' + p.handle : (p.email || 'Unknown'));
+        var rolePill = m.role === 'admin'
+          ? '<span style="font-size:9px;background:#D6F0EA;color:#1F7268;padding:2px 8px;border-radius:99px;font-weight:600">ADMIN</span>'
+          : '<span style="font-size:9px;background:#F1EFE8;color:#5F5E5A;padding:2px 8px;border-radius:99px;font-weight:600">MEMBER</span>';
+        var statusPill = m.status && m.status !== 'accepted'
+          ? '<span style="font-size:9px;background:#FFF3D6;color:#5F5000;padding:2px 8px;border-radius:99px;font-weight:600;margin-left:4px">' + escapeHtml(m.status.toUpperCase()) + '</span>' : '';
+        var toggleRole = m.role === 'admin' ? 'member' : 'admin';
+        var toggleLabel = m.role === 'admin' ? 'Demote' : 'Promote';
+        return '<div class="card no-hover" style="margin-bottom:4px;padding:8px 10px">'
+          + '<div style="display:flex;align-items:center;gap:8px">'
+          + friendAvatarHtml(p, 28)
+          + '<div style="flex:1;min-width:0;cursor:pointer" onclick="openAdminUserDetail(\'' + m.user_id + '\')">'
+          +   '<div style="font-size:12px;font-weight:600">' + escapeHtml(mname) + '</div>'
+          +   '<div style="font-size:10px;color:#888780;margin-top:1px">' + rolePill + statusPill + '</div>'
+          + '</div>'
+          + '<button class="back-btn" style="font-size:10px;padding:5px 8px" onclick="setGroupMemberRole(\'' + gid + '\',\'' + m.user_id + '\',\'' + toggleRole + '\')">' + toggleLabel + '</button>'
+          + '<button class="back-btn" style="font-size:10px;padding:5px 8px;color:#A32D2D;border-color:#F09595" onclick="removeGroupMember(\'' + gid + '\',\'' + m.user_id + '\',\'' + escapeHtml(mname).replace(/\'/g,"\\'") + '\')">Kick</button>'
+          + '</div></div>';
+      }).join('');
+
+    var sharedListsHtml = slists.length
+      ? slists.map(function(sl) {
+          var sp = byId[sl.shared_by] || {};
+          var spname = sp.display_name || (sp.handle ? '@' + sp.handle : '—');
+          return '<div class="card no-hover" style="margin-bottom:4px;padding:8px 10px">'
+            + '<div style="font-size:12px;font-weight:600">' + escapeHtml(sl.category) + '</div>'
+            + '<div style="font-size:10px;color:#888780;margin-top:1px">shared by ' + escapeHtml(spname) + ' · ' + (sl.created_at ? new Date(sl.created_at).toLocaleDateString() : '') + '</div></div>';
+        }).join('')
+      : '<div style="font-size:11px;color:#888;padding:6px">No lists shared with this group yet.</div>';
+
+    el.innerHTML = '<div style="padding:14px">'
+      + '<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">'
+      +   '<div style="font-size:44px;flex-shrink:0">' + (g.emoji || '🎉') + '</div>'
+      +   '<div style="flex:1;min-width:0">'
+      +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.02em;color:#2C2C2A">' + escapeHtml(g.name || 'Untitled group') + '</div>'
+      +     '<div style="font-size:11px;color:#5F5E5A;margin-top:2px">Created by ' + escapeHtml(creatorName) + ' · ' + (g.created_at ? new Date(g.created_at).toLocaleDateString() : '') + '</div>'
+      +   '</div>'
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;text-align:center">'
+      +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + members.length + '</div><div style="font-size:9px">Members</div></div>'
+      +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + slists.length + '</div><div style="font-size:9px">Shared lists</div></div>'
+      + '</div>'
+      + '<div class="sec-label">Actions</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">'
+      +   '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px" onclick="renameAdminGroup(\'' + gid + '\',\'' + escapeHtml(g.name || '').replace(/\'/g,"\\'") + '\')">Rename</button>'
+      +   '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px;color:#FFFFFF;background:#A32D2D;border-color:#A32D2D" onclick="deleteAdminGroupFull(\'' + gid + '\',\'' + escapeHtml(g.name || '').replace(/\'/g,"\\'") + '\')">Delete group</button>'
+      + '</div>'
+      + '<div class="sec-label">Members (' + members.length + ')</div>'
+      + membersHtml
+      + '<div class="sec-label" style="margin-top:16px">Shared lists (' + slists.length + ')</div>'
+      + sharedListsHtml
+      + '</div>';
+  } catch(e) {
+    el.innerHTML = '<div style="padding:20px;color:#A32D2D">Error: ' + escapeHtml(e.message || String(e)) + '</div>';
+  }
+}
+
+function renameAdminGroup(gid, currentName) {
+  var nn = prompt('New group name:', currentName || '');
+  if (nn === null) return;
+  var trimmed = String(nn).trim();
+  if (!trimmed) { showToast('Name cannot be empty.'); return; }
+  if (trimmed === currentName) return;
+  sbClient.rpc('admin_rename_group', { p_group_id: gid, p_new_name: trimmed }).then(function(r) {
+    if (r.error) { showToast('Rename failed: ' + r.error.message); return; }
+    showToast('Group renamed.');
+    openAdminGroupDetail(gid);
+  });
+}
+
+function deleteAdminGroupFull(gid, gname) {
+  var typed = prompt('PERMANENTLY DELETE the group "' + gname + '"?\n\nAll members will be removed and shared-list history for this group is gone. This cannot be undone.\n\nTo confirm, type: ' + gname, '');
+  if (typed === null) return;
+  if (typed.trim() !== gname) { showToast('Confirmation didn\'t match. Nothing deleted.'); return; }
+  sbClient.rpc('admin_delete_group', { p_group_id: gid }).then(function(r) {
+    if (r.error) { showToast('Delete failed: ' + r.error.message); return; }
+    showToast('Group deleted.');
+    switchAdminTab('groups');
+    go('s-admin');
+  });
+}
+
+function removeGroupMember(gid, uid, uname) {
+  showConfirm('Remove ' + uname + '?', 'They will be kicked from this group. They can be re-invited later.', 'Remove', 'danger', function() {
+    sbClient.rpc('admin_remove_group_member', { p_group_id: gid, p_user_id: uid }).then(function(r) {
+      if (r.error) { showToast('Failed: ' + r.error.message); return; }
+      showToast(uname + ' removed.');
+      openAdminGroupDetail(gid);
+    });
+  });
+}
+
+function setGroupMemberRole(gid, uid, newRole) {
+  sbClient.rpc('admin_set_group_member_role', { p_group_id: gid, p_user_id: uid, p_role: newRole }).then(function(r) {
+    if (r.error) { showToast('Role change failed: ' + r.error.message); return; }
+    showToast('Role set to ' + newRole + '.');
+    openAdminGroupDetail(gid);
+  });
 }
 
 // --- Invite leaderboard tab: top recruiters by direct + indirect invites ---
@@ -9351,7 +9556,7 @@ async function toggleAdminUserSection(key, uid) {
         var rows3 = (gm.data || []).map(function(m) {
           var g = byId[m.group_id]; if (!g) return '';
           var role = m.role || 'member';
-          return '<div class="card no-hover" style="margin-bottom:4px;padding:8px 10px"><div style="font-size:12px;font-weight:600">' + escapeHtml(g.name || 'Group') + '</div><div style="font-size:10px;color:#888780">' + role + (m.joined_at ? ' · joined ' + new Date(m.joined_at).toLocaleDateString() : '') + '</div></div>';
+          return '<div class="card" onclick="openAdminGroupDetail(\'' + g.id + '\')" style="margin-bottom:4px;padding:8px 10px;cursor:pointer"><div style="font-size:12px;font-weight:600">' + escapeHtml(g.name || 'Group') + '</div><div style="font-size:10px;color:#888780">' + role + (m.joined_at ? ' · joined ' + new Date(m.joined_at).toLocaleDateString() : '') + '</div></div>';
         }).join('');
         bodyEl.innerHTML = rows3 || '<div style="font-size:11px;color:#888;padding:6px">No groups.</div>';
       } else if (key === 'feedback') {
