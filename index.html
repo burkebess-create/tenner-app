@@ -9064,6 +9064,35 @@ function unbanUser(uid) {
   });
 }
 
+// Permanently delete a user. Cascades to profiles + all owned rows (lists,
+// friendships, comments, reactions, etc.) via FK ON DELETE CASCADE. Requires
+// the caller to be in the admins table (enforced server-side by the RPC).
+// Requires the admin to type the user's handle/email to confirm — a real
+// "type to confirm" gate since this is irreversible.
+function deleteUser(uid, name, handle, email) {
+  var confirmToken = handle || email || name || '';
+  if (!confirmToken) { showToast('Cannot delete: user has no handle/email to confirm against.'); return; }
+  var typed = prompt(
+    'PERMANENTLY DELETE ' + name + '?\n\n'
+    + 'This removes their account, all lists, friendships, comments, reactions, and every trace of them from Tenner. '
+    + 'This cannot be undone.\n\n'
+    + 'To confirm, type: ' + confirmToken,
+    ''
+  );
+  if (typed === null) return; // cancelled
+  if (typed.trim().toLowerCase() !== confirmToken.toLowerCase()) {
+    showToast('Confirmation text didn\'t match. Nothing deleted.');
+    return;
+  }
+  sbClient.rpc('admin_delete_user', { p_user_id: uid }).then(function(r) {
+    if (r.error) { showToast('Delete failed: ' + r.error.message); return; }
+    if (!r.data) { showToast('User was not found (may already be deleted).'); return; }
+    showToast('User permanently deleted.');
+    // Go back to the users list — this profile no longer exists
+    go('s-admin');
+  });
+}
+
 function sendUserPasswordReset(email) {
   if (!email) { showToast('No email on file for this user.'); return; }
   showConfirm('Send password reset link?', 'An email will be sent to ' + email + ' with a link to set a new password.', 'Send', 'primary', function() {
@@ -9160,6 +9189,7 @@ function renderAdminUserDetail(p, counts, isAdminUser) {
         ? '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px" onclick="unbanUser(\'' + p.id + '\');setTimeout(function(){openAdminUserDetail(\'' + p.id + '\')},300)">Unban user</button>'
         : '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px;color:#A32D2D;border-color:#F09595" onclick="banUser(\'' + p.id + '\',\'' + escapeHtml(name).replace(/\'/g,"\\'") + '\');setTimeout(function(){openAdminUserDetail(\'' + p.id + '\')},500)">Ban user</button>')
     +   '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px" onclick="sendUserPasswordReset(\'' + escapeHtml(p.email||'').replace(/\'/g,"\\'") + '\')">Send password reset</button>'
+    +   '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px;color:#FFFFFF;background:#A32D2D;border-color:#A32D2D" onclick="deleteUser(\'' + p.id + '\',\'' + escapeHtml(name).replace(/\'/g,"\\'") + '\',\'' + escapeHtml(p.handle||'').replace(/\'/g,"\\'") + '\',\'' + escapeHtml(p.email||'').replace(/\'/g,"\\'") + '\')">Delete permanently</button>'
     + '</div>'
     // Expandable sections
     + adminUserSection('lists',    'Lists (' + counts.lists + ')',    counts.lists    > 0, p.id)
