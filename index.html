@@ -1313,6 +1313,7 @@
           <button id="admin-tab-users"    onclick="switchAdminTab('users')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Users</button>
           <button id="admin-tab-lists"    onclick="switchAdminTab('lists')"    style="flex:1;min-width:60px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Lists</button>
           <button id="admin-tab-feedback" onclick="switchAdminTab('feedback')" style="flex:1;min-width:70px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Feedback</button>
+          <button id="admin-tab-invites"  onclick="switchAdminTab('invites')"  style="flex:1;min-width:70px;padding:10px 4px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:#888780;border-bottom:2px solid transparent">Invites</button>
         </div>
         <div class="content" id="admin-content"></div>
       </div>
@@ -8632,7 +8633,7 @@ async function submitFeedback() {
 
 function switchAdminTab(tab) {
   _adminTab = tab;
-  ['cats','items','weekly','insights','users','lists','feedback'].forEach(function(t) {
+  ['cats','items','weekly','insights','users','lists','feedback','invites'].forEach(function(t) {
     var b = document.getElementById('admin-tab-' + t);
     if (!b) return;
     if (t === tab) { b.style.color = '#D85A30'; b.style.borderBottomColor = '#D85A30'; }
@@ -8653,6 +8654,44 @@ async function renderAdmin() {
   if (_adminTab === 'users') return renderAdminUsers(el);
   if (_adminTab === 'lists') return renderAdminLists(el);
   if (_adminTab === 'feedback') return renderAdminFeedback(el);
+  if (_adminTab === 'invites') return renderAdminInvites(el);
+}
+
+// --- Invite leaderboard tab: top recruiters by direct + indirect invites ---
+async function renderAdminInvites(el) {
+  el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading leaderboard…</div>';
+  try {
+    var res = await sbClient.rpc('admin_invite_leaderboard', { p_limit: 50 });
+    if (res.error) throw res.error;
+    var rows = res.data || [];
+    if (!rows.length) {
+      el.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#888780"><div style="font-size:36px;margin-bottom:10px">🎯</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No invites yet</div><div style="font-size:12px;line-height:1.5">When users sign up via someone\'s invite link, they\'ll show up here.</div></div>';
+      return;
+    }
+    var html = '<div style="padding:12px">'
+      + '<div style="font-size:11px;color:#888780;margin-bottom:10px">Top recruiters ranked by combined direct + indirect invites (recursive). Click a name to jump to their admin detail.</div>';
+    rows.forEach(function(r, i) {
+      var name = r.display_name || (r.handle ? '@' + r.handle : (r.email || '—'));
+      var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '#' + (i + 1);
+      var direct = Number(r.direct_count) || 0;
+      var indirect = Number(r.indirect_count) || 0;
+      var total = Number(r.total_count) || 0;
+      html += '<div class="card no-hover" onclick="openAdminUserDetail(\'' + r.user_id + '\')" style="margin-bottom:6px;padding:10px 12px;cursor:pointer">'
+        + '<div style="display:flex;align-items:center;gap:10px">'
+        + '<div style="font-size:14px;font-weight:700;width:32px;text-align:center;flex-shrink:0">' + medal + '</div>'
+        + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '</div>'
+        + '<div style="font-size:10px;color:#888780;margin-top:1px">' + escapeHtml(r.email || '') + '</div></div>'
+        + '<div style="display:flex;gap:4px;flex-shrink:0">'
+        +   '<span style="font-size:10px;background:#D6F0EA;color:#1F7268;padding:3px 8px;border-radius:99px;font-weight:600" title="Direct invitees">D ' + direct + '</span>'
+        +   '<span style="font-size:10px;background:#F1EFE8;color:#5F5E5A;padding:3px 8px;border-radius:99px;font-weight:600" title="Indirect (their invitees\' invitees)">I ' + indirect + '</span>'
+        +   '<span style="font-size:10px;background:#2C2C2A;color:#FFFFFF;padding:3px 8px;border-radius:99px;font-weight:700">Σ ' + total + '</span>'
+        + '</div></div></div>';
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div style="padding:20px;color:#A32D2D">Error: ' + escapeHtml(e.message || String(e)) + '</div>';
+  }
 }
 
 // --- Insights tab: leaderboard of user-created custom categories ---
@@ -9119,22 +9158,35 @@ async function openAdminUserDetail(uid) {
     var pr = await sbClient.from('profiles').select('*').eq('id', uid).maybeSingle();
     if (!pr.data) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">User not found.</div>'; return; }
     var profile = pr.data;
-    var [listsC, friendsC, friendsPendingC, groupsC, feedbackC, emailC, adminChk] = await Promise.all([
+    var [listsC, friendsC, friendsPendingC, groupsC, feedbackC, emailC, adminChk, inviteCountsRes, inviterRes] = await Promise.all([
       sbClient.from('lists').select('id', { count: 'exact', head: true }).eq('user_id', uid),
       sbClient.from('friendships').select('id', { count: 'exact', head: true }).or('requester_id.eq.' + uid + ',addressee_id.eq.' + uid).eq('status', 'accepted'),
       sbClient.from('friendships').select('id', { count: 'exact', head: true }).or('requester_id.eq.' + uid + ',addressee_id.eq.' + uid).eq('status', 'pending'),
       sbClient.from('group_members').select('group_id', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'accepted'),
       sbClient.from('feedback').select('id', { count: 'exact', head: true }).eq('user_id', uid),
       sbClient.from('email_log').select('id', { count: 'exact', head: true }).eq('user_id', uid),
-      sbClient.from('admins').select('user_id').eq('user_id', uid).maybeSingle()
+      sbClient.from('admins').select('user_id').eq('user_id', uid).maybeSingle(),
+      sbClient.rpc('admin_invite_counts', { p_user_id: uid }),
+      // Resolve who invited this user, if anyone
+      sbClient.from('profiles').select('invited_by').eq('id', uid).maybeSingle()
     ]);
+    var invRow = (inviteCountsRes && inviteCountsRes.data && inviteCountsRes.data[0]) || { direct_count: 0, indirect_count: 0 };
+    // Resolve inviter profile if present
+    var inviterProfile = null;
+    if (inviterRes.data && inviterRes.data.invited_by) {
+      var ip = await sbClient.from('profiles').select('id, display_name, handle, email').eq('id', inviterRes.data.invited_by).maybeSingle();
+      if (ip.data) inviterProfile = ip.data;
+    }
     var counts = {
       lists: listsC.count || 0,
       friends: friendsC.count || 0,
       friendsPending: friendsPendingC.count || 0,
       groups: groupsC.count || 0,
       feedback: feedbackC.count || 0,
-      emails: emailC.count || 0
+      emails: emailC.count || 0,
+      inviteDirect: Number(invRow.direct_count) || 0,
+      inviteIndirect: Number(invRow.indirect_count) || 0,
+      inviter: inviterProfile
     };
     var isAdminUser = !!(adminChk && adminChk.data);
     _adminUserCache = { profile: profile, counts: counts, isAdminUser: isAdminUser };
@@ -9167,6 +9219,13 @@ function renderAdminUserDetail(p, counts, isAdminUser) {
     +   '</div>'
     + '</div>'
     + '<div style="background:#F1EFE8;padding:10px 12px;border-radius:8px;margin-bottom:6px"><div style="font-size:10px;color:#888780">Email (used to sign up)</div><div style="font-size:13px;color:#2C2C2A;font-weight:600;word-break:break-all">' + escapeHtml(p.email || '—') + '</div></div>'
+    // Recruited-by row
+    + '<div style="background:#F1EFE8;padding:10px 12px;border-radius:8px;margin-bottom:6px">'
+    +   '<div style="font-size:10px;color:#888780">Invited by</div>'
+    +   (counts.inviter
+        ? '<div style="font-size:13px;color:#2C2C2A;font-weight:600;cursor:pointer;text-decoration:underline" onclick="openAdminUserDetail(\'' + counts.inviter.id + '\')">' + escapeHtml(counts.inviter.display_name || (counts.inviter.handle ? '@' + counts.inviter.handle : counts.inviter.email || '—')) + '</div>'
+        : '<div style="font-size:13px;color:#5F5E5A;font-style:italic">Direct signup (no referral)</div>')
+    + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;font-size:11px">'
     +   '<div style="background:#F1EFE8;padding:8px 10px;border-radius:8px"><div style="color:#888780">Joined</div><div style="color:#2C2C2A;font-weight:600">' + joinedAt + '</div></div>'
     +   '<div style="background:#F1EFE8;padding:8px 10px;border-radius:8px"><div style="color:#888780">Profile updated</div><div style="color:#2C2C2A;font-weight:600">' + updatedAt + '</div></div>'
@@ -9174,13 +9233,18 @@ function renderAdminUserDetail(p, counts, isAdminUser) {
     +   '<div style="background:#F1EFE8;padding:8px 10px;border-radius:8px"><div style="color:#888780">Birthday</div><div style="color:#2C2C2A;font-weight:600">' + bday + '</div></div>'
     +   '<div style="background:#F1EFE8;padding:8px 10px;border-radius:8px;grid-column:1/-1"><div style="color:#888780">Bio</div><div style="color:#2C2C2A;font-weight:600">' + (p.bio ? escapeHtml(p.bio) : '—') + '</div></div>'
     + '</div>'
-    // Numbers row
-    + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:14px;text-align:center">'
+    // Numbers row — activity stats
+    + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:6px;text-align:center">'
     +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.lists + '</div><div style="font-size:9px">Lists</div></div>'
     +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px" title="' + counts.friends + ' accepted · ' + counts.friendsPending + ' pending"><div style="font-size:16px;font-weight:800">' + counts.friends + (counts.friendsPending > 0 ? '<span style="font-size:11px;color:#B36833">+' + counts.friendsPending + '</span>' : '') + '</div><div style="font-size:9px">Friends</div></div>'
     +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.groups + '</div><div style="font-size:9px">Groups</div></div>'
     +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.feedback + '</div><div style="font-size:9px">Feedback</div></div>'
     +   '<div style="background:#FAECE7;color:#993C1D;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.emails + '</div><div style="font-size:9px">Emails</div></div>'
+    + '</div>'
+    // Invite attribution stats — green so they stand out from activity numbers
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:14px;text-align:center">'
+    +   '<div style="background:#D6F0EA;color:#1F7268;padding:8px 4px;border-radius:8px"><div style="font-size:16px;font-weight:800">' + counts.inviteDirect + '</div><div style="font-size:9px">Direct invites</div></div>'
+    +   '<div style="background:#D6F0EA;color:#1F7268;padding:8px 4px;border-radius:8px" title="Their invitees\' invitees, and so on (recursive)"><div style="font-size:16px;font-weight:800">' + counts.inviteIndirect + '</div><div style="font-size:9px">Indirect invites</div></div>'
     + '</div>'
     // Actions
     + '<div class="sec-label">Actions</div>'
@@ -9197,6 +9261,7 @@ function renderAdminUserDetail(p, counts, isAdminUser) {
     + adminUserSection('groups',   'Groups (' + counts.groups + ')',   counts.groups  > 0, p.id)
     + adminUserSection('feedback', 'Feedback (' + counts.feedback + ')', counts.feedback > 0, p.id)
     + adminUserSection('emails',   'Email history (' + counts.emails + ')', counts.emails > 0, p.id)
+    + adminUserSection('invitees', 'Invitees (' + counts.inviteDirect + (counts.inviteIndirect > 0 ? ' direct + ' + counts.inviteIndirect + ' indirect' : '') + ')', counts.inviteDirect > 0, p.id)
     + '</div>';
 }
 
@@ -9286,6 +9351,23 @@ async function toggleAdminUserSection(key, uid) {
             + '<div style="font-size:12px;color:#2C2C2A;white-space:pre-wrap">' + escapeHtml(x.message || '') + '</div></div>';
         }).join('');
         bodyEl.innerHTML = rows4 || '<div style="font-size:11px;color:#888;padding:6px">No feedback submitted.</div>';
+      } else if (key === 'invitees') {
+        var invRes = await sbClient.rpc('admin_list_invitees', { p_user_id: uid });
+        var invitees = invRes.data || [];
+        if (!invitees.length) { bodyEl.innerHTML = '<div style="font-size:11px;color:#888;padding:6px">No direct invitees yet.</div>'; return; }
+        var invRows = invitees.map(function(inv) {
+          var name = inv.display_name || (inv.handle ? '@' + inv.handle : (inv.email || '—'));
+          var joined = inv.invited_at ? new Date(inv.invited_at).toLocaleDateString() : '—';
+          var theirCount = Number(inv.their_direct_count) || 0;
+          return '<div class="card no-hover" onclick="openAdminUserDetail(\'' + inv.id + '\')" style="margin-bottom:4px;padding:8px 10px;cursor:pointer">'
+            + '<div style="display:flex;align-items:center;gap:8px">'
+            + friendAvatarHtml(inv, 28)
+            + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600">' + escapeHtml(name) + '</div>'
+            + '<div style="font-size:10px;color:#888780">Joined ' + joined + (theirCount > 0 ? ' · has recruited ' + theirCount + ' more' : '') + '</div></div>'
+            + (theirCount > 0 ? '<span style="font-size:9px;background:#D6F0EA;color:#1F7268;padding:2px 8px;border-radius:99px;font-weight:600">+' + theirCount + '</span>' : '')
+            + '<span style="color:#D3D1C7;margin-left:4px">›</span></div></div>';
+        }).join('');
+        bodyEl.innerHTML = invRows;
       } else if (key === 'emails') {
         var eh = await sbClient.from('email_log').select('email_type, ref_key, sent_at').eq('user_id', uid).order('sent_at', {ascending:false}).limit(100);
         var rows5 = (eh.data || []).map(function(x) {
@@ -10948,6 +11030,14 @@ function setupRealtimeNotifications() {
     savePendingInvite(fillVal, fromVal);
     history.replaceState(null, '', window.location.pathname);
   }
+  // Also capture ?from=<userId> even without a fill= — general invite links.
+  // We store this alone so it survives signup and can attribute the new user.
+  if (fromParam && !fillParam) {
+    var fromValStandalone = decodeURIComponent(fromParam);
+    window.pendingFrom = fromValStandalone;
+    try { localStorage.setItem('tenner_pending_from', JSON.stringify({ from: fromValStandalone, ts: Date.now() })); } catch(e) {}
+    history.replaceState(null, '', window.location.pathname);
+  }
   // ?openPrefs=1 → email footer deep link to the preference center
   if (_qs.get('openPrefs') === '1') {
     window.__pendingOpenPrefs = true;
@@ -10984,6 +11074,26 @@ function setupRealtimeNotifications() {
         window.__pendingOpenPrefs = false;
         setTimeout(function() { go('s-email-prefs'); }, 300);
       }
+      // Attribute this new signup to whoever's invite link they came from.
+      // Runs once per user — only writes when profiles.invited_by is currently
+      // NULL, so it never overwrites a real value if this fires on a return
+      // sign-in (defensive).
+      (async function attributeInviter() {
+        try {
+          var fromId = window.pendingFrom;
+          if (!fromId) {
+            var raw = null;
+            try { raw = localStorage.getItem('tenner_pending_from'); } catch(e) {}
+            if (raw) { try { fromId = (JSON.parse(raw) || {}).from; } catch(e) {} }
+          }
+          if (!fromId || fromId === userId || !sbClient) return;
+          // Check current invited_by — only write if unset
+          var cur = await sbClient.from('profiles').select('invited_by').eq('id', userId).maybeSingle();
+          if (cur.data && cur.data.invited_by) return; // already attributed
+          await sbClient.from('profiles').update({ invited_by: fromId, invite_source: 'link' }).eq('id', userId);
+          try { localStorage.removeItem('tenner_pending_from'); } catch(e) {}
+        } catch(e) { console.warn('attribute inviter failed', e); }
+      })();
       // Prefer in-memory invite (same page load); fall back to persisted
       // invite that survived the email-confirmation reload.
       var invite = window.pendingFill ? { fill: window.pendingFill, from: window.pendingFrom || null } : getPendingInvite();
