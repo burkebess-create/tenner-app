@@ -4719,7 +4719,7 @@ function copyListInviteLink() {
 
 function openListInviteModal() {
   var url = getListInviteUrl();
-  var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
+  var senderName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
   var handleTag = (myProfile && myProfile.handle) ? ' (@' + myProfile.handle + ')' : '';
   var defaultMsg = senderName + handleTag + ' shared their Top 10 ' + selCat + ' list on Tenner!\n\nFill out yours and see how you compare:\n<' + url + '>' + myHandleLine();
   var msgEl = document.getElementById('invite-message');
@@ -4732,7 +4732,7 @@ function openListInviteModal() {
 function openInviteModalForGroup() {
   var g = MY_GROUPS[selGroupIdx];
   var groupName = g ? g.n : '';
-  var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
+  var senderName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
   var handleTag = (myProfile && myProfile.handle) ? ' (@' + myProfile.handle + ')' : '';
   var trackedUrl = 'https://mytenner.com/' + (userId ? '?from=' + encodeURIComponent(userId) : '');
   var defaultMsg = senderName + handleTag + ' is inviting you to join "' + groupName + '" on Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nJoin here: <' + trackedUrl + '>' + myHandleLine();
@@ -4746,7 +4746,7 @@ function openInviteModalForGroup() {
 function openInviteModal() {
   var groupNameEl = document.getElementById('group-name');
   var groupName = groupNameEl ? groupNameEl.value.trim() : '';
-  var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
+  var senderName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
   var body = 'Hey — I\'ve been using this app called Tenner. You make Top 10 lists of stuff you love (movies, restaurants, songs, travel spots, whatever) and see how your picks match up with your friends. It\'s pretty fun.';
   var join = groupName ? '\n\nWant to join my group "' + groupName + '"?' : '';
   var findLine = (myProfile && myProfile.handle) ? '\nFind me @' + myProfile.handle : '';
@@ -4768,7 +4768,7 @@ function sendInviteEmail() {
   var isListInvite = message.indexOf('Top 10') !== -1;
   var subject;
   if (isListInvite) {
-    var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
+    var senderName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
     subject = encodeURIComponent(senderName + ' wants to compare Top 10 ' + selCat + ' lists with you on Tenner');
   } else {
     var groupNameEl = document.getElementById('group-name');
@@ -7680,7 +7680,7 @@ function goToCg3() {
 }
 
 function openCircleInviteModal() {
-  var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
+  var senderName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
   var url = 'https://mytenner.com/' + (userId ? '?from=' + encodeURIComponent(userId) : '');
   var defaultMsg = senderName + ' is inviting you to join Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nSign up here: <' + url + '>';
   var msgEl = document.getElementById('invite-message');
@@ -11044,7 +11044,8 @@ async function saveList() {
   saveState();
   // Notify friends of update
   if (isUpdate && myFriends.filter(function(f){return f.status==='accepted';}).length > 0) {
-    var senderName = (myProfile && myProfile.display_name) || 'Someone';
+    var senderName = (myProfile && myProfile.display_name)
+      || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
     notifyFriendsOfUpdate(senderName, selCat);
   }
   if (dest === 's-gdetail') {
