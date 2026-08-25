@@ -1055,6 +1055,11 @@
               <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Email preferences</div>
               <div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">What emails you receive</div>
             </div>
+            <div onclick="openPushSettings()" style="background:#F5B8A8AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
+              <div style="font-size:30px;line-height:1;margin-bottom:8px">🔔</div>
+              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Push notifications</div>
+              <div id="push-tile-status" style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">Get alerts on this device</div>
+            </div>
             <div onclick="go('s-profile-account')" style="background:#D9BEECAA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
               <div style="font-size:30px;line-height:1;margin-bottom:8px">🔒</div>
               <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Account &amp; security</div>
@@ -1818,6 +1823,7 @@ function go(id) {
   }
   if (id === 's-circle') {
     renderCircleTopbarAvatar(); renderTodayPill(); renderCircleListInvites(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderWeeklyHeroCard(); renderStreakPill(); renderProfileNudges(); refreshNotifications().then(function(){ renderCircleListInvites(); });
+    if (typeof pushResubscribeSilently === 'function') pushResubscribeSilently();
     attachPullToRefresh(document.querySelector('#s-circle .content'), function() { return loadFriends().then(renderCircleScreen); });
   }
   if (id === 's-add-friends') {
@@ -1838,7 +1844,7 @@ function go(id) {
       markNotificationsRead().then(updateNotificationBadge);
     });
   }
-  if (id === 's-profile') { loadProfile(); renderFriendsSection(); }
+  if (id === 's-profile') { loadProfile(); renderFriendsSection(); if (typeof updatePushTileStatus === 'function') updatePushTileStatus(); }
   // All profile sub-screens re-run loadProfile so their form fields populate,
   // avatars refresh, and the admin tile visibility recomputes when navigating.
   if (id === 's-profile-edit' || id === 's-profile-comments' || id === 's-profile-gift' || id === 's-profile-account' || id === 's-profile-feedback') {
@@ -5332,11 +5338,176 @@ function onSignedIn(session) {
 
 // --- Transactional email helpers ---
 // Invokes the send-email Edge Function. Fire-and-forget — never blocks UI.
+// Also fires a matching push notification (send-push) in parallel — the edge
+// function handles opt-outs and no-op if the user has no subscriptions.
 function sendAppEmail(type, to, data) {
   if (!sbClient || !to) return;
   sbClient.functions.invoke('send-email', { body: { type: type, to: to, data: data || {} } })
     .then(function(r) { if (r && r.error) console.warn('send-email:', r.error); })
     .catch(function(e) { console.warn('send-email invoke failed:', e); });
+  // Mirror to push. Payload derived from type — kept short since push has ~40 char limit.
+  var pushMsg = derivePushFromEmail(type, data || {});
+  if (pushMsg) sendAppPush(to, pushMsg.title, pushMsg.body, pushMsg.url);
+}
+
+function sendAppPush(toEmail, title, body, url) {
+  if (!sbClient || !toEmail || !title || !body) return;
+  sbClient.functions.invoke('send-push', { body: { to_email: toEmail, title: title, body: body, url: url || '/' } })
+    .then(function(r) { if (r && r.error) console.warn('send-push:', r.error); })
+    .catch(function(e) { console.warn('send-push invoke failed:', e); });
+}
+
+// Map email type → short push payload. Return null to skip push for that type.
+function derivePushFromEmail(type, data) {
+  var name = data.sender_name || data.from_name || data.friend_name || 'A friend';
+  switch (type) {
+    case 'friend_request':      return { title: 'Tenner', body: name + ' sent you a friend request', url: '/#circle' };
+    case 'new_comment':         return { title: 'Tenner', body: name + ' commented on your list', url: '/#circle' };
+    case 'friend_update':       return { title: 'Tenner', body: name + ' updated their ' + (data.category || 'top 10'), url: '/#circle' };
+    case 'list_share':          return { title: 'Tenner', body: name + ' shared a list with you', url: '/#circle' };
+    case 'weekly_reveal':       return { title: 'Tenner', body: 'This week\'s reveal is live!', url: '/#weekly' };
+    case 'birthday_reminder':   return { title: 'Tenner', body: (data.friend_name || 'A friend') + '\'s birthday is coming up', url: '/#circle' };
+    default: return null; // welcome, feedback_update, etc. — email only
+  }
+}
+
+// --- Push notifications (Web Push / VAPID) ---
+// Public VAPID key — safe to expose in client code (that's what "public" means).
+// Generate with: npx web-push generate-vapid-keys
+// Then paste the public key here and set VAPID_PRIVATE_KEY as a Supabase secret.
+var VAPID_PUBLIC_KEY = (window.TENNER_CONFIG && window.TENNER_CONFIG.VAPID_PUBLIC_KEY) || '';
+
+function urlBase64ToUint8Array(base64String) {
+  var padding = '='.repeat((4 - base64String.length % 4) % 4);
+  var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  var raw = window.atob(base64);
+  var out = new Uint8Array(raw.length);
+  for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+async function pushSubscribeIfPossible() {
+  if (!VAPID_PUBLIC_KEY) { console.warn('VAPID_PUBLIC_KEY not set — skipping push subscribe'); return { ok: false, reason: 'no_vapid' }; }
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return { ok: false, reason: 'unsupported' };
+  if (!sbClient || !userId) return { ok: false, reason: 'not_signed_in' };
+  try {
+    var reg = await navigator.serviceWorker.ready;
+    var existing = await reg.pushManager.getSubscription();
+    var sub = existing;
+    if (!sub) {
+      var perm = await Notification.requestPermission();
+      if (perm !== 'granted') return { ok: false, reason: 'denied' };
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+    var json = sub.toJSON();
+    await sbClient.from('push_subscriptions').upsert({
+      user_id: userId,
+      endpoint: json.endpoint,
+      p256dh: json.keys && json.keys.p256dh,
+      auth: json.keys && json.keys.auth,
+      user_agent: navigator.userAgent
+    }, { onConflict: 'endpoint' });
+    return { ok: true };
+  } catch (e) {
+    console.warn('pushSubscribeIfPossible failed:', e);
+    return { ok: false, reason: 'error', error: e };
+  }
+}
+
+async function pushUnsubscribe() {
+  try {
+    if (!('serviceWorker' in navigator)) return;
+    var reg = await navigator.serviceWorker.ready;
+    var sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      var endpoint = sub.endpoint;
+      await sub.unsubscribe();
+      if (sbClient) await sbClient.from('push_subscriptions').delete().eq('endpoint', endpoint);
+    }
+  } catch (e) { console.warn('pushUnsubscribe failed:', e); }
+}
+
+function pushPermissionState() {
+  if (!('Notification' in window)) return 'unsupported';
+  return Notification.permission; // 'default' | 'granted' | 'denied'
+}
+
+// Toggle-style dialog. Not a full screen — a lightweight modal.
+async function openPushSettings() {
+  var state = pushPermissionState();
+  var msg, btnLabel, action;
+  if (state === 'unsupported') {
+    msg = 'Push notifications aren\'t supported in this browser. Try Chrome, Safari 16.4+, or the installed Tenner PWA.';
+    btnLabel = 'OK'; action = 'close';
+  } else if (!VAPID_PUBLIC_KEY) {
+    msg = 'Push isn\'t configured yet. (Admin: set VAPID_PUBLIC_KEY in window.TENNER_CONFIG.)';
+    btnLabel = 'OK'; action = 'close';
+  } else if (state === 'denied') {
+    msg = 'Notifications are blocked in your browser settings. Enable them in Site Settings, then come back here.';
+    btnLabel = 'OK'; action = 'close';
+  } else if (state === 'granted') {
+    // Check if we actually have a subscription
+    try {
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        msg = 'You\'re getting push notifications on this device. Turn them off?';
+        btnLabel = 'Turn off'; action = 'off';
+      } else {
+        msg = 'Enable push notifications on this device?';
+        btnLabel = 'Turn on'; action = 'on';
+      }
+    } catch (e) {
+      msg = 'Enable push notifications on this device?';
+      btnLabel = 'Turn on'; action = 'on';
+    }
+  } else {
+    msg = 'Enable push notifications so you know when friends comment or update lists?';
+    btnLabel = 'Turn on'; action = 'on';
+  }
+  if (typeof showConfirm === 'function') {
+    showConfirm(msg, async function() {
+      if (action === 'on') {
+        var r = await pushSubscribeIfPossible();
+        if (r.ok) { if (typeof toast === 'function') toast('Notifications on'); }
+        else if (r.reason === 'denied') { if (typeof toast === 'function') toast('Permission denied'); }
+        else { if (typeof toast === 'function') toast('Couldn\'t turn on'); }
+        updatePushTileStatus();
+      } else if (action === 'off') {
+        await pushUnsubscribe();
+        if (typeof toast === 'function') toast('Notifications off');
+        updatePushTileStatus();
+      }
+    }, { confirmLabel: btnLabel });
+  } else {
+    if (confirm(msg) && action === 'on') { await pushSubscribeIfPossible(); updatePushTileStatus(); }
+    else if (action === 'off') { await pushUnsubscribe(); updatePushTileStatus(); }
+  }
+}
+
+async function updatePushTileStatus() {
+  var el = document.getElementById('push-tile-status');
+  if (!el) return;
+  var state = pushPermissionState();
+  if (state === 'unsupported') { el.textContent = 'Not supported here'; return; }
+  if (state === 'denied') { el.textContent = 'Blocked in browser'; return; }
+  if (state !== 'granted') { el.textContent = 'Get alerts on this device'; return; }
+  try {
+    var reg = await navigator.serviceWorker.ready;
+    var sub = await reg.pushManager.getSubscription();
+    el.textContent = sub ? 'On for this device' : 'Off — tap to turn on';
+  } catch (e) { el.textContent = 'Get alerts on this device'; }
+}
+
+// If the user previously granted permission on this device, re-sync the
+// subscription silently on load (endpoints can rotate; our DB row may be stale).
+async function pushResubscribeSilently() {
+  if (!VAPID_PUBLIC_KEY || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (pushPermissionState() !== 'granted' || !userId) return;
+  await pushSubscribeIfPossible();
 }
 
 async function sendWelcomeEmailIfNeeded() {
