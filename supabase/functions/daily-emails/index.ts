@@ -228,21 +228,223 @@ async function runFeedbackDigest(supabase: any) {
   return rows.length;
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Weekly-list nudge: sent when a weekly reveals TODAY and user hasn't
+// filled it yet. Combines with streak-in-danger — users on streaks get
+// two escalating reminders (this one + the streak version below).
+// ─────────────────────────────────────────────────────────────────────
+async function runWeeklyNudge(supabase: any) {
+  console.log("Running weekly-list nudge...");
+  const now = new Date();
+  const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
+  const { data: revealingToday, error } = await supabase
+    .from("weekly_lists")
+    .select("id, category, emoji, reveal_at")
+    .gte("reveal_at", now.toISOString())
+    .lte("reveal_at", endOfDay.toISOString());
+  if (error) throw error;
+  if (!revealingToday?.length) return 0;
+
+  // For each weekly revealing today, find users who haven't filled it
+  const { data: profiles } = await supabase.from("profiles").select("id, email, display_name");
+  if (!profiles?.length) return 0;
+
+  let sentCount = 0;
+  for (const wk of revealingToday) {
+    // Anyone with a matching list row (any state)
+    const { data: filledList } = await supabase.from("lists").select("user_id").eq("category", wk.category);
+    const filled = new Set((filledList || []).map((l: any) => l.user_id));
+    for (const p of profiles) {
+      if (!p.email || filled.has(p.id)) continue;
+      // Check pref
+      const { data: prefRow } = await supabase.from("user_email_prefs").select("prefs").eq("user_id", p.id).maybeSingle();
+      if (prefRow && prefRow.prefs && prefRow.prefs.weekly === false) continue;
+      const refKey = wk.id + "__nudge";
+      const { data: sent } = await supabase.from("email_log").select("id").eq("user_id", p.id).eq("email_type", "weekly_nudge").eq("ref_key", refKey).maybeSingle();
+      if (sent) continue;
+      const revealTime = new Date(wk.reveal_at).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+      try {
+        const subject = `⏰ ${wk.emoji || "📋"} Top 10 ${wk.category} reveals TONIGHT at ${revealTime}`;
+        const html = baseTemplate(
+          `Reveals tonight at ${revealTime} — have you filled yours?`,
+          `<h1>⏰ Reveals tonight</h1>
+           <p><strong>${wk.emoji || "📋"} Top 10 ${escapeHtml(wk.category)}</strong> reveals at <strong>${revealTime}</strong>.</p>
+           <p>You haven't filled yours yet. Get in before it's live so you can compare with your friends and all of Tenner.</p>
+           <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Fill it out →</a></p>`
+        );
+        await sendResend(p.email, subject, html);
+        await supabase.from("email_log").insert({ user_id: p.id, email_type: "weekly_nudge", ref_key: refKey });
+        sentCount++;
+      } catch (e) { console.error(`weekly_nudge failed for ${p.email}:`, e); }
+    }
+  }
+  return sentCount;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Streak-in-danger: user has an active streak (filled >=2 recent weeklies)
+// but hasn't filled THIS week's yet. Sent on reveal day to nudge them.
+// Loss-aversion driver — telling them what they'd lose.
+// ─────────────────────────────────────────────────────────────────────
+async function runStreakInDanger(supabase: any) {
+  console.log("Running streak-in-danger...");
+  const now = new Date();
+  const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
+  const { data: revealingToday } = await supabase
+    .from("weekly_lists")
+    .select("id, category, emoji, reveal_at")
+    .gte("reveal_at", now.toISOString())
+    .lte("reveal_at", endOfDay.toISOString());
+  if (!revealingToday?.length) return 0;
+
+  const { data: allWeeklies } = await supabase
+    .from("weekly_lists")
+    .select("id, category, week_start, reveal_at")
+    .order("week_start", { ascending: false })
+    .limit(20);
+  const pastWeeklies = (allWeeklies || []).filter((w: any) => new Date(w.reveal_at) < now);
+
+  const { data: profiles } = await supabase.from("profiles").select("id, email, display_name");
+  if (!profiles?.length) return 0;
+
+  let sentCount = 0;
+  for (const wk of revealingToday) {
+    const { data: filledList } = await supabase.from("lists").select("user_id, category, updated_at").in("category", pastWeeklies.map((w: any) => w.category).concat([wk.category]));
+    const listsByUser: Record<string, any[]> = {};
+    (filledList || []).forEach((l: any) => { (listsByUser[l.user_id] = listsByUser[l.user_id] || []).push(l); });
+    for (const p of profiles) {
+      if (!p.email) continue;
+      // Skip if they've already filled THIS week
+      const alreadyFilledThisWeek = (listsByUser[p.id] || []).some((l: any) => l.category === wk.category);
+      if (alreadyFilledThisWeek) continue;
+      // Compute streak from past weeklies
+      let streak = 0;
+      const sortedPast = pastWeeklies.slice().sort((a: any, b: any) => (b.week_start || '').localeCompare(a.week_start || ''));
+      for (let i = 0; i < sortedPast.length; i++) {
+        const pw = sortedPast[i];
+        const wStart = new Date(pw.week_start + "T00:00:00").getTime();
+        const nextStart = sortedPast[i - 1] ? new Date(sortedPast[i - 1].week_start + "T00:00:00").getTime() : wStart + 14 * 86400000;
+        const hit = (listsByUser[p.id] || []).some((l: any) => {
+          if (l.category !== pw.category) return false;
+          if (!l.updated_at) return false;
+          const t = new Date(l.updated_at).getTime();
+          return t >= wStart && t < nextStart;
+        });
+        if (hit) streak++; else break;
+      }
+      if (streak < 2) continue; // only nudge if there's a real streak at risk
+      const { data: prefRow } = await supabase.from("user_email_prefs").select("prefs").eq("user_id", p.id).maybeSingle();
+      if (prefRow && prefRow.prefs && prefRow.prefs.weekly === false) continue;
+      const refKey = wk.id + "__streak";
+      const { data: sent } = await supabase.from("email_log").select("id").eq("user_id", p.id).eq("email_type", "streak_in_danger").eq("ref_key", refKey).maybeSingle();
+      if (sent) continue;
+      try {
+        const subject = `🔥 Your ${streak}-week streak is on the line`;
+        const html = baseTemplate(
+          `Your ${streak}-week streak ends if you don't fill this week's list.`,
+          `<h1>🔥 Your ${streak}-week streak is at risk</h1>
+           <p>You've filled every weekly list for <strong>${streak} weeks in a row</strong>. Don't break the chain.</p>
+           <p>This week: <strong>Top 10 ${escapeHtml(wk.category)}</strong> — reveals tonight.</p>
+           <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Keep the streak alive →</a></p>`
+        );
+        await sendResend(p.email, subject, html);
+        await supabase.from("email_log").insert({ user_id: p.id, email_type: "streak_in_danger", ref_key: refKey });
+        sentCount++;
+      } catch (e) { console.error(`streak_in_danger failed for ${p.email}:`, e); }
+    }
+  }
+  return sentCount;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Sunday weekly recap: for each user, sum their past-7-days activity
+// (reactions received, comments received, new friends, lists updated).
+// Skip anyone with zero activity — no empty recaps.
+// ─────────────────────────────────────────────────────────────────────
+async function runSundayRecap(supabase: any) {
+  console.log("Running Sunday recap...");
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: profiles } = await supabase.from("profiles").select("id, email, display_name");
+  if (!profiles?.length) return 0;
+
+  const [reactionsRes, commentsRes, friendshipsRes, listsRes] = await Promise.all([
+    supabase.from("list_reactions").select("list_owner_id, from_user_id, created_at").gte("created_at", sevenDaysAgo),
+    supabase.from("list_item_comments").select("list_owner_id, from_user_id, created_at").gte("created_at", sevenDaysAgo),
+    supabase.from("friendships").select("requester_id, addressee_id, status").eq("status", "accepted"),
+    supabase.from("lists").select("user_id, updated_at").gte("updated_at", sevenDaysAgo),
+  ]);
+  const reactionsByOwner: Record<string, number> = {};
+  (reactionsRes.data || []).forEach((r: any) => { if (r.from_user_id !== r.list_owner_id) reactionsByOwner[r.list_owner_id] = (reactionsByOwner[r.list_owner_id] || 0) + 1; });
+  const commentsByOwner: Record<string, number> = {};
+  (commentsRes.data || []).forEach((c: any) => { if (c.from_user_id !== c.list_owner_id) commentsByOwner[c.list_owner_id] = (commentsByOwner[c.list_owner_id] || 0) + 1; });
+  const friendCountByUser: Record<string, number> = {};
+  (friendshipsRes.data || []).forEach((f: any) => {
+    friendCountByUser[f.requester_id] = (friendCountByUser[f.requester_id] || 0) + 1;
+    friendCountByUser[f.addressee_id] = (friendCountByUser[f.addressee_id] || 0) + 1;
+  });
+  const listsUpdatedByUser: Record<string, number> = {};
+  (listsRes.data || []).forEach((l: any) => { listsUpdatedByUser[l.user_id] = (listsUpdatedByUser[l.user_id] || 0) + 1; });
+
+  let sentCount = 0;
+  for (const p of profiles) {
+    if (!p.email) continue;
+    const reactions = reactionsByOwner[p.id] || 0;
+    const comments = commentsByOwner[p.id] || 0;
+    const listsUpdated = listsUpdatedByUser[p.id] || 0;
+    if (reactions + comments + listsUpdated === 0) continue; // nothing worth recapping
+    const { data: prefRow } = await supabase.from("user_email_prefs").select("prefs").eq("user_id", p.id).maybeSingle();
+    if (prefRow && prefRow.prefs && prefRow.prefs.weekly === false) continue;
+    const refKey = new Date().toISOString().slice(0, 10) + "__recap";
+    const { data: sent } = await supabase.from("email_log").select("id").eq("user_id", p.id).eq("email_type", "sunday_recap").eq("ref_key", refKey).maybeSingle();
+    if (sent) continue;
+    const stats: string[] = [];
+    if (reactions > 0) stats.push(`<strong>${reactions}</strong> reaction${reactions === 1 ? '' : 's'} on your lists`);
+    if (comments > 0) stats.push(`<strong>${comments}</strong> comment${comments === 1 ? '' : 's'} on your lists`);
+    if (listsUpdated > 0) stats.push(`You updated <strong>${listsUpdated}</strong> list${listsUpdated === 1 ? '' : 's'}`);
+    try {
+      const subject = `📊 Your Tenner week`;
+      const html = baseTemplate(
+        `Your Tenner week in review.`,
+        `<h1>📊 Your Tenner week</h1>
+         <p>Here's what happened this week:</p>
+         <ul>${stats.map((s) => `<li>${s}</li>`).join('')}</ul>
+         <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Open Tenner →</a></p>`
+      );
+      await sendResend(p.email, subject, html);
+      await supabase.from("email_log").insert({ user_id: p.id, email_type: "sunday_recap", ref_key: refKey });
+      sentCount++;
+    } catch (e) { console.error(`sunday_recap failed for ${p.email}:`, e); }
+  }
+  return sentCount;
+}
+
 Deno.serve(async (_req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+    const dayOfWeek = new Date().getUTCDay(); // 0=Sun, 5=Fri
 
     const birthdaySent = await runBirthdayReminders(supabase);
     const weeklySent = await runWeeklyRevealEmails(supabase);
     const feedbackDigested = await runFeedbackDigest(supabase);
+    // Day-gated runs: nudge/streak only fire on reveal day (typically Friday),
+    // and only when a weekly is actually revealing today. Sunday recap fires
+    // only on Sundays. All are safe no-ops when their gate isn't met.
+    const nudgeSent = await runWeeklyNudge(supabase);
+    const streakSent = await runStreakInDanger(supabase);
+    const recapSent = dayOfWeek === 0 ? await runSundayRecap(supabase) : 0;
 
     return new Response(JSON.stringify({
       ok: true,
       birthday_reminders_sent: birthdaySent,
       weekly_reveals_sent: weeklySent,
       feedback_digest_items: feedbackDigested,
+      weekly_nudge_sent: nudgeSent,
+      streak_in_danger_sent: streakSent,
+      sunday_recap_sent: recapSent,
     }), { headers: { "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
