@@ -344,9 +344,16 @@
 </head>
 <body>
 <script>
-  // First-visit redirect to the explainer page (about.html)
+  // First-visit redirect to the explainer page (about.html).
+  // CRITICAL: capture ?from=<inviterId> to localStorage BEFORE any redirect —
+  // otherwise the query param is lost and referral attribution breaks.
   (function() {
     try {
+      var _q = new URLSearchParams(location.search);
+      var _from = _q.get('from');
+      if (_from) {
+        try { localStorage.setItem('tenner_pending_from', JSON.stringify({ from: decodeURIComponent(_from), ts: Date.now() })); } catch(e) {}
+      }
       var seen = localStorage.getItem('tenner_seen_about');
       var hasSession = false;
       for (var i = 0; i < localStorage.length; i++) {
@@ -354,7 +361,9 @@
         if (k && k.indexOf('supabase.auth') === 0) { hasSession = true; break; }
       }
       var fromAbout = document.referrer && document.referrer.indexOf('about.html') >= 0;
-      if (!seen && !hasSession && !fromAbout && location.search.indexOf('skipIntro') < 0) {
+      // Also skip the redirect entirely when they arrived with an inviter id —
+      // that user is coming from a specific invite, no need for the marketing detour.
+      if (!seen && !hasSession && !fromAbout && !_from && location.search.indexOf('skipIntro') < 0) {
         location.replace('about.html');
       }
     } catch (e) {}
