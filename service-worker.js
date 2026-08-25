@@ -6,7 +6,7 @@
 //   - Everything else (API, dynamic assets) → network-first, no cache
 // Bump CACHE_VERSION whenever the shell files change so old caches get cleared.
 
-const CACHE_VERSION = 'tenner-v5';
+const CACHE_VERSION = 'tenner-v6';
 const SHELL_ASSETS = [
   '/',
   '/index.html',

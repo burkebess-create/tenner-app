@@ -4725,7 +4725,8 @@ function openInviteModalForGroup() {
   var groupName = g ? g.n : '';
   var senderName = (myProfile && myProfile.display_name) || currentUserEmail || 'Someone';
   var handleTag = (myProfile && myProfile.handle) ? ' (@' + myProfile.handle + ')' : '';
-  var defaultMsg = senderName + handleTag + ' is inviting you to join "' + groupName + '" on Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nJoin here: <https://mytenner.com/>' + myHandleLine();
+  var trackedUrl = 'https://mytenner.com/' + (userId ? '?from=' + encodeURIComponent(userId) : '');
+  var defaultMsg = senderName + handleTag + ' is inviting you to join "' + groupName + '" on Tenner — an app for ranking your top 10 lists and comparing them with friends.\n\nJoin here: <' + trackedUrl + '>' + myHandleLine();
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
   var shareBtn = document.getElementById('invite-share-btn');
@@ -4740,7 +4741,8 @@ function openInviteModal() {
   var body = 'Hey — I\'ve been using this app called Tenner. You make Top 10 lists of stuff you love (movies, restaurants, songs, travel spots, whatever) and see how your picks match up with your friends. It\'s pretty fun.';
   var join = groupName ? '\n\nWant to join my group "' + groupName + '"?' : '';
   var findLine = (myProfile && myProfile.handle) ? '\nFind me @' + myProfile.handle : '';
-  var defaultMsg = body + join + '\n\nSign up → <https://mytenner.com/>' + findLine + '\n\n— ' + senderName;
+  var trackedUrl = 'https://mytenner.com/' + (userId ? '?from=' + encodeURIComponent(userId) : '');
+  var defaultMsg = body + join + '\n\nSign up → <' + trackedUrl + '>' + findLine + '\n\n— ' + senderName;
   var msgEl = document.getElementById('invite-message');
   if (msgEl) msgEl.value = defaultMsg;
   var shareBtn = document.getElementById('invite-share-btn');
