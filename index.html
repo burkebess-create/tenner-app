@@ -501,6 +501,7 @@
             <div class="onb-dot" data-onb-step="2"></div>
             <div class="onb-dot" data-onb-step="3"></div>
             <div class="onb-dot" data-onb-step="4"></div>
+            <div class="onb-dot" data-onb-step="5"></div>
           </div>
           <div id="onb-body"></div>
         </div>
@@ -1034,8 +1035,8 @@
             </div>
           </div>
 
-          <!-- Sign out — wide white tile, above the bento grid -->
-          <div onclick="signOut()" style="background:#FFFFFF;border:1.5px solid #2C2C2A;border-radius:18px;padding:14px 16px;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;gap:12px">
+          <!-- Sign out — wide warm-neutral tile, above the bento grid -->
+          <div onclick="signOut()" style="background:#EAE3DC;border:1.5px solid #2C2C2A;border-radius:18px;padding:14px 16px;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;gap:12px">
             <div style="font-size:22px;line-height:1">🚪</div>
             <div style="flex:1;font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A">Sign out</div>
             <div style="font-size:16px;color:#888780">›</div>
@@ -4066,16 +4067,19 @@ async function renderCircleStories() {
       if (!latestByUser[l.user_id]) latestByUser[l.user_id] = { category: l.category, at: l.updated_at };
     });
   } catch(e) {}
+  // All friend taps → friend detail page. The detail page reads these same
+  // signals and shows a dismissible banner at the top ("Their birthday is in
+  // X days" or "They added a new list"). This keeps the tap destination
+  // predictable while preserving discovery via the badge on the avatar.
   function scoreFriend(f) {
     var d = f.profile && daysUntilBirthday(f.profile.birthday);
     if (d !== null && d !== undefined && d >= 0 && d <= 60) {
-      return { s: 100 - d, badge: '🎂', action: 'openGiftGuide(\'' + f.friendId + '\')' };
+      return { s: 100 - d, badge: 'birthday' };
     }
     if (latestByUser[f.friendId]) {
-      var cat = latestByUser[f.friendId].category.replace(/\'/g,"\\'");
-      return { s: 50, badge: '🆕', action: 'openFriendListByCat(\'' + f.friendId + '\',\'' + cat + '\')' };
+      return { s: 50, badge: 'newlist' };
     }
-    return { s: 0, badge: null, action: 'selFriendId=\'' + f.friendId + '\';go(\'s-fdetail\')' };
+    return { s: 0, badge: null };
   }
   var scored = accepted.map(function(f){ return { f: f, meta: scoreFriend(f) }; })
     .sort(function(a,b){ return b.meta.s - a.meta.s; })
@@ -4086,7 +4090,6 @@ async function renderCircleStories() {
     var name = p.display_name || p.handle || 'Friend';
     var firstName = name.split(' ')[0];
     var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
-    // Uniform neutral ring for everyone — the emoji badge (not ring color) tells the story
     var ringStyle = 'padding:1.5px;background:#2C2C2A;border-radius:999px';
     var avatar = '<div style="width:56px;height:56px;border-radius:999px;overflow:hidden;background:#FFFFFF;display:flex;align-items:center;justify-content:center">'
       + (p.photo
@@ -4094,17 +4097,22 @@ async function renderCircleStories() {
           : '<div style="width:100%;height:100%;background:#EAE3DC;color:#5F5E5A;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center">' + initials + '</div>'
         )
       + '</div>';
-    // Larger, more prominent badge that clearly communicates WHY they're here
-    var badge = m.badge
-      ? '<div style="position:absolute;bottom:-3px;right:-4px;background:#FFFFFF;border:2px solid #2C2C2A;border-radius:999px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,0.12)">' + m.badge + '</div>'
-      : '';
-    return '<div onclick="' + m.action + '" style="flex-shrink:0;width:74px;cursor:pointer;text-align:center">'
+    // Badges:
+    //  • birthday → keep the cake emoji (semantic + on-brand)
+    //  • new list → small orange dot in top-right (Instagram-style unread indicator; on-brand D85A30, no cluttered text)
+    var badge = '';
+    if (m.badge === 'birthday') {
+      badge = '<div style="position:absolute;bottom:-3px;right:-4px;background:#FFFFFF;border:2px solid #2C2C2A;border-radius:999px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,0.12)">🎂</div>';
+    } else if (m.badge === 'newlist') {
+      badge = '<div style="position:absolute;top:0;right:0;width:14px;height:14px;background:#D85A30;border:2.5px solid #FFFFFF;border-radius:50%;box-shadow:0 0 0 1.5px #2C2C2A"></div>';
+    }
+    return '<div onclick="selFriendId=\'' + f.friendId + '\';go(\'s-fdetail\')" style="flex-shrink:0;width:74px;cursor:pointer;text-align:center">'
       + '<div style="position:relative;display:inline-block">' + '<div style="' + ringStyle + '">' + avatar + '</div>' + badge + '</div>'
       + '<div style="font-size:10px;font-weight:600;color:#2C2C2A;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(firstName) + '</div>'
       + '</div>';
   }).join('');
   host.innerHTML = '<div class="sec-label" style="margin-top:0;margin-bottom:2px">Your circle</div>'
-    + '<div style="font-size:11px;color:#888780;margin-bottom:6px">Tap a friend — 🎂 opens their gift guide, 🆕 opens their newest list</div>'
+    + '<div style="font-size:11px;color:#888780;margin-bottom:6px">Tap a friend to open their page. 🎂 birthday coming up · <span style="display:inline-block;width:8px;height:8px;background:#D85A30;border-radius:50%;vertical-align:middle;margin:0 2px"></span> new list</div>'
     + '<div style="display:flex;gap:10px;overflow-x:auto;padding:4px 0 10px;margin:0 -14px 4px;padding-left:14px;padding-right:14px;scrollbar-width:none">' + pills + '</div>';
 }
 
@@ -6432,6 +6440,7 @@ function renderOnbStep() {
   if (_onbStep === 2) return renderOnbStep2(body);
   if (_onbStep === 3) return renderOnbStep3(body);
   if (_onbStep === 4) return renderOnbStep4(body);
+  if (_onbStep === 5) return renderOnbStep5(body);
 }
 
 function renderOnbStep1(body) {
@@ -6553,10 +6562,54 @@ function renderOnbStep4(body) {
     +   '<select id="onb-bday-day" style="width:110px;text-align:center"><option value="">Day</option></select>'
     + '</div>'
     + '<div id="onb-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #F0997B"></div>'
-    + '<button class="btn-primary" onclick="onbFinish()" style="margin-top:14px">Finish →</button>'
-    + '<button onclick="onbFinishSkip()" style="margin-top:6px;background:none;border:none;color:#888780;font-size:12px;padding:8px;cursor:pointer;text-decoration:underline">Skip for now</button>'
+    + '<button class="btn-primary" onclick="onbStep4Next()" style="margin-top:14px">Continue →</button>'
+    + '<button onclick="onbStep4Skip()" style="margin-top:6px;background:none;border:none;color:#888780;font-size:12px;padding:8px;cursor:pointer;text-decoration:underline">Skip for now</button>'
     + '<button class="btn-secondary" onclick="onbBack()" style="margin-top:2px;margin-bottom:0">← Back</button>';
   populateOnbDay(currentD);
+}
+function onbStep4Next() {
+  var m = (document.getElementById('onb-bday-month') || {}).value;
+  var d = (document.getElementById('onb-bday-day') || {}).value;
+  var err = document.getElementById('onb-error');
+  if ((m && !d) || (!m && d)) { err.textContent = 'Please pick both month and day, or skip.'; err.style.display = 'block'; return; }
+  if (m && d) myProfile.birthday = '2000-' + m + '-' + d;
+  _onbStep = 5;
+  renderOnbStep();
+}
+function onbStep4Skip() { _onbStep = 5; renderOnbStep(); }
+
+function renderOnbStep5(body) {
+  var existingPhoto = (myProfile && myProfile.photo) || '';
+  var previewHtml = existingPhoto
+    ? '<img src="' + escapeHtml(existingPhoto) + '" style="width:100%;height:100%;object-fit:cover">'
+    : '<div style="width:100%;height:100%;background:#EAE3DC;color:#5F5E5A;font-size:36px;font-weight:700;display:flex;align-items:center;justify-content:center">?</div>';
+  body.innerHTML = ''
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#2C2C2A;text-align:center;margin-bottom:8px;line-height:1.15">Add a profile photo</div>'
+    + '<div style="font-size:13px;color:#5F5E5A;text-align:center;margin-bottom:20px">Take a picture or upload one so friends recognize you.</div>'
+    + '<div style="text-align:center;margin-bottom:14px">'
+    +   '<label style="position:relative;display:inline-block;cursor:pointer">'
+    +     '<div id="onb-photo-preview" style="width:120px;height:120px;border-radius:50%;overflow:hidden;border:2px solid #2C2C2A;background:#FFFFFF">' + previewHtml + '</div>'
+    +     '<span style="position:absolute;right:-2px;bottom:-2px;width:34px;height:34px;border-radius:50%;background:#D85A30;color:#fff;display:flex;align-items:center;justify-content:center;border:2px solid #fff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>'
+    +     '<input type="file" accept="image/*" capture="user" onchange="onbPhotoChange(this)" style="display:none">'
+    +   '</label>'
+    +   '<div style="font-size:10.5px;color:#888780;margin-top:8px">Tap to take a photo or choose from your library</div>'
+    + '</div>'
+    + '<button class="btn-primary" id="onb-photo-finish" onclick="onbFinish()" style="margin-top:14px">Finish →</button>'
+    + '<button onclick="onbFinish()" style="margin-top:6px;background:none;border:none;color:#888780;font-size:12px;padding:8px;cursor:pointer;text-decoration:underline">Skip for now</button>'
+    + '<button class="btn-secondary" onclick="onbBack()" style="margin-top:2px;margin-bottom:0">← Back</button>';
+}
+function onbPhotoChange(input) {
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    resizeImage(e.target.result, 300).then(function(dataUrl) {
+      myProfile = myProfile || { id: userId };
+      myProfile.photo = dataUrl;
+      var prev = document.getElementById('onb-photo-preview');
+      if (prev) prev.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:cover">';
+    });
+  };
+  reader.readAsDataURL(input.files[0]);
 }
 
 function populateOnbDay(preselectDay) {
@@ -6593,6 +6646,7 @@ async function finalizeOnboarding() {
       handle: myProfile.handle,
       phone: myProfile.phone || null,
       birthday: myProfile.birthday || null,
+      photo: myProfile.photo || null,
       updated_at: new Date().toISOString()
     };
     var res = await sbClient.from('profiles').upsert(payload);
@@ -6624,6 +6678,15 @@ function renderProfileNudges() {
       + '<div style="font-size:22px">✏️</div>'
       + '<div style="flex:1;font-size:12px;color:#2C2C2A">Add your name so friends see you as more than a handle.</div>'
       + '<button class="back-btn" onclick="go(\'s-profile-edit\')" style="padding:5px 10px;font-size:11px">Add</button>'
+      + '</div>');
+  }
+  // Profile photo — same category of identity nudge, always shown when missing.
+  if (!myProfile.photo && !dismissed.photo) {
+    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+      + '<div style="font-size:22px">📸</div>'
+      + '<div style="flex:1;font-size:12px;color:#2C2C2A">Add a profile photo so friends recognize you.</div>'
+      + '<button class="back-btn" onclick="go(\'s-profile-edit\')" style="padding:5px 10px;font-size:11px">Add</button>'
+      + '<button onclick="dismissNudge(\'photo\')" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
       + '</div>');
   }
   if (!myProfile.phone && !dismissed.phone) {
@@ -7567,6 +7630,101 @@ function formatBirthday(bd) {
   return months[d.getMonth()] + ' ' + d.getDate();
 }
 
+// Action banner on friend detail — birthday > new list, one at a time.
+//  • Birthday: shown when within 30 days before OR up to 14 days after their birthday.
+//    Dismissal persists (localStorage) until 14 days AFTER the birthday date.
+//  • New list: any public list updated in the last 14 days. Dismissal is session-only
+//    per (friend, list_updated_at) — a fresh update after they refresh the list re-shows it.
+function fdetailBannerDismissKey(kind, friendId, extra) {
+  return 'fdetail_banner_' + kind + '_' + friendId + (extra ? '_' + extra : '');
+}
+function isFdetailBannerDismissed(kind, friendId, extra, bdayDateStr) {
+  try {
+    var key = fdetailBannerDismissKey(kind, friendId, extra);
+    if (kind === 'birthday') {
+      var raw = localStorage.getItem(key);
+      if (!raw) return false;
+      var expiresAt = parseInt(raw, 10);
+      return expiresAt && Date.now() < expiresAt;
+    }
+    // new-list dismissal is session-only
+    return sessionStorage.getItem(key) === '1';
+  } catch (e) { return false; }
+}
+function dismissFdetailBanner(kind, friendId, extra, expiresAt) {
+  try {
+    var key = fdetailBannerDismissKey(kind, friendId, extra);
+    if (kind === 'birthday') {
+      localStorage.setItem(key, String(expiresAt || (Date.now() + 14*24*3600*1000)));
+    } else {
+      sessionStorage.setItem(key, '1');
+    }
+  } catch (e) {}
+  var el = document.getElementById('fdetail-action-banner');
+  if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
+function renderFdetailActionBanner(f, newestPublicList) {
+  var el = document.getElementById('fdetail-action-banner');
+  if (!el || !f || f.status !== 'accepted') return;
+  var p = f.profile || {};
+  var name = p.display_name || (p.handle ? '@' + p.handle : 'Friend');
+  var firstName = name.split(' ')[0];
+  var fid = f.friendId;
+
+  // Priority 1: birthday (within 30 days upcoming OR 14 days past)
+  var days = daysUntilBirthday(p.birthday);
+  if (p.birthday && days !== null && days !== undefined && days >= -14 && days <= 30) {
+    // Compute expiry: 14 days after this year's birthday date
+    var parts = p.birthday.split('-');
+    var m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+    var thisYr = new Date().getFullYear();
+    var bdayThis = new Date(thisYr, m - 1, d);
+    // If birthday already passed this year, use next year for expiry only if days>0
+    if (days > 0 && bdayThis.getTime() < Date.now()) bdayThis = new Date(thisYr + 1, m - 1, d);
+    var expiresAt = bdayThis.getTime() + 14*24*3600*1000;
+    if (!isFdetailBannerDismissed('birthday', fid)) {
+      var msg;
+      if (days === 0) msg = firstName + '\'s birthday is <strong>today</strong> 🎉';
+      else if (days === 1) msg = firstName + '\'s birthday is <strong>tomorrow</strong>';
+      else if (days > 0) msg = firstName + '\'s birthday is in <strong>' + days + ' days</strong>';
+      else msg = firstName + '\'s birthday was <strong>' + Math.abs(days) + ' day' + (Math.abs(days)===1?'':'s') + ' ago</strong> — still time!';
+      el.style.display = 'block';
+      el.innerHTML = '<div style="background:linear-gradient(135deg,#FFE9D9 0%,#FFC9A8 100%);border:1.5px solid #2C2C2A;border-radius:16px;padding:14px 14px;display:flex;align-items:center;gap:12px">'
+        + '<div style="font-size:28px;line-height:1;flex-shrink:0">🎂</div>'
+        + '<div style="flex:1;min-width:0">'
+        +   '<div style="font-size:12.5px;color:#2C2C2A;line-height:1.3">' + msg + '</div>'
+        +   '<button onclick="openGiftGuide(\'' + fid + '\')" style="background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;margin-top:6px">See gift ideas →</button>'
+        + '</div>'
+        + '<button onclick="dismissFdetailBanner(\'birthday\',\'' + fid + '\',null,' + expiresAt + ')" style="background:none;border:none;color:#2C2C2A;opacity:0.5;font-size:18px;cursor:pointer;padding:2px 6px;align-self:flex-start">×</button>'
+        + '</div>';
+      return;
+    }
+  }
+
+  // Priority 2: new list (14-day window)
+  if (newestPublicList && newestPublicList.category) {
+    var cat = newestPublicList.category;
+    var dismissKey = new Date(newestPublicList.updated_at).getTime();
+    if (!isFdetailBannerDismissed('newlist', fid, dismissKey)) {
+      var emoji = newestPublicList.emoji || getCatEmoji(cat) || '📋';
+      var catEsc = String(cat).replace(/'/g, "\\'");
+      el.style.display = 'block';
+      el.innerHTML = '<div style="background:linear-gradient(135deg,#FFF5EE 0%,#FDE6D9 100%);border:1.5px solid #F5B091;border-radius:16px;padding:14px 14px;display:flex;align-items:center;gap:12px">'
+        + '<div style="font-size:28px;line-height:1;flex-shrink:0">' + renderCatEmoji(emoji, 28) + '</div>'
+        + '<div style="flex:1;min-width:0">'
+        +   '<div style="font-size:12.5px;color:#2C2C2A;line-height:1.3"><strong>' + escapeHtml(firstName) + '</strong> updated their <strong>Top 10 ' + escapeHtml(cat) + '</strong> · ' + timeAgo(newestPublicList.updated_at) + '</div>'
+        +   '<button onclick="openFriendListByCat(\'' + fid + '\',\'' + catEsc + '\',\'s-fdetail\')" style="background:#D85A30;color:#FFFFFF;border:none;border-radius:99px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;margin-top:6px">Open list →</button>'
+        + '</div>'
+        + '<button onclick="dismissFdetailBanner(\'newlist\',\'' + fid + '\',\'' + dismissKey + '\')" style="background:none;border:none;color:#2C2C2A;opacity:0.5;font-size:18px;cursor:pointer;padding:2px 6px;align-self:flex-start">×</button>'
+        + '</div>';
+      return;
+    }
+  }
+
+  el.style.display = 'none';
+  el.innerHTML = '';
+}
+
 async function renderFriendDetail() {
   var f = myFriends.find(function(x) { return x.friendId === selFriendId; });
   var el = document.getElementById('fdetail-content');
@@ -7602,6 +7760,9 @@ async function renderFriendDetail() {
     + countdownPill
     + (isPendingInbound ? '<div style="font-size:11px;color:#2C2C2A;margin-top:10px;font-weight:600">wants to connect with you</div>' : '')
     + '</div>';
+
+  // ── ACTION BANNER (birthday > new list) — populated async ────────────
+  var actionBannerHtml = isAccepted ? '<div id="fdetail-action-banner" style="display:none;margin-bottom:12px"></div>' : '';
 
   // ── PENDING INBOUND NOTE ────────────────────────────────────────────
   var noteHtml = (isPendingInbound && f.message)
@@ -7669,7 +7830,11 @@ async function renderFriendDetail() {
     actionHtml = '<button class="btn-secondary" style="margin-top:16px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmUnfriend(\'' + f.id + '\',\'' + name.replace(/'/g,"\\'") + '\')">Remove friend</button>';
   }
 
-  el.innerHTML = hero + noteHtml + matchCardHtml + statsBarHtml + alikeDiffHtml + nudgeHtml + listsHtml + activityHtml + commentsHtml + timelineHtml + actionHtml;
+  el.innerHTML = hero + actionBannerHtml + noteHtml + matchCardHtml + statsBarHtml + alikeDiffHtml + nudgeHtml + listsHtml + activityHtml + commentsHtml + timelineHtml + actionHtml;
+
+  // Render the action banner immediately for birthday (data already on hand);
+  // new-list banner populates later, after `theirLists` is fetched below.
+  if (isAccepted) renderFdetailActionBanner(f, null);
 
   // ═══════════════════════════════════════════════════════════════
   // ASYNC POPULATION
@@ -7694,6 +7859,16 @@ async function renderFriendDetail() {
 
     var theirLists = (results[0].data || []);
     var friendCount = results[1].count || 0;
+
+    // Re-render action banner now that we know the newest public list (if any)
+    var newestPublic = null;
+    theirLists.forEach(function(l) {
+      if (!l.is_public || !l.updated_at) return;
+      var ageDays = (Date.now() - new Date(l.updated_at).getTime()) / (1000*60*60*24);
+      if (ageDays > 14) return;
+      if (!newestPublic || l.updated_at > newestPublic.updated_at) newestPublic = l;
+    });
+    renderFdetailActionBanner(f, newestPublic);
 
     // Filter to what we can show: mutual OR public
     var visibleLists = theirLists.filter(function(l) {
