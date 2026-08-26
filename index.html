@@ -7755,22 +7755,25 @@ async function renderFriendDetail() {
         var leastPal = getCategoryColor(least.cat);
         var adEl = document.getElementById('fdetail-alike-diff');
         if (adEl) {
-          adEl.style.display = 'grid';
-          adEl.style.gridTemplateColumns = '1fr 1fr';
-          adEl.style.gap = '10px';
+          adEl.style.display = 'block';
           var mostPicks = most.shared === 1 ? 'pick' : 'picks';
           var leastPicks = least.shared === 1 ? 'pick' : 'picks';
-          adEl.innerHTML = '<div onclick="openMatchWithFriend(\'' + fid + '\',\'s-fdetail\')" style="cursor:pointer;background:' + mostPal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:16px;padding:14px">'
-            + '<div style="font-size:9px;font-weight:700;color:#2C2C2A;opacity:0.7;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px">Most alike</div>'
-            + '<div style="font-size:26px;line-height:1;margin-bottom:6px">' + renderCatEmoji(most.emoji, 26) + '</div>'
-            + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:15px;color:#2C2C2A;line-height:1.15">' + escapeHtml(most.cat) + '</div>'
-            + '<div style="font-size:10px;color:#2C2C2A;opacity:0.75;font-weight:600;margin-top:3px">' + most.shared + ' shared ' + mostPicks + '</div>'
-            + '</div>'
-            + '<div onclick="openMatchWithFriend(\'' + fid + '\',\'s-fdetail\')" style="cursor:pointer;background:' + leastPal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:16px;padding:14px">'
-            + '<div style="font-size:9px;font-weight:700;color:#2C2C2A;opacity:0.7;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px">Most different</div>'
-            + '<div style="font-size:26px;line-height:1;margin-bottom:6px">' + renderCatEmoji(least.emoji, 26) + '</div>'
-            + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:15px;color:#2C2C2A;line-height:1.15">' + escapeHtml(least.cat) + '</div>'
-            + '<div style="font-size:10px;color:#2C2C2A;opacity:0.75;font-weight:600;margin-top:3px">' + least.shared + ' shared ' + leastPicks + '</div>'
+          var mostCatEsc = most.cat.replace(/'/g, "\\'");
+          var leastCatEsc = least.cat.replace(/'/g, "\\'");
+          adEl.innerHTML = '<div class="sec-label" style="margin-top:0">Your matchup</div>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+            +   '<div onclick="openMatchWithFriend(\'' + fid + '\',\'s-fdetail\',\'' + mostCatEsc + '\')" style="cursor:pointer;background:' + mostPal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:16px;padding:14px">'
+            +     '<div style="font-size:9px;font-weight:700;color:#2C2C2A;opacity:0.7;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px">Most alike</div>'
+            +     '<div style="font-size:26px;line-height:1;margin-bottom:6px">' + renderCatEmoji(most.emoji, 26) + '</div>'
+            +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:15px;color:#2C2C2A;line-height:1.15">' + escapeHtml(most.cat) + '</div>'
+            +     '<div style="font-size:10px;color:#2C2C2A;opacity:0.75;font-weight:600;margin-top:3px">' + most.shared + ' shared ' + mostPicks + '</div>'
+            +   '</div>'
+            +   '<div onclick="openMatchWithFriend(\'' + fid + '\',\'s-fdetail\',\'' + leastCatEsc + '\')" style="cursor:pointer;background:' + leastPal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:16px;padding:14px">'
+            +     '<div style="font-size:9px;font-weight:700;color:#2C2C2A;opacity:0.7;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px">Most different</div>'
+            +     '<div style="font-size:26px;line-height:1;margin-bottom:6px">' + renderCatEmoji(least.emoji, 26) + '</div>'
+            +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:15px;color:#2C2C2A;line-height:1.15">' + escapeHtml(least.cat) + '</div>'
+            +     '<div style="font-size:10px;color:#2C2C2A;opacity:0.75;font-weight:600;margin-top:3px">' + least.shared + ' shared ' + leastPicks + '</div>'
+            +   '</div>'
             + '</div>';
         }
       }
