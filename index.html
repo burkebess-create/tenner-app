@@ -7378,7 +7378,7 @@ function openFriendList(listData, origin) {
     selFriendId = (f && f.friendId) || selFriendId;
     go('s-fdetail');
   };
-  document.getElementById('friend-list-emoji').textContent = emoji;
+  document.getElementById('friend-list-emoji').innerHTML = renderCatEmoji(emoji, 32);
   document.getElementById('friend-list-name').textContent = listData.name || ('Top 10 ' + cat);
   document.getElementById('friend-list-meta').textContent = meta;
 
