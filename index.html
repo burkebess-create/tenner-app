@@ -5504,6 +5504,31 @@ async function updatePushTileStatus() {
   } catch (e) { el.textContent = 'Get alerts on this device'; }
 }
 
+// Push-nudge (Circle) — shown when push is supported, permission is still
+// 'default' (never asked), and the user hasn't dismissed recently.
+function shouldShowPushNudge() {
+  if (!VAPID_PUBLIC_KEY) return false;
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  if (Notification.permission !== 'default') return false;
+  try {
+    var last = parseInt(localStorage.getItem('tenner_push_nudge_dismissed_at') || '0', 10);
+    if (last && (Date.now() - last) < 14 * 24 * 3600 * 1000) return false;
+  } catch (e) {}
+  return true;
+}
+function dismissPushNudge() {
+  try { localStorage.setItem('tenner_push_nudge_dismissed_at', String(Date.now())); } catch (e) {}
+  renderProfileNudges();
+}
+async function acceptPushNudge() {
+  var r = await pushSubscribeIfPossible();
+  if (r && r.ok) { if (typeof toast === 'function') toast('Notifications on'); }
+  else if (r && r.reason === 'denied') { if (typeof toast === 'function') toast('Permission denied'); }
+  // Always dismiss after tapping "Turn on" — whether granted, denied, or errored —
+  // so we don't nag on every Circle render. User can still turn on later via Profile tile.
+  dismissPushNudge();
+}
+
 // If the user previously granted permission on this device, re-sync the
 // subscription silently on load (endpoints can rotate; our DB row may be stale).
 async function pushResubscribeSilently() {
@@ -6327,6 +6352,18 @@ function renderProfileNudges() {
       + '<div style="flex:1;font-size:12px;color:#2C2C2A">Add your birthday so friends know when to celebrate.</div>'
       + '<button class="back-btn" onclick="go(\'s-profile-edit\')" style="padding:5px 10px;font-size:11px">Add</button>'
       + '<button onclick="dismissNudge(\'birthday\')" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
+      + '</div>');
+  }
+  // Push notifications nudge — only when the browser actually supports it AND
+  // we haven't asked yet AND the user hasn't dismissed it in the last 14 days.
+  // On iOS this only shows inside the installed PWA (Notification API is
+  // undefined in regular Safari), which is exactly what we want.
+  if (shouldShowPushNudge()) {
+    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+      + '<div style="font-size:22px">🔔</div>'
+      + '<div style="flex:1;font-size:12px;color:#2C2C2A">Turn on notifications so you know when friends comment or update lists.</div>'
+      + '<button class="back-btn" onclick="acceptPushNudge()" style="padding:5px 10px;font-size:11px">Turn on</button>'
+      + '<button onclick="dismissPushNudge()" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
       + '</div>');
   }
   // Incomplete-list nudge: surface the oldest list stuck below 10 items so users
