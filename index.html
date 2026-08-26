@@ -5130,10 +5130,11 @@ var myProfile = null;
 var myFriends = [];
 var matchGroupCtx = -1; // group index to scope match view, -1 = all friends
 var matchFriendCtx = null; // friend userId to scope match to one person, null = no filter
+var matchPreferredCategory = null; // if set, renderMatch selects this category's tab instead of first
 var matchOrigin = null; // screen to return to from match via back button
 
 function openMatch(origin) { matchOrigin = origin || null; go('s-match'); }
-function openMatchWithFriend(friendId, origin) { matchFriendCtx = friendId; matchGroupCtx = -1; matchOrigin = origin || null; go('s-match'); }
+function openMatchWithFriend(friendId, origin, preferredCategory) { matchFriendCtx = friendId; matchGroupCtx = -1; matchOrigin = origin || null; matchPreferredCategory = preferredCategory || null; go('s-match'); }
 
 // Nudge a friend to fill out a specific category — uses Web Share API where available,
 // falls back to copying a pre-composed message to clipboard.
@@ -7374,7 +7375,7 @@ function openFriendList(listData, origin) {
         + 'isRanked=(editingListIdx>=0?MY_LISTS[editingListIdx].ranked!==false:true);'
         + 'listOrigin=\'s-friend-list\';renderCatGrid();renderItems();updateProg();go(\'s-create2\');'
         + '})()">Edit your list</button>';
-      ctaEl.innerHTML += '<button class="btn-primary" style="margin-top:6px;margin-bottom:0" onclick="openMatchWithFriend(\'' + selFriendId + '\',\'s-friend-list\')">📊 Compare with ' + escapeHtml(friendName.split(' ')[0]) + ' →</button>';
+      ctaEl.innerHTML += '<button class="btn-primary" style="margin-top:6px;margin-bottom:0" onclick="openMatchWithFriend(\'' + selFriendId + '\',\'s-friend-list\',\'' + cat.replace(/'/g,"\\'") + '\')">📊 Compare with ' + escapeHtml(friendName.split(' ')[0]) + ' →</button>';
     } else {
       ctaEl.innerHTML = '<button class="btn-primary" onclick="'
         + 'selCat=\'' + cat.replace(/'/g,"\\'") + '\';'
@@ -8881,7 +8882,16 @@ async function renderMatch() {
       byCategory[c.category].push(c);
     });
     var cats = Object.keys(byCategory);
-    var tabsHtml = overallHtml + '<div class="list-selector" style="margin-bottom:12px">' + cats.map(function(cat, i) { return '<button class="list-sel-btn' + (i===0?' active':'') + '" onclick="showMatchTab(this,\'' + cat.replace(/'/g,"\\'") + '\')">' + cat + '</button>'; }).join('') + '</div>';
+    // Honor matchPreferredCategory when set (e.g. "Compare with X" from a specific list view).
+    // Case-insensitive match; falls back to first tab if the preferred category isn't in this pair.
+    var preferredIdx = 0;
+    if (matchPreferredCategory) {
+      var wantLower = String(matchPreferredCategory).toLowerCase();
+      var found = cats.findIndex(function(c) { return String(c).toLowerCase() === wantLower; });
+      if (found >= 0) preferredIdx = found;
+    }
+    matchPreferredCategory = null; // consume — subsequent visits reset to default
+    var tabsHtml = overallHtml + '<div class="list-selector" style="margin-bottom:12px">' + cats.map(function(cat, i) { return '<button class="list-sel-btn' + (i===preferredIdx?' active':'') + '" onclick="showMatchTab(this,\'' + cat.replace(/'/g,"\\'") + '\')">' + cat + '</button>'; }).join('') + '</div>';
     var panelsHtml = cats.map(function(cat, i) {
       var comps = byCategory[cat];
       var globalMatchTab = !friendCtx && groupCtx < 0;
@@ -9063,7 +9073,7 @@ async function renderMatch() {
         sideBodyHtml = '<div style="display:flex;gap:5px;margin-bottom:6px">' + colHeaders + '</div>' + rowsHtml;
       }
 
-      return '<div id="match-panel-' + i + '" style="display:' + (i===0?'block':'none') + '">'
+      return '<div id="match-panel-' + i + '" style="display:' + (i===preferredIdx?'block':'none') + '">'
         + '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:12px">Top 10 ' + escapeHtml(cat) + ' · ' + comps.length + ' friend' + (comps.length>1?'s':'') + ' compared</div>'
         + '<div class="sec-label">Match Scores</div>' + scoresHtml
         + '<div class="sec-label">' + sideLabel + '</div>'
