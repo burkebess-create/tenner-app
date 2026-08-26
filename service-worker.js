@@ -6,7 +6,7 @@
 //   - Everything else (API, dynamic assets) → network-first, no cache
 // Bump CACHE_VERSION whenever the shell files change so old caches get cleared.
 
-const CACHE_VERSION = 'tenner-v14';
+const CACHE_VERSION = 'tenner-v15';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
@@ -42,8 +42,24 @@ self.addEventListener('fetch', (event) => {
   // always hit the network so users see fresh data.
   if (url.origin !== self.location.origin) return;
 
-  // Shell strategy: try cache first, fall back to network. Update cache in
-  // background so the next load has the latest.
+  // HTML pages (index.html / navigation requests) → network-first so users
+  // always see the latest code when online. Falls back to cache when offline.
+  // Everything else (images, css, fonts) → cache-first with background refresh.
+  const isHTML = req.mode === 'navigate' ||
+                 (req.headers.get('accept') || '').includes('text/html') ||
+                 url.pathname === '/' || url.pathname.endsWith('.html');
+  if (isHTML) {
+    event.respondWith(
+      fetch(req).then((res) => {
+        if (res && res.ok && res.type === 'basic') {
+          const clone = res.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put(req, clone)).catch(() => {});
+        }
+        return res;
+      }).catch(() => caches.match(req))
+    );
+    return;
+  }
   event.respondWith(
     caches.match(req).then((cached) => {
       const networkFetch = fetch(req).then((res) => {
