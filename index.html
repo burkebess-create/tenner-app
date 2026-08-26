@@ -5375,7 +5375,7 @@ function derivePushFromEmail(type, data) {
 // Public VAPID key — safe to expose in client code (that's what "public" means).
 // Generate with: npx web-push generate-vapid-keys
 // Then paste the public key here and set VAPID_PRIVATE_KEY as a Supabase secret.
-var VAPID_PUBLIC_KEY = (window.TENNER_CONFIG && window.TENNER_CONFIG.VAPID_PUBLIC_KEY) || '';
+var VAPID_PUBLIC_KEY = (window.TENNER_CONFIG && window.TENNER_CONFIG.VAPID_PUBLIC_KEY) || 'BMbT9JsbO2chLdJGg15u9OcHTUGt1OyXk7HnUPcaIjZrxGdUjmnEqvpw7Y0VJfLP8xsiIki4RebQUwsDPBB8uq0';
 
 function urlBase64ToUint8Array(base64String) {
   var padding = '='.repeat((4 - base64String.length % 4) % 4);
