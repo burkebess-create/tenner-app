@@ -5468,23 +5468,25 @@ async function openPushSettings() {
     msg = 'Enable push notifications so you know when friends comment or update lists?';
     btnLabel = 'Turn on'; action = 'on';
   }
+  var title = (action === 'on') ? 'Turn on notifications' : (action === 'off' ? 'Turn off notifications' : 'Notifications');
+  var onOk = async function() {
+    if (action === 'on') {
+      var r = await pushSubscribeIfPossible();
+      if (r.ok) { if (typeof toast === 'function') toast('Notifications on'); }
+      else if (r.reason === 'denied') { if (typeof toast === 'function') toast('Permission denied'); }
+      else if (r.reason === 'no_vapid') { if (typeof toast === 'function') toast('Push not configured'); }
+      else { if (typeof toast === 'function') toast('Couldn\'t turn on'); }
+      updatePushTileStatus();
+    } else if (action === 'off') {
+      await pushUnsubscribe();
+      if (typeof toast === 'function') toast('Notifications off');
+      updatePushTileStatus();
+    }
+  };
   if (typeof showConfirm === 'function') {
-    showConfirm(msg, async function() {
-      if (action === 'on') {
-        var r = await pushSubscribeIfPossible();
-        if (r.ok) { if (typeof toast === 'function') toast('Notifications on'); }
-        else if (r.reason === 'denied') { if (typeof toast === 'function') toast('Permission denied'); }
-        else { if (typeof toast === 'function') toast('Couldn\'t turn on'); }
-        updatePushTileStatus();
-      } else if (action === 'off') {
-        await pushUnsubscribe();
-        if (typeof toast === 'function') toast('Notifications off');
-        updatePushTileStatus();
-      }
-    }, { confirmLabel: btnLabel });
+    showConfirm(title, msg, btnLabel, (action === 'off') ? 'danger' : 'primary', onOk);
   } else {
-    if (confirm(msg) && action === 'on') { await pushSubscribeIfPossible(); updatePushTileStatus(); }
-    else if (action === 'off') { await pushUnsubscribe(); updatePushTileStatus(); }
+    if (confirm(msg)) onOk();
   }
 }
 
