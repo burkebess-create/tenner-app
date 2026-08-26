@@ -946,6 +946,12 @@
           </div>
           <div id="circle-friend-search-result" style="margin-bottom:20px"></div>
 
+          <div id="mutuals-wrap" style="display:none;margin-bottom:20px">
+            <div class="sec-label" style="margin-top:0">People you may know</div>
+            <div style="font-size:11px;color:#888780;margin-bottom:8px">Friends of your friends, not yet in your Circle.</div>
+            <div id="mutuals-list"></div>
+          </div>
+
           <div class="sec-label">Invite people not on Tenner</div>
           <button class="btn-primary" onclick="openInviteModal()" style="margin-bottom:10px;font-size:13px;padding:12px">📤 Invite via link, email, or text</button>
           <div style="font-size:11.5px;color:#888780;line-height:1.5;text-align:center;padding:6px 4px">You'll get a share sheet with a pre-composed message and your @handle so friends know who to add on Tenner.</div>
@@ -1830,6 +1836,7 @@ function go(id) {
     var sInp = document.getElementById('circle-friend-search'); if (sInp) sInp.value = '';
     var sRes = document.getElementById('circle-friend-search-result'); if (sRes) sRes.innerHTML = '';
     setTimeout(function(){ if (sInp) sInp.focus(); }, 100);
+    if (typeof loadMutualFriendSuggestions === 'function') loadMutualFriendSuggestions();
   }
   if (id === 's-notifications') {
     refreshNotifications().then(function() {
@@ -6001,6 +6008,110 @@ function renderFoundUserCard(p, noteId, sendFn, resultEl) {
     var summary = mutualSummary(names);
     if (summary) { mEl.textContent = '🤝 ' + summary; mEl.style.display = 'block'; }
   });
+}
+
+// Load "People you may know" — friends-of-my-friends, ranked by mutual count.
+// Excludes: me, existing friends (any status), users with an existing friendship.
+async function loadMutualFriendSuggestions() {
+  var wrap = document.getElementById('mutuals-wrap');
+  var host = document.getElementById('mutuals-list');
+  if (!wrap || !host) return;
+  if (!sbClient || !userId) { wrap.style.display = 'none'; return; }
+  var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted'; });
+  if (accepted.length === 0) { wrap.style.display = 'none'; return; }
+  var friendIds = accepted.map(function(f){ return f.friendId; });
+  // Everyone I have any relationship with (accepted OR pending, either direction) — to exclude.
+  var relatedIds = {};
+  relatedIds[userId] = true;
+  (myFriends || []).forEach(function(f){ relatedIds[f.friendId] = true; });
+  host.innerHTML = '<div style="font-size:11px;color:#888780;padding:6px">Loading…</div>';
+  wrap.style.display = 'block';
+  try {
+    var rows = [];
+    var r1 = await sbClient.from('friendships').select('requester_id,addressee_id,status').eq('status','accepted').in('requester_id', friendIds);
+    if (r1.data) rows = rows.concat(r1.data);
+    var r2 = await sbClient.from('friendships').select('requester_id,addressee_id,status').eq('status','accepted').in('addressee_id', friendIds);
+    if (r2.data) rows = rows.concat(r2.data);
+    // For each candidate (the non-friend side of each friendship), collect which of MY friends know them
+    var byCandidate = {}; // candidateId -> Set of my-friend-ids
+    var friendIdSet = {}; friendIds.forEach(function(id){ friendIdSet[id] = true; });
+    rows.forEach(function(row) {
+      var a = row.requester_id, b = row.addressee_id;
+      var myFriendSide = friendIdSet[a] ? a : (friendIdSet[b] ? b : null);
+      var candidate    = friendIdSet[a] ? b : (friendIdSet[b] ? a : null);
+      if (!myFriendSide || !candidate) return;
+      if (relatedIds[candidate]) return;
+      if (!byCandidate[candidate]) byCandidate[candidate] = {};
+      byCandidate[candidate][myFriendSide] = true;
+    });
+    var candidates = Object.keys(byCandidate).map(function(id) {
+      var mutualIds = Object.keys(byCandidate[id]);
+      return { id: id, mutualIds: mutualIds, count: mutualIds.length };
+    }).sort(function(a,b){ return b.count - a.count; }).slice(0, 20);
+    if (candidates.length === 0) { wrap.style.display = 'none'; return; }
+    // Fetch candidate profiles + names for mutual friends
+    var candIds = candidates.map(function(c){ return c.id; });
+    var pRes = await sbClient.from('profiles').select('id, display_name, handle, photo').in('id', candIds);
+    var profileById = {}; (pRes.data || []).forEach(function(p){ profileById[p.id] = p; });
+    // Friend-name lookup (from already-loaded myFriends)
+    var friendNameById = {};
+    accepted.forEach(function(f){
+      var p = f.profile || {};
+      friendNameById[f.friendId] = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
+    });
+    renderMutualSuggestions(candidates, profileById, friendNameById);
+  } catch(e) {
+    console.warn('loadMutualFriendSuggestions failed', e);
+    wrap.style.display = 'none';
+  }
+}
+
+function renderMutualSuggestions(candidates, profileById, friendNameById) {
+  var host = document.getElementById('mutuals-list');
+  if (!host) return;
+  host.innerHTML = candidates.map(function(c) {
+    var p = profileById[c.id] || {};
+    var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
+    var initials = (name.charAt(0) || '?').toUpperCase();
+    var avatar = p.photo
+      ? '<img src="' + escapeHtml(p.photo) + '" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0">'
+      : '<div style="width:40px;height:40px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + escapeHtml(initials) + '</div>';
+    var mutualNames = c.mutualIds.slice(0, 2).map(function(id){ return friendNameById[id] || 'friend'; });
+    var extra = c.mutualIds.length - mutualNames.length;
+    var mutualText = c.count + ' mutual · ' + mutualNames.join(', ') + (extra > 0 ? ' +' + extra + ' more' : '');
+    return '<div class="card no-hover" style="padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+      + avatar
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:13px;font-weight:600;color:#2C2C2A;line-height:1.2">' + escapeHtml(name) + '</div>'
+      +   (p.handle ? '<div style="font-size:11px;color:#888780;margin-top:2px">@' + escapeHtml(p.handle) + '</div>' : '')
+      +   '<div style="font-size:10.5px;color:#5F5E5A;margin-top:3px">' + escapeHtml(mutualText) + '</div>'
+      + '</div>'
+      + '<button class="btn-primary" onclick="sendMutualFriendRequest(\'' + c.id + '\', this)" style="width:auto;padding:6px 12px;margin-bottom:0;font-size:11px;white-space:nowrap">Add</button>'
+      + '</div>';
+  }).join('');
+}
+
+async function sendMutualFriendRequest(addresseeId, btn) {
+  if (!sbClient || !userId || !addresseeId) return;
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    var ires = await insertFriendship(addresseeId, 'pending', '');
+    if (ires.error) throw ires.error;
+    if (btn) {
+      var card = btn.closest('.card');
+      if (card) card.style.opacity = '0.55';
+      btn.style.background = '#EAF3DE';
+      btn.style.color = '#27500A';
+      btn.style.border = '1px solid #B6D398';
+      btn.textContent = 'Sent';
+    }
+    await loadFriends();
+    notifyAddresseeOfFriendRequest(addresseeId, '');
+  } catch(e) {
+    console.warn('sendMutualFriendRequest failed', e);
+    if (btn) { btn.disabled = false; btn.textContent = 'Add'; }
+    if (typeof toast === 'function') toast('Could not send');
+  }
 }
 
 async function sendFriendRequest(addresseeId) {
