@@ -890,6 +890,7 @@
         <div class="content">
           <div id="circle-profile-nudges"></div>
           <div id="today-pill-host"></div>
+          <div id="today-on-tenner-host"></div>
           <div id="circle-stories-row-host"></div>
           <div id="circle-list-invites-host"></div>
           <div id="streak-pill-host"></div>
@@ -898,6 +899,7 @@
             <div class="sec-label" style="margin:0">Recent from your circle</div>
             <a onclick="window.__forceNotifTab='activity';openAlerts()" style="font-size:11px;color:#D85A30;text-decoration:underline;cursor:pointer;font-weight:600">See all activity →</a>
           </div>
+          <div id="match-jumps-section"></div>
           <div id="home-feed-section"></div>
 
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;margin-bottom:8px">
@@ -1828,7 +1830,7 @@ function go(id) {
     renderTopbarAvatars();
   }
   if (id === 's-circle') {
-    renderCircleTopbarAvatar(); renderTodayPill(); renderCircleListInvites(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderWeeklyHeroCard(); renderStreakPill(); renderProfileNudges(); refreshNotifications().then(function(){ renderCircleListInvites(); });
+    renderCircleTopbarAvatar(); renderTodayPill(); renderTodayOnTenner(); renderCircleListInvites(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderMatchJumps(); renderWeeklyHeroCard(); renderStreakPill(); renderProfileNudges(); refreshNotifications().then(function(){ renderCircleListInvites(); });
     if (typeof pushResubscribeSilently === 'function') pushResubscribeSilently();
     attachPullToRefresh(document.querySelector('#s-circle .content'), function() { return loadFriends().then(renderCircleScreen); });
   }
@@ -3937,6 +3939,106 @@ function renderTodayPill() {
   host.innerHTML = '<div style="background:#2C2C2A;color:#FFFFFF;font-size:11px;font-weight:600;padding:8px 14px;border-radius:99px;margin-bottom:14px;text-align:center;letter-spacing:0.02em">' + escapeHtml(msg) + '</div>';
 }
 
+// "Today on Tenner" card — a variable-content daily hook. Deterministic per
+// day-of-year so the card is stable within a day but rotates automatically.
+// Slot types (cycled): weekly countdown → featured friend list → top match →
+// personal stat. Falls through to next slot if the data isn't available.
+async function renderTodayOnTenner() {
+  var host = document.getElementById('today-on-tenner-host');
+  if (!host) return;
+  host.innerHTML = '';
+  if (!userId) return;
+  // Day-of-year rotates the starting slot; then we try each in order and use the first that yields content.
+  var d = new Date();
+  var dayIdx = Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000);
+  var slots = ['countdown', 'friend', 'match', 'stat'];
+  var order = slots.slice(dayIdx % 4).concat(slots.slice(0, dayIdx % 4));
+  for (var i = 0; i < order.length; i++) {
+    var card = await tryTodaySlot(order[i]);
+    if (card) { host.innerHTML = card; return; }
+  }
+}
+
+async function tryTodaySlot(kind) {
+  if (kind === 'countdown') {
+    if (typeof getCurrentWeeklyList !== 'function') return null;
+    var wk = getCurrentWeeklyList();
+    if (!wk) return null;
+    var reveal = new Date(wk.reveal_at);
+    var msLeft = reveal.getTime() - Date.now();
+    var days = Math.floor(msLeft / (1000*60*60*24));
+    var hours = Math.floor((msLeft % (1000*60*60*24)) / (1000*60*60));
+    if (msLeft <= 0 || days > 6) return null;
+    var when = days > 0 ? days + 'd ' + hours + 'h' : hours + 'h';
+    var subtitle = 'Reveals in ' + when + ' · Have you filled yours?';
+    var wkCatEsc = wk.category.replace(/'/g,"\\'");
+    var wkEmojiEsc = (wk.emoji || '📋').replace(/'/g,"\\'");
+    return todayCard('⏰', 'Top 10 ' + escapeHtml(wk.category) + ' — this week', subtitle, "openWeeklyListFlow('" + wkCatEsc + "','" + wkEmojiEsc + "')");
+  }
+  if (kind === 'friend') {
+    var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted'; });
+    if (!accepted.length) return null;
+    try {
+      var friendIds = accepted.map(function(f){ return f.friendId; });
+      var res = await sbClient.from('lists').select('user_id, category, emoji, updated_at').in('user_id', friendIds).eq('is_public', true).order('updated_at', { ascending: false }).limit(1);
+      var row = (res.data || [])[0];
+      if (!row) return null;
+      var ageHours = (Date.now() - new Date(row.updated_at).getTime()) / (1000*60*60);
+      if (ageHours > 48) return null; // only if genuinely recent
+      var f = accepted.find(function(x){ return x.friendId === row.user_id; });
+      var name = (f && f.profile && (f.profile.display_name || (f.profile.handle ? '@' + f.profile.handle : null))) || 'A friend';
+      var safeCat = row.category.replace(/'/g, "\\'");
+      return todayCard(row.emoji || getCatEmoji(row.category) || '📋', 'Fresh from ' + escapeHtml(name), 'Top 10 ' + escapeHtml(row.category) + ' · Updated ' + timeAgo(row.updated_at), "openFriendListByCat('" + row.user_id + "','" + safeCat + "')");
+    } catch(e) { return null; }
+  }
+  if (kind === 'match') {
+    var acc = (myFriends || []).filter(function(f){ return f.status === 'accepted'; });
+    if (!acc.length || !MY_LISTS || !MY_LISTS.length) return null;
+    var myByCat = {};
+    MY_LISTS.forEach(function(l) {
+      var cat = l.category || (l.n || '').replace('Top 10 ', '');
+      if (cat && Array.isArray(l.items) && l.items.length > 0) myByCat[cat] = l.items;
+    });
+    var cats = Object.keys(myByCat);
+    if (!cats.length) return null;
+    try {
+      var friendIds2 = acc.map(function(f){ return f.friendId; });
+      var lres = await sbClient.from('lists').select('user_id, category, items').in('user_id', friendIds2).in('category', cats).eq('is_public', true).limit(120);
+      var best = null;
+      (lres.data || []).forEach(function(row) {
+        var mine = myByCat[row.category];
+        if (!mine || !Array.isArray(row.items) || row.items.length === 0) return;
+        var m = computeMatch(mine, row.items, true);
+        if (!best || m > best.score) best = { score: m, friendId: row.user_id, category: row.category };
+      });
+      if (!best || best.score < 50) return null;
+      var friend = acc.find(function(x){ return x.friendId === best.friendId; });
+      var fname = (friend && friend.profile && (friend.profile.display_name || (friend.profile.handle ? '@' + friend.profile.handle : null))) || 'A friend';
+      return todayCard('🎯', 'Your closest match', 'You and ' + escapeHtml(fname) + ' agree ' + best.score + '% on Top 10 ' + escapeHtml(best.category), "openMatchWithFriend('" + best.friendId + "','s-circle')");
+    } catch(e) { return null; }
+  }
+  if (kind === 'stat') {
+    var listCount = (MY_LISTS || []).length;
+    var friendCount = ((myFriends || []).filter(function(f){ return f.status === 'accepted'; })).length;
+    if (listCount === 0 && friendCount === 0) return null;
+    var msg = 'You have ' + listCount + ' list' + (listCount === 1 ? '' : 's') + ' and ' + friendCount + ' friend' + (friendCount === 1 ? '' : 's') + ' on Tenner';
+    return todayCard('📊', 'Your Tenner', msg, "go('s-profile')");
+  }
+  return null;
+}
+
+function todayCard(emoji, title, subtitle, onclickAction) {
+  return '<div onclick="' + onclickAction + '" '
+    + 'style="background:linear-gradient(135deg,#FFF5EE 0%,#FDE6D9 100%);border:1.5px solid #F5B091;border-radius:18px;padding:14px 16px;margin-bottom:14px;cursor:pointer;display:flex;align-items:center;gap:12px">'
+    +   '<div style="font-size:30px;line-height:1;flex-shrink:0">' + (emoji.length <= 2 ? emoji : renderCatEmoji(emoji, 30)) + '</div>'
+    +   '<div style="flex:1;min-width:0">'
+    +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:15px;color:#2C2C2A;letter-spacing:-0.01em;line-height:1.15">' + title + '</div>'
+    +     '<div style="font-size:11.5px;color:#5F5E5A;margin-top:3px;line-height:1.35">' + subtitle + '</div>'
+    +   '</div>'
+    +   '<div style="font-size:14px;color:#5F5E5A;opacity:0.6">›</div>'
+    + '</div>';
+}
+
 // ── Stories row (horizontal scroll of friend avatars with actionable badges) ──
 // Each avatar shortcuts to whatever action the badge represents:
 //   🎂 birthday → gift guide for that friend
@@ -4052,6 +4154,80 @@ async function renderHomeFeed() {
       +   '<div style="font-size:28px;flex-shrink:0">' + renderCatEmoji(it.emoji || getCatEmoji(it.category), 28) + '</div>'
       + '</div>';
   }).join('');
+}
+
+// Match-score change alerts — scan friends' recent list updates, compute my
+// current match with them for each category I also have, and surface the
+// biggest movers vs the last score I saw (from MY_MATCH_REVEALS). Big jumps
+// (both up and down) get their own cards above the regular activity feed.
+// Threshold: |delta| ≥ 10 points. Max 3 cards to avoid overwhelming.
+async function renderMatchJumps() {
+  var el = document.getElementById('match-jumps-section');
+  if (!el) { return; }
+  el.innerHTML = '';
+  if (!sbClient || !userId) return;
+  var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted'; });
+  if (!accepted.length || !MY_LISTS || !MY_LISTS.length) return;
+  // Build my lists by category for fast lookup
+  var myByCat = {};
+  MY_LISTS.forEach(function(l) {
+    var cat = l.category || (l.n || '').replace('Top 10 ', '');
+    if (cat && Array.isArray(l.items) && l.items.length > 0) myByCat[cat] = l.items;
+  });
+  var myCats = Object.keys(myByCat);
+  if (!myCats.length) return;
+  var friendIds = accepted.map(function(f){ return f.friendId; }).filter(Boolean);
+  try {
+    // Pull recent friend list updates in my categories (limit scope)
+    var res = await sbClient.from('lists')
+      .select('user_id, category, emoji, items, updated_at')
+      .in('user_id', friendIds)
+      .in('category', myCats)
+      .eq('is_public', true)
+      .order('updated_at', { ascending: false })
+      .limit(60);
+    var rows = res.data || [];
+    if (!rows.length) return;
+    var jumps = [];
+    rows.forEach(function(row) {
+      var mine = myByCat[row.category];
+      if (!mine || !Array.isArray(row.items) || row.items.length === 0) return;
+      var current = computeMatch(mine, row.items, true);
+      var key = matchSeenKey(row.user_id, row.category);
+      var prev = (key in MY_MATCH_REVEALS) ? MY_MATCH_REVEALS[key] : null;
+      // First-time seen doesn't count as a "jump" — only movement counts.
+      if (prev === null) return;
+      var delta = current - prev;
+      if (Math.abs(delta) < 10) return;
+      jumps.push({ friendId: row.user_id, category: row.category, emoji: row.emoji, prev: prev, current: current, delta: delta });
+    });
+    if (!jumps.length) return;
+    jumps.sort(function(a,b){ return Math.abs(b.delta) - Math.abs(a.delta); });
+    jumps = jumps.slice(0, 3);
+    var profileById = {};
+    accepted.forEach(function(f){ if (f.profile) profileById[f.friendId] = f.profile; });
+    el.innerHTML = '<div style="font-size:11px;color:#888780;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;margin:0 0 8px 2px">🔥 Match jumps</div>'
+      + jumps.map(function(j) {
+        var p = profileById[j.friendId] || {};
+        var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
+        var arrow = j.delta > 0 ? '↑' : '↓';
+        var color = j.delta > 0 ? '#27500A' : '#A32D2D';
+        var bg = j.delta > 0 ? '#EAF3DE' : '#FBE5E0';
+        var safeCat = j.category.replace(/'/g, "\\'");
+        return '<div onclick="openMatchWithFriend(\'' + j.friendId + '\',\'s-circle\')" '
+          + 'style="background:' + bg + ';border:1.5px solid ' + color + '55;border-radius:16px;padding:12px 14px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:10px">'
+          +   friendAvatarHtml(p, 40)
+          +   '<div style="flex:1;min-width:0">'
+          +     '<div style="font-size:12.5px;color:#2C2C2A;line-height:1.35"><strong>' + escapeHtml(name) + '</strong> · Top 10 ' + escapeHtml(j.category) + '</div>'
+          +     '<div style="font-size:11px;color:' + color + ';font-weight:700;margin-top:3px">' + j.prev + '% ' + arrow + ' ' + j.current + '% (' + (j.delta > 0 ? '+' : '') + j.delta + ')</div>'
+          +   '</div>'
+          +   '<div style="font-size:22px;flex-shrink:0">' + renderCatEmoji(j.emoji || getCatEmoji(j.category), 22) + '</div>'
+          + '</div>';
+      }).join('')
+      + '<div style="height:6px"></div>';
+    // Mark these as seen so the alerts don't fire again next load
+    jumps.forEach(function(j) { markMatchSeen(j.friendId, j.category, j.current); });
+  } catch(e) { console.warn('renderMatchJumps failed', e); }
 }
 
 function timeAgo(iso) {
@@ -6476,6 +6652,30 @@ function renderProfileNudges() {
       + '<button class="back-btn" onclick="acceptPushNudge()" style="padding:5px 10px;font-size:11px">Turn on</button>'
       + '<button onclick="dismissPushNudge()" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
       + '</div>');
+  }
+  // Stale-list nudge: any complete list untouched 90+ days gets a gentle
+  // "refresh your picks" card. Only surfaces one at a time (oldest), dismissible.
+  var STALE_DAYS = 90;
+  var staleCutoff = Date.now() - STALE_DAYS * 24 * 3600 * 1000;
+  var staleCandidates = (MY_LISTS || []).filter(function(l) {
+    if (!l.updated_at) return false;
+    if ((l.items || []).length < 10) return false; // incomplete gets its own nudge
+    return new Date(l.updated_at).getTime() < staleCutoff;
+  }).sort(function(a,b){ return (a.updated_at || '').localeCompare(b.updated_at || ''); });
+  if (staleCandidates.length > 0) {
+    var stale = staleCandidates[0];
+    var staleCat = stale.category || (stale.n || '').replace('Top 10 ', '');
+    var staleKey = 'stale_' + staleCat;
+    if (!dismissed[staleKey]) {
+      var daysAgo = Math.floor((Date.now() - new Date(stale.updated_at).getTime()) / (24 * 3600 * 1000));
+      var staleCatEsc = String(staleCat).replace(/'/g, "\\'");
+      nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+        + '<div style="font-size:22px">' + renderCatEmoji(stale.emoji || getCatEmoji(staleCat), 22) + '</div>'
+        + '<div style="flex:1;font-size:12px;color:#2C2C2A">Your Top 10 ' + escapeHtml(staleCat) + ' hasn\'t been updated in ' + daysAgo + ' days. Still your picks?</div>'
+        + '<button class="back-btn" onclick="var l=MY_LISTS.find(function(x){return (x.category||x.n.replace(\'Top 10 \',\'\'))===\'' + staleCatEsc + '\';}); if(l) showListDetail(l,\'s-circle\');" style="padding:5px 10px;font-size:11px">Refresh</button>'
+        + '<button onclick="dismissNudge(\'' + staleKey + '\')" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
+        + '</div>');
+    }
   }
   // Incomplete-list nudge: surface the oldest list stuck below 10 items so users
   // don't forget to finish. Only shows once, dismissible per-category.
