@@ -1123,7 +1123,10 @@
               <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Handle (for friends to find you)</div>
               <input type="text" id="profile-handle-input" placeholder="@yourhandle" oninput="onHandleInput()" style="margin-bottom:4px;font-size:12px;padding:6px 8px">
               <div id="handle-status" style="font-size:10px;color:#888780"></div>
-              <div id="handle-locked-msg" style="display:none;font-size:13.5px;color:#5F5E5A;background:#F7F6F2;padding:6px 8px;border-radius:6px;border:1px solid #E2DFD8">Your handle is set and cannot be changed.</div>
+              <div id="handle-locked-msg" style="display:none;font-size:12px;color:#5F5E5A;background:#F7F6F2;padding:8px 10px;border-radius:8px;border:1px solid #E2DFD8;display:flex;align-items:center;gap:8px">
+                <div style="flex:1;line-height:1.4"><span id="handle-locked-text">Your handle is set. You can change it once every 30 days — old handles keep pointing to you.</span></div>
+                <button type="button" id="handle-change-btn" onclick="unlockHandleEdit()" style="background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer">Change</button>
+              </div>
             </div>
             <div style="padding:6px 0;border-bottom:1px solid #F1EFE8">
               <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Bio (optional)</div>
@@ -3064,12 +3067,12 @@ async function searchGroupMember() {
   if (!q) return;
   resultEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:4px 0">Searching…</div>';
   try {
-    var res = await sbClient.from('profiles').select('id, display_name, handle, photo').eq('handle', q).neq('id', userId).maybeSingle();
-    if (!res.data) {
+    var resProfile = await findProfileByHandle(q);
+    if (!resProfile) {
       resultEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:4px 0">No user found with that handle.</div>';
       return;
     }
-    var p = res.data;
+    var p = resProfile;
     var name = p.display_name || ('@' + p.handle) || 'User';
     var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
     var alreadyAdded = addedFriends.has(p.id) || !!addedNonFriends[p.id];
@@ -5945,24 +5948,43 @@ async function saveProfile() {
   var phoneRaw = (document.getElementById('profile-phone-input') || {}).value.replace(/\D/g, '');
   var phone = phoneRaw.length >= 10 ? phoneRaw : ((document.getElementById('profile-phone-input') || {}).value.trim() || null);
 
-  // Handle: only settable if not already saved; locked once set
+  // Handle: initial set OR a change (once the user tapped the "Change" button
+  // to unlock the input). Cooldown is 30 days between changes.
   var existingHandle = myProfile && myProfile.handle;
   var handle = existingHandle;
-  if (!existingHandle) {
-    var raw = (document.getElementById('profile-handle-input') || {}).value || '';
-    handle = raw.replace(/^@/, '').toLowerCase().trim();
-    if (!handle) {
+  var handleInput = document.getElementById('profile-handle-input');
+  var handleUnlocked = handleInput && !handleInput.disabled;
+  if (!existingHandle || handleUnlocked) {
+    var raw = (handleInput || {}).value || '';
+    var typed = raw.replace(/^@/, '').toLowerCase().trim();
+    if (!typed) {
       showProfileError('Please choose a handle before saving.');
       return;
     }
-    // Uniqueness check
-    if (sbClient) {
-      var chk = await sbClient.from('profiles').select('id').eq('handle', handle).neq('id', userId).maybeSingle();
-      if (chk.data) {
-        var hs = document.getElementById('handle-status');
-        if (hs) { hs.textContent = '@' + handle + ' is already taken. Please choose another.'; hs.style.color = '#A32D2D'; }
+    // If unchanged, treat as no-op
+    if (existingHandle && typed === existingHandle) {
+      handle = existingHandle;
+    } else {
+      if (!/^[a-z0-9_]{3,20}$/.test(typed)) {
+        showProfileError('Handle must be 3–20 characters, letters/numbers/underscore only.');
         return;
       }
+      // Cooldown check when CHANGING (not first-set)
+      if (existingHandle) {
+        var daysLeft = handleCooldownDaysLeft(myProfile.handle_changed_at);
+        if (daysLeft > 0) {
+          showProfileError('You can change your handle again in ' + daysLeft + ' day' + (daysLeft === 1 ? '' : 's') + '.');
+          return;
+        }
+      }
+      // Uniqueness — includes retired aliases
+      var taken = await isHandleTaken(typed);
+      if (taken) {
+        var hs = document.getElementById('handle-status');
+        if (hs) { hs.textContent = '@' + typed + ' is already taken. Please choose another.'; hs.style.color = '#A32D2D'; }
+        return;
+      }
+      handle = typed;
     }
   }
 
@@ -6045,7 +6067,19 @@ function renderProfileHeader() {
   var hs = document.getElementById('handle-status');
   if (p.handle) {
     if (hi) { hi.value = p.handle; hi.disabled = true; hi.style.background = '#F7F6F2'; hi.style.color = '#888780'; }
-    if (hlocked) hlocked.style.display = 'block';
+    if (hlocked) {
+      hlocked.style.display = 'flex';
+      var txt = document.getElementById('handle-locked-text');
+      var btn = document.getElementById('handle-change-btn');
+      var daysLeft = handleCooldownDaysLeft(p.handle_changed_at);
+      if (daysLeft > 0) {
+        if (txt) txt.textContent = 'You changed your handle recently. You can change it again in ' + daysLeft + ' day' + (daysLeft === 1 ? '' : 's') + '.';
+        if (btn) btn.style.display = 'none';
+      } else {
+        if (txt) txt.textContent = 'Old handles keep pointing to you, so friends who remember your previous @ can still find you.';
+        if (btn) btn.style.display = 'inline-block';
+      }
+    }
     if (hs) hs.textContent = '';
   } else {
     if (hi && !hi.value) hi.value = '';
@@ -6150,13 +6184,65 @@ async function loadFriends() {
 }
 
 var _handleCheckTimer = null;
+// Days remaining on the 30-day handle-change cooldown, or 0 if free to change.
+function handleCooldownDaysLeft(handleChangedAt) {
+  if (!handleChangedAt) return 0;
+  var elapsed = (Date.now() - new Date(handleChangedAt).getTime()) / (1000 * 60 * 60 * 24);
+  return Math.max(0, Math.ceil(30 - elapsed));
+}
+
+// Unlock the handle input for editing (called by the "Change" button on
+// Profile → Edit).
+function unlockHandleEdit() {
+  var hi = document.getElementById('profile-handle-input');
+  var locked = document.getElementById('handle-locked-msg');
+  var hs = document.getElementById('handle-status');
+  if (hi) { hi.disabled = false; hi.style.background = '#FFFFFF'; hi.style.color = '#2C2C2A'; hi.focus(); }
+  if (locked) locked.style.display = 'none';
+  if (hs) { hs.textContent = 'Pick a new handle. Old ones will still route to you.'; hs.style.color = '#854F0B'; }
+}
+
+// Find a profile by handle, falling back through handle_aliases so people who
+// remember an old @handle can still find you. Returns the full profile row
+// (same shape as a direct profiles select).
+async function findProfileByHandle(handle) {
+  if (!sbClient || !handle) return null;
+  var norm = handle.replace(/^@/, '').toLowerCase();
+  try {
+    var direct = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('handle', norm).neq('id', userId).maybeSingle();
+    if (direct.data) return direct.data;
+    var alias = await sbClient.from('handle_aliases').select('user_id').eq('handle', norm).maybeSingle();
+    if (alias && alias.data && alias.data.user_id && alias.data.user_id !== userId) {
+      var re = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('id', alias.data.user_id).maybeSingle();
+      return re.data || null;
+    }
+    return null;
+  } catch (e) { console.warn('findProfileByHandle failed', e); return null; }
+}
+
+// Handle uniqueness check: hits BOTH profiles.handle AND handle_aliases so
+// retired handles (owned by other users) can't be reclaimed.
+async function isHandleTaken(candidate) {
+  if (!sbClient) return false;
+  try {
+    var p = await sbClient.from('profiles').select('id').eq('handle', candidate).neq('id', userId).maybeSingle();
+    if (p.data) return true;
+    var a = await sbClient.from('handle_aliases').select('user_id').eq('handle', candidate).neq('user_id', userId).maybeSingle();
+    return !!(a && a.data);
+  } catch (e) { console.warn('isHandleTaken failed', e); return false; }
+}
+
 function onHandleInput() {
-  if (myProfile && myProfile.handle) return; // already locked
   var hi = document.getElementById('profile-handle-input');
   var hs = document.getElementById('handle-status');
   if (!hi || !hs) return;
+  if (hi.disabled) return; // locked — nothing to check
   var val = hi.value.replace(/^@/, '').toLowerCase().trim();
-  if (!val) { hs.textContent = 'Choose carefully — your handle cannot be changed once set.'; hs.style.color = '#854F0B'; return; }
+  // If they're editing an existing handle and typed their current one back, treat as "no change"
+  if (myProfile && myProfile.handle && val === myProfile.handle) {
+    hs.textContent = 'That\'s your current handle.'; hs.style.color = '#888780'; return;
+  }
+  if (!val) { hs.textContent = 'Pick something friends can remember.'; hs.style.color = '#854F0B'; return; }
   if (!/^[a-z0-9_]{3,20}$/.test(val)) {
     hs.textContent = 'Letters, numbers, and underscores only. 3–20 characters.';
     hs.style.color = '#A32D2D'; return;
@@ -6164,9 +6250,8 @@ function onHandleInput() {
   hs.textContent = 'Checking…'; hs.style.color = '#888780';
   clearTimeout(_handleCheckTimer);
   _handleCheckTimer = setTimeout(async function() {
-    if (!sbClient) return;
-    var chk = await sbClient.from('profiles').select('id').eq('handle', val).neq('id', userId).maybeSingle();
-    if (chk.data) { hs.textContent = '@' + val + ' is already taken.'; hs.style.color = '#A32D2D'; }
+    var taken = await isHandleTaken(val);
+    if (taken) { hs.textContent = '@' + val + ' is already taken.'; hs.style.color = '#A32D2D'; }
     else { hs.textContent = '@' + val + ' is available ✓'; hs.style.color = '#27500A'; }
   }, 500);
 }
@@ -6190,8 +6275,8 @@ async function searchFriend() {
       var normalized = query.replace(/\s/g, '');
       res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('phone', normalized).neq('id', userId).maybeSingle();
     } else {
-      var handle = query.replace(/^@/, '').toLowerCase();
-      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('handle', handle).neq('id', userId).maybeSingle();
+      var hProfile = await findProfileByHandle(query);
+      res = { data: hProfile };
     }
     if (!res.data) {
       var hint = isPhone ? 'No user found with that phone number.' : 'No user found with @' + query.replace(/^@/, '');
@@ -6551,11 +6636,10 @@ function onOnbHandleInput() {
   if (v.length < 3) { status.textContent = 'At least 3 characters.'; status.style.color = '#888780'; return; }
   status.textContent = 'Checking availability…';
   status.style.color = '#888780';
-  _onbHandleCheckTimer = setTimeout(function() {
-    sbClient.from('profiles').select('id').eq('handle', v).neq('id', userId).maybeSingle().then(function(r) {
-      if (r.data) { status.textContent = '@' + v + ' is taken. Try another.'; status.style.color = '#A32D2D'; }
-      else       { status.textContent = '✓ @' + v + ' is available.'; status.style.color = '#3B6D11'; }
-    }).catch(function(){ status.textContent = ''; });
+  _onbHandleCheckTimer = setTimeout(async function() {
+    var taken = await isHandleTaken(v);
+    if (taken) { status.textContent = '@' + v + ' is taken. Try another.'; status.style.color = '#A32D2D'; }
+    else { status.textContent = '✓ @' + v + ' is available.'; status.style.color = '#3B6D11'; }
   }, 350);
 }
 
@@ -6564,8 +6648,8 @@ async function onbStep2Next() {
   var err = document.getElementById('onb-error');
   if (!v || v.length < 3) { err.textContent = 'Please pick a handle (at least 3 characters).'; err.style.display = 'block'; return; }
   try {
-    var chk = await sbClient.from('profiles').select('id').eq('handle', v).neq('id', userId).maybeSingle();
-    if (chk.data) { err.textContent = '@' + v + ' is taken. Please try another.'; err.style.display = 'block'; return; }
+    var taken2 = await isHandleTaken(v);
+    if (taken2) { err.textContent = '@' + v + ' is taken. Please try another.'; err.style.display = 'block'; return; }
   } catch(e) {}
   myProfile.handle = v;
   _onbStep = 3;
@@ -8397,8 +8481,8 @@ async function circleSearchFriend() {
       var normalized = query.replace(/\s/g, '');
       res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('phone', normalized).neq('id', userId).maybeSingle();
     } else {
-      var handle = query.replace(/^@/, '').toLowerCase();
-      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('handle', handle).neq('id', userId).maybeSingle();
+      var hProfile2 = await findProfileByHandle(query);
+      res = { data: hProfile2 };
     }
     if (!res.data) {
       var hint = isPhone ? 'No user found with that phone number.' : 'No user found with that handle.';
