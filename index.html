@@ -461,7 +461,10 @@
           <div id="auth-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:10px;border:1px solid #F0997B"></div>
           <div id="auth-resend" style="display:none;margin-bottom:10px"><button onclick="resendConfirmation()" class="btn-secondary" style="margin-bottom:0;font-size:12px">✉️ Resend confirmation email</button></div>
           <input type="email" id="auth-email" placeholder="Email address" style="margin-bottom:8px">
-          <input type="password" id="auth-password" placeholder="Password" style="margin-bottom:4px">
+          <div style="position:relative;margin-bottom:4px">
+            <input type="password" id="auth-password" placeholder="Password" style="margin-bottom:0;padding-right:60px">
+            <span onclick="togglePw('auth-password',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#888780;font-size:11px;font-weight:600;cursor:pointer;padding:4px 6px;user-select:none">Show</span>
+          </div>
           <div id="auth-password-hint" style="display:none;font-size:10px;color:#888780;margin-bottom:8px">At least 6 characters</div>
           <div id="auth-magic-hint" style="display:none;font-size:10px;color:#888780;margin-bottom:8px">We'll email you a link — no password needed.</div>
           <button class="btn-primary" id="auth-submit" onclick="submitAuth()" style="margin-top:12px">Log in</button>
@@ -1269,6 +1272,7 @@
                 <div style="font-size:11px;font-weight:600;color:#2C2C2A">Email address</div>
                 <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px" id="profile-email-info">—</div>
               </div>
+              <button class="back-btn" onclick="openChangeEmail()">Change</button>
             </div>
           </div>
         </div>
@@ -5343,7 +5347,10 @@ function showSetNewPasswordModal() {
     + '<div class="pop-in" style="background:#fff;border-radius:16px;padding:24px 20px;width:100%;max-width:320px">'
     +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;color:#2C2C2A;text-align:center;margin-bottom:8px">Set a new password</div>'
     +   '<div style="font-size:12px;color:#5F5E5A;text-align:center;margin-bottom:14px">Choose a new password for your Tenner account.</div>'
-    +   '<input type="password" id="reset-new-password" placeholder="New password (at least 6 characters)" style="margin-bottom:8px">'
+    +   '<div style="position:relative;margin-bottom:8px">'
+    +     '<input type="password" id="reset-new-password" placeholder="New password (at least 6 characters)" style="margin-bottom:0;padding-right:60px">'
+    +     '<span onclick="togglePw(\'reset-new-password\',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#888780;font-size:11px;font-weight:600;cursor:pointer;padding:4px 6px;user-select:none">Show</span>'
+    +   '</div>'
     +   '<div id="reset-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #F0997B"></div>'
     +   '<button class="btn-primary" onclick="submitNewPassword()" style="margin-bottom:0">Save new password</button>'
     + '</div>';
@@ -5460,6 +5467,43 @@ async function signInWithGoogle() {
   });
 }
 
+function openChangeEmail() {
+  var frame = document.querySelector('.frame') || document.body;
+  var current = (currentUserEmail || '');
+  var overlay = document.createElement('div');
+  overlay.className = 'phone-overlay centered';
+  overlay.id = 'email-change-overlay';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:18px;padding:22px 18px;width:90%;max-width:340px;position:relative">'
+    + '<div style="font-size:12px;font-weight:600;color:#2C2C2A;margin-bottom:4px">✉️ Change email</div>'
+    + '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:14px;line-height:1.5">We\'ll send a confirmation link to your <strong>new</strong> email address. Your login won\'t change until you click that link.</div>'
+    + '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Current email</div>'
+    + '<div style="background:#F1EFE8;color:#5F5E5A;font-size:13px;padding:9px 11px;border-radius:8px;margin-bottom:12px;font-family:inherit">' + escapeHtml(current || '—') + '</div>'
+    + '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">New email</div>'
+    + '<input type="email" id="new-email-input" placeholder="you@example.com" autocomplete="email" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:10px;box-sizing:border-box;font-family:inherit">'
+    + '<div id="email-change-error" style="display:none;font-size:11px;color:#A32D2D;background:#FDF0EF;padding:7px 10px;border-radius:7px;margin-bottom:10px;border:1px solid #F09595"></div>'
+    + '<button class="btn-primary" style="margin-bottom:6px" onclick="submitChangeEmail()">Send confirmation</button>'
+    + '<button class="btn-secondary" style="margin-bottom:0" onclick="document.getElementById(\'email-change-overlay\').remove()">Cancel</button>'
+    + '</div>';
+  frame.appendChild(overlay);
+  setTimeout(function(){ var el = document.getElementById('new-email-input'); if(el) el.focus(); }, 100);
+}
+
+async function submitChangeEmail() {
+  var newEmail = ((document.getElementById('new-email-input') || {}).value || '').trim().toLowerCase();
+  var errEl = document.getElementById('email-change-error');
+  function showErr(m) { if (errEl) { errEl.textContent = m; errEl.style.display = 'block'; } }
+  if (!newEmail || !/^\S+@\S+\.\S+$/.test(newEmail)) return showErr('Please enter a valid email address.');
+  if (currentUserEmail && newEmail === currentUserEmail.toLowerCase()) return showErr("That's already your current email.");
+  if (!sbClient) return showErr('Not signed in.');
+  try {
+    var res = await sbClient.auth.updateUser({ email: newEmail });
+    if (res && res.error) return showErr(res.error.message || 'Could not update email.');
+    var overlay = document.getElementById('email-change-overlay');
+    if (overlay) overlay.remove();
+    showToast('Check ' + newEmail + ' for a confirmation link.');
+  } catch (e) { showErr(String(e && e.message || e)); }
+}
+
 function openChangePassword() {
   var frame = document.querySelector('.frame') || document.body;
   var hasPassword = (myProfile && myProfile._hasPassword);
@@ -5469,11 +5513,11 @@ function openChangePassword() {
   overlay.innerHTML = '<div style="background:#fff;border-radius:18px;padding:22px 18px;width:90%;max-width:320px;position:relative">' +
     '<div style="font-size:12px;font-weight:600;color:#2C2C2A;margin-bottom:4px">🔐 ' + (hasPassword ? 'Change Password' : 'Set a Password') + '</div>' +
     '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:14px">' + (hasPassword ? 'Enter your current password and choose a new one.' : 'Add a password to your account so you can sign in without a magic link.') + '</div>' +
-    (hasPassword ? '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Current password</div><input type="password" id="pw-current" placeholder="Current password" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:10px;font-family:inherit">' : '') +
+    (hasPassword ? '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Current password</div><div style="position:relative;margin-bottom:10px"><input type="password" id="pw-current" placeholder="Current password" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 60px 9px 11px;font-size:13px;box-sizing:border-box;font-family:inherit"><span onclick="togglePw(\'pw-current\',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#888780;font-size:11px;font-weight:600;cursor:pointer;padding:4px 6px;user-select:none">Show</span></div>' : '') +
     '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">New password</div>' +
-    '<input type="password" id="pw-new" placeholder="At least 6 characters" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:10px;font-family:inherit">' +
+    '<div style="position:relative;margin-bottom:10px"><input type="password" id="pw-new" placeholder="At least 6 characters" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 60px 9px 11px;font-size:13px;box-sizing:border-box;font-family:inherit"><span onclick="togglePw(\'pw-new\',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#888780;font-size:11px;font-weight:600;cursor:pointer;padding:4px 6px;user-select:none">Show</span></div>' +
     '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Confirm new password</div>' +
-    '<input type="password" id="pw-confirm" placeholder="Repeat new password" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:12px;font-family:inherit">' +
+    '<div style="position:relative;margin-bottom:12px"><input type="password" id="pw-confirm" placeholder="Repeat new password" style="width:100%;border:1px solid #D3D1C7;border-radius:8px;padding:9px 60px 9px 11px;font-size:13px;box-sizing:border-box;font-family:inherit"><span onclick="togglePw(\'pw-confirm\',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#888780;font-size:11px;font-weight:600;cursor:pointer;padding:4px 6px;user-select:none">Show</span></div>' +
     '<div id="pw-error" style="display:none;font-size:11px;color:#A32D2D;background:#FDF0EF;padding:7px 10px;border-radius:7px;margin-bottom:10px;border:1px solid #F09595"></div>' +
     '<button class="btn-primary" style="margin-bottom:6px" onclick="submitChangePassword()">Save password</button>' +
     '<button class="btn-secondary" style="margin-bottom:0" onclick="document.getElementById(\'pw-change-overlay\').remove()">Cancel</button>' +
@@ -5503,6 +5547,15 @@ async function submitChangePassword() {
   if (myProfile) myProfile._hasPassword = true;
   document.getElementById('pw-change-overlay').remove();
   showToast('Password updated!');
+}
+
+// Toggle a password input between hidden and visible. Same handler used across
+// login, signup, change-password, and reset-password flows.
+function togglePw(id, el) {
+  var inp = document.getElementById(id);
+  if (!inp) return;
+  if (inp.type === 'password') { inp.type = 'text'; el.textContent = 'Hide'; }
+  else { inp.type = 'password'; el.textContent = 'Show'; }
 }
 
 async function signOut() {
