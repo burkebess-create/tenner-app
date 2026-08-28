@@ -892,6 +892,7 @@
           </div>
         </div>
         <div class="content">
+          <div id="circle-anchor-chips" style="display:flex;gap:8px;overflow-x:auto;margin:0 -14px 12px;padding:0 14px 4px;scrollbar-width:none"></div>
           <div id="circle-profile-nudges"></div>
           <div id="today-pill-host"></div>
           <div id="today-on-tenner-host"></div>
@@ -906,7 +907,7 @@
           <div id="match-jumps-section"></div>
           <div id="home-feed-section"></div>
 
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;margin-bottom:8px">
+          <div id="circle-friends-anchor" style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;margin-bottom:8px;scroll-margin-top:14px">
             <div class="sec-label" style="margin-top:0;margin-bottom:0">Friends</div>
             <button class="btn-primary" onclick="go('s-add-friends')" style="width:auto;padding:7px 14px;margin-bottom:0;font-size:12px;white-space:nowrap">+ Add friends</button>
           </div>
@@ -914,7 +915,7 @@
           <div id="circle-friends-list"></div>
 
           <div id="circle-group-invites"></div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;margin-bottom:8px">
+          <div id="circle-groups-anchor" style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;margin-bottom:8px;scroll-margin-top:14px">
             <div class="sec-label" style="margin-top:0;margin-bottom:0">Groups</div>
             <button class="btn-primary" onclick="go('s-cg1')" style="width:auto;padding:7px 14px;margin-bottom:0;font-size:12px;white-space:nowrap">+ New group</button>
           </div>
@@ -1838,7 +1839,7 @@ function go(id) {
     renderTopbarAvatars();
   }
   if (id === 's-circle') {
-    renderCircleTopbarAvatar(); renderTodayPill(); renderTodayOnTenner(); renderCircleListInvites(); renderCircleStories(); renderCircleScreen(); renderHomeFeed(); renderMatchJumps(); renderWeeklyHeroCard(); renderStreakPill(); renderProfileNudges(); refreshNotifications().then(function(){ renderCircleListInvites(); });
+    renderCircleTopbarAvatar(); renderTodayPill(); renderTodayOnTenner(); renderCircleListInvites(); renderCircleStories(); renderCircleAnchorChips(); renderCircleScreen(); renderHomeFeed(); renderMatchJumps(); renderWeeklyHeroCard(); renderStreakPill(); renderProfileNudges(); refreshNotifications().then(function(){ renderCircleListInvites(); });
     if (typeof pushResubscribeSilently === 'function') pushResubscribeSilently();
     attachPullToRefresh(document.querySelector('#s-circle .content'), function() { return loadFriends().then(renderCircleScreen); });
   }
@@ -6935,6 +6936,7 @@ function dismissNudge(key) {
 }
 
 function renderCircleScreen() {
+  renderCircleAnchorChips();
   renderCircleFriends();
   renderCircleGroups();
   updateGroupMetaCounts();
@@ -7394,9 +7396,38 @@ async function updateGroupMetaCounts() {
         if (Object.keys(fills).length >= 2) compared++;
       });
       g.meta = memberCount + ' member' + (memberCount !== 1 ? 's' : '') + ' · ' + compared + ' list' + (compared !== 1 ? 's' : '') + ' compared';
+      g.listCount = compared;
     });
   } catch(e) { console.warn('Group meta count failed', e); }
   renderCircleGroups();
+}
+
+// Anchor chips at top of Circle — visual "there's more below" hint for new
+// users, quick jump-scroll for everyone else.
+function renderCircleAnchorChips() {
+  var host = document.getElementById('circle-anchor-chips');
+  if (!host) return;
+  var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted'; });
+  var pending = (myFriends || []).filter(function(f){ return f.status === 'pending' && !f.isRequester; });
+  var groupsN = (MY_GROUPS || []).length;
+  if (accepted.length === 0 && groupsN === 0) { host.innerHTML = ''; return; }
+  var chip = function(icon, label, count, anchorId, hasDot) {
+    var dot = hasDot ? '<span style="width:6px;height:6px;background:#D85A30;border-radius:50%;margin-left:2px"></span>' : '';
+    return '<button onclick="scrollToAnchor(\'' + anchorId + '\')" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;background:#F1EFE8;border:1.5px solid #2C2C2A;border-radius:99px;padding:6px 14px;font-size:12px;font-weight:600;color:#2C2C2A;cursor:pointer;white-space:nowrap">'
+      + '<span style="font-size:14px;line-height:1">' + icon + '</span>'
+      + '<span>' + label + '</span>'
+      + '<span style="background:#2C2C2A;color:#FFFFFF;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;line-height:1.3">' + count + '</span>'
+      + dot
+      + '</button>';
+  };
+  var chips = [];
+  if (accepted.length > 0 || pending.length > 0) chips.push(chip('👥', 'Friends', accepted.length, 'circle-friends-anchor', pending.length > 0));
+  if (groupsN > 0 || (MY_PENDING_GROUP_INVITES && MY_PENDING_GROUP_INVITES.length > 0)) chips.push(chip('🏷️', 'Groups', groupsN, 'circle-groups-anchor', MY_PENDING_GROUP_INVITES && MY_PENDING_GROUP_INVITES.length > 0));
+  host.innerHTML = chips.join('');
+}
+function scrollToAnchor(id) {
+  var el = document.getElementById(id);
+  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function renderCircleFriends() {
@@ -7432,18 +7463,50 @@ function renderCircleFriends() {
     } else { reqEl.innerHTML = ''; }
   }
 
-  // Friends list
+  // Friends list — signature-colored cards, mini stat, sorted by relevance.
   var listEl = document.getElementById('circle-friends-list');
   if (!listEl) return;
   var html = '';
   if (accepted.length > 0) {
     var FRIENDS_PREVIEW = 3;
-    var friendRows = accepted.map(function(f) {
+    var enriched = accepted.map(function(f) {
       var name = f.profile.display_name || f.profile.handle || 'Unknown';
+      var pal = getCategoryColor(name);
+      var days = daysUntilBirthday(f.profile && f.profile.birthday);
+      var hasBirthday = days !== null && days !== undefined && days >= 0 && days <= 30;
+      // Unread badge: does this friend have a public list update newer than my last view?
+      var lastViewed = MY_FRIEND_VIEWS[f.friendId];
+      var hasNew = false; // populated below via latestByUser
+      // Compute mini stat: prefer badge, then rough avg match, then handle
+      return { f: f, name: name, pal: pal, days: days, hasBirthday: hasBirthday, hasNew: hasNew };
+    });
+
+    // Sort: birthday (soonest first) → new list → alphabetical
+    enriched.sort(function(a, b) {
+      if (a.hasBirthday && !b.hasBirthday) return -1;
+      if (!a.hasBirthday && b.hasBirthday) return 1;
+      if (a.hasBirthday && b.hasBirthday) return a.days - b.days;
+      return a.name.localeCompare(b.name);
+    });
+
+    var friendRows = enriched.map(function(e) {
+      var f = e.f, name = e.name, pal = e.pal, days = e.days;
       var handle = f.profile.handle ? '@' + f.profile.handle : '';
-      return '<div class="share-pick" style="cursor:pointer" onclick="openFriendDetail(\'' + f.friendId + '\')">' + friendAvatarHtml(f.profile, 32)
-        + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '</div><div style="font-size:13.5px;color:#5F5E5A">' + escapeHtml(handle) + '</div></div>'
-        + '<span style="font-size:16px;color:#D3D1C7">›</span></div>';
+      var badge = '';
+      if (e.hasBirthday) {
+        var dayStr = days === 0 ? 'today' : days === 1 ? 'tomorrow' : days + 'd';
+        badge = '<div style="background:#2C2C2A;color:#FFFFFF;font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:99px;letter-spacing:0.03em;white-space:nowrap">🎂 ' + dayStr + '</div>';
+      } else {
+        badge = '<span style="font-size:16px;color:#2C2C2A;opacity:0.4">›</span>';
+      }
+      return '<div onclick="openFriendDetail(\'' + f.friendId + '\')" style="background:' + pal.bg + '99;border:1.5px solid #2C2C2A;border-radius:14px;padding:10px 12px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:10px">'
+        + friendAvatarHtml(f.profile, 40)
+        + '<div style="flex:1;min-width:0">'
+        +   '<div style="font-size:13px;font-weight:700;color:#2C2C2A;line-height:1.15">' + escapeHtml(name) + '</div>'
+        +   (handle ? '<div style="font-size:11px;color:#2C2C2A;opacity:0.65;margin-top:1px">' + escapeHtml(handle) + '</div>' : '')
+        + '</div>'
+        + badge
+        + '</div>';
     });
     html = friendRows.slice(0, FRIENDS_PREVIEW).join('');
     if (accepted.length > FRIENDS_PREVIEW) {
@@ -8333,12 +8396,47 @@ function renderCircleGroups() {
   if (MY_GROUPS.length === 0) { el.innerHTML = ''; return; }
   var GROUPS_PREVIEW = 2;
   var groupRows = MY_GROUPS.map(function(g, i) {
-    return '<div class="share-pick" style="cursor:pointer" onclick="selGroupIdx='+i+';go(\'s-gdetail\')">'
-      + groupAvatarHtml(g, 42)
-      + '<div style="flex:1">'
-      + '<div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(g.n) + '</div>'
-      + '<div style="font-size:13.5px;color:#5F5E5A">' + (g.meta || '') + '</div></div>'
-      + '<span style="font-size:16px;color:#D3D1C7">›</span>'
+    var pal = getCategoryColor(g.n || 'group');
+    // Build a small member avatar stack: up to 4 overlapping mini circles.
+    // Sources: my own profile if I'm a member (I always am for MY_GROUPS) + friends
+    // whose IDs appear in g.memberIds. Falls back to initials for anyone we don't have.
+    var memberIds = (g.memberIds || []).slice(0, 6);
+    var stackHtml = '';
+    var stackCount = 0;
+    memberIds.forEach(function(mid) {
+      if (stackCount >= 4) return;
+      var prof = null;
+      if (mid === userId) prof = myProfile;
+      else {
+        var friend = (myFriends || []).find(function(f){ return f.friendId === mid; });
+        if (friend) prof = friend.profile;
+      }
+      if (!prof) return;
+      var name = prof.display_name || prof.handle || '?';
+      var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+      var inner = prof.photo
+        ? '<img src="' + prof.photo + '" style="width:100%;height:100%;object-fit:cover">'
+        : '<div style="width:100%;height:100%;background:#EAE3DC;color:#5F5E5A;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">' + escapeHtml(initials) + '</div>';
+      stackHtml += '<div style="width:26px;height:26px;border-radius:50%;overflow:hidden;border:2px solid #FFFFFF;margin-left:' + (stackCount === 0 ? '0' : '-9px') + ';flex-shrink:0">' + inner + '</div>';
+      stackCount++;
+    });
+    var totalMembers = (g.memberIds || []).length;
+    var overflow = totalMembers - stackCount;
+    if (overflow > 0) {
+      stackHtml += '<div style="width:26px;height:26px;border-radius:50%;background:#2C2C2A;color:#FFFFFF;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #FFFFFF;margin-left:-9px;flex-shrink:0">+' + overflow + '</div>';
+    }
+    var listCount = g.listCount != null ? g.listCount : 0;
+    var listWord = listCount === 1 ? 'list' : 'lists';
+    return '<div onclick="selGroupIdx='+i+';go(\'s-gdetail\')" style="background:' + pal.bg + '99;border:1.5px solid #2C2C2A;border-radius:14px;padding:12px 12px;margin-bottom:8px;cursor:pointer">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+      +   groupAvatarHtml(g, 40)
+      +   '<div style="flex:1;min-width:0">'
+      +     '<div style="font-size:13.5px;font-weight:700;color:#2C2C2A;line-height:1.15">' + escapeHtml(g.n) + '</div>'
+      +     '<div style="font-size:11px;color:#2C2C2A;opacity:0.7;margin-top:2px">' + totalMembers + ' members · ' + listCount + ' ' + listWord + ' compared</div>'
+      +   '</div>'
+      +   '<span style="font-size:16px;color:#2C2C2A;opacity:0.4">›</span>'
+      + '</div>'
+      + (stackHtml ? '<div style="display:flex;align-items:center;padding-left:2px">' + stackHtml + '</div>' : '')
       + '</div>';
   });
   var groupHtml = groupRows.slice(0, GROUPS_PREVIEW).join('');
