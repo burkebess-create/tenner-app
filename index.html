@@ -1797,7 +1797,7 @@ function go(id) {
     renderCachedBanner();
   }
   if (id === 's-gdetail') renderGroupDetail();
-  if (id === 's-fdetail' && selFriendId) renderFriendDetail();
+  if (id === 's-fdetail' && selFriendId) { renderFriendDetail(); markFriendViewed(selFriendId); }
   if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
   if (id === 's-create2') { renderItems(); updateProg(); renderItemChips(); }
   if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); addedNonFriends = {}; clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
@@ -1964,6 +1964,27 @@ function attachPullToRefresh(scrollEl, asyncFn) {
 // Which match scores this user has revealed. Synced with the `match_reveals` table
 // so the state follows users across devices. In-memory map keyed by "friendId__category".
 var MY_MATCH_REVEALS = {};
+
+// Per-friend last-viewed timestamps (unread state for the orange dot on
+// Circle stories). Keyed by friendId → ISO string; loaded from friend_views.
+var MY_FRIEND_VIEWS = {};
+async function loadFriendViews() {
+  if (!sbClient || !userId) return;
+  try {
+    var r = await sbClient.from('friend_views').select('friend_id, last_seen_at').eq('viewer_id', userId);
+    if (r && r.data) {
+      var m = {};
+      r.data.forEach(function(v){ m[v.friend_id] = v.last_seen_at; });
+      MY_FRIEND_VIEWS = m;
+    }
+  } catch (e) { console.warn('loadFriendViews failed', e); }
+}
+function markFriendViewed(friendId) {
+  if (!sbClient || !userId || !friendId) return;
+  var now = new Date().toISOString();
+  MY_FRIEND_VIEWS[friendId] = now;
+  sbClient.from('friend_views').upsert({ viewer_id: userId, friend_id: friendId, last_seen_at: now }).then(function(){}, function(){});
+}
 
 function matchSeenKey(friendId, categoryLabel) {
   return (friendId || 'unknown') + '__' + (categoryLabel || 'overall');
@@ -4083,8 +4104,12 @@ async function renderCircleStories() {
     if (d !== null && d !== undefined && d >= 0 && d <= 60) {
       return { s: 100 - d, badge: 'birthday' };
     }
-    if (latestByUser[f.friendId]) {
-      return { s: 50, badge: 'newlist' };
+    // New-list dot only fires when the friend's latest public list update is
+    // newer than the last time I opened their detail page.
+    var latest = latestByUser[f.friendId];
+    if (latest) {
+      var lastViewed = MY_FRIEND_VIEWS[f.friendId];
+      if (!lastViewed || latest.at > lastViewed) return { s: 50, badge: 'newlist' };
     }
     return { s: 0, badge: null };
   }
@@ -8902,6 +8927,7 @@ async function loadState() {
       checkAdminStatus();
       loadCategoriesFromDb();
       loadMatchReveals();
+      loadFriendViews();
       loadWeeklyLists();
       // Retry any list saves that failed on a previous session (dirty queue)
       retryDirtyLists();
