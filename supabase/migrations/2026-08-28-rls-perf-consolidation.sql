@@ -1,0 +1,13 @@
+-- Performance advisor cleanup — batch 2 (RLS)
+--
+-- 1. Wrap auth.uid() / auth.jwt() calls in RLS policies with (select ...) so
+--    Postgres caches the value once per query instead of computing per row.
+-- 2. Wrap the 3 auth.role() calls (categories/category_items/weekly_lists reads).
+-- 3. Merge duplicate SELECT / DELETE / UPDATE policies on the hot tables
+--    (list_item_comments, list_change_events, lists, profiles, friendships,
+--    group_members, groups, list_share_invites, push_subscriptions, admins,
+--    handle_aliases) so RLS runs one policy check per row instead of many.
+--
+-- Applied to the remote db on 2026-08-28. Preserved here for repo history.
+-- (See git for the exact SQL used — the multi-step migration was applied
+--  incrementally via the Supabase MCP.)
