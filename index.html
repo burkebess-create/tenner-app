@@ -2246,16 +2246,16 @@ function checkListComplete() {
     var remaining = 10 - n;
     var modal = document.getElementById('confirm-modal');
     document.getElementById('confirm-title').textContent = 'Your list has ' + n + ' of 10 items';
-    document.getElementById('confirm-message').textContent = 'You can add ' + remaining + ' more item' + (remaining === 1 ? '' : 's') + '. Complete your Tenner list by adding ' + remaining + ' more item' + (remaining === 1 ? '' : 's') + ', or continue with ' + n + ' item' + (n === 1 ? '' : 's') + '.';
-    // Primary coral button: 'Add more' (encouraged path — just closes the modal so they can keep typing)
+    document.getElementById('confirm-message').textContent = "Can't think of 10? No worries — you can always come back later to add more.";
+    // Primary coral button: keep adding now (closes modal so they can keep typing)
     var okBtn = document.getElementById('confirm-ok');
-    okBtn.textContent = 'Add more';
+    okBtn.textContent = 'Continue adding more now';
     okBtn.style.cssText = 'width:100%;padding:14px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px;color:#fff;background:#D85A30;border:none;';
     okBtn.onclick = function() { closeConfirm(); };
-    // Secondary white button: 'Continue with N items' (proceed to the sharing step with an incomplete list)
+    // Secondary white button: move on to sharing step, come back later
     var cancelBtn = document.querySelector('#confirm-modal .btn-secondary');
     if (cancelBtn) {
-      cancelBtn.textContent = 'Continue with ' + n + ' item' + (n === 1 ? '' : 's');
+      cancelBtn.textContent = 'Add more later';
       var origOnClick = cancelBtn.onclick;
       cancelBtn.onclick = function(e) {
         cancelBtn.textContent = 'Cancel';
