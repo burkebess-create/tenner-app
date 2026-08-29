@@ -7547,12 +7547,13 @@ function renderCircleFriends() {
     var friendRows = enriched.map(function(e) {
       var f = e.f, name = e.name, pal = e.pal, days = e.days;
       var handle = f.profile.handle ? '@' + f.profile.handle : '';
+      var accent = pal.accent || pal.fg || '#2C2C2A';
       var badge = '';
       if (e.hasBirthday) {
         var dayStr = days === 0 ? 'today' : days === 1 ? 'tomorrow' : days + 'd';
-        badge = '<div style="background:#2C2C2A;color:#FFFFFF;font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:99px;letter-spacing:0.03em;white-space:nowrap">🎂 ' + dayStr + '</div>';
+        badge = '<div style="background:' + accent + ';color:#FFFFFF;font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:99px;letter-spacing:0.03em;white-space:nowrap">🎂 ' + dayStr + '</div>';
       } else {
-        badge = '<span style="font-size:16px;color:#2C2C2A;opacity:0.4">›</span>';
+        badge = '<span style="font-size:16px;color:' + accent + ';opacity:0.5">›</span>';
       }
       // Emoji row: up to 5 list emojis + " · N lists"
       var listRow = '';
@@ -7564,13 +7565,12 @@ function renderCircleFriends() {
         if (e.latestAt) {
           var ageDays = (Date.now() - new Date(e.latestAt).getTime()) / (1000*60*60*24);
           if (ageDays <= 14) {
-            var hintColor = (pal.accent || pal.fg || '#2C2C2A');
-            recentHint = '<span style="font-size:10.5px;color:' + hintColor + ';font-style:italic;font-weight:600;margin-left:6px;white-space:nowrap">· updated ' + timeAgo(e.latestAt) + '</span>';
+            recentHint = '<span style="font-size:10.5px;color:' + accent + ';font-style:italic;font-weight:600;margin-left:6px;white-space:nowrap">· updated ' + timeAgo(e.latestAt) + '</span>';
           }
         }
         listRow = '<div style="display:flex;align-items:center;gap:4px;margin-top:6px;flex-wrap:nowrap;overflow:hidden">'
           + emojis
-          + '<span style="font-size:11px;color:#2C2C2A;opacity:0.7;font-weight:600;margin-left:4px;white-space:nowrap">'
+          + '<span style="font-size:11px;color:' + accent + ';opacity:0.85;font-weight:700;margin-left:4px;white-space:nowrap">'
           + e.summary.length + ' list' + (e.summary.length === 1 ? '' : 's')
           + '</span>'
           + recentHint
@@ -7581,8 +7581,8 @@ function renderCircleFriends() {
         + '<div style="flex:1;min-width:0">'
         +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px">'
         +     '<div style="min-width:0">'
-        +       '<div style="font-size:13px;font-weight:700;color:#2C2C2A;line-height:1.15">' + escapeHtml(name) + '</div>'
-        +       (handle ? '<div style="font-size:11px;color:#2C2C2A;opacity:0.65;margin-top:1px">' + escapeHtml(handle) + '</div>' : '')
+        +       '<div style="font-size:13px;font-weight:700;color:' + accent + ';line-height:1.15">' + escapeHtml(name) + '</div>'
+        +       (handle ? '<div style="font-size:11px;color:' + accent + ';opacity:0.75;margin-top:1px;font-weight:600">' + escapeHtml(handle) + '</div>' : '')
         +     '</div>'
         +     badge
         +   '</div>'
