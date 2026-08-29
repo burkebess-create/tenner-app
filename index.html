@@ -2056,27 +2056,55 @@ function closeMatchReveal() {
   var m = document.getElementById('match-reveal-modal');
   if (m) m.remove();
   var ctx = window._matchRevealCtx;
-  if (ctx && ctx.friendId) {
-    markMatchSeen(ctx.friendId, ctx.categoryLabel, ctx.score);
-    // Remember which row was just revealed so the next renderMatch can flash it.
-    window._matchJustRevealedFriendId = ctx.friendId;
-  }
   window._matchRevealCtx = null;
-  // If we're on the Match screen, re-render so the newly-seen score displays normally.
-  // Preserve the currently-selected By-List tab so the user isn't kicked back to
-  // the first tab after tapping "See the details".
-  var matchScreen = document.getElementById('s-match');
-  if (matchScreen && matchScreen.classList.contains('active') && typeof renderMatch === 'function') {
-    var prevTab = window._selectedMatchTab;
-    Promise.resolve(renderMatch()).then(function() {
-      if (!prevTab) return;
-      // Find the tab button whose text matches the previously-selected category and click it
-      var btns = document.querySelectorAll('#match-screen-content .list-sel-btn');
-      for (var i = 0; i < btns.length; i++) {
-        if (btns[i].textContent === prevTab) { btns[i].click(); break; }
+  if (!ctx || !ctx.friendId) return;
+  markMatchSeen(ctx.friendId, ctx.categoryLabel, ctx.score);
+  // Patch the specific score cells in place so the page state (tab, scroll,
+  // carousel, expand/collapse) is preserved. Two cells may exist per reveal:
+  // one on the Overall panel and one on the By-List panel for that category.
+  var fid = ctx.friendId;
+  var score = ctx.score;
+  var isOverall = (String(ctx.categoryLabel || '').toLowerCase() === 'overall');
+  var catSlug = String(ctx.categoryLabel || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  var cellIds = isOverall
+    ? ['match-score-cell-overall-' + fid]
+    : ['match-score-cell-cat-' + catSlug + '-' + fid, 'match-score-cell-overall-' + fid];
+  cellIds.forEach(function(id) {
+    var cell = document.getElementById(id);
+    if (!cell) return;
+    var mode = cell.getAttribute('data-match-mode') || 'row';
+    var accent = cell.getAttribute('data-match-accent') || '#D85A30';
+    var encoded = encodeURIComponent(JSON.stringify(ctx.friendProfile || {}));
+    var catLabel = encodeURIComponent(ctx.categoryLabel || '');
+    var replayBtn = '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + score + ',decodeURIComponent(\'' + catLabel + '\'),\'' + fid + '\')" style="background:none;border:none;color:' + accent + ';opacity:0.6;font-size:10px;cursor:pointer;padding:2px 0">↻ replay</button>';
+    if (mode === 'hero') {
+      cell.innerHTML = '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:44px;color:#D85A30;line-height:1;letter-spacing:-0.02em">' + score + '<span style="font-size:22px">%</span></div>';
+    } else if (id.indexOf('match-score-cell-overall-') === 0) {
+      // Overall list row (non-hero) uses coral ink
+      cell.innerHTML = '<div style="font-size:18px;font-weight:700;color:#D85A30">' + score + '%</div>' + replayBtn;
+    } else {
+      cell.innerHTML = '<div style="font-size:20px;font-weight:800;color:' + accent + ';font-family:\'DM Serif Display\',Georgia,serif;letter-spacing:-0.01em">' + score + '%</div>' + replayBtn;
+    }
+    // Update the matching bar (if there is one) — swap striped placeholder for the real fill.
+    var barId = id.replace('match-score-cell-', 'match-bar-cell-');
+    var bar = document.getElementById(barId);
+    if (bar) {
+      var barAccent = bar.getAttribute('data-match-accent');
+      if (barAccent) {
+        bar.innerHTML = '<div class="bar-bg" style="background:rgba(0,0,0,0.06)"><div class="bar-fill" style="width:' + score + '%;background:' + barAccent + '"></div></div>';
+      } else {
+        bar.innerHTML = '<div class="bar-bg"><div class="bar-fill" style="width:' + score + '%"></div></div>';
       }
-    });
-  }
+    }
+    // Flash the row containing this cell for the reveal-payoff moment.
+    var row = cell.closest('.match-row');
+    if (row) {
+      row.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease';
+      row.style.transform = 'scale(1.02)';
+      row.style.boxShadow = '0 0 0 3px rgba(216,90,48,0.35)';
+      setTimeout(function() { row.style.transform = ''; row.style.boxShadow = ''; }, 700);
+    }
+  });
 }
 
 // Full-screen match-reveal ceremony: dimmed overlay, count-up %, color-graded ring, verdict.
@@ -2091,7 +2119,7 @@ function showMatchReveal(friendProfile, score, categoryLabel, friendId) {
   else if (score >= 40) { ring = '#D85A30'; verdict = 'You\'ve got common ground 👍'; verdictColor = '#993C1D'; bgAccent = '#FAECE7'; }
   else                  { ring = '#5F5E5A'; verdict = 'Opposites attract 🔀';       verdictColor = '#5F5E5A'; bgAccent = '#F1EFE8'; }
   // Remember what we're revealing so closing the modal can mark it seen
-  window._matchRevealCtx = { friendId: friendId, categoryLabel: categoryLabel, score: score };
+  window._matchRevealCtx = { friendId: friendId, categoryLabel: categoryLabel, score: score, friendProfile: friendProfile || {} };
   var overlay = document.createElement('div');
   overlay.id = 'match-reveal-modal';
   overlay.onclick = function(e) { if (e.target === overlay) closeMatchReveal(); };
@@ -9392,7 +9420,7 @@ async function renderMatch() {
           +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;color:#2C2C2A;line-height:1.1;letter-spacing:-0.01em;margin-top:1px">' + escapeHtml(fname) + '</div>'
           +   '<div style="font-size:11px;color:#5F5E5A;margin-top:3px">' + detail + '</div>'
           + '</div>'
-          + '<div style="text-align:right;flex-shrink:0">' + scoreDisplay + '</div>'
+          + '<div id="match-score-cell-overall-' + fid + '" data-match-score="' + entry.avg + '" data-match-mode="hero" style="text-align:right;flex-shrink:0">' + scoreDisplay + '</div>'
           + '</div>';
       };
       var renderEntry = function(entry, rank) {
@@ -9415,8 +9443,8 @@ async function renderMatch() {
           + friendAvatarHtml(entry.friend.profile, 32)
           + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div>'
           + '<div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
-          + '<div style="text-align:right">' + scoreDisplay + '</div></div>'
-          + barFill + '</div>';
+          + '<div id="match-score-cell-overall-' + fid + '" data-match-score="' + entry.avg + '" data-match-mode="row" style="text-align:right">' + scoreDisplay + '</div></div>'
+          + '<div id="match-bar-cell-overall-' + fid + '">' + barFill + '</div></div>';
       };
       // Render #1 as hero, rest as compact rows
       overallHtml += renderHeroEntry(overallRanked[0]);
@@ -9497,11 +9525,12 @@ async function renderMatch() {
         var barFill = isNew
           ? '<div class="bar-bg"><div class="bar-fill" style="width:100%;background:repeating-linear-gradient(45deg,#F1EFE8,#F1EFE8 6px,#E8E6DF 6px,#E8E6DF 12px)"></div></div>'
           : '<div class="bar-bg" style="background:rgba(0,0,0,0.06)"><div class="bar-fill" style="width:' + c.score + '%;background:' + accent + '"></div></div>';
+        var catSlug = String(c.category).toLowerCase().replace(/[^a-z0-9]+/g, '-');
         return '<div id="match-row-' + i + '-' + fid + '" class="match-row" style="background:' + pal.bg + '99;border:1.5px solid #2C2C2A;border-radius:14px;padding:10px 12px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
           + friendAvatarHtml(c.friend.profile, 36)
           + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:' + accent + ';line-height:1.15">' + escapeHtml(fname) + '</div><div style="font-size:11px;color:' + accent + ';opacity:0.75;margin-top:2px;font-weight:600">' + detail + '</div></div>'
-          + '<div style="text-align:right;flex-shrink:0">' + scoreDisplay + '</div></div>'
-          + barFill + '</div>';
+          + '<div id="match-score-cell-cat-' + catSlug + '-' + fid + '" data-match-score="' + c.score + '" data-match-accent="' + accent + '" data-match-mode="row" style="text-align:right;flex-shrink:0">' + scoreDisplay + '</div></div>'
+          + '<div id="match-bar-cell-cat-' + catSlug + '-' + fid + '" data-match-accent="' + accent + '">' + barFill + '</div></div>';
       };
       var sortedComps = comps.slice().sort(function(a,b){ return b.score - a.score; });
       var scoresHtml;
@@ -9676,24 +9705,6 @@ async function renderMatch() {
     }).join('');
     el.innerHTML = tabsHtml + panelsHtml;
     window._matchCats = cats;
-    // Flash the row that was just revealed (if any) so the emotional payoff
-    // carries back into the list instead of vanishing silently.
-    if (window._matchJustRevealedFriendId) {
-      var flashId = window._matchJustRevealedFriendId;
-      window._matchJustRevealedFriendId = null;
-      setTimeout(function() {
-        var rows = document.querySelectorAll('#match-screen-content [id$="-' + flashId + '"].match-row, #match-screen-content [id="match-row-overall-' + flashId + '"]');
-        rows.forEach(function(r) {
-          r.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease';
-          r.style.transform = 'scale(1.02)';
-          r.style.boxShadow = '0 0 0 3px rgba(216,90,48,0.35)';
-          setTimeout(function() {
-            r.style.transform = '';
-            r.style.boxShadow = '';
-          }, 700);
-        });
-      }, 40);
-    }
   } catch(e) {
     var msg = (e && (e.message || e.details || JSON.stringify(e))) || 'Unknown error';
     el.innerHTML = '<div style="text-align:center;padding:30px;font-size:12px;color:#A32D2D">Could not load comparisons.<br><span style="font-size:10px;color:#888780">' + msg + '</span></div>';
