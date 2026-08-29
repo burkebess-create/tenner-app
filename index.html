@@ -12407,7 +12407,7 @@ function setupRealtimeNotifications() {
         );
       }
     }
-    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderGiftReminders(); updateGroupMetaCounts(); }).catch(console.warn);
+    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderCircleAnchorChips(); renderGiftReminders(); updateGroupMetaCounts(); }).catch(console.warn);
     // Circle is the initial landing surface; its render calls fire before profile/friends
     // finish loading, leaving avatars and activity blank until the user navigates away and
     // back. When each load completes, if Circle is currently active, refresh the parts
