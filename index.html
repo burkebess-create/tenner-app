@@ -9259,6 +9259,13 @@ function toggleMatchByList(catKey, total) {
   if (more) more.style.display = _matchByListExpanded[catKey] ? 'block' : 'none';
   if (btn)  btn.textContent = _matchByListExpanded[catKey] ? 'Show top 3 only' : 'Show all ' + total;
 }
+function toggleMatchTabs(total) {
+  window._matchTabsExpanded = !window._matchTabsExpanded;
+  var extra = document.getElementById('match-tabs-extra');
+  var btn = document.getElementById('match-tabs-toggle');
+  if (extra) extra.style.display = window._matchTabsExpanded ? 'contents' : 'none';
+  if (btn) btn.textContent = window._matchTabsExpanded ? '▲ Show fewer' : '▼ Show all ' + total;
+}
 function toggleMatchOverall() {
   _matchOverallExpanded = !_matchOverallExpanded;
   var more = document.getElementById('match-overall-more');
@@ -9498,10 +9505,27 @@ async function renderMatch() {
       if (found >= 0) preferredIdx = found;
     }
     matchPreferredCategory = null; // consume — subsequent visits reset to default
-    var tabsHtml = overallHtml + '<div class="list-selector" style="margin-bottom:12px">' + cats.map(function(cat, i) {
+    // By-list tabs: wrap into rows (no horizontal scroll). Show first 9 (~3 rows
+    // on mobile) with a "Show all X" toggle if there are more.
+    var TAB_PREVIEW = 9;
+    var tabBtn = function(cat, i, extraStyle) {
       var catEmoji = renderCatEmoji(getCatEmoji(cat) || '📋', 13);
-      return '<button class="list-sel-btn' + (i===preferredIdx?' active':'') + '" onclick="showMatchTab(this,\'' + cat.replace(/'/g,"\\'") + '\')"><span style="margin-right:5px">' + catEmoji + '</span>' + escapeHtml(cat) + '</button>';
-    }).join('') + '</div>';
+      return '<button class="list-sel-btn' + (i===preferredIdx?' active':'') + '" onclick="showMatchTab(this,\'' + cat.replace(/'/g,"\\'") + '\')" style="' + (extraStyle || '') + '"><span style="margin-right:5px">' + catEmoji + '</span>' + escapeHtml(cat) + '</button>';
+    };
+    var tabsHtml;
+    if (cats.length <= TAB_PREVIEW) {
+      tabsHtml = overallHtml + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">' + cats.map(function(c, i){ return tabBtn(c, i); }).join('') + '</div>';
+    } else {
+      var visibleTabs = cats.slice(0, TAB_PREVIEW).map(function(c, i){ return tabBtn(c, i); }).join('');
+      var hiddenTabs = cats.slice(TAB_PREVIEW).map(function(c, ii){ return tabBtn(c, ii + TAB_PREVIEW); }).join('');
+      var expanded = !!window._matchTabsExpanded;
+      tabsHtml = overallHtml
+        + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">'
+        +   visibleTabs
+        +   '<div id="match-tabs-extra" style="display:' + (expanded ? 'contents' : 'none') + '">' + hiddenTabs + '</div>'
+        + '</div>'
+        + '<button id="match-tabs-toggle" onclick="toggleMatchTabs(' + cats.length + ')" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:12px;color:#5F5E5A;cursor:pointer;margin-bottom:12px;font-weight:600">' + (expanded ? '▲ Show fewer' : '▼ Show all ' + cats.length) + '</button>';
+    }
     var panelsHtml = cats.map(function(cat, i) {
       var comps = byCategory[cat];
       var globalMatchTab = !friendCtx && groupCtx < 0;
@@ -9734,8 +9758,8 @@ function matchRowJumpToSbs(panelIdx, friendId) {
   if (target === cur) return;
   var dir = target > cur ? 1 : -1;
   var steps = Math.abs(target - cur);
-  // Adaptive per-step delay so long jumps stay under ~1.2s total, short jumps feel deliberate.
-  var perStep = Math.max(60, Math.min(140, Math.round(700 / steps)));
+  // Slower, more deliberate reveal — short jumps feel intentional, long jumps stay under ~2.5s.
+  var perStep = Math.max(140, Math.min(280, Math.round(1600 / steps)));
   var i = 0;
   var next = cur;
   var tick = function() {
