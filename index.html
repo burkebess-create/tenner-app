@@ -1980,6 +1980,29 @@ async function loadFriendViews() {
     }
   } catch (e) { console.warn('loadFriendViews failed', e); }
 }
+// One-shot batch fetch of every accepted friend's public list metadata
+// (category, emoji, updated_at). Used to enrich the Circle friend cards with
+// their list-emoji row + count + "Updated Xd ago" hint. Populates the global
+// MY_FRIEND_LIST_SUMMARIES keyed by friendId → array of {category,emoji,updated_at}.
+async function loadFriendListSummaries(acceptedFriends) {
+  if (!sbClient || !acceptedFriends || acceptedFriends.length === 0) return;
+  window.MY_FRIEND_LIST_SUMMARIES = window.MY_FRIEND_LIST_SUMMARIES || {};
+  try {
+    var friendIds = acceptedFriends.map(function(f){ return f.friendId; });
+    var res = await sbClient.from('lists').select('user_id, category, emoji, updated_at').in('user_id', friendIds).eq('is_public', true);
+    var byUser = {};
+    (res.data || []).forEach(function(l) {
+      if (!byUser[l.user_id]) byUser[l.user_id] = [];
+      byUser[l.user_id].push(l);
+    });
+    // Sort each user's lists by updated_at desc so the emoji row shows freshest first
+    Object.keys(byUser).forEach(function(uid) {
+      byUser[uid].sort(function(a,b){ return (b.updated_at || '').localeCompare(a.updated_at || ''); });
+    });
+    window.MY_FRIEND_LIST_SUMMARIES = byUser;
+  } catch (e) { console.warn('loadFriendListSummaries failed', e); }
+}
+
 function markFriendViewed(friendId) {
   if (!sbClient || !userId || !friendId) return;
   var now = new Date().toISOString();
@@ -6184,6 +6207,8 @@ function renderProfileHeader() {
 async function loadFriends() {
   if (!sbClient || !userId) return;
   if (!(await awaitSessionReady())) return;
+  // Invalidate friend-list summaries cache so it re-fetches on next Circle render
+  window.__friendSummariesLoaded = false;
   try {
     var res = await sbClient.from('friendships').select('*').or('requester_id.eq.' + userId + ',addressee_id.eq.' + userId);
     if (res.error) throw res.error;
@@ -7463,29 +7488,38 @@ function renderCircleFriends() {
     } else { reqEl.innerHTML = ''; }
   }
 
-  // Friends list — signature-colored cards, mini stat, sorted by relevance.
+  // Friends list — signature-colored cards, list emojis + count, sorted by relevance.
   var listEl = document.getElementById('circle-friends-list');
   if (!listEl) return;
   var html = '';
   if (accepted.length > 0) {
     var FRIENDS_PREVIEW = 3;
+    // Kick off the summary fetch once. When it lands, re-render.
+    if (!window.MY_FRIEND_LIST_SUMMARIES) window.MY_FRIEND_LIST_SUMMARIES = {};
+    if (!window.__friendSummariesLoading && !window.__friendSummariesLoaded) {
+      window.__friendSummariesLoading = true;
+      loadFriendListSummaries(accepted).finally(function(){
+        window.__friendSummariesLoading = false;
+        window.__friendSummariesLoaded = true;
+        renderCircleFriends();
+      });
+    }
     var enriched = accepted.map(function(f) {
       var name = f.profile.display_name || f.profile.handle || 'Unknown';
       var pal = getCategoryColor(name);
       var days = daysUntilBirthday(f.profile && f.profile.birthday);
       var hasBirthday = days !== null && days !== undefined && days >= 0 && days <= 30;
-      // Unread badge: does this friend have a public list update newer than my last view?
-      var lastViewed = MY_FRIEND_VIEWS[f.friendId];
-      var hasNew = false; // populated below via latestByUser
-      // Compute mini stat: prefer badge, then rough avg match, then handle
-      return { f: f, name: name, pal: pal, days: days, hasBirthday: hasBirthday, hasNew: hasNew };
+      var summary = window.MY_FRIEND_LIST_SUMMARIES[f.friendId] || [];
+      var latestAt = summary.reduce(function(m, l){ return (!m || l.updated_at > m) ? l.updated_at : m; }, null);
+      return { f: f, name: name, pal: pal, days: days, hasBirthday: hasBirthday, summary: summary, latestAt: latestAt };
     });
 
-    // Sort: birthday (soonest first) → new list → alphabetical
+    // Sort: birthday (soonest first) → most recent update → alphabetical
     enriched.sort(function(a, b) {
       if (a.hasBirthday && !b.hasBirthday) return -1;
       if (!a.hasBirthday && b.hasBirthday) return 1;
       if (a.hasBirthday && b.hasBirthday) return a.days - b.days;
+      if ((b.latestAt || '') !== (a.latestAt || '')) return (b.latestAt || '').localeCompare(a.latestAt || '');
       return a.name.localeCompare(b.name);
     });
 
@@ -7499,13 +7533,36 @@ function renderCircleFriends() {
       } else {
         badge = '<span style="font-size:16px;color:#2C2C2A;opacity:0.4">›</span>';
       }
-      return '<div onclick="openFriendDetail(\'' + f.friendId + '\')" style="background:' + pal.bg + '99;border:1.5px solid #2C2C2A;border-radius:14px;padding:10px 12px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:10px">'
+      // Emoji row: up to 5 list emojis + " · N lists"
+      var listRow = '';
+      if (e.summary && e.summary.length > 0) {
+        var emojis = e.summary.slice(0, 5).map(function(l) {
+          return '<span style="font-size:15px;line-height:1">' + renderCatEmoji(l.emoji || getCatEmoji(l.category) || '📋', 15) + '</span>';
+        }).join('');
+        var recentHint = '';
+        if (e.latestAt) {
+          var ageDays = (Date.now() - new Date(e.latestAt).getTime()) / (1000*60*60*24);
+          if (ageDays <= 14) recentHint = ' · <span style="color:#D85A30;font-weight:700">Updated ' + timeAgo(e.latestAt) + '</span>';
+        }
+        listRow = '<div style="display:flex;align-items:center;gap:4px;margin-top:6px;flex-wrap:nowrap;overflow:hidden">'
+          + emojis
+          + '<span style="font-size:11px;color:#2C2C2A;opacity:0.7;font-weight:600;margin-left:4px;white-space:nowrap">'
+          + e.summary.length + ' list' + (e.summary.length === 1 ? '' : 's') + recentHint
+          + '</span>'
+          + '</div>';
+      }
+      return '<div onclick="openFriendDetail(\'' + f.friendId + '\')" style="background:' + pal.bg + '99;border:1.5px solid #2C2C2A;border-radius:14px;padding:10px 12px;margin-bottom:8px;cursor:pointer;display:flex;align-items:flex-start;gap:10px">'
         + friendAvatarHtml(f.profile, 40)
         + '<div style="flex:1;min-width:0">'
-        +   '<div style="font-size:13px;font-weight:700;color:#2C2C2A;line-height:1.15">' + escapeHtml(name) + '</div>'
-        +   (handle ? '<div style="font-size:11px;color:#2C2C2A;opacity:0.65;margin-top:1px">' + escapeHtml(handle) + '</div>' : '')
+        +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px">'
+        +     '<div style="min-width:0">'
+        +       '<div style="font-size:13px;font-weight:700;color:#2C2C2A;line-height:1.15">' + escapeHtml(name) + '</div>'
+        +       (handle ? '<div style="font-size:11px;color:#2C2C2A;opacity:0.65;margin-top:1px">' + escapeHtml(handle) + '</div>' : '')
+        +     '</div>'
+        +     badge
+        +   '</div>'
+        +   listRow
         + '</div>'
-        + badge
         + '</div>';
     });
     html = friendRows.slice(0, FRIENDS_PREVIEW).join('');
