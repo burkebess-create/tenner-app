@@ -9438,13 +9438,12 @@ async function renderMatch() {
         var barFill = isNew
           ? '<div class="bar-bg"><div class="bar-fill" style="width:100%;background:repeating-linear-gradient(45deg,#F1EFE8,#F1EFE8 6px,#E8E6DF 6px,#E8E6DF 12px)"></div></div>'
           : '<div class="bar-bg"><div class="bar-fill" style="width:' + entry.avg + '%"></div></div>';
-        return '<div id="match-row-overall-' + fid + '" class="match-row card no-hover" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
+        return '<div id="match-row-overall-' + fid + '" class="match-row card no-hover" style="margin-bottom:6px;padding:9px 11px"><div style="display:flex;align-items:center;gap:9px">'
           + '<span style="font-size:18px;width:24px;text-align:center;display:inline-flex;align-items:center;justify-content:center">' + medal + '</span>'
           + friendAvatarHtml(entry.friend.profile, 32)
           + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div>'
           + '<div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
-          + '<div id="match-score-cell-overall-' + fid + '" data-match-score="' + entry.avg + '" data-match-mode="row" style="text-align:right">' + scoreDisplay + '</div></div>'
-          + '<div id="match-bar-cell-overall-' + fid + '">' + barFill + '</div></div>';
+          + '<div id="match-score-cell-overall-' + fid + '" data-match-score="' + entry.avg + '" data-match-mode="row" style="text-align:right">' + scoreDisplay + '</div></div></div>';
       };
       // Render #1 as hero, rest as compact rows
       overallHtml += renderHeroEntry(overallRanked[0]);
@@ -9526,11 +9525,11 @@ async function renderMatch() {
           ? '<div class="bar-bg"><div class="bar-fill" style="width:100%;background:repeating-linear-gradient(45deg,#F1EFE8,#F1EFE8 6px,#E8E6DF 6px,#E8E6DF 12px)"></div></div>'
           : '<div class="bar-bg" style="background:rgba(0,0,0,0.06)"><div class="bar-fill" style="width:' + c.score + '%;background:' + accent + '"></div></div>';
         var catSlug = String(c.category).toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        return '<div id="match-row-' + i + '-' + fid + '" class="match-row" onclick="matchRowJumpToSbs(' + i + ',\'' + fid + '\')" style="background:' + pal.bg + '99;border:1.5px solid #2C2C2A;border-radius:14px;padding:10px 12px;margin-bottom:8px;cursor:pointer"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
-          + friendAvatarHtml(c.friend.profile, 36)
-          + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:' + accent + ';line-height:1.15">' + escapeHtml(fname) + '</div><div style="font-size:11px;color:' + accent + ';opacity:0.75;margin-top:2px;font-weight:600">' + detail + '</div></div>'
-          + '<div id="match-score-cell-cat-' + catSlug + '-' + fid + '" data-match-score="' + c.score + '" data-match-accent="' + accent + '" data-match-mode="row" style="text-align:right;flex-shrink:0">' + scoreDisplay + '</div></div>'
-          + '<div id="match-bar-cell-cat-' + catSlug + '-' + fid + '" data-match-accent="' + accent + '">' + barFill + '</div></div>';
+        return '<div id="match-row-' + i + '-' + fid + '" class="match-row" onclick="matchRowJumpToSbs(' + i + ',\'' + fid + '\')" style="background:' + pal.bg + '99;border:1.5px solid #2C2C2A;border-radius:14px;padding:8px 12px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px">'
+          + friendAvatarHtml(c.friend.profile, 34)
+          + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:' + accent + ';line-height:1.15">' + escapeHtml(fname) + '</div><div style="font-size:11px;color:' + accent + ';opacity:0.75;margin-top:1px;font-weight:600">' + detail + '</div></div>'
+          + '<div id="match-score-cell-cat-' + catSlug + '-' + fid + '" data-match-score="' + c.score + '" data-match-accent="' + accent + '" data-match-mode="row" style="text-align:right;flex-shrink:0">' + scoreDisplay + '</div>'
+          + '</div>';
       };
       var sortedComps = comps.slice().sort(function(a,b){ return b.score - a.score; });
       var scoresHtml;
@@ -9725,13 +9724,27 @@ function matchRowJumpToSbs(panelIdx, friendId) {
   if (event && event.target && event.target.closest && event.target.closest('button')) return;
   var order = (window._matchSbsOrder || {})[panelIdx];
   if (!order) return;
-  var slideIdx = order.indexOf(friendId);
-  if (slideIdx < 0) return;
-  sbsGoTo(panelIdx, slideIdx, order.length);
-  var slide = document.getElementById('sbs-slide-' + panelIdx + '-' + slideIdx);
-  if (slide && slide.scrollIntoView) {
-    slide.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
+  var target = order.indexOf(friendId);
+  if (target < 0) return;
+  var cur = _sbsIdx[panelIdx] || 0;
+  var count = order.length;
+  // Bring the sbs into view first so the user sees the animation.
+  var startSlide = document.getElementById('sbs-slide-' + panelIdx + '-' + cur);
+  if (startSlide && startSlide.scrollIntoView) startSlide.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (target === cur) return;
+  var dir = target > cur ? 1 : -1;
+  var steps = Math.abs(target - cur);
+  // Adaptive per-step delay so long jumps stay under ~1.2s total, short jumps feel deliberate.
+  var perStep = Math.max(60, Math.min(140, Math.round(700 / steps)));
+  var i = 0;
+  var next = cur;
+  var tick = function() {
+    next += dir;
+    sbsGoTo(panelIdx, next, count);
+    i++;
+    if (i < steps) setTimeout(tick, perStep);
+  };
+  setTimeout(tick, 120); // brief delay so the scroll-into-view starts first
 }
 
 function sbsNav(i, dir, count) {
