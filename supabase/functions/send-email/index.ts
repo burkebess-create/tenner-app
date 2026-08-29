@@ -32,9 +32,7 @@ const EMAIL_TYPE_TO_CATEGORY: Record<string, string> = {
 
 function baseTemplate(preheader: string, contentHtml: string, unsubToken?: string, category?: string) {
   const unsubBlock = unsubToken
-    ? `<a href="${APP_URL}unsubscribe.html?t=${unsubToken}${category ? `&c=${category}` : ""}">Unsubscribe from these</a>
-       · <a href="${APP_URL}unsubscribe.html?t=${unsubToken}&c=all">Unsubscribe from all</a>
-       · <a href="${APP_URL}?openPrefs=1">Manage email preferences</a><br>`
+    ? `<a href="${APP_URL}unsubscribe.html?t=${unsubToken}">Manage email preferences</a><br>`
     : ``;
   return `<!DOCTYPE html>
 <html>
