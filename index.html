@@ -2059,16 +2059,16 @@ function closeMatchReveal() {
   window._matchRevealCtx = null;
   if (!ctx || !ctx.friendId) return;
   markMatchSeen(ctx.friendId, ctx.categoryLabel, ctx.score);
-  // Patch the specific score cells in place so the page state (tab, scroll,
-  // carousel, expand/collapse) is preserved. Two cells may exist per reveal:
-  // one on the Overall panel and one on the By-List panel for that category.
+  // Patch only the score cell for the specific context that was revealed.
+  // Overall reveal → patch the Overall row. Category reveal → patch just that
+  // category's row (NOT the Overall — that's a computed average, not the same score).
   var fid = ctx.friendId;
   var score = ctx.score;
   var isOverall = (String(ctx.categoryLabel || '').toLowerCase() === 'overall');
   var catSlug = String(ctx.categoryLabel || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
   var cellIds = isOverall
     ? ['match-score-cell-overall-' + fid]
-    : ['match-score-cell-cat-' + catSlug + '-' + fid, 'match-score-cell-overall-' + fid];
+    : ['match-score-cell-cat-' + catSlug + '-' + fid];
   cellIds.forEach(function(id) {
     var cell = document.getElementById(id);
     if (!cell) return;
