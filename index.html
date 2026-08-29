@@ -3734,19 +3734,16 @@ async function notifyFriendOfListShare(friendId, cat) {
   if (!sbClient || !friendId || !cat) return;
   try {
     var pr = await sbClient.from('profiles').select('email').eq('id', friendId).maybeSingle();
-    if (!pr.data || !pr.data.email) return;
-    // Rate-limit: one list-share email per (recipient, sender, category, day)
-    var today = new Date().toISOString().slice(0, 10);
-    var refKey = userId + '__' + cat + '__' + today;
-    var chk = await sbClient.from('email_log').select('id').eq('user_id', friendId).eq('email_type', 'list_share').eq('ref_key', refKey).maybeSingle();
-    if (chk.data) return;
     var senderName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
-    sendAppEmail('list_share', pr.data.email, {
+    // Enqueue email + fire immediate push. Delivery cadence + delete-safety handled downstream.
+    enqueueNotification(friendId, 'list_share', {
       sender_name: senderName,
       sender_handle: (myProfile && myProfile.handle) || '',
       category: cat
     });
-    await sbClient.from('email_log').insert({ user_id: friendId, email_type: 'list_share', ref_key: refKey });
+    if (pr.data && pr.data.email) {
+      sendAppPush(pr.data.email, 'Tenner', senderName + ' shared a Top 10 ' + cat + ' with you', '/#circle');
+    }
   } catch(e) { console.warn('notifyFriendOfListShare failed', e); }
 }
 
@@ -5698,6 +5695,20 @@ function sendAppEmail(type, to, data) {
   if (pushMsg) sendAppPush(to, pushMsg.title, pushMsg.body, pushMsg.url);
 }
 
+// Enqueue an email notification into notification_queue. The process-notifications
+// edge fn (runs every 15 min) reads pending rows, groups by recipient, applies the
+// recipient's cadence preference (immediate/daily/weekly), and sends a digest email.
+// Rows sit for a 1-hour safety window so create-then-delete flows never trigger emails.
+function enqueueNotification(recipientUserId, eventType, eventData) {
+  if (!sbClient || !userId || !recipientUserId || recipientUserId === userId) return;
+  sbClient.from('notification_queue').insert({
+    recipient_user_id: recipientUserId,
+    from_user_id: userId,
+    event_type: eventType,
+    event_data: eventData || {}
+  }).then(function(r){ if (r && r.error) console.warn('enqueueNotification failed', r.error); });
+}
+
 function sendAppPush(toEmail, title, body, url) {
   if (!sbClient || !toEmail || !title || !body) return;
   sbClient.functions.invoke('send-push', { body: { to_email: toEmail, title: title, body: body, url: url || '/' } })
@@ -5913,13 +5924,15 @@ var EMAIL_PREF_CATEGORIES = [
   { key: 'product',   label: 'Product & tips', desc: 'Occasional feature announcements and tips' }
 ];
 var _emailPrefsCache = null;
+var _emailCadenceCache = null;
 
 async function loadEmailPrefs() {
   if (!sbClient || !userId) return {};
   try {
-    var res = await sbClient.from('user_email_prefs').select('prefs').eq('user_id', userId).maybeSingle();
+    var res = await sbClient.from('user_email_prefs').select('prefs, notification_cadence').eq('user_id', userId).maybeSingle();
     if (res.error) throw res.error;
     _emailPrefsCache = (res.data && res.data.prefs) || {};
+    _emailCadenceCache = (res.data && res.data.notification_cadence) || 'daily';
     return _emailPrefsCache;
   } catch(e) { console.warn('loadEmailPrefs failed', e); return {}; }
 }
@@ -5929,8 +5942,19 @@ async function renderEmailPrefs() {
   if (!host) return;
   host.innerHTML = '<div style="font-size:12px;color:#888780;padding:16px;text-align:center">Loading…</div>';
   var prefs = await loadEmailPrefs();
-  host.innerHTML = EMAIL_PREF_CATEGORIES.map(function(cat) {
-    // Default = opted in unless explicitly set to false
+  var cadence = _emailCadenceCache || 'daily';
+  var cadenceCard = '<div class="card no-hover" style="margin-bottom:14px;padding:14px 16px;background:#FFF5EE;border-color:#F5B091">'
+    + '<div style="font-size:14px;font-weight:700;color:#2C2C2A;margin-bottom:4px">How often to send</div>'
+    + '<div style="font-size:12px;color:#5F5E5A;line-height:1.45;margin-bottom:10px">Applies to friend activity — new comments, list shares, and friends updating their lists. Time-sensitive things like weekly reveals and birthday reminders always send on their own schedule.</div>'
+    + '<div style="display:flex;gap:6px">'
+    +   ['immediate','daily','weekly'].map(function(v){
+          var label = v === 'immediate' ? 'Right away' : v === 'daily' ? 'Once a day' : 'Once a week';
+          var active = v === cadence;
+          return '<button onclick="setNotificationCadence(\'' + v + '\')" style="flex:1;padding:9px 8px;font-size:12px;font-weight:700;border-radius:99px;cursor:pointer;border:1.5px solid ' + (active ? '#D85A30' : '#D3D1C7') + ';background:' + (active ? '#D85A30' : '#FFFFFF') + ';color:' + (active ? '#FFFFFF' : '#5F5E5A') + '">' + label + '</button>';
+        }).join('')
+    + '</div>'
+    + '</div>';
+  var togglesHtml = EMAIL_PREF_CATEGORIES.map(function(cat) {
     var enabled = prefs[cat.key] !== false;
     return '<div class="card no-hover" style="margin-bottom:10px;display:flex;align-items:center;gap:12px;padding:14px 16px">'
       + '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2C2C2A;margin-bottom:2px">' + escapeHtml(cat.label) + '</div>'
@@ -5938,6 +5962,19 @@ async function renderEmailPrefs() {
       + '<label class="toggle" style="flex-shrink:0"><input type="checkbox" ' + (enabled ? 'checked' : '') + ' onchange="setEmailPref(\'' + cat.key + '\',this.checked)"><span class="toggle-slider"></span></label>'
       + '</div>';
   }).join('');
+  host.innerHTML = cadenceCard + togglesHtml;
+}
+
+async function setNotificationCadence(v) {
+  if (!sbClient || !userId) return;
+  if (['immediate','daily','weekly'].indexOf(v) < 0) return;
+  _emailCadenceCache = v;
+  try {
+    var res = await sbClient.from('user_email_prefs').upsert({ user_id: userId, notification_cadence: v, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (res.error) throw res.error;
+    showEmailPrefsStatus('Cadence saved.');
+    renderEmailPrefs();
+  } catch(e) { showToast('Could not save: ' + (e.message || e)); }
 }
 
 async function setEmailPref(category, enabled) {
@@ -12301,8 +12338,10 @@ async function saveList() {
 
 function notifyFriendsOfUpdate(name, category) {
   showToast('✓ List saved — friends can see your updated ' + singularize(category) + ' list');
-  // Email friends who share this category (they'd see a match-score change).
-  // Fire-and-forget; deduped daily to avoid spamming — one email per (viewer, updater, category, day).
+  // Enqueue notifications for friends who ALSO have a list in this category
+  // (they'd see a match-score change). Email delivery is deferred to the
+  // process-notifications cron — batching, cadence, and delete-within-hour
+  // safety are all handled there. Push notifications still fire immediately.
   if (!sbClient || !userId || !category) return;
   (async function() {
     try {
@@ -12310,34 +12349,19 @@ function notifyFriendsOfUpdate(name, category) {
         .filter(function(f){ return f.status === 'accepted' && f.friendId; })
         .map(function(f){ return f.friendId; });
       if (!acceptedFriendIds.length) return;
-      // Only email friends who ALSO have a list in this category (match would actually change)
       var sameCatRes = await sbClient.from('lists').select('user_id').in('user_id', acceptedFriendIds).eq('category', category);
       var interested = (sameCatRes.data || []).map(function(r){ return r.user_id; });
       if (!interested.length) return;
       var profRes = await sbClient.from('profiles').select('id, email').in('id', interested);
       var profiles = (profRes.data || []).filter(function(p){ return !!p.email; });
-      if (!profiles.length) return;
-      var today = new Date().toISOString().slice(0, 10);
-      var refKey = userId + '__' + category + '__' + today;
-      // Batched dedupe: one query instead of N. Returns rows for anyone we've
-      // already emailed today for this (updater, category) — skip those.
-      var sentRes = await sbClient.from('email_log')
-        .select('user_id')
-        .in('user_id', profiles.map(function(p){ return p.id; }))
-        .eq('email_type', 'friend_update')
-        .eq('ref_key', refKey);
-      var alreadySent = {};
-      (sentRes.data || []).forEach(function(r){ alreadySent[r.user_id] = true; });
-      var toNotify = profiles.filter(function(p){ return !alreadySent[p.id]; });
-      if (!toNotify.length) return;
-      // Fire emails without awaiting so the UI thread doesn't stall
-      toNotify.forEach(function(p) {
-        sendAppEmail('friend_update', p.email, { friend_name: name, category: category });
-      });
-      // Batch the log inserts into a single query
-      sbClient.from('email_log').insert(
-        toNotify.map(function(p) { return { user_id: p.id, email_type: 'friend_update', ref_key: refKey }; })
-      ).then(function(){});
+      // Batch-insert queue rows for all interested friends
+      if (profiles.length) {
+        sbClient.from('notification_queue').insert(
+          profiles.map(function(p){ return { recipient_user_id: p.id, from_user_id: userId, event_type: 'friend_update', event_data: { category: category, friend_name: name } }; })
+        ).then(function(r){ if (r && r.error) console.warn('notification_queue insert failed', r.error); });
+        // Fire immediate push in parallel (push is not batched — brief transient signal)
+        profiles.forEach(function(p) { sendAppPush(p.email, 'Tenner', name + ' updated their ' + (category || 'top 10'), '/#circle'); });
+      }
     } catch(e) { console.warn('friend_update fanout failed', e); }
   })();
 }
@@ -13229,38 +13253,36 @@ async function submitItemComment() {
   if (!inp || !inp.value.trim() || !sbClient) return;
   var text = inp.value.trim().slice(0, 280);
   try {
-    var res = await sbClient.from('list_item_comments').insert({ from_user_id: userId, list_owner_id: activeCommentListOwner, category: activeCommentCategory, item_name: activeCommentItem, comment: text });
+    var res = await sbClient.from('list_item_comments').insert({ from_user_id: userId, list_owner_id: activeCommentListOwner, category: activeCommentCategory, item_name: activeCommentItem, comment: text }).select('id').single();
     if (res.error) throw res.error;
     inp.value = '';
     autoGrowCommentInput(inp);
     loadItemComments(activeCommentListOwner, activeCommentCategory, activeCommentItem);
-    // Fire-and-forget email to the list owner (skip if commenting on own list).
-    // Dedupe key includes the day so we don't spam if someone comments a lot.
+    // Enqueue email + fire push (skip if commenting on own list).
     if (activeCommentListOwner && activeCommentListOwner !== userId) {
-      notifyListOwnerOfComment(activeCommentListOwner, activeCommentCategory, activeCommentItem, text);
+      notifyListOwnerOfComment(activeCommentListOwner, activeCommentCategory, activeCommentItem, text, res.data && res.data.id);
     }
   } catch(e) { showToast('Could not post comment. Try again.'); }
 }
 
-async function notifyListOwnerOfComment(ownerId, category, itemName, commentText) {
+async function notifyListOwnerOfComment(ownerId, category, itemName, commentText, commentId) {
   if (!sbClient || !ownerId) return;
   try {
     var pr = await sbClient.from('profiles').select('email').eq('id', ownerId).maybeSingle();
     if (!pr.data || !pr.data.email) return;
-    var today = new Date().toISOString().slice(0, 10);
-    // Rate-limit: one comment email per (owner, commenter, category, item, day)
-    var refKey = userId + '__' + category + '__' + (itemName || '') + '__' + today;
-    var chk = await sbClient.from('email_log').select('id').eq('user_id', ownerId).eq('email_type', 'new_comment').eq('ref_key', refKey).maybeSingle();
-    if (chk.data) return;
     var commenterName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
-    sendAppEmail('new_comment', pr.data.email, {
+    // Enqueue for batched digest email. If the comment is deleted before the
+    // 1-hour safety window elapses, the processor drops it.
+    enqueueNotification(ownerId, 'new_comment', {
       commenter_name: commenterName,
       category: category,
       item_name: itemName,
       comment_text: commentText,
-      is_whole_list: itemName === '__list__'
+      is_whole_list: itemName === '__list__',
+      comment_id: commentId || null
     });
-    await sbClient.from('email_log').insert({ user_id: ownerId, email_type: 'new_comment', ref_key: refKey });
+    // Immediate push — transient, still valuable in-the-moment even for daily-cadence users
+    sendAppPush(pr.data.email, 'Tenner', commenterName + ' commented on your list', '/#circle');
   } catch(e) { console.warn('notifyListOwnerOfComment failed', e); }
 }
 
