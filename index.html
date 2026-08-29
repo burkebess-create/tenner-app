@@ -2058,6 +2058,8 @@ function closeMatchReveal() {
   var ctx = window._matchRevealCtx;
   if (ctx && ctx.friendId) {
     markMatchSeen(ctx.friendId, ctx.categoryLabel, ctx.score);
+    // Remember which row was just revealed so the next renderMatch can flash it.
+    window._matchJustRevealedFriendId = ctx.friendId;
   }
   window._matchRevealCtx = null;
   // If we're on the Match screen, re-render so the newly-seen score displays normally.
@@ -9242,6 +9244,24 @@ function toggleMatchOverall() {
   }
 }
 
+// Warm gradient empty-state hero for the Match screen (mirrors todayCard).
+function matchEmptyHero(emoji, title, subtitle, cta) {
+  var ctaHtml = cta
+    ? '<button onclick="' + cta.action + '" class="btn-primary" style="width:auto;padding:10px 22px;margin:14px 0 0;font-size:13px">' + escapeHtml(cta.label) + '</button>'
+    : '';
+  return '<div style="background:linear-gradient(135deg,#FFF5EE 0%,#FDE6D9 100%);border:1.5px solid #F5B091;border-radius:18px;padding:32px 20px;text-align:center;margin-top:8px">'
+    + '<div style="font-size:44px;line-height:1;margin-bottom:12px">' + emoji + '</div>'
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.01em;color:#2C2C2A;margin-bottom:6px">' + escapeHtml(title) + '</div>'
+    + '<div style="font-size:12.5px;color:#5F5E5A;line-height:1.5;max-width:280px;margin:0 auto">' + escapeHtml(subtitle) + '</div>'
+    + ctaHtml
+    + '</div>';
+}
+
+// Dark 99px badge — shared "rank / count" token used across the app.
+function matchRankBadge(text) {
+  return '<span style="display:inline-flex;align-items:center;justify-content:center;background:#2C2C2A;color:#FFFFFF;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:99px;letter-spacing:0.02em;line-height:1.3;min-width:20px">' + text + '</span>';
+}
+
 async function renderMatch() {
   var el = document.getElementById('match-screen-content');
   if (!el) return;
@@ -9270,11 +9290,15 @@ async function renderMatch() {
     var hint = anyFriends
       ? '<div style="font-size:11px;color:#888780;margin-top:6px">You have a pending friend request — accept it on your Profile tab.</div>'
       : '<div style="font-size:11px;line-height:1.5">Add friends from your Profile tab, or share a list invite link from the Create tab so friends auto-connect when they sign up.</div>';
-    el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📊</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No accepted friends yet</div>' + hint + '</div>';
+    el.innerHTML = matchEmptyHero('📊', 'No matches to compare yet', anyFriends
+      ? "You have a pending friend request — accept it on your Profile tab."
+      : "Add a friend, then create a shared list — that's where the match magic happens.",
+      anyFriends ? null : { label: '+ Add friends', action: "go('s-add-friends')" });
     return;
   }
   if (MY_LISTS.length === 0) {
-    el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📋</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">Create some lists first</div><div style="font-size:12px;line-height:1.5">Make your top 10 lists and your friends\' comparisons will appear here.</div></div>';
+    el.innerHTML = matchEmptyHero('📋', 'Create your first list', "Make your Top 10 in a category your friends also cover, then come back here to see how you compare.",
+      { label: '+ Create a list', action: "go('s-create1')" });
     return;
   }
   el.innerHTML = '<div style="font-size:11px;color:#888780;text-align:center;padding:20px">Loading comparisons…</div>';
@@ -9320,7 +9344,7 @@ async function renderMatch() {
       } else {
         emptyMsg = 'You and your friends need lists in the same category to compare. Your lists: ' + myCategories.join(', ') + '.';
       }
-      el.innerHTML = '<div style="text-align:center;padding:30px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">🔍</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No overlapping lists yet</div><div style="font-size:12px;line-height:1.5">' + emptyMsg + '</div></div>';
+      el.innerHTML = matchEmptyHero('🔍', 'No overlapping lists yet', emptyMsg, { label: '+ New list', action: "go('s-create1')" });
       return;
     }
     // Build per-friend overall scores (average across all categories they share with you)
@@ -9349,14 +9373,33 @@ async function renderMatch() {
     if (overallRanked.length === 0) {
       overallHtml += '<div style="font-size:11px;color:#888780;padding:8px 0">No shared lists yet.</div>';
     } else {
-      // On the global Match tab (no friend/group context) collapse to top 3 by default
       var globalMatchTab = !friendCtx && groupCtx < 0;
       var collapseCount = 3;
+      // #1 gets a gradient hero card (marquee stat). Rest use standard row.
+      var renderHeroEntry = function(entry) {
+        var fname = (entry.friend.profile && entry.friend.profile.display_name) || (entry.friend.profile && entry.friend.profile.handle ? '@'+entry.friend.profile.handle : 'Friend');
+        var encoded = encodeURIComponent(JSON.stringify(entry.friend.profile || {}));
+        var fid = entry.friend.friendId || '';
+        var isNew = isMatchNew(fid, 'Overall', entry.avg);
+        var scoreDisplay = isNew
+          ? '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + entry.avg + ',\'Overall\',\'' + fid + '\')" style="background:#D85A30;color:#fff;border:none;border-radius:99px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer">✨ Tap to reveal</button>'
+          : '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:44px;color:#D85A30;line-height:1;letter-spacing:-0.02em">' + entry.avg + '<span style="font-size:22px">%</span></div>';
+        var detail = entry.cats.length + ' shared list' + (entry.cats.length!==1?'s':'');
+        return '<div id="match-row-overall-' + fid + '" class="match-row" style="background:linear-gradient(135deg,#FFF5EE 0%,#FDE6D9 100%);border:1.5px solid #F5B091;border-radius:18px;padding:16px 18px;margin-bottom:10px;display:flex;align-items:center;gap:14px">'
+          + friendAvatarHtml(entry.friend.profile, 52)
+          + '<div style="flex:1;min-width:0">'
+          +   '<div style="font-size:10px;font-weight:700;color:#2C2C2A;opacity:0.65;letter-spacing:0.06em;text-transform:uppercase">🥇 Closest match</div>'
+          +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;color:#2C2C2A;line-height:1.1;letter-spacing:-0.01em;margin-top:1px">' + escapeHtml(fname) + '</div>'
+          +   '<div style="font-size:11px;color:#5F5E5A;margin-top:3px">' + detail + '</div>'
+          + '</div>'
+          + '<div style="text-align:right;flex-shrink:0">' + scoreDisplay + '</div>'
+          + '</div>';
+      };
       var renderEntry = function(entry, rank) {
         var fname = (entry.friend.profile && entry.friend.profile.display_name) || (entry.friend.profile && entry.friend.profile.handle ? '@'+entry.friend.profile.handle : 'Friend');
         var medals = ['🥇','🥈','🥉'];
-        var medal = medals[rank] || '';
-        var detail = entry.cats.length + ' list' + (entry.cats.length!==1?'s':'') + ' · ' + entry.cats.join(', ');
+        var medal = medals[rank] || matchRankBadge('#' + (rank + 1));
+        var detail = entry.cats.length + ' list' + (entry.cats.length!==1?'s':'');
         var encoded = encodeURIComponent(JSON.stringify(entry.friend.profile || {}));
         var fid = entry.friend.friendId || '';
         var isNew = isMatchNew(fid, 'Overall', entry.avg);
@@ -9367,24 +9410,29 @@ async function renderMatch() {
         var barFill = isNew
           ? '<div class="bar-bg"><div class="bar-fill" style="width:100%;background:repeating-linear-gradient(45deg,#F1EFE8,#F1EFE8 6px,#E8E6DF 6px,#E8E6DF 12px)"></div></div>'
           : '<div class="bar-bg"><div class="bar-fill" style="width:' + entry.avg + '%"></div></div>';
-        return '<div class="card no-hover" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
-          + '<span style="font-size:18px;width:24px;text-align:center">' + medal + '</span>'
+        return '<div id="match-row-overall-' + fid + '" class="match-row card no-hover" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
+          + '<span style="font-size:18px;width:24px;text-align:center;display:inline-flex;align-items:center;justify-content:center">' + medal + '</span>'
           + friendAvatarHtml(entry.friend.profile, 32)
           + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div>'
           + '<div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
           + '<div style="text-align:right">' + scoreDisplay + '</div></div>'
           + barFill + '</div>';
       };
-      if (globalMatchTab && overallRanked.length > collapseCount) {
-        var visible = overallRanked.slice(0, collapseCount).map(renderEntry).join('');
-        var hidden = overallRanked.slice(collapseCount).map(function(e, i) { return renderEntry(e, i + collapseCount); }).join('');
+      // Render #1 as hero, rest as compact rows
+      overallHtml += renderHeroEntry(overallRanked[0]);
+      var rest = overallRanked.slice(1);
+      if (globalMatchTab && rest.length > (collapseCount - 1)) {
+        var visibleN = collapseCount - 1;
+        var visible = rest.slice(0, visibleN).map(function(e, i){ return renderEntry(e, i + 1); }).join('');
+        var hidden = rest.slice(visibleN).map(function(e, i) { return renderEntry(e, i + 1 + visibleN); }).join('');
         var startExpanded = !!_matchOverallExpanded;
         overallHtml += visible;
         overallHtml += '<div id="match-overall-more" style="display:' + (startExpanded ? 'block' : 'none') + '">' + hidden + '</div>';
         overallHtml += '<button id="match-overall-toggle" onclick="toggleMatchOverall()" class="btn-secondary" style="margin-bottom:8px">' + (startExpanded ? 'Show top 3 only' : 'Show all ' + overallRanked.length) + '</button>';
       } else {
-        overallHtml += overallRanked.map(renderEntry).join('');
+        overallHtml += rest.map(function(e, i){ return renderEntry(e, i + 1); }).join('');
       }
+      // Closest / Most different callout — now shows both faces
       if (overallRanked.length >= 2) {
         var most = overallRanked[0];
         var least = overallRanked[overallRanked.length-1];
@@ -9392,7 +9440,18 @@ async function renderMatch() {
         var lp = least.friend.profile || {};
         var mostName = mp.display_name || (mp.handle ? '@' + mp.handle : 'A friend');
         var leastName = lp.display_name || (lp.handle ? '@' + lp.handle : 'a friend');
-        overallHtml += '<div class="info-box" style="margin-bottom:4px"><div style="font-size:13.5px;color:#2C2C2A"><strong>' + mostName + '</strong> is your closest match overall · <strong>' + leastName + '</strong> is your most different</div></div>';
+        overallHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
+          + '<div style="background:#EAF3DE;border:1.5px solid #97C459;border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:9px">'
+          +   friendAvatarHtml(mp, 32)
+          +   '<div style="min-width:0"><div style="font-size:9px;font-weight:700;color:#27500A;letter-spacing:0.05em;text-transform:uppercase">Closest</div>'
+          +   '<div style="font-size:12px;font-weight:700;color:#2C2C2A;line-height:1.15;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(mostName) + '</div></div>'
+          + '</div>'
+          + '<div style="background:#FBE5E0;border:1.5px solid #F09595;border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:9px">'
+          +   friendAvatarHtml(lp, 32)
+          +   '<div style="min-width:0"><div style="font-size:9px;font-weight:700;color:#A32D2D;letter-spacing:0.05em;text-transform:uppercase">Most different</div>'
+          +   '<div style="font-size:12px;font-weight:700;color:#2C2C2A;line-height:1.15;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(leastName) + '</div></div>'
+          + '</div>'
+          + '</div>';
       }
     }
     overallHtml += '<div class="sec-label">By List</div>';
@@ -9412,10 +9471,15 @@ async function renderMatch() {
       if (found >= 0) preferredIdx = found;
     }
     matchPreferredCategory = null; // consume — subsequent visits reset to default
-    var tabsHtml = overallHtml + '<div class="list-selector" style="margin-bottom:12px">' + cats.map(function(cat, i) { return '<button class="list-sel-btn' + (i===preferredIdx?' active':'') + '" onclick="showMatchTab(this,\'' + cat.replace(/'/g,"\\'") + '\')">' + cat + '</button>'; }).join('') + '</div>';
+    var tabsHtml = overallHtml + '<div class="list-selector" style="margin-bottom:12px">' + cats.map(function(cat, i) {
+      var catEmoji = renderCatEmoji(getCatEmoji(cat) || '📋', 13);
+      return '<button class="list-sel-btn' + (i===preferredIdx?' active':'') + '" onclick="showMatchTab(this,\'' + cat.replace(/'/g,"\\'") + '\')"><span style="margin-right:5px">' + catEmoji + '</span>' + escapeHtml(cat) + '</button>';
+    }).join('') + '</div>';
     var panelsHtml = cats.map(function(cat, i) {
       var comps = byCategory[cat];
       var globalMatchTab = !friendCtx && groupCtx < 0;
+      var pal = getCategoryColor(cat);
+      var accent = pal.accent || pal.fg || '#2C2C2A';
       var renderComp = function(c) {
         var fname = (c.friend.profile && c.friend.profile.display_name) || (c.friend.profile && c.friend.profile.handle ? '@'+c.friend.profile.handle : 'Friend');
         var myItems = c.myList.items.map(function(x){return x.toLowerCase().trim();});
@@ -9428,15 +9492,15 @@ async function renderMatch() {
         var isNew = isMatchNew(fid, c.category, c.score);
         var scoreDisplay = isNew
           ? '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + c.score + ',decodeURIComponent(\'' + catLabel + '\'),\'' + fid + '\')" style="background:#D85A30;color:#fff;border:none;border-radius:99px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">✨ Tap to reveal</button>'
-          : '<div style="font-size:18px;font-weight:700;color:#D85A30">' + c.score + '%</div>'
-            + '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + c.score + ',decodeURIComponent(\'' + catLabel + '\'),\'' + fid + '\')" style="background:none;border:none;color:#888780;font-size:10px;cursor:pointer;padding:2px 0">↻ replay</button>';
+          : '<div style="font-size:20px;font-weight:800;color:' + accent + ';font-family:\'DM Serif Display\',Georgia,serif;letter-spacing:-0.01em">' + c.score + '%</div>'
+            + '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + c.score + ',decodeURIComponent(\'' + catLabel + '\'),\'' + fid + '\')" style="background:none;border:none;color:' + accent + ';opacity:0.6;font-size:10px;cursor:pointer;padding:2px 0">↻ replay</button>';
         var barFill = isNew
           ? '<div class="bar-bg"><div class="bar-fill" style="width:100%;background:repeating-linear-gradient(45deg,#F1EFE8,#F1EFE8 6px,#E8E6DF 6px,#E8E6DF 12px)"></div></div>'
-          : '<div class="bar-bg"><div class="bar-fill" style="width:' + c.score + '%"></div></div>';
-        return '<div class="card no-hover"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
-          + friendAvatarHtml(c.friend.profile, 32)
-          + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div><div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
-          + '<div style="text-align:right">' + scoreDisplay + '</div></div>'
+          : '<div class="bar-bg" style="background:rgba(0,0,0,0.06)"><div class="bar-fill" style="width:' + c.score + '%;background:' + accent + '"></div></div>';
+        return '<div id="match-row-' + i + '-' + fid + '" class="match-row" style="background:' + pal.bg + '99;border:1.5px solid #2C2C2A;border-radius:14px;padding:10px 12px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
+          + friendAvatarHtml(c.friend.profile, 36)
+          + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:' + accent + ';line-height:1.15">' + escapeHtml(fname) + '</div><div style="font-size:11px;color:' + accent + ';opacity:0.75;margin-top:2px;font-weight:600">' + detail + '</div></div>'
+          + '<div style="text-align:right;flex-shrink:0">' + scoreDisplay + '</div></div>'
           + barFill + '</div>';
       };
       var sortedComps = comps.slice().sort(function(a,b){ return b.score - a.score; });
@@ -9490,7 +9554,7 @@ async function renderMatch() {
         return '<div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + text + '</div>';
       }
       function rankText(rank, disp) {
-        return '<span style="font-weight:600;color:#888780;min-width:16px;display:inline-block">#' + rank + '</span> ' + escapeHtml(disp);
+        return matchRankBadge('#' + rank) + ' <span style="margin-left:4px">' + escapeHtml(disp) + '</span>';
       }
 
       // You-vs-one-friend body: shared picks (green, agreement-sorted) on top,
@@ -9510,8 +9574,8 @@ async function renderMatch() {
         var theirOnly = all.filter(function(it){ return it.myRank===null && it.theirRank!==null; }).sort(function(a,b){ return a.theirRank-b.theirRank; });
         var sharedRows = shared.map(function(it){
           return '<div style="display:flex;gap:5px;margin-bottom:4px">'
-            + mkCell(rankText(it.myRank, it.display), '#EAF3DE', '#3B6D11')
-            + mkCell(rankText(it.theirRank, it.display), '#EAF3DE', '#3B6D11') + '</div>';
+            + mkCell(rankText(it.myRank, it.display), pal.bg + 'CC', accent)
+            + mkCell(rankText(it.theirRank, it.display), pal.bg + 'CC', accent) + '</div>';
         }).join('');
         var remCount = Math.max(myOnly.length, theirOnly.length);
         var remRows = '';
@@ -9547,11 +9611,14 @@ async function renderMatch() {
             + body.rows + '</div>';
         }).join('');
         var multi = ordered.length > 1;
+        var chevBtn = function(dir, glyph) {
+          return '<button onclick="sbsNav(' + i + ',' + dir + ',' + ordered.length + ')" style="background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;width:28px;height:28px;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center">' + glyph + '</button>';
+        };
         var nav = multi
           ? '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
-              + '<button onclick="sbsNav(' + i + ',-1,' + ordered.length + ')" style="background:none;border:1px solid #D3D1C7;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;color:#5F5E5A;display:flex;align-items:center;justify-content:center">‹</button>'
-              + '<div id="sbs-dots-' + i + '" style="display:flex;gap:5px">' + ordered.map(function(_, di){ return '<span style="width:6px;height:6px;border-radius:50%;background:' + (di===0?'#D85A30':'#D3D1C7') + ';transition:background .15s;display:inline-block"></span>'; }).join('') + '</div>'
-              + '<button onclick="sbsNav(' + i + ',1,' + ordered.length + ')" style="background:none;border:1px solid #D3D1C7;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;color:#5F5E5A;display:flex;align-items:center;justify-content:center">›</button>'
+              + chevBtn(-1, '‹')
+              + '<div id="sbs-dots-' + i + '" style="display:flex;gap:5px">' + ordered.map(function(_, di){ return '<span style="width:7px;height:7px;border-radius:50%;background:' + (di===0 ? accent : 'rgba(0,0,0,0.15)') + ';transition:background .15s;display:inline-block"></span>'; }).join('') + '</div>'
+              + chevBtn(1, '›')
               + '</div>'
           : '';
         sideLabel = 'Side-by-side';
@@ -9572,8 +9639,8 @@ async function renderMatch() {
           var totalParticipants = 1 + comps.length; // me + all compared friends
           var everyonePicked = totalPickers === totalParticipants;
           var somePicked = totalPickers > 1;
-          var bg = everyonePicked ? '#EAF3DE' : somePicked ? '#FFF8F2' : '#F1EFE8';
-          var col = everyonePicked ? '#3B6D11' : '#2C2C2A';
+          var bg = everyonePicked ? pal.bg + 'CC' : somePicked ? pal.bg + '77' : '#F1EFE8';
+          var col = everyonePicked || somePicked ? accent : '#2C2C2A';
 
           var myCell = item.myRank !== null ? rankText(item.myRank, item.display) : '<span style="color:#C4C2BA">—</span>';
           var rightCell;
@@ -9581,8 +9648,8 @@ async function renderMatch() {
             rightCell = '<span style="color:#C4C2BA">—</span>';
           } else {
             var avgRank = item.friendEntries.reduce(function(s,e){return s+e.rank;},0) / item.friendEntries.length;
-            rightCell = '<span style="font-weight:600;color:#888780">#' + avgRank.toFixed(1).replace(/\.0$/,'') + '</span>'
-              + ' <span style="font-size:10px;color:#888780">(' + item.friendEntries.length + '/' + comps.length + ')</span>';
+            rightCell = matchRankBadge('#' + avgRank.toFixed(1).replace(/\.0$/,''))
+              + ' <span style="font-size:10px;color:' + accent + ';opacity:0.75;margin-left:4px;font-weight:600">(' + item.friendEntries.length + '/' + comps.length + ')</span>';
           }
           return '<div style="display:flex;gap:5px;margin-bottom:4px">' + mkCell(myCell, bg, col) + mkCell(rightCell, bg, col) + '</div>';
         }).join('');
@@ -9594,8 +9661,13 @@ async function renderMatch() {
         sideBodyHtml = '<div style="display:flex;gap:5px;margin-bottom:6px">' + colHeaders + '</div>' + rowsHtml;
       }
 
+      var panelEmoji = renderCatEmoji(getCatEmoji(cat) || '📋', 22);
       return '<div id="match-panel-' + i + '" style="display:' + (i===preferredIdx?'block':'none') + '">'
-        + '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:12px">Top 10 ' + escapeHtml(cat) + ' · ' + comps.length + ' friend' + (comps.length>1?'s':'') + ' compared</div>'
+        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 12px;background:' + pal.bg + '55;border-radius:12px">'
+        +   '<span style="font-size:22px;line-height:1">' + panelEmoji + '</span>'
+        +   '<div style="flex:1"><div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:17px;color:' + accent + ';letter-spacing:-0.01em;line-height:1.1">Top 10 ' + escapeHtml(cat) + '</div></div>'
+        +   matchRankBadge(comps.length + ' friend' + (comps.length>1?'s':''))
+        + '</div>'
         + '<div class="sec-label">Match Scores</div>' + scoresHtml
         + '<div class="sec-label">' + sideLabel + '</div>'
         + sideBodyHtml
@@ -9604,6 +9676,24 @@ async function renderMatch() {
     }).join('');
     el.innerHTML = tabsHtml + panelsHtml;
     window._matchCats = cats;
+    // Flash the row that was just revealed (if any) so the emotional payoff
+    // carries back into the list instead of vanishing silently.
+    if (window._matchJustRevealedFriendId) {
+      var flashId = window._matchJustRevealedFriendId;
+      window._matchJustRevealedFriendId = null;
+      setTimeout(function() {
+        var rows = document.querySelectorAll('#match-screen-content [id$="-' + flashId + '"].match-row, #match-screen-content [id="match-row-overall-' + flashId + '"]');
+        rows.forEach(function(r) {
+          r.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease';
+          r.style.transform = 'scale(1.02)';
+          r.style.boxShadow = '0 0 0 3px rgba(216,90,48,0.35)';
+          setTimeout(function() {
+            r.style.transform = '';
+            r.style.boxShadow = '';
+          }, 700);
+        });
+      }, 40);
+    }
   } catch(e) {
     var msg = (e && (e.message || e.details || JSON.stringify(e))) || 'Unknown error';
     el.innerHTML = '<div style="text-align:center;padding:30px;font-size:12px;color:#A32D2D">Could not load comparisons.<br><span style="font-size:10px;color:#888780">' + msg + '</span></div>';
