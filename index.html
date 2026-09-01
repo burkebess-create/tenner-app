@@ -6320,6 +6320,8 @@ async function loadFriends() {
   try { renderFriendsSection(); } catch(e) { console.warn(e); }
   try { renderGiftReminders(); } catch(e) { console.warn(e); }
   try { renderCircleFriends(); } catch(e) {}
+  // Bell badge includes pending friend requests — refresh once myFriends is loaded.
+  try { updateNotificationBadge(); } catch(e) {}
 }
 
 var _handleCheckTimer = null;
@@ -6630,6 +6632,10 @@ async function respondToFriendRequest(friendshipId, accept) {
       await sbClient.from('friendships').delete().eq('id', friendshipId);
     }
     await loadFriends();
+    // Re-render alerts inbox if we're on it (friend request just left the list)
+    if (document.getElementById('s-notifications') && document.getElementById('s-notifications').classList.contains('active')) {
+      renderNotifications();
+    }
     if (document.getElementById('s-fdetail').classList.contains('active')) { go('s-circle'); return; }
     if (accept) await renderMatch();
   } catch(e) { console.warn('Friend request response failed', e); }
@@ -7071,7 +7077,8 @@ function unreadCommentsCount() {
 function updateNotificationBadge() {
   var invites = MY_LIST_SHARE_INVITES.filter(function(i){ return !i.read_at; }).length;
   var comments = unreadCommentsCount();
-  var n = invites + comments;
+  var friendReqs = ((typeof myFriends !== 'undefined') ? myFriends : []).filter(function(f){ return f.status === 'pending' && !f.isRequester; }).length;
+  var n = invites + comments + friendReqs;
   ['notif-badge', 'notif-badge-circle'].forEach(function(id) {
     var badge = document.getElementById(id);
     if (!badge) return;
@@ -7242,11 +7249,41 @@ function renderNotifications() {
     return;
   }
 
-  if (MY_LIST_SHARE_INVITES.length === 0) {
-    el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">🔕</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">You\'re all caught up</div><div style="font-size:12px;line-height:1.5">List invites and reminders from friends will show up here.</div></div>';
+  // Section 1: pending inbound friend requests (rendered above list invites)
+  var pendingFriends = ((typeof myFriends !== 'undefined') ? myFriends : []).filter(function(f){ return f.status === 'pending' && !f.isRequester; });
+  var friendRequestsHtml = '';
+  if (pendingFriends.length > 0) {
+    friendRequestsHtml = '<div class="sec-label" style="margin-top:0">Friend requests (' + pendingFriends.length + ')</div>'
+      + pendingFriends.map(function(f) {
+        var p = f.profile || {};
+        var name = p.display_name || (p.handle ? '@' + p.handle : 'Someone');
+        var handle = p.handle ? '@' + p.handle : '';
+        var note = f.message ? '<div style="font-size:12.5px;color:#5F5E5A;font-style:italic;background:#F1EFE8;border-radius:6px;padding:6px 8px;margin-top:6px">"' + escapeHtml(f.message) + '"</div>' : '';
+        return '<div class="card no-hover" style="margin-bottom:8px;background:#FFF8F6;border-color:#F4C9B8">'
+          + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer" onclick="openFriendDetail(\'' + f.friendId + '\')">'
+          +   friendAvatarHtml(p, 38)
+          +   '<div style="flex:1;min-width:0">'
+          +     '<div style="font-size:12.5px;font-weight:700;color:#2C2C2A">' + escapeHtml(name) + '</div>'
+          +     '<div style="font-size:12px;color:#5F5E5A;margin-top:2px">' + escapeHtml(handle || '') + (handle ? ' · ' : '') + 'wants to connect</div>'
+          +   '</div>'
+          + '</div>'
+          + note
+          + '<div style="display:flex;gap:6px;margin-top:10px">'
+          +   '<button class="btn-primary" style="flex:1;margin-bottom:0;font-size:12px;padding:9px" onclick="respondToFriendRequest(\'' + f.id + '\',true)">Accept</button>'
+          +   '<button class="btn-secondary" style="flex:1;margin-bottom:0;font-size:12px;padding:9px;color:#A32D2D;border-color:#F09595" onclick="respondToFriendRequest(\'' + f.id + '\',false)">Decline</button>'
+          + '</div>'
+          + '</div>';
+      }).join('');
+  }
+
+  if (MY_LIST_SHARE_INVITES.length === 0 && pendingFriends.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">🔕</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">You\'re all caught up</div><div style="font-size:12px;line-height:1.5">Friend requests, list invites, and reminders will show up here.</div></div>';
     return;
   }
-  el.innerHTML = '<div class="sec-label" style="margin-top:0">List Invites (' + MY_LIST_SHARE_INVITES.length + ')</div>'
+
+  var listInvitesHtml = MY_LIST_SHARE_INVITES.length === 0
+    ? ''
+    : '<div class="sec-label" style="margin-top:' + (pendingFriends.length > 0 ? '18px' : '0') + '">List Invites (' + MY_LIST_SHARE_INVITES.length + ')</div>'
     + MY_LIST_SHARE_INVITES.map(function(inv) {
       var name = inv.profile.display_name || (inv.profile.handle ? '@' + inv.profile.handle : 'A friend');
       var catEsc = inv.category.replace(/'/g,"\\'");
@@ -7263,6 +7300,7 @@ function renderNotifications() {
         + '<div style="font-size:13.5px;color:#5F5E5A">' + (filled ? 'You filled out <strong>Top 10 ' + escapeHtml(inv.category) + '</strong>' : 'Think you and <strong>' + escapeHtml(name) + '</strong> have the same taste in ' + escapeHtml(inv.category) + '? Fill out your list and see your match score') + '</div></div></div>'
         + '<div style="display:flex;gap:6px">' + actions + '</div></div>';
     }).join('');
+  el.innerHTML = friendRequestsHtml + listInvitesHtml;
 }
 
 async function renderNotifActivity(el) {
