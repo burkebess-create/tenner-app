@@ -505,6 +505,7 @@
             <div class="onb-dot" data-onb-step="3"></div>
             <div class="onb-dot" data-onb-step="4"></div>
             <div class="onb-dot" data-onb-step="5"></div>
+            <div class="onb-dot" data-onb-step="6"></div>
           </div>
           <div id="onb-body"></div>
         </div>
@@ -6724,6 +6725,7 @@ function renderOnbStep() {
   if (_onbStep === 3) return renderOnbStep3(body);
   if (_onbStep === 4) return renderOnbStep4(body);
   if (_onbStep === 5) return renderOnbStep5(body);
+  if (_onbStep === 6) return renderOnbStep6(body);
 }
 
 function renderOnbStep1(body) {
@@ -6913,14 +6915,18 @@ async function onbFinish() {
   var err = document.getElementById('onb-error');
   if ((m && !d) || (!m && d)) { err.textContent = 'Please pick both month and day, or skip.'; err.style.display = 'block'; return; }
   if (m && d) myProfile.birthday = '2000-' + m + '-' + d;
-  await finalizeOnboarding();
+  await saveOnboardingProfile();
+  // Try to advance to step 6 (People-you-may-know via inviter) if applicable.
+  var shown = await maybeShowInviterMutualsStep();
+  if (!shown) finalizeOnboarding();
 }
 async function onbFinishSkip() {
-  await finalizeOnboarding();
+  await saveOnboardingProfile();
+  var shown = await maybeShowInviterMutualsStep();
+  if (!shown) finalizeOnboarding();
 }
 
-async function finalizeOnboarding() {
-  // Persist to Supabase
+async function saveOnboardingProfile() {
   try {
     var payload = {
       id: userId,
@@ -6932,9 +6938,97 @@ async function finalizeOnboarding() {
       updated_at: new Date().toISOString()
     };
     var res = await sbClient.from('profiles').upsert(payload);
-    if (res && res.error) { console.warn('Onboarding save failed:', res.error); }
+    if (res && res.error) console.warn('Onboarding save failed:', res.error);
   } catch(e) { console.warn(e); }
-  // Celebrate and drop into Circle
+}
+
+// If a fresh signup came in via an invite link, offer a "People you may know"
+// step showing the inviter's friends. Returns true if the step is going to
+// render (caller should NOT call finalizeOnboarding).
+async function maybeShowInviterMutualsStep() {
+  try {
+    var fromId = window.pendingFrom;
+    if (!fromId) {
+      try {
+        var raw = localStorage.getItem('tenner_pending_from');
+        if (raw) fromId = (JSON.parse(raw) || {}).from;
+      } catch(e) {}
+    }
+    if (!fromId || fromId === userId || !sbClient) return false;
+    // Look up inviter profile + their accepted friends' ids (excluding me)
+    var invRes = await sbClient.from('profiles').select('id, display_name, handle, photo').eq('id', fromId).maybeSingle();
+    var inviter = invRes && invRes.data;
+    if (!inviter) return false;
+    var frRes = await sbClient.from('friendships').select('requester_id, addressee_id, status').or('requester_id.eq.' + fromId + ',addressee_id.eq.' + fromId).eq('status', 'accepted');
+    var mutualIds = ((frRes && frRes.data) || []).map(function(f) { return f.requester_id === fromId ? f.addressee_id : f.requester_id; }).filter(function(id) { return id && id !== userId && id !== fromId; });
+    if (mutualIds.length === 0) return false;
+    var profRes = await sbClient.from('profiles').select('id, display_name, handle, photo').in('id', mutualIds).limit(20);
+    var candidates = (profRes && profRes.data) || [];
+    if (candidates.length === 0) return false;
+    // Cache so renderOnbStep6 can read without re-querying
+    window._onbInviter = inviter;
+    window._onbMutualCandidates = candidates;
+    _onbStep = 6;
+    renderOnbStep();
+    return true;
+  } catch (e) { console.warn('maybeShowInviterMutualsStep failed', e); return false; }
+}
+
+function renderOnbStep6(body) {
+  var inviter = window._onbInviter || {};
+  var candidates = window._onbMutualCandidates || [];
+  var inviterName = inviter.display_name || (inviter.handle ? '@' + inviter.handle : 'your friend');
+  var cardHtml = candidates.map(function(p) {
+    var name = p.display_name || (p.handle ? '@' + p.handle : 'Friend');
+    var handle = p.handle ? '@' + p.handle : '';
+    var initials = (name.charAt(0) || '?').toUpperCase();
+    var avatar = p.photo
+      ? '<img src="' + escapeHtml(p.photo) + '" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0">'
+      : '<div style="width:40px;height:40px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + escapeHtml(initials) + '</div>';
+    return '<div class="card no-hover" style="padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+      + avatar
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:13px;font-weight:600;color:#2C2C2A;line-height:1.2">' + escapeHtml(name) + '</div>'
+      +   (handle ? '<div style="font-size:11px;color:#888780;margin-top:2px">' + escapeHtml(handle) + '</div>' : '')
+      + '</div>'
+      + '<button class="btn-primary" onclick="onbAddInviterMutual(\'' + p.id + '\', this)" style="width:auto;padding:6px 12px;margin-bottom:0;font-size:11px;white-space:nowrap">Add</button>'
+      + '</div>';
+  }).join('');
+  body.innerHTML = ''
+    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:26px;letter-spacing:-0.02em;color:#2C2C2A;text-align:center;margin-bottom:6px;line-height:1.15">People you may know</div>'
+    + '<div style="font-size:13px;color:#5F5E5A;text-align:center;margin-bottom:16px;line-height:1.45">You joined via <strong>' + escapeHtml(inviterName) + '</strong> — here are some of their friends who might also be yours.</div>'
+    + cardHtml
+    + '<button class="btn-primary" onclick="onbStep6Continue()" style="margin-top:14px">Continue to Tenner →</button>'
+    + '<button onclick="onbStep6Continue()" style="margin-top:6px;background:none;border:none;color:#888780;font-size:12px;padding:8px;cursor:pointer;text-decoration:underline">Skip — I\'ll add friends later</button>';
+}
+
+async function onbAddInviterMutual(friendId, btn) {
+  if (!sbClient || !userId || !friendId) return;
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    var ires = await insertFriendship(friendId, 'pending', '');
+    if (ires.error) throw ires.error;
+    if (btn) {
+      btn.style.background = '#EAF3DE';
+      btn.style.color = '#27500A';
+      btn.style.border = '1px solid #B6D398';
+      btn.textContent = 'Sent';
+    }
+    // Fire notification email/push in background
+    if (typeof notifyAddresseeOfFriendRequest === 'function') notifyAddresseeOfFriendRequest(friendId, '');
+  } catch (e) {
+    console.warn('onbAddInviterMutual failed', e);
+    if (btn) { btn.disabled = false; btn.textContent = 'Add'; }
+  }
+}
+
+function onbStep6Continue() {
+  finalizeOnboarding();
+}
+
+function finalizeOnboarding() {
+  window._onbInviter = null;
+  window._onbMutualCandidates = null;
   go('s-circle');
   setTimeout(function() { celebrateConfetti(70); showToast('✓ You\'re all set — welcome to Tenner!'); }, 250);
 }
