@@ -12575,7 +12575,9 @@ function setupRealtimeNotifications() {
       // Attribute this new signup to whoever's invite link they came from.
       // Runs once per user — only writes when profiles.invited_by is currently
       // NULL, so it never overwrites a real value if this fires on a return
-      // sign-in (defensive).
+      // sign-in (defensive). ALSO auto-creates an accepted friendship between
+      // the inviter and the new user (matches Snap/iMessage: the invite itself
+      // is mutual consent, so no pending step is needed).
       (async function attributeInviter() {
         try {
           var fromId = window.pendingFrom;
@@ -12587,8 +12589,34 @@ function setupRealtimeNotifications() {
           if (!fromId || fromId === userId || !sbClient) return;
           // Check current invited_by — only write if unset
           var cur = await sbClient.from('profiles').select('invited_by').eq('id', userId).maybeSingle();
-          if (cur.data && cur.data.invited_by) return; // already attributed
-          await sbClient.from('profiles').update({ invited_by: fromId, invite_source: 'link' }).eq('id', userId);
+          var isFreshAttribution = !(cur.data && cur.data.invited_by);
+          if (isFreshAttribution) {
+            await sbClient.from('profiles').update({ invited_by: fromId, invite_source: 'link' }).eq('id', userId);
+          }
+          // Auto-friend: create accepted friendship if none exists yet in either direction.
+          try {
+            var existing = await sbClient.from('friendships')
+              .select('id, status')
+              .or('and(requester_id.eq.' + fromId + ',addressee_id.eq.' + userId + '),and(requester_id.eq.' + userId + ',addressee_id.eq.' + fromId + ')')
+              .maybeSingle();
+            if (!existing.data) {
+              await sbClient.from('friendships').insert({ requester_id: fromId, addressee_id: userId, status: 'accepted' });
+              // Refresh local friends list so Circle shows the new connection immediately
+              if (typeof loadFriends === 'function') loadFriends();
+              // Notify the inviter that their invite converted (transactional — always fires, not batched into digest)
+              try {
+                var invProf = await sbClient.from('profiles').select('email').eq('id', fromId).maybeSingle();
+                var myName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
+                if (invProf.data && invProf.data.email && typeof sendAppPush === 'function') {
+                  sendAppPush(invProf.data.email, 'Tenner', myName + ' joined from your invite — you\'re now friends', '/#circle');
+                }
+              } catch(e) { /* best-effort */ }
+            } else if (existing.data.status === 'pending') {
+              // If a request was already pending in either direction, treat the invite click as acceptance
+              await sbClient.from('friendships').update({ status: 'accepted' }).eq('id', existing.data.id);
+              if (typeof loadFriends === 'function') loadFriends();
+            }
+          } catch(e) { console.warn('auto-friend failed', e); }
           try { localStorage.removeItem('tenner_pending_from'); } catch(e) {}
         } catch(e) { console.warn('attribute inviter failed', e); }
       })();
