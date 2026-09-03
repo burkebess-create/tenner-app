@@ -11,6 +11,44 @@
   var SUPABASE_URL = 'https://bbjpvlmkhvggtwyvpzrq.supabase.co';
   var SUPABASE_KEY = 'sb_publishable_jeeTdNoqIJXBtx_1W1TscQ_cnRAcwHx';
 
+  // ── Shop-click tracking (delegated) ─────────────────────────────────
+  // One handler catches clicks on ANY <a class="shop"> anchor on the page,
+  // whether it was rendered dynamically or lives in the static HTML fallback.
+  // Fires a fire-and-forget INSERT into shop_clicks. Never blocks navigation.
+  function getUrlParam(name) {
+    try { return new URLSearchParams(window.location.search).get(name); } catch(e) { return null; }
+  }
+  var _clickSb = null;
+  function ensureSb() {
+    if (_clickSb) return _clickSb;
+    if (typeof supabase === 'undefined') return null;
+    try { _clickSb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) {}
+    return _clickSb;
+  }
+  document.addEventListener('click', function(e) {
+    var a = e.target.closest && e.target.closest('a.shop');
+    if (!a) return;
+    var url = a.getAttribute('href') || '';
+    try {
+      var sb = ensureSb();
+      if (!sb) return;
+      var pathCat = window.location.pathname.replace(/^\/gifts\//,'').replace(/\.html$/,'').replace(/[-_]/g,' ');
+      var itemGuess = (a.previousElementSibling && a.previousElementSibling.querySelector) ? (a.previousElementSibling.querySelector('.title')||{}).textContent : null;
+      var row = {
+        user_id: null,
+        from_user_id: getUrlParam('from') || null,
+        category: pathCat || null,
+        query: itemGuess || null,
+        item: itemGuess || null,
+        url: url,
+        source: 'gifts-hub',
+        referer: document.referrer || null,
+        user_agent: navigator.userAgent || null
+      };
+      sb.from('shop_clicks').insert(row).then(function(){}, function(){});
+    } catch(err) { /* silent */ }
+  }, { capture: true });
+
   // ── Budget filter (multi-select contiguous range) ──────────────────
   var BUCKETS = [
     { key: 'u25',    label: 'Under $25', minCents: 0,     maxCents: 2500 },

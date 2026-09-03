@@ -11932,6 +11932,27 @@ function giftBudgetRh() {
   return 'p_36:' + minStr + '-' + maxStr;
 }
 
+// Fire-and-forget shop-link click log. Best-effort — never blocks navigation.
+// Anonymous visitors log with user_id=null. When a gift-page URL is being
+// viewed with a ?from= param, the friend's userId is passed as fromUserId.
+function trackShopClick(payload) {
+  try {
+    if (!sbClient) return;
+    var row = {
+      user_id: (typeof userId !== 'undefined' && userId) ? userId : null,
+      from_user_id: (payload && payload.fromUserId) || null,
+      category: (payload && payload.category) || null,
+      query: (payload && payload.query) || null,
+      item: (payload && payload.item) || null,
+      url: (payload && payload.url) || null,
+      source: (payload && payload.source) || 'app',
+      referer: (typeof document !== 'undefined') ? (document.referrer || null) : null,
+      user_agent: (typeof navigator !== 'undefined') ? (navigator.userAgent || null) : null
+    };
+    sbClient.from('shop_clicks').insert(row).then(function(){}, function(){});
+  } catch (e) { /* silent */ }
+}
+
 function amazonSearchUrl(query, category) {
   var suffix = GIFT_CATEGORY_SUFFIX[category];
   if (!suffix) {
@@ -12217,10 +12238,12 @@ function renderGiftTileHtml(l, i) {
     html += '<div style="margin-top:14px;background:#FFFFFF;border-radius:14px;padding:6px" onclick="event.stopPropagation()">';
     items.forEach(function(item, idx) {
       var url = amazonSearchUrl(item, l.category);
+      var itemEsc = String(item).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      var catEsc = String(l.category || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
       html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 8px;' + (idx < items.length - 1 ? 'border-bottom:1px solid #F1EFE8;' : '') + '">'
         +   '<div style="width:22px;height:22px;border-radius:999px;background:' + pal.bg + '66;color:' + pal.accent + ';font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + (idx+1) + '</div>'
         +   '<div style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#2C2C2A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(item) + '</div>'
-        +   '<a href="' + url + '" target="_blank" rel="noopener sponsored nofollow" style="background:#2C2C2A;color:#FFF;text-decoration:none;font-size:11px;font-weight:600;padding:6px 12px;border-radius:999px;flex-shrink:0">Shop →</a>'
+        +   '<a href="' + url + '" target="_blank" rel="noopener sponsored nofollow" onclick="trackShopClick({category:\'' + catEsc + '\',query:\'' + itemEsc + '\',item:\'' + itemEsc + '\',url:this.href,source:\'app\'})" style="background:#2C2C2A;color:#FFF;text-decoration:none;font-size:11px;font-weight:600;padding:6px 12px;border-radius:999px;flex-shrink:0">Shop →</a>'
         + '</div>';
     });
     html += '</div>';

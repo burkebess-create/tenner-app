@@ -102,6 +102,44 @@
   var SUPABASE_URL = 'https://bbjpvlmkhvggtwyvpzrq.supabase.co';
   var SUPABASE_KEY = 'sb_publishable_jeeTdNoqIJXBtx_1W1TscQ_cnRAcwHx';
 
+  // ── Shop-click tracking (delegated) ────────────────────────────────
+  // Log every outbound Shop-→ tap on this public gift page. Fire-and-forget;
+  // never blocks navigation. Best-effort — silent on any failure.
+  var _clickSb = null;
+  function ensureClickSb() {
+    if (_clickSb) return _clickSb;
+    if (typeof supabase === 'undefined') return null;
+    try { _clickSb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) {}
+    return _clickSb;
+  }
+  document.addEventListener('click', function(e) {
+    var a = e.target.closest && e.target.closest('a.shop');
+    if (!a) return;
+    try {
+      var sb = ensureClickSb();
+      if (!sb) return;
+      var pick = a.closest('.pick');
+      var tile = a.closest('.tile');
+      var itemName = (pick && pick.querySelector('.name')) ? pick.querySelector('.name').textContent : null;
+      var catName = (tile && tile.querySelector('.tile-title')) ? tile.querySelector('.tile-title').textContent : null;
+      var token = new URLSearchParams(window.location.search).get('t') || null;
+      sb.from('shop_clicks').insert({
+        user_id: null,
+        // Sender resolution via gift_share_token happens server-side via the RPC
+        // in the future; for now we record the token in the query field so it's
+        // grep-able against the share URL.
+        from_user_id: null,
+        category: catName || null,
+        query: itemName || null,
+        item: itemName || null,
+        url: a.getAttribute('href') || null,
+        source: 'gift-share' + (token ? ('?t=' + token.slice(0, 8)) : ''),
+        referer: document.referrer || null,
+        user_agent: navigator.userAgent || null
+      }).then(function(){}, function(){});
+    } catch(err) { /* silent */ }
+  }, { capture: true });
+
   // Detect whether this tab was opened from inside the Tenner app (as opposed to
   // someone visiting the shared link directly). Two signals:
   //  1. window.opener exists (opened via window.open from same origin)
