@@ -893,6 +893,7 @@
           </div>
         </div>
         <div class="content">
+          <div id="circle-masthead" style="font-size:9.5px;letter-spacing:0.22em;color:#2C2C2A;opacity:0.55;font-weight:700;text-transform:uppercase;text-align:center;padding:2px 0 14px"></div>
           <div id="circle-anchor-chips" style="display:flex;gap:8px;overflow-x:auto;margin:0 -14px 12px;padding:0 14px 4px;scrollbar-width:none"></div>
           <div id="circle-profile-nudges"></div>
           <div id="today-pill-host"></div>
@@ -901,24 +902,30 @@
           <div id="circle-list-invites-host"></div>
           <div id="streak-pill-host"></div>
           <div id="weekly-hero-card"></div>
-          <div style="display:flex;align-items:baseline;justify-content:space-between;margin:24px 0 12px">
-            <div class="sec-label" style="margin:0">Recent from your circle</div>
-            <a onclick="window.__forceNotifTab='activity';openAlerts()" style="font-size:11px;color:#D85A30;text-decoration:underline;cursor:pointer;font-weight:600">See all activity →</a>
+          <div style="display:flex;align-items:center;gap:12px;margin:28px 0 14px">
+            <div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div>
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.18em;color:#2C2C2A;text-transform:uppercase">Dispatches</div>
+            <div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div>
+            <a onclick="window.__forceNotifTab='activity';openAlerts()" style="font-size:9.5px;letter-spacing:0.14em;color:#D85A30;cursor:pointer;font-weight:700;text-transform:uppercase;white-space:nowrap">See all →</a>
           </div>
           <div id="match-jumps-section"></div>
           <div id="home-feed-section"></div>
 
-          <div id="circle-friends-anchor" style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;margin-bottom:8px;scroll-margin-top:14px">
-            <div class="sec-label" style="margin-top:0;margin-bottom:0">Friends</div>
-            <button class="btn-primary" onclick="go('s-add-friends')" style="width:auto;padding:7px 14px;margin-bottom:0;font-size:12px;white-space:nowrap">+ Add friends</button>
+          <div id="circle-friends-anchor" style="display:flex;align-items:center;gap:12px;margin-top:28px;margin-bottom:12px;scroll-margin-top:14px">
+            <div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div>
+            <div id="circle-friends-label" style="font-size:10.5px;font-weight:700;letter-spacing:0.18em;color:#2C2C2A;text-transform:uppercase">Friends</div>
+            <div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div>
+            <a onclick="go('s-add-friends')" style="font-size:9.5px;letter-spacing:0.14em;color:#D85A30;cursor:pointer;font-weight:700;text-transform:uppercase;white-space:nowrap">+ Add</a>
           </div>
           <div id="circle-friend-requests"></div>
           <div id="circle-friends-list"></div>
 
           <div id="circle-group-invites"></div>
-          <div id="circle-groups-anchor" style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;margin-bottom:8px;scroll-margin-top:14px">
-            <div class="sec-label" style="margin-top:0;margin-bottom:0">Groups</div>
-            <button class="btn-primary" onclick="go('s-cg1')" style="width:auto;padding:7px 14px;margin-bottom:0;font-size:12px;white-space:nowrap">+ New group</button>
+          <div id="circle-groups-anchor" style="display:flex;align-items:center;gap:12px;margin-top:28px;margin-bottom:12px;scroll-margin-top:14px">
+            <div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div>
+            <div id="circle-groups-label" style="font-size:10.5px;font-weight:700;letter-spacing:0.18em;color:#2C2C2A;text-transform:uppercase">Groups</div>
+            <div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div>
+            <a onclick="go('s-cg1')" style="font-size:9.5px;letter-spacing:0.14em;color:#D85A30;cursor:pointer;font-weight:700;text-transform:uppercase;white-space:nowrap">+ New</a>
           </div>
           <div id="circle-groups-list"></div>
         </div>
@@ -4200,8 +4207,7 @@ async function renderCircleStories() {
   var scrollHint = showScrollHint
     ? '<div id="circle-stories-scroll-hint" style="position:absolute;top:0;bottom:14px;right:0;width:44px;pointer-events:none;background:linear-gradient(to right, rgba(255,255,255,0) 0%, #FFFFFF 70%);display:flex;align-items:center;justify-content:flex-end;padding-right:6px;transition:opacity 0.2s"><div style="background:#D85A30;color:#FFFFFF;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;box-shadow:0 2px 6px rgba(216,90,48,0.35)">›</div></div>'
     : '';
-  host.innerHTML = '<div class="sec-label" style="margin-top:0;margin-bottom:2px">Your circle</div>'
-    + '<div style="font-size:11px;color:#888780;margin-bottom:6px">Tap a friend to open their page. 🎂 birthday coming up · <span style="display:inline-block;width:8px;height:8px;background:#D85A30;border-radius:50%;vertical-align:middle;margin:0 2px"></span> new list</div>'
+  host.innerHTML = '<div style="display:flex;align-items:center;gap:12px;margin:8px 0 8px"><div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div><div style="font-size:10.5px;font-weight:700;letter-spacing:0.18em;color:#2C2C2A;text-transform:uppercase">Your People</div><div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div></div>'
     + '<div style="position:relative;margin:0 -14px 4px">'
     +   '<div id="circle-stories-scroll" style="display:flex;gap:12px;overflow-x:auto;padding:4px 14px 14px;scrollbar-width:none;-webkit-overflow-scrolling:touch">' + pills + '</div>'
     +   scrollHint
@@ -4251,20 +4257,26 @@ async function renderHomeFeed() {
     el.innerHTML = '<div class="card no-hover" style="text-align:center;padding:20px;color:#5F5E5A;font-size:12px">No new activity from your circle yet. Check back later.</div>';
     return;
   }
-  el.innerHTML = items.map(function(it) {
+  el.innerHTML = items.map(function(it, idx) {
     var p = profilesById[it.user_id] || {};
     var name = p.display_name || (p.handle ? '@'+p.handle : 'A friend');
-    var when = timeAgo(it.at);
+    var handle = p.handle ? '@' + p.handle : '';
+    var when = timeAgo(it.at).toUpperCase();
     var pal = getCategoryColor(it.category);
+    var accent = pal.accent || pal.fg || '#2C2C2A';
     var safeCat = (it.category||'').replace(/\'/g,"\\'");
+    // Editorial dispatch: big serif index number (01, 02, 03…), tracked-caps
+    // meta line, serif dispatch title, category emoji. Bottom rule separates rows.
+    var num = String(idx + 1).padStart(2, '0');
+    var isLast = idx === items.length - 1;
     return '<div onclick="openFriendListByCat(\'' + it.user_id + '\',\'' + safeCat + '\')" '
-      + 'style="background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:14px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px">'
-      +   friendAvatarHtml(p, 44)
+      + 'style="padding:14px 0' + (isLast ? '' : ';border-bottom:1px solid #E8E6DF') + ';cursor:pointer;display:flex;align-items:flex-start;gap:14px">'
+      +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:26px;color:' + accent + ';line-height:1;letter-spacing:-0.02em;width:38px;flex-shrink:0;padding-top:2px">' + num + '</div>'
       +   '<div style="flex:1;min-width:0">'
-      +     '<div style="font-size:13px;color:#2C2C2A;line-height:1.35"><strong>' + escapeHtml(name) + '</strong> updated their <strong>Top 10 ' + escapeHtml(it.category || '') + '</strong></div>'
-      +     '<div style="font-size:11px;color:#2C2C2A;opacity:0.7;margin-top:3px;font-weight:600">' + when + '</div>'
+      +     '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.14em;color:#2C2C2A;opacity:0.55;text-transform:uppercase;margin-bottom:3px">' + when + '  ·  ' + escapeHtml((handle || name).toUpperCase()) + '</div>'
+      +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;color:#2C2C2A;line-height:1.15;letter-spacing:-0.01em">Top 10 ' + escapeHtml(it.category || '') + '</div>'
       +   '</div>'
-      +   '<div style="font-size:28px;flex-shrink:0">' + renderCatEmoji(it.emoji || getCatEmoji(it.category), 28) + '</div>'
+      +   '<div style="font-size:26px;line-height:1;flex-shrink:0;padding-top:4px">' + renderCatEmoji(it.emoji || getCatEmoji(it.category), 26) + '</div>'
       + '</div>';
   }).join('');
 }
@@ -7655,6 +7667,20 @@ function renderCircleAnchorChips() {
   var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted'; });
   var pending = (myFriends || []).filter(function(f){ return f.status === 'pending' && !f.isRequester; });
   var groupsN = (MY_GROUPS || []).length;
+  // Editorial masthead line — small folio-style header ("SEPT 4 · CIRCLE")
+  var mastEl = document.getElementById('circle-masthead');
+  if (mastEl) {
+    try {
+      var d = new Date();
+      var months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEPT','OCT','NOV','DEC'];
+      mastEl.textContent = months[d.getMonth()] + ' ' + d.getDate() + '  ·  CIRCLE  ·  ISSUE ' + (accepted.length + groupsN);
+    } catch (e) {}
+  }
+  // Section labels get the live counts appended
+  var fLbl = document.getElementById('circle-friends-label');
+  if (fLbl) fLbl.textContent = 'Friends · ' + accepted.length;
+  var gLbl = document.getElementById('circle-groups-label');
+  if (gLbl) gLbl.textContent = 'Groups · ' + groupsN;
   if (accepted.length === 0 && groupsN === 0) { host.innerHTML = ''; return; }
   var chip = function(icon, label, count, anchorId, hasDot) {
     var dot = hasDot ? '<span style="width:6px;height:6px;background:#D85A30;border-radius:50%;margin-left:2px"></span>' : '';
@@ -7745,48 +7771,43 @@ function renderCircleFriends() {
 
     var friendRows = enriched.map(function(e) {
       var f = e.f, name = e.name, pal = e.pal, days = e.days;
-      var handle = f.profile.handle ? '@' + f.profile.handle : '';
+      var handle = f.profile.handle ? f.profile.handle : '';
       var accent = pal.accent || pal.fg || '#2C2C2A';
+      // Editorial: no more pastel-tinted rectangle. Cream/white index-card with
+      // a 5px palette-color bar on the left edge. Squared corners (3px) for that
+      // library-catalog feel. Name in DM Serif, handle+meta in tracked caps.
       var badge = '';
       if (e.hasBirthday) {
-        var dayStr = days === 0 ? 'today' : days === 1 ? 'tomorrow' : days + 'd';
-        badge = '<div style="background:' + accent + ';color:#FFFFFF;font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:99px;letter-spacing:0.03em;white-space:nowrap">🎂 ' + dayStr + '</div>';
-      } else {
-        badge = '<span style="font-size:16px;color:' + accent + ';opacity:0.5">›</span>';
+        var dayStr = days === 0 ? 'TODAY' : days === 1 ? 'TOMORROW' : days + 'D';
+        badge = '<div style="background:' + accent + ';color:#FFFFFF;font-size:9px;font-weight:800;padding:4px 8px;border-radius:2px;letter-spacing:0.12em;white-space:nowrap">🎂 ' + dayStr + '</div>';
       }
-      // Emoji row: up to 5 list emojis + " · N lists"
-      var listRow = '';
+      // Editorial meta line: "@HANDLE · 5 LISTS · UPDATED 2D"
+      var metaParts = [];
+      if (handle) metaParts.push('@' + handle.toUpperCase());
       if (e.summary && e.summary.length > 0) {
-        var emojis = e.summary.slice(0, 5).map(function(l) {
-          return '<span style="font-size:15px;line-height:1">' + renderCatEmoji(l.emoji || getCatEmoji(l.category) || '📋', 15) + '</span>';
-        }).join('');
-        var recentHint = '';
+        metaParts.push(e.summary.length + ' LIST' + (e.summary.length === 1 ? '' : 'S'));
         if (e.latestAt) {
           var ageDays = (Date.now() - new Date(e.latestAt).getTime()) / (1000*60*60*24);
-          if (ageDays <= 14) {
-            recentHint = '<span style="font-size:10.5px;color:' + accent + ';font-style:italic;font-weight:600;margin-left:6px;white-space:nowrap">· updated ' + timeAgo(e.latestAt) + '</span>';
-          }
+          if (ageDays <= 14) metaParts.push('UPDATED ' + timeAgo(e.latestAt).toUpperCase());
         }
-        listRow = '<div style="display:flex;align-items:center;gap:4px;margin-top:6px;flex-wrap:nowrap;overflow:hidden">'
-          + emojis
-          + '<span style="font-size:11px;color:' + accent + ';opacity:0.85;font-weight:700;margin-left:4px;white-space:nowrap">'
-          + e.summary.length + ' list' + (e.summary.length === 1 ? '' : 's')
-          + '</span>'
-          + recentHint
-          + '</div>';
       }
-      return '<div onclick="openFriendDetail(\'' + f.friendId + '\')" style="background:' + pal.bg + '99;border:1.5px solid #2C2C2A;border-radius:14px;padding:10px 12px;margin-bottom:8px;cursor:pointer;display:flex;align-items:flex-start;gap:10px">'
-        + friendAvatarHtml(f.profile, 40)
+      var meta = metaParts.join('  ·  ');
+      var emojis = '';
+      if (e.summary && e.summary.length > 0) {
+        emojis = e.summary.slice(0, 4).map(function(l) {
+          return '<span style="font-size:16px;line-height:1;opacity:0.85">' + renderCatEmoji(l.emoji || getCatEmoji(l.category) || '📋', 16) + '</span>';
+        }).join('');
+      }
+      return '<div onclick="openFriendDetail(\'' + f.friendId + '\')" style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:5px solid ' + accent + ';border-radius:3px;padding:12px 14px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:12px">'
+        + friendAvatarHtml(f.profile, 38)
         + '<div style="flex:1;min-width:0">'
-        +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px">'
-        +     '<div style="min-width:0">'
-        +       '<div style="font-size:13px;font-weight:700;color:' + accent + ';line-height:1.15">' + escapeHtml(name) + '</div>'
-        +       (handle ? '<div style="font-size:11px;color:' + accent + ';opacity:0.75;margin-top:1px;font-weight:600">' + escapeHtml(handle) + '</div>' : '')
-        +     '</div>'
-        +     badge
+        +   '<div style="display:flex;align-items:center;gap:8px">'
+        +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:17px;line-height:1.05;color:#2C2C2A;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">' + escapeHtml(name) + '</div>'
+        +     (badge ? '<div style="flex-shrink:0">' + badge + '</div>' : '')
         +   '</div>'
-        +   listRow
+        +   (meta ? '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.11em;color:' + accent + ';opacity:0.75;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(meta) + '</div>' : '')
         + '</div>'
+        + (emojis ? '<div style="display:flex;gap:3px;flex-shrink:0;padding-left:6px">' + emojis + '</div>' : '')
         + '</div>';
     });
     html = friendRows.slice(0, FRIENDS_PREVIEW).join('');
@@ -8707,17 +8728,16 @@ function renderCircleGroups() {
       stackHtml += '<div style="width:26px;height:26px;border-radius:50%;background:#2C2C2A;color:#FFFFFF;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #FFFFFF;margin-left:-9px;flex-shrink:0">+' + overflow + '</div>';
     }
     var listCount = g.listCount != null ? g.listCount : 0;
-    var listWord = listCount === 1 ? 'list' : 'lists';
-    return '<div onclick="selGroupIdx='+i+';go(\'s-gdetail\')" style="background:' + pal.bg + '99;border:1.5px solid #2C2C2A;border-radius:14px;padding:12px 12px;margin-bottom:8px;cursor:pointer">'
-      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
-      +   groupAvatarHtml(g, 40)
-      +   '<div style="flex:1;min-width:0">'
-      +     '<div style="font-size:13.5px;font-weight:700;color:#2C2C2A;line-height:1.15">' + escapeHtml(g.n) + '</div>'
-      +     '<div style="font-size:11px;color:#2C2C2A;opacity:0.7;margin-top:2px">' + totalMembers + ' members · ' + listCount + ' ' + listWord + ' compared</div>'
-      +   '</div>'
-      +   '<span style="font-size:16px;color:#2C2C2A;opacity:0.4">›</span>'
+    var accent = pal.accent || pal.fg || '#2C2C2A';
+    var meta = totalMembers + ' MEMBERS  ·  ' + listCount + ' LIST' + (listCount === 1 ? '' : 'S') + ' COMPARED';
+    // Editorial: same index-card treatment as friends — white/cream with left color bar.
+    return '<div onclick="selGroupIdx='+i+';go(\'s-gdetail\')" style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:5px solid ' + accent + ';border-radius:3px;padding:12px 14px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:12px">'
+      + groupAvatarHtml(g, 38)
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:17px;line-height:1.05;color:#2C2C2A;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(g.n) + '</div>'
+      +   '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.11em;color:' + accent + ';opacity:0.75;margin-top:3px">' + meta + '</div>'
       + '</div>'
-      + (stackHtml ? '<div style="display:flex;align-items:center;padding-left:2px">' + stackHtml + '</div>' : '')
+      + (stackHtml ? '<div style="display:flex;align-items:center;flex-shrink:0">' + stackHtml + '</div>' : '')
       + '</div>';
   });
   var groupHtml = groupRows.slice(0, GROUPS_PREVIEW).join('');
