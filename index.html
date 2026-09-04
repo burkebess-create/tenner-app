@@ -904,7 +904,7 @@
           <div id="weekly-hero-card"></div>
           <div style="display:flex;align-items:center;gap:12px;margin:28px 0 14px">
             <div style="flex:1;height:2px;background:#D85A30"></div>
-            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Dispatches</div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Recent updates</div>
             <div style="flex:1;height:2px;background:#D85A30"></div>
             <a onclick="window.__forceNotifTab='activity';openAlerts()" style="font-size:9.5px;letter-spacing:0.14em;color:#D85A30;cursor:pointer;font-weight:700;text-transform:uppercase;white-space:nowrap">See all →</a>
           </div>
@@ -4207,7 +4207,7 @@ async function renderCircleStories() {
   var scrollHint = showScrollHint
     ? '<div id="circle-stories-scroll-hint" style="position:absolute;top:0;bottom:14px;right:0;width:44px;pointer-events:none;background:linear-gradient(to right, rgba(255,255,255,0) 0%, #FFFFFF 70%);display:flex;align-items:center;justify-content:flex-end;padding-right:6px;transition:opacity 0.2s"><div style="background:#D85A30;color:#FFFFFF;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;box-shadow:0 2px 6px rgba(216,90,48,0.35)">›</div></div>'
     : '';
-  host.innerHTML = '<div style="display:flex;align-items:center;gap:12px;margin:8px 0 8px"><div style="flex:1;height:2px;background:#D85A30"></div><div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Your People</div><div style="flex:1;height:2px;background:#D85A30"></div></div>'
+  host.innerHTML = '<div style="display:flex;align-items:center;gap:12px;margin:8px 0 8px"><div style="flex:1;height:2px;background:#D85A30"></div><div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Your circle</div><div style="flex:1;height:2px;background:#D85A30"></div></div>'
     + '<div style="position:relative;margin:0 -14px 4px">'
     +   '<div id="circle-stories-scroll" style="display:flex;gap:12px;overflow-x:auto;padding:4px 14px 14px;scrollbar-width:none;-webkit-overflow-scrolling:touch">' + pills + '</div>'
     +   scrollHint
@@ -4273,8 +4273,8 @@ async function renderHomeFeed() {
       + 'style="padding:14px 0' + (isLast ? '' : ';border-bottom:1px solid #E8E6DF') + ';cursor:pointer;display:flex;align-items:flex-start;gap:14px">'
       +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:26px;color:' + accent + ';line-height:1;letter-spacing:-0.02em;width:38px;flex-shrink:0;padding-top:2px">' + num + '</div>'
       +   '<div style="flex:1;min-width:0">'
-      +     '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.14em;color:#2C2C2A;opacity:0.55;text-transform:uppercase;margin-bottom:3px">' + when + '  ·  ' + escapeHtml((handle || name).toUpperCase()) + '</div>'
-      +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;color:#2C2C2A;line-height:1.15;letter-spacing:-0.01em">Top 10 ' + escapeHtml(it.category || '') + '</div>'
+      +     '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.14em;color:#2C2C2A;opacity:0.55;text-transform:uppercase;margin-bottom:3px">Updated ' + when + '</div>'
+      +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;color:#2C2C2A;line-height:1.2;letter-spacing:-0.01em"><span style="color:' + accent + '">' + escapeHtml(name) + '</span> updated <em>Top 10 ' + escapeHtml(it.category || '') + '</em></div>'
       +   '</div>'
       +   '<div style="font-size:26px;line-height:1;flex-shrink:0;padding-top:4px">' + renderCatEmoji(it.emoji || getCatEmoji(it.category), 26) + '</div>'
       + '</div>';
