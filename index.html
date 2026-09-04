@@ -4120,7 +4120,7 @@ function todayCard(emoji, title, subtitle, onclickAction) {
     + 'style="background:linear-gradient(135deg,#FFF5EE 0%,#FDE6D9 100%);border:1.5px solid #F5B091;border-radius:18px;padding:14px 16px;margin-bottom:14px;cursor:pointer;display:flex;align-items:center;gap:12px">'
     +   '<div style="font-size:30px;line-height:1;flex-shrink:0">' + (emoji.length <= 2 ? emoji : renderCatEmoji(emoji, 30)) + '</div>'
     +   '<div style="flex:1;min-width:0">'
-    +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:15px;color:#2C2C2A;letter-spacing:-0.01em;line-height:1.15">' + title + '</div>'
+    +     '<div style="font-size:14.5px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em;line-height:1.15">' + title + '</div>'
     +     '<div style="font-size:11.5px;color:#5F5E5A;margin-top:3px;line-height:1.35">' + subtitle + '</div>'
     +   '</div>'
     +   '<div style="font-size:14px;color:#5F5E5A;opacity:0.6">›</div>'
@@ -4271,10 +4271,10 @@ async function renderHomeFeed() {
     var isLast = idx === items.length - 1;
     return '<div onclick="openFriendListByCat(\'' + it.user_id + '\',\'' + safeCat + '\')" '
       + 'style="padding:14px 0' + (isLast ? '' : ';border-bottom:1px solid #E8E6DF') + ';cursor:pointer;display:flex;align-items:flex-start;gap:14px">'
-      +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:26px;color:' + accent + ';line-height:1;letter-spacing:-0.02em;width:38px;flex-shrink:0;padding-top:2px">' + num + '</div>'
+      +   '<div style="font-size:22px;font-weight:900;color:' + accent + ';line-height:1;letter-spacing:-0.02em;width:38px;flex-shrink:0;padding-top:3px">' + num + '</div>'
       +   '<div style="flex:1;min-width:0">'
       +     '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.14em;color:#2C2C2A;opacity:0.55;text-transform:uppercase;margin-bottom:3px">Updated ' + when + '</div>'
-      +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;color:#2C2C2A;line-height:1.2;letter-spacing:-0.01em"><span style="color:' + accent + '">' + escapeHtml(name) + '</span> updated <em>Top 10 ' + escapeHtml(it.category || '') + '</em></div>'
+      +     '<div style="font-size:15px;font-weight:700;color:#2C2C2A;line-height:1.25;letter-spacing:-0.005em"><span style="font-weight:800;color:' + accent + '">' + escapeHtml(name) + '</span> updated Top 10 ' + escapeHtml(it.category || '') + '</div>'
       +   '</div>'
       +   '<div style="font-size:26px;line-height:1;flex-shrink:0;padding-top:4px">' + renderCatEmoji(it.emoji || getCatEmoji(it.category), 26) + '</div>'
       + '</div>';
@@ -7809,7 +7809,7 @@ function renderCircleFriends() {
         + friendAvatarHtml(f.profile, 38)
         + '<div style="flex:1;min-width:0">'
         +   '<div style="display:flex;align-items:center;gap:8px">'
-        +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:17px;line-height:1.05;color:#2C2C2A;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">' + escapeHtml(name) + '</div>'
+        +     '<div style="font-size:15px;font-weight:800;line-height:1.1;color:#2C2C2A;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">' + escapeHtml(name) + '</div>'
         +     (badge ? '<div style="flex-shrink:0">' + badge + '</div>' : '')
         +   '</div>'
         +   (meta ? '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.11em;color:' + accent + ';opacity:0.75;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(meta) + '</div>' : '')
@@ -8741,7 +8741,7 @@ function renderCircleGroups() {
     return '<div onclick="selGroupIdx='+i+';go(\'s-gdetail\')" style="background:' + pal.bg + '33;border:1px solid ' + accent + '33;border-left:7px solid ' + accent + ';border-radius:3px;padding:12px 14px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:12px">'
       + groupAvatarHtml(g, 38)
       + '<div style="flex:1;min-width:0">'
-      +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:17px;line-height:1.05;color:#2C2C2A;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(g.n) + '</div>'
+      +   '<div style="font-size:15px;font-weight:800;line-height:1.1;color:#2C2C2A;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(g.n) + '</div>'
       +   '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.11em;color:' + accent + ';opacity:0.75;margin-top:3px">' + meta + '</div>'
       + '</div>'
       + (stackHtml ? '<div style="display:flex;align-items:center;flex-shrink:0">' + stackHtml + '</div>' : '')
@@ -11685,7 +11685,7 @@ async function renderWeeklyHeroCard() {
   }
   el.innerHTML = '<div style="background:' + bg + ';border-radius:16px;padding:16px 18px;margin-bottom:16px;color:' + fg + '">'
     + '<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:' + fg + ';opacity:' + subOpacity + ';margin-bottom:4px">This week on Tenner</div>'
-    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.01em;line-height:1.1;margin-bottom:6px">' + (wk.emoji||'📋') + ' Top 10 ' + escapeHtml(wk.category) + '</div>'
+    + '<div style="font-size:20px;font-weight:800;letter-spacing:-0.01em;line-height:1.1;margin-bottom:6px">' + (wk.emoji||'📋') + ' Top 10 ' + escapeHtml(wk.category) + '</div>'
     + (wk.description ? '<div style="font-size:12px;color:' + fg + ';opacity:' + subOpacity + ';margin-bottom:10px">' + escapeHtml(wk.description) + '</div>' : '')
     + stateLine
     + participationLine
@@ -11726,7 +11726,7 @@ function showRevealCelebration(wk) {
   overlay.innerHTML = ''
     + '<div class="pop-in" style="background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:320px;text-align:center">'
     +   '<div style="font-size:56px;margin-bottom:6px">🎊</div>'
-    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;color:#2C2C2A;margin-bottom:6px;line-height:1.15">The reveal is live!</div>'
+    +   '<div style="font-size:22px;font-weight:800;color:#2C2C2A;margin-bottom:6px;line-height:1.15;letter-spacing:-0.01em">The reveal is live!</div>'
     +   '<div style="font-size:14px;color:#5F5E5A;margin-bottom:6px">' + (wk.emoji||'📋') + ' Top 10 ' + escapeHtml(wk.category) + '</div>'
     +   '<div style="font-size:12px;color:#888780;margin-bottom:18px">See how your picks stack up against all of Tenner — and against your circle.</div>'
     +   cta
