@@ -7060,7 +7060,7 @@ function renderProfileNudges() {
   // phone and birthday) since a missing name causes friends to see "@handle
   // updated their Top 10…" instead of your actual name across the app.
   if (!myProfile.display_name) {
-    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border:1px solid #F5B091;border-left:7px solid #D85A30;border-radius:3px;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
       + '<div style="font-size:22px">✏️</div>'
       + '<div style="flex:1;font-size:12px;color:#2C2C2A">Add your name so friends see you as more than a handle.</div>'
       + '<button class="back-btn" onclick="go(\'s-profile-edit\')" style="padding:5px 10px;font-size:11px">Add</button>'
@@ -7068,7 +7068,7 @@ function renderProfileNudges() {
   }
   // Profile photo — same category of identity nudge, always shown when missing.
   if (!myProfile.photo && !dismissed.photo) {
-    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border:1px solid #F5B091;border-left:7px solid #D85A30;border-radius:3px;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
       + '<div style="font-size:22px">📸</div>'
       + '<div style="flex:1;font-size:12px;color:#2C2C2A">Add a profile photo so friends recognize you.</div>'
       + '<button class="back-btn" onclick="go(\'s-profile-edit\')" style="padding:5px 10px;font-size:11px">Add</button>'
@@ -7076,7 +7076,7 @@ function renderProfileNudges() {
       + '</div>');
   }
   if (!myProfile.phone && !dismissed.phone) {
-    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border:1px solid #F5B091;border-left:7px solid #D85A30;border-radius:3px;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
       + '<div style="font-size:22px">📞</div>'
       + '<div style="flex:1;font-size:12px;color:#2C2C2A">Add your phone number so friends can find you.</div>'
       + '<button class="back-btn" onclick="go(\'s-profile-edit\')" style="padding:5px 10px;font-size:11px">Add</button>'
@@ -7084,7 +7084,7 @@ function renderProfileNudges() {
       + '</div>');
   }
   if (!myProfile.birthday && !dismissed.birthday) {
-    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border:1px solid #F5B091;border-left:7px solid #D85A30;border-radius:3px;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
       + '<div style="font-size:22px">🎂</div>'
       + '<div style="flex:1;font-size:12px;color:#2C2C2A">Add your birthday so friends know when to celebrate.</div>'
       + '<button class="back-btn" onclick="go(\'s-profile-edit\')" style="padding:5px 10px;font-size:11px">Add</button>'
@@ -7096,7 +7096,7 @@ function renderProfileNudges() {
   // On iOS this only shows inside the installed PWA (Notification API is
   // undefined in regular Safari), which is exactly what we want.
   if (shouldShowPushNudge()) {
-    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+    nudges.push('<div class="card no-hover" style="background:#FFF8F4;border:1px solid #F5B091;border-left:7px solid #D85A30;border-radius:3px;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
       + '<div style="font-size:22px">🔔</div>'
       + '<div style="flex:1;font-size:12px;color:#2C2C2A">Turn on notifications so you know when friends comment or update lists.</div>'
       + '<button class="back-btn" onclick="acceptPushNudge()" style="padding:5px 10px;font-size:11px">Turn on</button>'
@@ -7119,7 +7119,7 @@ function renderProfileNudges() {
     if (!dismissed[staleKey]) {
       var daysAgo = Math.floor((Date.now() - new Date(stale.updated_at).getTime()) / (24 * 3600 * 1000));
       var staleCatEsc = String(staleCat).replace(/'/g, "\\'");
-      nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+      nudges.push('<div class="card no-hover" style="background:#FFF8F4;border:1px solid #F5B091;border-left:7px solid #D85A30;border-radius:3px;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
         + '<div style="font-size:22px">' + renderCatEmoji(stale.emoji || getCatEmoji(staleCat), 22) + '</div>'
         + '<div style="flex:1;font-size:12px;color:#2C2C2A">Your Top 10 ' + escapeHtml(staleCat) + ' hasn\'t been updated in ' + daysAgo + ' days. Still your picks?</div>'
         + '<button class="back-btn" onclick="var l=MY_LISTS.find(function(x){return (x.category||x.n.replace(\'Top 10 \',\'\'))===\'' + staleCatEsc + '\';}); if(l) showListDetail(l,\'s-circle\');" style="padding:5px 10px;font-size:11px">Refresh</button>'
@@ -7139,7 +7139,7 @@ function renderProfileNudges() {
     if (!dismissed[nudgeKey]) {
       var count = (target.items || []).length;
       var catEsc = String(targetCat).replace(/'/g, "\\'");
-      nudges.push('<div class="card no-hover" style="background:#FFF8F4;border-color:#F5B091;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
+      nudges.push('<div class="card no-hover" style="background:#FFF8F4;border:1px solid #F5B091;border-left:7px solid #D85A30;border-radius:3px;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
         + '<div style="font-size:22px">' + renderCatEmoji(target.emoji || getCatEmoji(targetCat), 22) + '</div>'
         + '<div style="flex:1;font-size:12px;color:#2C2C2A">Finish your Top 10 ' + escapeHtml(targetCat) + ' — you have ' + count + '.</div>'
         + '<button class="back-btn" onclick="var l=MY_LISTS.find(function(x){return (x.category||x.n.replace(\'Top 10 \',\'\'))===\'' + catEsc + '\';}); if(l) showListDetail(l,\'s-circle\');" style="padding:5px 10px;font-size:11px">Finish</button>'
@@ -7818,7 +7818,7 @@ function renderCircleFriends() {
     html = friendRows.slice(0, FRIENDS_PREVIEW).join('');
     if (accepted.length > FRIENDS_PREVIEW) {
       html += '<div id="circle-friends-extra" style="display:none">' + friendRows.slice(FRIENDS_PREVIEW).join('') + '</div>'
-        + '<button onclick="toggleCircleSection(\'friends\')" id="circle-friends-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:13.5px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show all ' + accepted.length + ' friends</button>';
+        + '<button onclick="toggleCircleSection(\'friends\')" id="circle-friends-toggle" style="width:100%;padding:9px;background:#FFFFFF;border:1.5px solid #D85A30;border-radius:3px;font-size:10.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;cursor:pointer;margin-bottom:4px">▼ Show all ' + accepted.length + ' friends</button>';
     }
   } else if (sent.length > 0) {
     html = '<div style="font-size:11px;color:#888780;padding:8px 0">' + sent.length + ' request' + (sent.length>1?'s':'') + ' sent — waiting for them to accept.</div>';
@@ -8748,7 +8748,7 @@ function renderCircleGroups() {
   var groupHtml = groupRows.slice(0, GROUPS_PREVIEW).join('');
   if (MY_GROUPS.length > GROUPS_PREVIEW) {
     groupHtml += '<div id="circle-groups-extra" style="display:none">' + groupRows.slice(GROUPS_PREVIEW).join('') + '</div>'
-      + '<button onclick="toggleCircleSection(\'groups\')" id="circle-groups-toggle" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:13.5px;color:#5F5E5A;cursor:pointer;margin-bottom:4px">▼ Show all ' + MY_GROUPS.length + ' groups</button>';
+      + '<button onclick="toggleCircleSection(\'groups\')" id="circle-groups-toggle" style="width:100%;padding:9px;background:#FFFFFF;border:1.5px solid #D85A30;border-radius:3px;font-size:10.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;cursor:pointer;margin-bottom:4px">▼ Show all ' + MY_GROUPS.length + ' groups</button>';
   }
   el.innerHTML = groupHtml;
   updateCircleBadge();
