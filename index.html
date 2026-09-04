@@ -903,28 +903,28 @@
           <div id="streak-pill-host"></div>
           <div id="weekly-hero-card"></div>
           <div style="display:flex;align-items:center;gap:12px;margin:28px 0 14px">
-            <div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div>
-            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.18em;color:#2C2C2A;text-transform:uppercase">Dispatches</div>
-            <div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Dispatches</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
             <a onclick="window.__forceNotifTab='activity';openAlerts()" style="font-size:9.5px;letter-spacing:0.14em;color:#D85A30;cursor:pointer;font-weight:700;text-transform:uppercase;white-space:nowrap">See all →</a>
           </div>
           <div id="match-jumps-section"></div>
           <div id="home-feed-section"></div>
 
-          <div id="circle-friends-anchor" style="display:flex;align-items:center;gap:12px;margin-top:28px;margin-bottom:12px;scroll-margin-top:14px">
-            <div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div>
-            <div id="circle-friends-label" style="font-size:10.5px;font-weight:700;letter-spacing:0.18em;color:#2C2C2A;text-transform:uppercase">Friends</div>
-            <div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div>
+          <div id="circle-friends-anchor" style="display:flex;align-items:center;gap:12px;margin-top:32px;margin-bottom:14px;scroll-margin-top:14px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div id="circle-friends-label" style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Friends</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
             <a onclick="go('s-add-friends')" style="font-size:9.5px;letter-spacing:0.14em;color:#D85A30;cursor:pointer;font-weight:700;text-transform:uppercase;white-space:nowrap">+ Add</a>
           </div>
           <div id="circle-friend-requests"></div>
           <div id="circle-friends-list"></div>
 
           <div id="circle-group-invites"></div>
-          <div id="circle-groups-anchor" style="display:flex;align-items:center;gap:12px;margin-top:28px;margin-bottom:12px;scroll-margin-top:14px">
-            <div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div>
-            <div id="circle-groups-label" style="font-size:10.5px;font-weight:700;letter-spacing:0.18em;color:#2C2C2A;text-transform:uppercase">Groups</div>
-            <div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div>
+          <div id="circle-groups-anchor" style="display:flex;align-items:center;gap:12px;margin-top:32px;margin-bottom:14px;scroll-margin-top:14px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div id="circle-groups-label" style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Groups</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
             <a onclick="go('s-cg1')" style="font-size:9.5px;letter-spacing:0.14em;color:#D85A30;cursor:pointer;font-weight:700;text-transform:uppercase;white-space:nowrap">+ New</a>
           </div>
           <div id="circle-groups-list"></div>
@@ -4207,7 +4207,7 @@ async function renderCircleStories() {
   var scrollHint = showScrollHint
     ? '<div id="circle-stories-scroll-hint" style="position:absolute;top:0;bottom:14px;right:0;width:44px;pointer-events:none;background:linear-gradient(to right, rgba(255,255,255,0) 0%, #FFFFFF 70%);display:flex;align-items:center;justify-content:flex-end;padding-right:6px;transition:opacity 0.2s"><div style="background:#D85A30;color:#FFFFFF;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;box-shadow:0 2px 6px rgba(216,90,48,0.35)">›</div></div>'
     : '';
-  host.innerHTML = '<div style="display:flex;align-items:center;gap:12px;margin:8px 0 8px"><div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div><div style="font-size:10.5px;font-weight:700;letter-spacing:0.18em;color:#2C2C2A;text-transform:uppercase">Your People</div><div style="flex:1;height:1px;background:#2C2C2A;opacity:0.18"></div></div>'
+  host.innerHTML = '<div style="display:flex;align-items:center;gap:12px;margin:8px 0 8px"><div style="flex:1;height:2px;background:#D85A30"></div><div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Your People</div><div style="flex:1;height:2px;background:#D85A30"></div></div>'
     + '<div style="position:relative;margin:0 -14px 4px">'
     +   '<div id="circle-stories-scroll" style="display:flex;gap:12px;overflow-x:auto;padding:4px 14px 14px;scrollbar-width:none;-webkit-overflow-scrolling:touch">' + pills + '</div>'
     +   scrollHint
@@ -7667,13 +7667,19 @@ function renderCircleAnchorChips() {
   var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted'; });
   var pending = (myFriends || []).filter(function(f){ return f.status === 'pending' && !f.isRequester; });
   var groupsN = (MY_GROUPS || []).length;
-  // Editorial masthead line — small folio-style header ("SEPT 4 · CIRCLE")
+  // Editorial masthead line — small folio-style header ("SEPT 4 · CIRCLE · DAY 96")
   var mastEl = document.getElementById('circle-masthead');
   if (mastEl) {
     try {
       var d = new Date();
       var months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEPT','OCT','NOV','DEC'];
-      mastEl.textContent = months[d.getMonth()] + ' ' + d.getDate() + '  ·  CIRCLE  ·  ISSUE ' + (accepted.length + groupsN);
+      var dayStr = '';
+      var joinedAt = myProfile && myProfile.created_at;
+      if (joinedAt) {
+        var days = Math.floor((Date.now() - new Date(joinedAt).getTime()) / (1000*60*60*24));
+        if (days >= 0) dayStr = '  ·  DAY ' + (days + 1) + ' ON TENNER';
+      }
+      mastEl.innerHTML = months[d.getMonth()] + ' ' + d.getDate() + '  ·  <span style="color:#D85A30">CIRCLE</span>' + dayStr;
     } catch (e) {}
   }
   // Section labels get the live counts appended
@@ -7798,7 +7804,7 @@ function renderCircleFriends() {
           return '<span style="font-size:16px;line-height:1;opacity:0.85">' + renderCatEmoji(l.emoji || getCatEmoji(l.category) || '📋', 16) + '</span>';
         }).join('');
       }
-      return '<div onclick="openFriendDetail(\'' + f.friendId + '\')" style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:5px solid ' + accent + ';border-radius:3px;padding:12px 14px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:12px">'
+      return '<div onclick="openFriendDetail(\'' + f.friendId + '\')" style="background:' + pal.bg + '33;border:1px solid ' + accent + '33;border-left:7px solid ' + accent + ';border-radius:3px;padding:12px 14px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:12px">'
         + friendAvatarHtml(f.profile, 38)
         + '<div style="flex:1;min-width:0">'
         +   '<div style="display:flex;align-items:center;gap:8px">'
@@ -8731,7 +8737,7 @@ function renderCircleGroups() {
     var accent = pal.accent || pal.fg || '#2C2C2A';
     var meta = totalMembers + ' MEMBERS  ·  ' + listCount + ' LIST' + (listCount === 1 ? '' : 'S') + ' COMPARED';
     // Editorial: same index-card treatment as friends — white/cream with left color bar.
-    return '<div onclick="selGroupIdx='+i+';go(\'s-gdetail\')" style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:5px solid ' + accent + ';border-radius:3px;padding:12px 14px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:12px">'
+    return '<div onclick="selGroupIdx='+i+';go(\'s-gdetail\')" style="background:' + pal.bg + '33;border:1px solid ' + accent + '33;border-left:7px solid ' + accent + ';border-radius:3px;padding:12px 14px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:12px">'
       + groupAvatarHtml(g, 38)
       + '<div style="flex:1;min-width:0">'
       +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:17px;line-height:1.05;color:#2C2C2A;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(g.n) + '</div>'
