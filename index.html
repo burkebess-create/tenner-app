@@ -906,7 +906,7 @@
             <div style="flex:1;height:2px;background:#D85A30"></div>
             <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Recent updates</div>
             <div style="flex:1;height:2px;background:#D85A30"></div>
-            <a onclick="window.__forceNotifTab='activity';openAlerts()" style="font-size:9.5px;letter-spacing:0.14em;color:#D85A30;cursor:pointer;font-weight:700;text-transform:uppercase;white-space:nowrap">See all →</a>
+            <a onclick="window.__forceNotifTab='activity';openAlerts()" style="font-size:10px;letter-spacing:0.12em;background:#D85A30;color:#FFFFFF;cursor:pointer;font-weight:800;text-transform:uppercase;white-space:nowrap;padding:5px 10px;border-radius:3px">See all →</a>
           </div>
           <div id="match-jumps-section"></div>
           <div id="home-feed-section"></div>
@@ -915,7 +915,7 @@
             <div style="flex:1;height:2px;background:#D85A30"></div>
             <div id="circle-friends-label" style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Friends</div>
             <div style="flex:1;height:2px;background:#D85A30"></div>
-            <a onclick="go('s-add-friends')" style="font-size:9.5px;letter-spacing:0.14em;color:#D85A30;cursor:pointer;font-weight:700;text-transform:uppercase;white-space:nowrap">+ Add</a>
+            <a onclick="go('s-add-friends')" style="font-size:10px;letter-spacing:0.12em;background:#D85A30;color:#FFFFFF;cursor:pointer;font-weight:800;text-transform:uppercase;white-space:nowrap;padding:5px 10px;border-radius:3px">+ Add</a>
           </div>
           <div id="circle-friend-requests"></div>
           <div id="circle-friends-list"></div>
@@ -925,7 +925,7 @@
             <div style="flex:1;height:2px;background:#D85A30"></div>
             <div id="circle-groups-label" style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Groups</div>
             <div style="flex:1;height:2px;background:#D85A30"></div>
-            <a onclick="go('s-cg1')" style="font-size:9.5px;letter-spacing:0.14em;color:#D85A30;cursor:pointer;font-weight:700;text-transform:uppercase;white-space:nowrap">+ New</a>
+            <a onclick="go('s-cg1')" style="font-size:10px;letter-spacing:0.12em;background:#D85A30;color:#FFFFFF;cursor:pointer;font-weight:800;text-transform:uppercase;white-space:nowrap;padding:5px 10px;border-radius:3px">+ New</a>
           </div>
           <div id="circle-groups-list"></div>
         </div>
@@ -7688,18 +7688,19 @@ function renderCircleAnchorChips() {
   var gLbl = document.getElementById('circle-groups-label');
   if (gLbl) gLbl.textContent = 'Groups · ' + groupsN;
   if (accepted.length === 0 && groupsN === 0) { host.innerHTML = ''; return; }
-  var chip = function(icon, label, count, anchorId, hasDot) {
-    var dot = hasDot ? '<span style="width:6px;height:6px;background:#D85A30;border-radius:50%;margin-left:2px"></span>' : '';
-    return '<button onclick="scrollToAnchor(\'' + anchorId + '\')" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;background:#F1EFE8;border:1.5px solid #2C2C2A;border-radius:99px;padding:6px 14px;font-size:12px;font-weight:600;color:#2C2C2A;cursor:pointer;white-space:nowrap">'
-      + '<span style="font-size:14px;line-height:1">' + icon + '</span>'
+  // Editorial "chapter marker" chips: coral-outlined tag, tracked caps, count in
+  // a small filled coral square. Pending-request dot moves to the top-right.
+  var chip = function(label, count, anchorId, hasDot) {
+    var dot = hasDot ? '<span style="position:absolute;top:-3px;right:-3px;width:8px;height:8px;background:#D85A30;border-radius:50%;border:1.5px solid #FFFFFF"></span>' : '';
+    return '<button onclick="scrollToAnchor(\'' + anchorId + '\')" style="position:relative;flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;background:#FFFFFF;border:1.5px solid #D85A30;border-radius:3px;padding:6px 10px 6px 12px;font-size:10.5px;font-weight:800;color:#D85A30;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer;white-space:nowrap">'
       + '<span>' + label + '</span>'
-      + '<span style="background:#2C2C2A;color:#FFFFFF;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;line-height:1.3">' + count + '</span>'
+      + '<span style="background:#D85A30;color:#FFFFFF;font-size:10px;font-weight:800;padding:1px 6px;border-radius:2px;line-height:1.3">' + count + '</span>'
       + dot
       + '</button>';
   };
   var chips = [];
-  if (accepted.length > 0 || pending.length > 0) chips.push(chip('👥', 'Friends', accepted.length, 'circle-friends-anchor', pending.length > 0));
-  if (groupsN > 0 || (MY_PENDING_GROUP_INVITES && MY_PENDING_GROUP_INVITES.length > 0)) chips.push(chip('🏷️', 'Groups', groupsN, 'circle-groups-anchor', MY_PENDING_GROUP_INVITES && MY_PENDING_GROUP_INVITES.length > 0));
+  if (accepted.length > 0 || pending.length > 0) chips.push(chip('Friends', accepted.length, 'circle-friends-anchor', pending.length > 0));
+  if (groupsN > 0 || (MY_PENDING_GROUP_INVITES && MY_PENDING_GROUP_INVITES.length > 0)) chips.push(chip('Groups', groupsN, 'circle-groups-anchor', MY_PENDING_GROUP_INVITES && MY_PENDING_GROUP_INVITES.length > 0));
   host.innerHTML = chips.join('');
 }
 function scrollToAnchor(id) {
