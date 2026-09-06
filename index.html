@@ -640,11 +640,14 @@
           <div class="fuzzy-warn" id="cat-warn" onclick="useCatWarn()">
             Similar category already exists: <strong id="cat-warn-name"></strong> — tap to use it instead
           </div>
-          <div class="toggle-wrap">
-            <span style="font-size:13.5px;color:#2C2C2A">Ranked list (1 = favorite)</span>
+          <div class="toggle-wrap" style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:12px 14px;margin-bottom:14px;margin-top:18px">
+            <div>
+              <div style="font-size:13px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em">Ranked list</div>
+              <div style="font-size:11px;color:#5F5E5A;margin-top:2px">1 = your favorite. Turn off for an unordered list.</div>
+            </div>
             <label class="toggle"><input type="checkbox" id="ranked-tog" checked><span class="toggle-slider"></span></label>
           </div>
-          <button class="btn-primary" id="create1-continue-btn" onclick="goToCreateStep2()">Continue →</button>
+          <button class="btn-primary" id="create1-continue-btn" onclick="goToCreateStep2()" style="border-radius:3px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;font-size:11px;padding:14px">Continue →</button>
         </div>
       </div>
 
@@ -679,9 +682,9 @@
               Similar item exists: <strong id="item-warn-name"></strong> — use that instead?
             </div>
           </div>
-          <button class="btn-primary" id="create2-continue-new" onclick="checkListComplete()" style="margin-top:8px">Continue →</button>
-          <button class="btn-primary" id="create2-save-edit" onclick="saveList()" style="margin-top:8px;display:none">Save changes</button>
-          <button class="btn-secondary" id="create2-save-share-edit" onclick="checkListComplete()" style="margin-bottom:0;display:none">Save & sharing options →</button>
+          <button class="btn-primary" id="create2-continue-new" onclick="checkListComplete()" style="margin-top:8px;border-radius:3px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;font-size:11px;padding:14px">Continue →</button>
+          <button class="btn-primary" id="create2-save-edit" onclick="saveList()" style="margin-top:8px;display:none;border-radius:3px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;font-size:11px;padding:14px">Save changes</button>
+          <button class="btn-secondary" id="create2-save-share-edit" onclick="checkListComplete()" style="margin-bottom:0;display:none;border-radius:3px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;font-size:11px">Save & sharing options →</button>
         </div>
       </div>
 
@@ -2369,14 +2372,19 @@ function renderCatGrid() {
   var ordered = antiAdjacentByColor(CATS, function(c){ return getCategoryColor(c.n).key; });
   ordered.forEach(function(cat) {
     var pal = getCategoryColor(cat.n);
+    var accent = pal.accent || pal.fg || '#2C2C2A';
     var selected = selCat === cat.n;
     var div = document.createElement('div');
     div.className = 'cat-card' + (selected ? ' selected' : '');
-    // Match the My Lists bento tile: same size, padding, alignment, and typography
-    div.style.cssText = 'background:' + pal.bg + 'AA;border:' + (selected ? '2.5px solid #2C2C2A' : '1.5px solid #2C2C2A') + ';border-radius:18px;padding:16px;cursor:pointer;text-align:left;touch-action:manipulation;'
-      + 'transform:' + (selected ? 'scale(1.02)' : 'scale(1)') + ';transition:transform 0.15s ease';
-    div.innerHTML = '<div style="font-size:36px;line-height:1;margin-bottom:10px">' + renderCatEmoji(cat.e, 36) + '</div>'
-      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A">Top 10 ' + escapeHtml(cat.n) + '</div>';
+    // Editorial index-card: tinted bg, 7px accent left bar, squared 3px corners.
+    // Selected state uses a bolder inner ring + wider bar instead of scale.
+    var leftBar = selected ? '11px' : '7px';
+    var borderColor = selected ? accent : accent + '33';
+    div.style.cssText = 'background:' + pal.bg + '33;border:1px solid ' + borderColor + ';border-left:' + leftBar + ' solid ' + accent + ';border-radius:3px;padding:14px 12px;cursor:pointer;text-align:left;touch-action:manipulation;transition:border-left-width 0.15s ease,border-color 0.15s ease;'
+      + (selected ? 'box-shadow:0 0 0 2px ' + accent + '55;' : '');
+    div.innerHTML = '<div style="font-size:32px;line-height:1;margin-bottom:10px">' + renderCatEmoji(cat.e, 32) + '</div>'
+      + '<div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;line-height:1.1;color:#2C2C2A;margin-bottom:5px">Top 10 ' + escapeHtml(cat.n) + '</div>'
+      + '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;color:' + accent + ';opacity:0.85;text-transform:uppercase">' + (selected ? 'Selected ✓' : 'Tap to pick') + '</div>';
     div.onclick = function() { selCat = cat.n; selCatEmoji = cat.e; renderCatGrid(); document.getElementById('cat-inp').value = ''; document.getElementById('cat-warn').style.display = 'none'; document.getElementById('cat-sugs').style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; nudgeCreate1Continue(); };
     grid.appendChild(div);
   });
@@ -11903,16 +11911,17 @@ function renderCreateCurrentWeekly() {
   var ctaLabel = hasIt ? 'Review or update →' : 'Make your Top 10 →';
   var safeCat = wk.category.replace(/\'/g,"\\'");
   var safeEmoji = (wk.emoji || '📋').replace(/\'/g,"\\'");
-  el.innerHTML = '<div style="position:relative;background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:22px;padding:18px;cursor:pointer" onclick="openWeeklyListFlow(\'' + safeCat + '\',\'' + safeEmoji + '\')">'
-    + '<div style="display:inline-block;background:#2C2C2A;color:#FFFFFF;font-size:9.5px;font-weight:700;padding:3px 10px;border-radius:99px;letter-spacing:0.08em;margin-bottom:10px">✨ THIS WEEK ON TENNER</div>'
+  var accent = pal.accent || pal.fg || '#2C2C2A';
+  el.innerHTML = '<div style="position:relative;background:' + pal.bg + '55;border:1px solid ' + accent + '55;border-left:7px solid ' + accent + ';border-radius:3px;padding:16px;cursor:pointer" onclick="openWeeklyListFlow(\'' + safeCat + '\',\'' + safeEmoji + '\')">'
+    + '<div style="display:inline-block;background:#D85A30;color:#FFFFFF;font-size:9.5px;font-weight:800;padding:4px 10px;border-radius:3px;letter-spacing:0.14em;margin-bottom:12px;text-transform:uppercase">This week on Tenner</div>'
     + '<div style="display:flex;align-items:flex-start;gap:12px">'
-    +   '<div style="font-size:44px;line-height:1;flex-shrink:0">' + renderCatEmoji(wk.emoji || '📋', 44) + '</div>'
+    +   '<div style="font-size:40px;line-height:1;flex-shrink:0">' + renderCatEmoji(wk.emoji || '📋', 40) + '</div>'
     +   '<div style="flex:1;min-width:0">'
-    +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A">Top 10 ' + escapeHtml(wk.category) + '</div>'
-    +     '<div style="font-size:11.5px;color:#2C2C2A;opacity:0.75;font-weight:600;margin-top:4px">' + stateLine + '</div>'
+    +     '<div style="font-size:18px;font-weight:800;letter-spacing:-0.01em;line-height:1.15;color:#2C2C2A">Top 10 ' + escapeHtml(wk.category) + '</div>'
+    +     '<div style="font-size:10px;font-weight:700;letter-spacing:0.12em;color:' + accent + ';opacity:0.85;margin-top:5px;text-transform:uppercase">' + stateLine + '</div>'
     +   '</div>'
     + '</div>'
-    + '<button onclick="event.stopPropagation();openWeeklyListFlow(\'' + safeCat + '\',\'' + safeEmoji + '\')" style="width:100%;margin-top:12px;background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">' + ctaLabel + '</button>'
+    + '<button onclick="event.stopPropagation();openWeeklyListFlow(\'' + safeCat + '\',\'' + safeEmoji + '\')" style="width:100%;margin-top:14px;background:#D85A30;color:#FFFFFF;border:none;border-radius:3px;padding:11px;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer;font-family:inherit">' + ctaLabel.replace('→','→') + '</button>'
     + '</div>';
 }
 
@@ -11930,12 +11939,15 @@ function renderCreatePastWeekly() {
     var hasIt = userHasListInCategory(w.category);
     var when = new Date(w.week_start + 'T00:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' });
     var label = hasIt ? 'View →' : 'Fill it out →';
-    return '<div class="card" onclick="openWeeklyListFlow(\'' + w.category.replace(/\'/g,"\\'") + '\',\'' + (w.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="margin-bottom:6px">'
-      + '<div style="display:flex;align-items:center;gap:10px">'
-      +   '<div style="width:32px;height:32px;border-radius:8px;background:#FAECE7;display:flex;align-items:center;justify-content:center">' + renderCatEmoji(w.emoji || '📋', 20) + '</div>'
-      +   '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Top 10 ' + escapeHtml(w.category) + '</div><div style="font-size:11px;color:#5F5E5A">' + when + '</div></div>'
-      +   '<span style="font-size:11px;color:#D85A30;font-weight:600">' + label + '</span>'
-      + '</div></div>';
+    var wpal = getCategoryColor(w.category, { id: w.id });
+    var wacc = wpal.accent || wpal.fg || '#2C2C2A';
+    return '<div onclick="openWeeklyListFlow(\'' + w.category.replace(/\'/g,"\\'") + '\',\'' + (w.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:' + wpal.bg + '33;border:1px solid ' + wacc + '33;border-left:7px solid ' + wacc + ';border-radius:3px;padding:10px 12px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px">'
+      +   '<div style="font-size:22px;line-height:1;flex-shrink:0">' + renderCatEmoji(w.emoji || '📋', 22) + '</div>'
+      +   '<div style="flex:1;min-width:0">'
+      +     '<div style="font-size:14px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Top 10 ' + escapeHtml(w.category) + '</div>'
+      +     '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;color:' + wacc + ';opacity:0.85;margin-top:3px;text-transform:uppercase">' + when + '  ·  ' + label.replace('→','').trim() + '</div>'
+      +   '</div>'
+      + '</div>';
   }).join('');
   var moreBtn = (expanded && past.length > visible.length)
     ? '<button class="btn-secondary" onclick="WEEKLY_PAST_SHOWN+=12;renderCreatePastWeekly()" style="margin-top:6px">See more →</button>'
