@@ -9516,19 +9516,52 @@ function toggleMatchOverall() {
 // Warm gradient empty-state hero for the Match screen (mirrors todayCard).
 function matchEmptyHero(emoji, title, subtitle, cta) {
   var ctaHtml = cta
-    ? '<button onclick="' + cta.action + '" class="btn-primary" style="width:auto;padding:10px 22px;margin:14px 0 0;font-size:13px">' + escapeHtml(cta.label) + '</button>'
+    ? '<button onclick="' + cta.action + '" style="border:none;cursor:pointer;background:#D85A30;color:#FFFFFF;border-radius:3px;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;font-size:11px;padding:12px 22px;margin:16px 0 0">' + escapeHtml(cta.label) + '</button>'
     : '';
-  return '<div style="background:linear-gradient(135deg,#FFF5EE 0%,#FDE6D9 100%);border:1.5px solid #F5B091;border-radius:18px;padding:32px 20px;text-align:center;margin-top:8px">'
+  return '<div style="background:linear-gradient(135deg,#FFF5EE 0%,#FDE6D9 100%);border:1px solid #F5B091;border-left:7px solid #D85A30;border-radius:3px;padding:32px 20px;text-align:center;margin-top:8px">'
     + '<div style="font-size:44px;line-height:1;margin-bottom:12px">' + emoji + '</div>'
-    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.01em;color:#2C2C2A;margin-bottom:6px">' + escapeHtml(title) + '</div>'
+    + '<div style="font-size:18px;font-weight:800;letter-spacing:-0.005em;line-height:1.1;color:#2C2C2A;margin-bottom:8px">' + escapeHtml(title) + '</div>'
     + '<div style="font-size:12.5px;color:#5F5E5A;line-height:1.5;max-width:280px;margin:0 auto">' + escapeHtml(subtitle) + '</div>'
     + ctaHtml
     + '</div>';
 }
 
-// Dark 99px badge — shared "rank / count" token used across the app.
+// Squared badge — shared "rank / count" token used across the app.
 function matchRankBadge(text) {
-  return '<span style="display:inline-flex;align-items:center;justify-content:center;background:#2C2C2A;color:#FFFFFF;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:99px;letter-spacing:0.02em;line-height:1.3;min-width:20px">' + text + '</span>';
+  return '<span style="display:inline-flex;align-items:center;justify-content:center;background:#2C2C2A;color:#FFFFFF;font-size:9.5px;font-weight:800;padding:3px 7px;border-radius:2px;letter-spacing:0.12em;line-height:1.3;min-width:20px;text-transform:uppercase">' + text + '</span>';
+}
+
+// Editorial folio masthead — small tracked-caps line at the top of a tab.
+function editorialMasthead(label) {
+  try {
+    var d = new Date();
+    var months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEPT','OCT','NOV','DEC'];
+    var dayStr = '';
+    var joinedAt = typeof myProfile !== 'undefined' && myProfile && myProfile.created_at;
+    if (joinedAt) {
+      var days = Math.floor((Date.now() - new Date(joinedAt).getTime()) / (1000*60*60*24));
+      if (days >= 0) dayStr = '  ·  DAY ' + (days + 1) + ' ON TENNER';
+    }
+    return '<div style="font-size:9.5px;letter-spacing:0.22em;color:#2C2C2A;opacity:0.55;font-weight:700;text-transform:uppercase;text-align:center;padding:2px 0 14px">'
+      + months[d.getMonth()] + ' ' + d.getDate()
+      + '  ·  <span style="color:#D85A30">' + escapeHtml(label) + '</span>'
+      + dayStr
+      + '</div>';
+  } catch(e) { return ''; }
+}
+
+// Coral rule-line section header. `action` is optional { label, onclick }.
+function coralRuleHeader(label, count, action) {
+  var labelHtml = escapeHtml(label) + (count != null ? ' · ' + count : '');
+  var actionHtml = action
+    ? '<a onclick="' + action.onclick + '" style="font-size:10px;letter-spacing:0.12em;background:#D85A30;color:#FFFFFF;cursor:pointer;font-weight:800;text-transform:uppercase;white-space:nowrap;padding:5px 10px;border-radius:3px">' + escapeHtml(action.label) + ' →</a>'
+    : '';
+  return '<div style="display:flex;align-items:center;gap:12px;margin:28px 0 14px">'
+    + '<div style="flex:1;height:2px;background:#D85A30"></div>'
+    + '<div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">' + labelHtml + '</div>'
+    + '<div style="flex:1;height:2px;background:#D85A30"></div>'
+    + actionHtml
+    + '</div>';
 }
 
 async function renderMatch() {
@@ -9553,24 +9586,25 @@ async function renderMatch() {
     return true;
   });
   if (dbg) dbg.textContent = 'Match Scores';
+  var _mastMatch = editorialMasthead('MATCH');
   if (accepted.length === 0) {
     // Check if there are ANY friendship rows at all (pending too)
     var anyFriends = myFriends.length > 0;
     var hint = anyFriends
       ? '<div style="font-size:11px;color:#888780;margin-top:6px">You have a pending friend request — accept it on your Profile tab.</div>'
       : '<div style="font-size:11px;line-height:1.5">Add friends from your Profile tab, or share a list invite link from the Create tab so friends auto-connect when they sign up.</div>';
-    el.innerHTML = matchEmptyHero('📊', 'No matches to compare yet', anyFriends
+    el.innerHTML = _mastMatch + matchEmptyHero('📊', 'No matches to compare yet', anyFriends
       ? "You have a pending friend request — accept it on your Profile tab."
       : "Add a friend, then create a shared list — that's where the match magic happens.",
       anyFriends ? null : { label: '+ Add friends', action: "go('s-add-friends')" });
     return;
   }
   if (MY_LISTS.length === 0) {
-    el.innerHTML = matchEmptyHero('📋', 'Create your first list', "Make your Top 10 in a category your friends also cover, then come back here to see how you compare.",
+    el.innerHTML = _mastMatch + matchEmptyHero('📋', 'Create your first list', "Make your Top 10 in a category your friends also cover, then come back here to see how you compare.",
       { label: '+ Create a list', action: "go('s-create1')" });
     return;
   }
-  el.innerHTML = '<div style="font-size:11px;color:#888780;text-align:center;padding:20px">Loading comparisons…</div>';
+  el.innerHTML = _mastMatch + '<div style="font-size:11px;color:#888780;text-align:center;padding:20px">Loading comparisons…</div>';
   try {
     var friendIds = accepted.map(function(f) { return f.friendId; });
     // Fetch friend lists without profile join (FK is to auth.users, not profiles)
@@ -9613,7 +9647,7 @@ async function renderMatch() {
       } else {
         emptyMsg = 'You and your friends need lists in the same category to compare. Your lists: ' + myCategories.join(', ') + '.';
       }
-      el.innerHTML = matchEmptyHero('🔍', 'No overlapping lists yet', emptyMsg, { label: '+ New list', action: "go('s-create1')" });
+      el.innerHTML = _mastMatch + matchEmptyHero('🔍', 'No overlapping lists yet', emptyMsg, { label: '+ New list', action: "go('s-create1')" });
       return;
     }
     // Build per-friend overall scores (average across all categories they share with you)
@@ -9637,8 +9671,9 @@ async function renderMatch() {
     } else if (groupCtx >= 0 && MY_GROUPS[groupCtx]) {
       groupLabel = MY_GROUPS[groupCtx].emoji + ' ' + MY_GROUPS[groupCtx].n + ' · ';
     }
-    var overallSuffix = sharedGroupCats ? 'across ' + sharedGroupCats.length + ' shared list' + (sharedGroupCats.length !== 1 ? 's' : '') : 'across all lists';
-    var overallHtml = '<div class="sec-label">' + groupLabel + 'Overall Match (' + overallSuffix + ')</div>';
+    var overallSuffix = sharedGroupCats ? sharedGroupCats.length + ' SHARED LIST' + (sharedGroupCats.length !== 1 ? 'S' : '') : 'ACROSS ALL LISTS';
+    var overallLabelPrefix = groupLabel ? groupLabel.toUpperCase() : '';
+    var overallHtml = coralRuleHeader(overallLabelPrefix + 'OVERALL MATCH · ' + overallSuffix);
     if (overallRanked.length === 0) {
       overallHtml += '<div style="font-size:11px;color:#888780;padding:8px 0">No shared lists yet.</div>';
     } else {
@@ -9651,15 +9686,15 @@ async function renderMatch() {
         var fid = entry.friend.friendId || '';
         var isNew = isMatchNew(fid, 'Overall', entry.avg);
         var scoreDisplay = isNew
-          ? '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + entry.avg + ',\'Overall\',\'' + fid + '\')" style="background:#D85A30;color:#fff;border:none;border-radius:99px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer">✨ Tap to reveal</button>'
-          : '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:44px;color:#D85A30;line-height:1;letter-spacing:-0.02em">' + entry.avg + '<span style="font-size:22px">%</span></div>';
-        var detail = entry.cats.length + ' shared list' + (entry.cats.length!==1?'s':'');
-        return '<div id="match-row-overall-' + fid + '" class="match-row" style="background:linear-gradient(135deg,#FFF5EE 0%,#FDE6D9 100%);border:1.5px solid #F5B091;border-radius:18px;padding:16px 18px;margin-bottom:10px;display:flex;align-items:center;gap:14px">'
+          ? '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + entry.avg + ',\'Overall\',\'' + fid + '\')" style="background:#D85A30;color:#fff;border:none;border-radius:3px;padding:10px 16px;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer">✨ Tap to reveal</button>'
+          : '<div style="font-size:44px;font-weight:800;color:#D85A30;line-height:1;letter-spacing:-0.02em">' + entry.avg + '<span style="font-size:22px">%</span></div>';
+        var detail = entry.cats.length + ' SHARED LIST' + (entry.cats.length!==1?'S':'');
+        return '<div id="match-row-overall-' + fid + '" class="match-row" style="background:#FFFFFF;border:1px solid #D85A3033;border-left:7px solid #D85A30;border-radius:3px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:14px">'
           + friendAvatarHtml(entry.friend.profile, 52)
           + '<div style="flex:1;min-width:0">'
-          +   '<div style="font-size:10px;font-weight:700;color:#2C2C2A;opacity:0.65;letter-spacing:0.06em;text-transform:uppercase">🥇 Closest match</div>'
-          +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;color:#2C2C2A;line-height:1.1;letter-spacing:-0.01em;margin-top:1px">' + escapeHtml(fname) + '</div>'
-          +   '<div style="font-size:11px;color:#5F5E5A;margin-top:3px">' + detail + '</div>'
+          +   '<div style="font-size:9.5px;font-weight:800;color:#D85A30;opacity:0.85;letter-spacing:0.14em;text-transform:uppercase">🥇 Closest match</div>'
+          +   '<div style="font-size:18px;font-weight:800;color:#2C2C2A;line-height:1.1;letter-spacing:-0.005em;margin-top:3px">' + escapeHtml(fname) + '</div>'
+          +   '<div style="font-size:9.5px;color:#D85A30;opacity:0.75;margin-top:4px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">' + detail + '</div>'
           + '</div>'
           + '<div id="match-score-cell-overall-' + fid + '" data-match-score="' + entry.avg + '" data-match-mode="hero" style="text-align:right;flex-shrink:0">' + scoreDisplay + '</div>'
           + '</div>';
@@ -9668,23 +9703,20 @@ async function renderMatch() {
         var fname = (entry.friend.profile && entry.friend.profile.display_name) || (entry.friend.profile && entry.friend.profile.handle ? '@'+entry.friend.profile.handle : 'Friend');
         var medals = ['🥇','🥈','🥉'];
         var medal = medals[rank] || matchRankBadge('#' + (rank + 1));
-        var detail = entry.cats.length + ' list' + (entry.cats.length!==1?'s':'');
+        var detail = entry.cats.length + ' LIST' + (entry.cats.length!==1?'S':'');
         var encoded = encodeURIComponent(JSON.stringify(entry.friend.profile || {}));
         var fid = entry.friend.friendId || '';
         var isNew = isMatchNew(fid, 'Overall', entry.avg);
         var scoreDisplay = isNew
-          ? '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + entry.avg + ',\'Overall\',\'' + fid + '\')" style="background:#D85A30;color:#fff;border:none;border-radius:99px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">✨ Tap to reveal</button>'
-          : '<div style="font-size:18px;font-weight:700;color:#D85A30">' + entry.avg + '%</div>'
-            + '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + entry.avg + ',\'Overall\',\'' + fid + '\')" style="background:none;border:none;color:#888780;font-size:10px;cursor:pointer;padding:2px 0">↻ replay</button>';
-        var barFill = isNew
-          ? '<div class="bar-bg"><div class="bar-fill" style="width:100%;background:repeating-linear-gradient(45deg,#F1EFE8,#F1EFE8 6px,#E8E6DF 6px,#E8E6DF 12px)"></div></div>'
-          : '<div class="bar-bg"><div class="bar-fill" style="width:' + entry.avg + '%"></div></div>';
-        return '<div id="match-row-overall-' + fid + '" class="match-row card no-hover" style="margin-bottom:6px;padding:9px 11px"><div style="display:flex;align-items:center;gap:9px">'
-          + '<span style="font-size:18px;width:24px;text-align:center;display:inline-flex;align-items:center;justify-content:center">' + medal + '</span>'
+          ? '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + entry.avg + ',\'Overall\',\'' + fid + '\')" style="background:#D85A30;color:#fff;border:none;border-radius:3px;padding:6px 12px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer">✨ Reveal</button>'
+          : '<div style="font-size:18px;font-weight:800;color:#D85A30;letter-spacing:-0.005em">' + entry.avg + '%</div>'
+            + '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + entry.avg + ',\'Overall\',\'' + fid + '\')" style="background:none;border:none;color:#888780;font-size:9.5px;cursor:pointer;padding:2px 0;font-weight:700;letter-spacing:0.12em;text-transform:uppercase">↻ replay</button>';
+        return '<div id="match-row-overall-' + fid + '" class="match-row" style="background:#FFFFFF;border:1px solid #D85A3033;border-left:7px solid #D85A30;border-radius:3px;margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px">'
+          + '<span style="font-size:16px;width:22px;text-align:center;display:inline-flex;align-items:center;justify-content:center">' + medal + '</span>'
           + friendAvatarHtml(entry.friend.profile, 32)
-          + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + fname + '</div>'
-          + '<div style="font-size:13.5px;color:#5F5E5A;margin-top:1px">' + detail + '</div></div>'
-          + '<div id="match-score-cell-overall-' + fid + '" data-match-score="' + entry.avg + '" data-match-mode="row" style="text-align:right">' + scoreDisplay + '</div></div></div>';
+          + '<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em;line-height:1.1">' + escapeHtml(fname) + '</div>'
+          + '<div style="font-size:9.5px;color:#D85A30;opacity:0.75;margin-top:3px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">' + detail + '</div></div>'
+          + '<div id="match-score-cell-overall-' + fid + '" data-match-score="' + entry.avg + '" data-match-mode="row" style="text-align:right;flex-shrink:0">' + scoreDisplay + '</div></div>';
       };
       // Render #1 as hero, rest as compact rows
       overallHtml += renderHeroEntry(overallRanked[0]);
@@ -9709,20 +9741,22 @@ async function renderMatch() {
         var mostName = mp.display_name || (mp.handle ? '@' + mp.handle : 'A friend');
         var leastName = lp.display_name || (lp.handle ? '@' + lp.handle : 'a friend');
         overallHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
-          + '<div style="background:#EAF3DE;border:1.5px solid #97C459;border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:9px">'
+          + '<div style="background:#EAF3DE;border:1px solid #97C45933;border-left:7px solid #97C459;border-radius:3px;padding:10px 12px;display:flex;align-items:center;gap:9px">'
           +   friendAvatarHtml(mp, 32)
-          +   '<div style="min-width:0"><div style="font-size:9px;font-weight:700;color:#27500A;letter-spacing:0.05em;text-transform:uppercase">Closest</div>'
-          +   '<div style="font-size:12px;font-weight:700;color:#2C2C2A;line-height:1.15;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(mostName) + '</div></div>'
+          +   '<div style="min-width:0"><div style="font-size:9.5px;font-weight:800;color:#27500A;letter-spacing:0.14em;text-transform:uppercase">Closest</div>'
+          +   '<div style="font-size:14px;font-weight:800;color:#2C2C2A;line-height:1.1;margin-top:3px;letter-spacing:-0.005em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(mostName) + '</div></div>'
           + '</div>'
-          + '<div style="background:#FBE5E0;border:1.5px solid #F09595;border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:9px">'
+          + '<div style="background:#FBE5E0;border:1px solid #F0959533;border-left:7px solid #F09595;border-radius:3px;padding:10px 12px;display:flex;align-items:center;gap:9px">'
           +   friendAvatarHtml(lp, 32)
-          +   '<div style="min-width:0"><div style="font-size:9px;font-weight:700;color:#A32D2D;letter-spacing:0.05em;text-transform:uppercase">Most different</div>'
-          +   '<div style="font-size:12px;font-weight:700;color:#2C2C2A;line-height:1.15;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(leastName) + '</div></div>'
+          +   '<div style="min-width:0"><div style="font-size:9.5px;font-weight:800;color:#A32D2D;letter-spacing:0.14em;text-transform:uppercase">Most different</div>'
+          +   '<div style="font-size:14px;font-weight:800;color:#2C2C2A;line-height:1.1;margin-top:3px;letter-spacing:-0.005em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(leastName) + '</div></div>'
           + '</div>'
           + '</div>';
       }
     }
-    overallHtml += '<div class="sec-label">By List</div>';
+    // By-list header — inserted after we know the category count
+    var _byListHeaderPlaceholder = '__BYLIST_HEADER__';
+    overallHtml += _byListHeaderPlaceholder;
 
     var byCategory = {};
     comparisons.forEach(function(c) {
@@ -9743,8 +9777,13 @@ async function renderMatch() {
     // on mobile) with a "Show all X" toggle if there are more.
     var TAB_PREVIEW = 9;
     var tabBtn = function(cat, i, extraStyle) {
-      var catEmoji = renderCatEmoji(getCatEmoji(cat) || '📋', 13);
-      return '<button class="list-sel-btn' + (i===preferredIdx?' active':'') + '" onclick="showMatchTab(this,\'' + cat.replace(/'/g,"\\'") + '\')" style="' + (extraStyle || '') + '"><span style="margin-right:5px">' + catEmoji + '</span>' + escapeHtml(cat) + '</button>';
+      var catEmoji = renderCatEmoji(getCatEmoji(cat) || '📋', 12);
+      var isActive = (i === preferredIdx);
+      var baseStyle = 'border-radius:3px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;padding:6px 10px;cursor:pointer;white-space:nowrap;font-family:inherit;flex-shrink:0;'
+        + (isActive
+            ? 'background:#D85A30;color:#FFFFFF;border:1.5px solid #D85A30;'
+            : 'background:#FFFFFF;color:#D85A30;border:1.5px solid #D85A30;');
+      return '<button class="list-sel-btn' + (isActive ? ' active' : '') + '" data-match-tab="1" onclick="showMatchTab(this,\'' + cat.replace(/'/g,"\\'") + '\')" style="' + baseStyle + (extraStyle || '') + '"><span style="margin-right:5px">' + catEmoji + '</span>' + escapeHtml(cat) + '</button>';
     };
     var tabsHtml;
     if (cats.length <= TAB_PREVIEW) {
@@ -9758,7 +9797,7 @@ async function renderMatch() {
         +   visibleTabs
         +   '<div id="match-tabs-extra" style="display:' + (expanded ? 'contents' : 'none') + '">' + hiddenTabs + '</div>'
         + '</div>'
-        + '<button id="match-tabs-toggle" onclick="toggleMatchTabs(' + cats.length + ')" style="width:100%;padding:7px;background:#F1EFE8;border:none;border-radius:8px;font-size:12px;color:#5F5E5A;cursor:pointer;margin-bottom:12px;font-weight:600">' + (expanded ? '▲ Show fewer' : '▼ Show all ' + cats.length) + '</button>';
+        + '<button id="match-tabs-toggle" onclick="toggleMatchTabs(' + cats.length + ')" style="width:100%;padding:9px;background:#FFFFFF;border:1.5px solid #D85A30;border-radius:3px;font-size:10px;color:#D85A30;cursor:pointer;margin-bottom:12px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase">' + (expanded ? '▲ Show fewer' : '▼ Show all ' + cats.length) + '</button>';
     }
     var panelsHtml = cats.map(function(cat, i) {
       var comps = byCategory[cat];
@@ -9776,16 +9815,16 @@ async function renderMatch() {
         var fid = c.friend.friendId || '';
         var isNew = isMatchNew(fid, c.category, c.score);
         var scoreDisplay = isNew
-          ? '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + c.score + ',decodeURIComponent(\'' + catLabel + '\'),\'' + fid + '\')" style="background:#D85A30;color:#fff;border:none;border-radius:99px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">✨ Tap to reveal</button>'
-          : '<div style="font-size:20px;font-weight:800;color:' + accent + ';font-family:\'DM Serif Display\',Georgia,serif;letter-spacing:-0.01em">' + c.score + '%</div>'
-            + '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + c.score + ',decodeURIComponent(\'' + catLabel + '\'),\'' + fid + '\')" style="background:none;border:none;color:' + accent + ';opacity:0.6;font-size:10px;cursor:pointer;padding:2px 0">↻ replay</button>';
+          ? '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + c.score + ',decodeURIComponent(\'' + catLabel + '\'),\'' + fid + '\')" style="background:#D85A30;color:#fff;border:none;border-radius:3px;padding:6px 12px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer">✨ Reveal</button>'
+          : '<div style="font-size:20px;font-weight:800;color:' + accent + ';letter-spacing:-0.005em;line-height:1">' + c.score + '%</div>'
+            + '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + c.score + ',decodeURIComponent(\'' + catLabel + '\'),\'' + fid + '\')" style="background:none;border:none;color:' + accent + ';opacity:0.6;font-size:9.5px;cursor:pointer;padding:2px 0;font-weight:700;letter-spacing:0.12em;text-transform:uppercase">↻ replay</button>';
         var barFill = isNew
           ? '<div class="bar-bg"><div class="bar-fill" style="width:100%;background:repeating-linear-gradient(45deg,#F1EFE8,#F1EFE8 6px,#E8E6DF 6px,#E8E6DF 12px)"></div></div>'
           : '<div class="bar-bg" style="background:rgba(0,0,0,0.06)"><div class="bar-fill" style="width:' + c.score + '%;background:' + accent + '"></div></div>';
         var catSlug = String(c.category).toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        return '<div id="match-row-' + i + '-' + fid + '" class="match-row" onclick="matchRowJumpToSbs(' + i + ',\'' + fid + '\')" style="background:' + pal.bg + '99;border:1.5px solid #2C2C2A;border-radius:14px;padding:8px 12px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px">'
+        return '<div id="match-row-' + i + '-' + fid + '" class="match-row" onclick="matchRowJumpToSbs(' + i + ',\'' + fid + '\')" style="background:' + pal.bg + '33;border:1px solid ' + accent + '33;border-left:7px solid ' + accent + ';border-radius:3px;padding:10px 12px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px">'
           + friendAvatarHtml(c.friend.profile, 34)
-          + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:' + accent + ';line-height:1.15">' + escapeHtml(fname) + '</div><div style="font-size:11px;color:' + accent + ';opacity:0.75;margin-top:1px;font-weight:600">' + detail + '</div></div>'
+          + '<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em;line-height:1.1">' + escapeHtml(fname) + '</div><div style="font-size:9.5px;color:' + accent + ';opacity:0.85;margin-top:3px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">' + detail + '</div></div>'
           + '<div id="match-score-cell-cat-' + catSlug + '-' + fid + '" data-match-score="' + c.score + '" data-match-accent="' + accent + '" data-match-mode="row" style="text-align:right;flex-shrink:0">' + scoreDisplay + '</div>'
           + '</div>';
       };
@@ -9901,12 +9940,12 @@ async function renderMatch() {
         }).join('');
         var multi = ordered.length > 1;
         var chevBtn = function(dir, glyph) {
-          return '<button onclick="sbsNav(' + i + ',' + dir + ',' + ordered.length + ')" style="background:#2C2C2A;color:#FFFFFF;border:none;border-radius:99px;width:28px;height:28px;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center">' + glyph + '</button>';
+          return '<button onclick="sbsNav(' + i + ',' + dir + ',' + ordered.length + ')" style="background:#2C2C2A;color:#FFFFFF;border:none;border-radius:3px;width:28px;height:28px;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center">' + glyph + '</button>';
         };
         var nav = multi
           ? '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
               + chevBtn(-1, '‹')
-              + '<div id="sbs-dots-' + i + '" style="display:flex;gap:5px">' + ordered.map(function(_, di){ return '<span style="width:7px;height:7px;border-radius:50%;background:' + (di===0 ? accent : 'rgba(0,0,0,0.15)') + ';transition:background .15s;display:inline-block"></span>'; }).join('') + '</div>'
+              + '<div id="sbs-dots-' + i + '" style="display:flex;gap:5px">' + ordered.map(function(_, di){ return '<span style="width:8px;height:3px;border-radius:2px;background:' + (di===0 ? accent : 'rgba(0,0,0,0.15)') + ';transition:background .15s;display:inline-block"></span>'; }).join('') + '</div>'
               + chevBtn(1, '›')
               + '</div>'
           : '';
@@ -9952,18 +9991,20 @@ async function renderMatch() {
 
       var panelEmoji = renderCatEmoji(getCatEmoji(cat) || '📋', 22);
       return '<div id="match-panel-' + i + '" style="display:' + (i===preferredIdx?'block':'none') + '">'
-        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 12px;background:' + pal.bg + '55;border-radius:12px">'
+        + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px 14px;background:' + pal.bg + '33;border:1px solid ' + accent + '33;border-left:7px solid ' + accent + ';border-radius:3px">'
         +   '<span style="font-size:22px;line-height:1">' + panelEmoji + '</span>'
-        +   '<div style="flex:1"><div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:17px;color:' + accent + ';letter-spacing:-0.01em;line-height:1.1">Top 10 ' + escapeHtml(cat) + '</div></div>'
-        +   matchRankBadge(comps.length + ' friend' + (comps.length>1?'s':''))
+        +   '<div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em;line-height:1.1">Top 10 ' + escapeHtml(cat) + '</div>'
+        +   '<div style="font-size:9.5px;color:' + accent + ';opacity:0.85;margin-top:3px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">' + comps.length + ' FRIEND' + (comps.length>1?'S':'') + '</div></div>'
         + '</div>'
-        + '<div class="sec-label">Match Scores</div>' + scoresHtml
-        + '<div class="sec-label">' + sideLabel + '</div>'
+        + coralRuleHeader('MATCH SCORES · ' + comps.length) + scoresHtml
+        + coralRuleHeader(sideLabel.toUpperCase())
         + sideBodyHtml
-        + (agreePills ? '<div class="sec-label">Everyone agrees on…</div><div style="display:flex;flex-wrap:wrap;gap:6px">' + agreePills + '</div>' : '')
+        + (agreePills ? coralRuleHeader('EVERYONE AGREES ON') + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + agreePills + '</div>' : '')
         + '</div>';
     }).join('');
-    el.innerHTML = tabsHtml + panelsHtml;
+    var byListHeader = coralRuleHeader('BY LIST · ' + cats.length + ' CATEGOR' + (cats.length === 1 ? 'Y' : 'IES'));
+    var finalHtml = (tabsHtml + panelsHtml).replace('__BYLIST_HEADER__', byListHeader);
+    el.innerHTML = _mastMatch + finalHtml;
     window._matchCats = cats;
   } catch(e) {
     var msg = (e && (e.message || e.details || JSON.stringify(e))) || 'Unknown error';
@@ -10041,8 +10082,18 @@ function sbsTouchEnd(e, i, count) {
 }
 
 function showMatchTab(btn, cat) {
-  document.querySelectorAll('#match-screen-content .list-sel-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('#match-screen-content .list-sel-btn').forEach(function(b){
+    b.classList.remove('active');
+    if (b.getAttribute('data-match-tab') === '1') {
+      b.style.background = '#FFFFFF';
+      b.style.color = '#D85A30';
+    }
+  });
   btn.classList.add('active');
+  if (btn.getAttribute('data-match-tab') === '1') {
+    btn.style.background = '#D85A30';
+    btn.style.color = '#FFFFFF';
+  }
   window._selectedMatchTab = cat; // persist so re-renders (e.g. after reveal) can restore
   var cats = window._matchCats || [];
   cats.forEach(function(c, i) {
@@ -12110,25 +12161,18 @@ function daysUntilBirthday(birthdayStr) {
 async function renderGifts() {
   var el = document.getElementById('gifts-content');
   if (!el) return;
+  var _mastGifts = editorialMasthead('GIFTS');
   if (!myFriends || !myFriends.length) {
-    el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#888780">'
-      + '<div style="font-size:36px;margin-bottom:12px">🎁</div>'
-      + '<div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No gift reminders yet</div>'
-      + '<div style="font-size:12px;line-height:1.5">Add friends from your Circle to get gift ideas curated from their top 10 lists.</div>'
-      + '</div>';
+    el.innerHTML = _mastGifts + matchEmptyHero('🎁', 'No gift reminders yet', 'Add friends from your Circle to get gift ideas curated from their top 10 lists.', { label: '+ Add friends', action: "go('s-add-friends')" });
     return;
   }
-  el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
+  el.innerHTML = _mastGifts + '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
 
   // Fetch birthdays for all friends
   var acceptedFriends = myFriends.filter(function(f) { return f.status === 'accepted'; });
   var friendIds = acceptedFriends.map(function(f) { return f.friendId; }).filter(Boolean);
   if (!friendIds.length) {
-    el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#888780">'
-      + '<div style="font-size:36px;margin-bottom:12px">🎁</div>'
-      + '<div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No accepted friends yet</div>'
-      + '<div style="font-size:12px;line-height:1.5">Send friend requests from your Circle to build your gift reminder list.</div>'
-      + '</div>';
+    el.innerHTML = _mastGifts + matchEmptyHero('🎁', 'No accepted friends yet', 'Send friend requests from your Circle to build your gift reminder list.', { label: '+ Add friends', action: "go('s-add-friends')" });
     return;
   }
   var pr = await sbClient.from('profiles').select('id, display_name, handle, photo, birthday, gift_visible_categories').in('id', friendIds);
@@ -12189,17 +12233,18 @@ async function renderGifts() {
       var more = visibleLists.length > 3 ? ' · +' + (visibleLists.length - 3) : '';
       listSummary = catNames + more;
     }
-    // Bento-style card: medium colored fill, black border, whole card is the tap target
-    return '<div ' + cardClick.replace('style="cursor:pointer"', '') + ' style="background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden;cursor:pointer">'
+    var accent = pal.accent || pal.fg || '#2C2C2A';
+    // Editorial index-card: 20% tint fill + 7px accent left bar, sans-serif name, tracked-caps meta
+    return '<div ' + cardClick.replace('style="cursor:pointer"', '') + ' style="background:' + pal.bg + '33;border:1px solid ' + accent + '33;border-left:7px solid ' + accent + ';border-radius:3px;padding:14px;margin-bottom:10px;position:relative;overflow:hidden;cursor:pointer">'
       + '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">'
       +   avatar
       +   '<div style="flex:1;min-width:0">'
-      +     '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;letter-spacing:-0.01em;line-height:1.15;color:#2C2C2A">' + escapeHtml(name) + '</div>'
-      +     '<div style="font-size:11px;font-weight:700;color:#2C2C2A;letter-spacing:0.03em;margin-top:4px">' + daysLabel + ' · ' + dateLabel + '</div>'
-      +     '<div style="font-size:11px;color:#2C2C2A;opacity:0.7;margin-top:4px;font-weight:600">' + escapeHtml(listSummary) + '</div>'
+      +     '<div style="font-size:18px;font-weight:800;letter-spacing:-0.005em;line-height:1.1;color:#2C2C2A">' + escapeHtml(name) + '</div>'
+      +     '<div style="font-size:10px;font-weight:800;color:' + accent + ';letter-spacing:0.14em;margin-top:6px;text-transform:uppercase">' + daysLabel + ' · ' + dateLabel + '</div>'
+      +     '<div style="font-size:10px;color:' + accent + ';opacity:0.75;margin-top:4px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase">' + escapeHtml(listSummary) + '</div>'
       +   '</div>'
       + '</div>'
-      + '<span style="display:inline-block;background:#2C2C2A;color:#FFFFFF;border-radius:99px;padding:10px 20px;font-weight:700;font-size:13px;font-family:inherit;pointer-events:none">' + ctaLabel + '</span>'
+      + '<span style="display:inline-block;background:#D85A30;color:#FFFFFF;border-radius:3px;padding:8px 14px;font-weight:800;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;font-family:inherit;pointer-events:none">' + ctaLabel + '</span>'
       + '</div>';
   }
 
@@ -12214,34 +12259,29 @@ async function renderGifts() {
   }
   var html = '';
   if (upcoming.length) {
-    html += '<div class="sec-label">Coming up</div>';
+    html += coralRuleHeader('COMING UP · ' + upcoming.length);
     html += antiAdjacentByColor(upcoming, entryColorKey).map(friendGiftCard).join('');
   }
   if (later.length) {
-    html += '<div class="sec-label">Later in the year</div>';
+    html += coralRuleHeader('LATER IN THE YEAR · ' + later.length);
     html += antiAdjacentByColor(later, entryColorKey).map(friendGiftCard).join('');
   }
   if (withoutBdays.length) {
-    html += '<div class="sec-label">Friends without a birthday on file</div>';
+    html += coralRuleHeader('NO BIRTHDAY ON FILE · ' + withoutBdays.length);
     html += withoutBdays.map(function(entry) {
       var p = entry.profile;
       var name = p.display_name || (p.handle ? '@' + p.handle : 'Friend');
-      return '<div class="card no-hover" style="margin-bottom:6px">'
-        + '<div style="display:flex;align-items:center;gap:10px">'
+      return '<div style="background:#FFFFFF;border:1px solid #D85A3033;border-left:7px solid #D85A30;border-radius:3px;margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px">'
         +   friendAvatarHtml(p, 36)
-        +   '<div style="flex:1"><div style="font-size:13.5px;color:#2C2C2A">' + escapeHtml(name) + '</div>'
-        +   '<div style="font-size:11px;color:#888780">Ask them to add a birthday for gift reminders.</div></div>'
-        + '</div></div>';
+        +   '<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em;line-height:1.1">' + escapeHtml(name) + '</div>'
+        +   '<div style="font-size:9.5px;color:#D85A30;opacity:0.75;margin-top:3px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">Ask them to add a birthday</div></div>'
+        + '</div>';
     }).join('');
   }
   if (!html) {
-    html = '<div style="text-align:center;padding:40px 20px;color:#888780">'
-      + '<div style="font-size:36px;margin-bottom:12px">🎁</div>'
-      + '<div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">Nothing to show yet</div>'
-      + '<div style="font-size:12px;line-height:1.5">Your friends haven\'t added birthdays yet.</div>'
-      + '</div>';
+    html = matchEmptyHero('🎁', 'Nothing to show yet', "Your friends haven't added birthdays yet.");
   }
-  el.innerHTML = html;
+  el.innerHTML = _mastGifts + html;
   updateGiftsBadge(upcoming);
 }
 
