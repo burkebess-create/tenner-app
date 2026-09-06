@@ -521,8 +521,13 @@
           </div>
         </div>
         <div class="content">
-          <div class="sec-label">My Lists</div>
-          <button class="btn-primary" onclick="_createFromHome=true;go('s-create1')" style="margin-bottom:12px;font-size:13px;padding:12px">+ Create a new list</button>
+          <div id="home-masthead" style="font-size:9.5px;letter-spacing:0.22em;color:#2C2C2A;opacity:0.55;font-weight:700;text-transform:uppercase;text-align:center;padding:2px 0 14px"></div>
+          <div style="display:flex;align-items:center;gap:12px;margin:8px 0 14px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div id="home-lists-label" style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">My Lists</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <a onclick="_createFromHome=true;go('s-create1')" style="font-size:10px;letter-spacing:0.12em;background:#D85A30;color:#FFFFFF;cursor:pointer;font-weight:800;text-transform:uppercase;white-space:nowrap;padding:5px 10px;border-radius:3px">+ New</a>
+          </div>
           <div id="lists-list"></div>
 
         </div>
@@ -604,12 +609,19 @@
             <div class="step-dot"></div>
             <div class="step-dot"></div>
           </div>
-          <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:3px">Choose a category</div>
-          <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:12px">Pick one or type your own</div>
+          <div style="display:flex;align-items:center;gap:12px;margin:8px 0 12px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Pick a category</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
           <div id="current-weekly-section" style="margin-bottom:14px"></div>
           <div id="past-weekly-section" style="margin-bottom:12px"></div>
           <div class="cat-grid" id="cat-grid"></div>
-          <div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-top:18px;margin-bottom:6px">Create your own category</div>
+          <div style="display:flex;align-items:center;gap:12px;margin:22px 0 10px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Or make your own</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
           <div style="display:flex;align-items:stretch;border:1px solid #D3D1C7;border-radius:8px;background:#fff;margin-bottom:2px;overflow:hidden">
             <div style="display:flex;align-items:center;padding:0 10px;background:#F1EFE8;color:#5F5E5A;font-size:13px;font-weight:600;border-right:1px solid #E8E6DF;white-space:nowrap">Top 10</div>
             <input type="text" id="cat-inp" placeholder="Star Wars movies" oninput="onCatType(this.value)" style="border:none;flex:1;margin:0;font-size:13px;padding:9px 11px;background:transparent" autocomplete="off" autocorrect="off">
@@ -686,27 +698,29 @@
             <div class="step-dot done"></div>
             <div class="step-dot active"></div>
           </div>
-          <div class="card no-hover">
-            <div class="toggle-wrap" style="margin-bottom:3px">
+          <div class="card no-hover" style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px">
+            <div class="toggle-wrap" style="margin-bottom:0">
               <div>
-                <div style="font-size:12px;font-weight:600;color:#2C2C2A">Visible to friends</div>
-                <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Friends can see this list even if they haven't filled it out</div>
+                <div style="font-size:13px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em">Visible to friends</div>
+                <div style="font-size:12px;color:#5F5E5A;margin-top:3px;line-height:1.4">Friends can see this list even if they haven't filled it out</div>
               </div>
               <label class="toggle"><input type="checkbox" id="create-public-toggle" checked><span class="toggle-slider"></span></label>
             </div>
           </div>
-          <div class="card no-hover">
-            <div class="toggle-wrap" style="margin-bottom:3px">
+          <div class="card no-hover" style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px">
+            <div class="toggle-wrap" style="margin-bottom:0">
               <div>
-                <div style="font-size:12px;font-weight:600;color:#2C2C2A">Blind fill</div>
-                <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Friends must fill out their own list before seeing yours</div>
+                <div style="font-size:13px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em">Hide until they've made theirs</div>
+                <div style="font-size:12px;color:#5F5E5A;margin-top:3px;line-height:1.4">Friends must fill out their own list before seeing yours — great for a reveal moment</div>
               </div>
               <label class="toggle"><input type="checkbox" id="create-blind-fill-toggle"><span class="toggle-slider"></span></label>
             </div>
           </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
-            <div class="sec-label" style="margin:0">Share with friends</div>
-            <button id="share-friends-batch-btn" onclick="sendToSelectedFriends()" style="display:none;background:#D85A30;color:#fff;border:none;border-radius:99px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">Send to 0</button>
+          <div style="display:flex;align-items:center;gap:12px;margin:22px 0 12px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Share with friends</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <button id="share-friends-batch-btn" onclick="sendToSelectedFriends()" style="display:none;font-size:10px;letter-spacing:0.12em;background:#D85A30;color:#FFFFFF;font-weight:800;text-transform:uppercase;white-space:nowrap;padding:5px 10px;border-radius:3px;border:none;cursor:pointer">Send to 0</button>
           </div>
           <div id="share-friends-list"></div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
@@ -3433,27 +3447,28 @@ function renderLists() {
   ordered.forEach(function(l, i) {
     var listCat = l.category || l.n.replace('Top 10 ','');
     var pal = getCategoryColor(listCat);
+    var accent = pal.accent || pal.fg || '#2C2C2A';
     var unread = unreadByCat[listCat] || 0;
     var card = document.createElement('div');
-    // Single medium-tone fill, black border, no emoji chip
-    card.style.cssText = 'position:relative;background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer';
-    // Progress pill for incomplete lists — makes it obvious at a glance which
-    // lists still need finishing, so users don't lose track after a partial fill.
+    // Editorial index-card: tinted bg, 7px accent bar on left, 3px squared corners
+    card.style.cssText = 'position:relative;background:' + pal.bg + '33;border:1px solid ' + accent + '33;border-left:7px solid ' + accent + ';border-radius:3px;padding:14px 12px;cursor:pointer';
     var itemsFilled = (l.items || []).length;
+    // Editorial badges: squared with tracked caps
     var progressBadge = itemsFilled < 10
-      ? '<div style="position:absolute;top:10px;right:10px;background:#FFFFFF;color:#2C2C2A;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;border:1.5px solid #2C2C2A;box-shadow:0 2px 6px rgba(0,0,0,0.10)" title="Incomplete list">' + itemsFilled + '/10</div>'
+      ? '<div style="position:absolute;top:8px;right:8px;background:#FFFFFF;color:' + accent + ';font-size:9px;font-weight:800;padding:3px 6px;border-radius:2px;border:1px solid ' + accent + ';letter-spacing:0.08em" title="Incomplete list">' + itemsFilled + '/10</div>'
       : '';
-    // Comment badge shares the top-right corner — if a progress pill is also
-    // present, stack the comment badge below it so neither covers the emoji.
-    var commentBadgeTop = itemsFilled < 10 ? '38px' : '10px';
+    var commentBadgeTop = itemsFilled < 10 ? '32px' : '8px';
     var commentBadge = unread > 0
-      ? '<div style="position:absolute;top:' + commentBadgeTop + ';right:10px;background:#D85A30;color:#FFFFFF;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;display:flex;align-items:center;gap:3px;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="' + unread + ' new comment' + (unread !== 1 ? 's' : '') + '">💬 ' + unread + '</div>'
+      ? '<div style="position:absolute;top:' + commentBadgeTop + ';right:8px;background:#D85A30;color:#FFFFFF;font-size:9px;font-weight:800;padding:3px 6px;border-radius:2px;letter-spacing:0.08em" title="' + unread + ' new comment' + (unread !== 1 ? 's' : '') + '">💬 ' + unread + '</div>'
       : '';
+    // Meta: RANKED · N ITEMS
+    var itemCount = (l.items || []).length;
+    var metaLine = (l.ranked !== false ? 'RANKED' : 'UNRANKED') + '  ·  ' + itemCount + ' ITEM' + (itemCount === 1 ? '' : 'S');
     card.innerHTML = commentBadge
       + progressBadge
-      + '<div style="font-size:36px;line-height:1;margin-bottom:10px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 36) + '</div>'
-      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:18px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A;margin-bottom:4px">' + escapeHtml(l.n) + '</div>'
-      + '<div style="font-size:11px;color:#2C2C2A;opacity:0.7;font-weight:600">' + escapeHtml(l.m) + '</div>';
+      + '<div style="font-size:32px;line-height:1;margin-bottom:10px">' + renderCatEmoji(l.emoji || getCatEmoji(l.category), 32) + '</div>'
+      + '<div style="font-size:16px;font-weight:800;letter-spacing:-0.005em;line-height:1.1;color:#2C2C2A;margin-bottom:5px">' + escapeHtml(l.n) + '</div>'
+      + '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;color:' + accent + ';opacity:0.85">' + metaLine + '</div>';
     card.onclick = (function(list) { return function() { showListDetail(list); }; })(l);
     grid.appendChild(card);
   });
@@ -3926,6 +3941,23 @@ function showOnboardingIfNeeded() {
 
 function renderHome() {
   renderLists();
+  // Editorial masthead — mirrors the Circle folio pattern
+  var mastEl = document.getElementById('home-masthead');
+  if (mastEl) {
+    try {
+      var d = new Date();
+      var months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEPT','OCT','NOV','DEC'];
+      var dayStr = '';
+      var joinedAt = myProfile && myProfile.created_at;
+      if (joinedAt) {
+        var days = Math.floor((Date.now() - new Date(joinedAt).getTime()) / (1000*60*60*24));
+        if (days >= 0) dayStr = '  ·  DAY ' + (days + 1) + ' ON TENNER';
+      }
+      mastEl.innerHTML = months[d.getMonth()] + ' ' + d.getDate() + '  ·  <span style="color:#D85A30">MY LISTS</span>' + dayStr;
+    } catch (e) {}
+  }
+  var lbl = document.getElementById('home-lists-label');
+  if (lbl) lbl.textContent = 'My Lists · ' + (MY_LISTS || []).length;
 }
 
 // ── Inline list-share invites on Circle ────────────────────────────────
