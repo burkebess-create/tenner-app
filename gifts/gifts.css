@@ -1,0 +1,335 @@
+/* Tenner gifts — shared editorial stylesheet.
+   Applies to /gifts/index.html and every /gifts/*.html category page.
+   Coral brand #D85A30, ink #2C2C2A, page #FDFCF8. Everything sans-serif,
+   squared 3px corners, index-card treatment on picks.
+*/
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  margin: 0;
+  color: #2C2C2A;
+  background: #FDFCF8;
+  line-height: 1.55;
+}
+
+a { color: inherit; }
+
+/* ── Header ──────────────────────────────────────────────── */
+header {
+  background: #FDFCF8;
+  border-bottom: 1px solid #EAE3DC;
+  padding: 14px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+header .wrap {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+header img { height: 28px; object-fit: contain; }
+header .cta {
+  background: #D85A30;
+  color: #fff;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 9px 14px;
+  border-radius: 3px;
+}
+header .cta:hover { background: #C24E28; }
+
+/* ── Page shell ──────────────────────────────────────────── */
+.page { max-width: 720px; margin: 0 auto; padding: 32px 20px 60px; }
+.page.wide { max-width: 800px; }
+
+.crumb { font-size: 12px; color: #888780; margin-bottom: 20px; }
+.crumb a { color: #5F5E5A; text-decoration: none; }
+.crumb a:hover { color: #D85A30; text-decoration: underline; }
+
+/* ── Hero (per-page --hero-accent overrides coral) ───────── */
+.hero {
+  --hero-accent: #D85A30;
+  background: #FFFFFF;
+  border: 1px solid #E8E6DF;
+  border-left: 7px solid var(--hero-accent);
+  border-radius: 3px;
+  padding: 26px 26px 28px;
+  margin-bottom: 24px;
+}
+.hero .emoji { display: none; }
+.hero::before {
+  content: attr(data-eyebrow);
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--hero-accent);
+  margin-bottom: 10px;
+}
+.hero:not([data-eyebrow])::before { content: none; }
+.hero h1 {
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 34px;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+  color: #1A0F0A;
+  line-height: 1.1;
+}
+.hero p {
+  font-size: 15px;
+  color: #5F5E5A;
+  margin: 0;
+  max-width: 560px;
+}
+
+/* Index-page hero (centered, no accent bar). */
+.hero.hub {
+  border: none;
+  padding: 6px 0 12px;
+  text-align: center;
+  background: transparent;
+}
+.hero.hub::before {
+  color: #D85A30;
+  margin-bottom: 14px;
+}
+.hero.hub h1 { font-size: 40px; margin: 0 auto 12px; }
+.hero.hub p { margin: 0 auto; }
+
+/* ── Disclosure line ─────────────────────────────────────── */
+.disclosure {
+  background: #FFFFFF;
+  border: 1px solid #EAE3DC;
+  border-radius: 3px;
+  padding: 9px 14px;
+  margin-bottom: 24px;
+  font-size: 11.5px;
+  color: #7A7972;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* ── Intro paragraph ─────────────────────────────────────── */
+.intro {
+  font-size: 15px;
+  color: #2C2C2A;
+  margin-bottom: 28px;
+  line-height: 1.65;
+}
+
+/* ── Rule-line section labels ────────────────────────────── */
+.sec-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #D85A30;
+  font-weight: 800;
+  margin: 32px 0 14px;
+  text-align: center;
+}
+.sec-label::before,
+.sec-label::after {
+  content: "";
+  flex: 1;
+  height: 2px;
+  background: #D85A30;
+}
+
+/* ── Picks (index-card treatment) ────────────────────────── */
+.pick {
+  background: #FFFFFF;
+  border: 1px solid #E8E6DF;
+  border-left: 7px solid #D85A30;
+  border-radius: 3px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.pick .rank {
+  flex-shrink: 0;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 3px;
+  background: #2C2C2A;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pick .body { flex: 1; min-width: 0; }
+.pick .title {
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: #2C2C2A;
+  margin-bottom: 3px;
+}
+.pick .desc {
+  font-size: 13px;
+  font-weight: 400;
+  color: #5F5E5A;
+  line-height: 1.5;
+}
+.pick .shop {
+  flex-shrink: 0;
+  background: #D85A30;
+  color: #fff;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 9px 14px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.pick .shop:hover { background: #C24E28; }
+
+/* ── Dynamic-source tag (rendered by dynamic-picks.js) ──── */
+#dynamic-source {
+  border-radius: 3px !important;
+  border: 1px solid #EAE3DC;
+}
+
+/* ── Related grid ────────────────────────────────────────── */
+.related {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+.related a {
+  display: block;
+  padding: 14px;
+  background: #FFFFFF;
+  border: 1px solid #E8E6DF;
+  border-left: 4px solid #D85A30;
+  border-radius: 3px;
+  text-decoration: none;
+  color: #2C2C2A;
+  text-align: center;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+.related a:hover { background: #FBF6F2; border-left-color: #C24E28; }
+
+/* ── Footer CTA block ────────────────────────────────────── */
+.footer-block {
+  background: #FFFFFF;
+  border: 1px solid #E8E6DF;
+  border-left: 7px solid #D85A30;
+  border-radius: 3px;
+  padding: 24px 22px;
+  margin-top: 36px;
+  text-align: center;
+}
+.footer-block h2 {
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+  color: #2C2C2A;
+}
+.footer-block p {
+  font-size: 14px;
+  color: #5F5E5A;
+  margin: 0 0 16px;
+}
+.footer-block .btn {
+  display: inline-block;
+  background: #D85A30;
+  color: #fff;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 11px 20px;
+  border-radius: 3px;
+}
+.footer-block .btn:hover { background: #C24E28; }
+
+/* ── Page footer ─────────────────────────────────────────── */
+footer {
+  text-align: center;
+  padding: 30px 20px;
+  color: #888780;
+  font-size: 12px;
+}
+footer a { color: #888780; margin: 0 8px; text-decoration: none; }
+footer a:hover { color: #D85A30; text-decoration: underline; }
+
+/* ── Hub grid (index.html category tiles) ────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (min-width: 640px) {
+  .grid { grid-template-columns: 1fr 1fr 1fr; }
+}
+.tile {
+  --tile-accent: #D85A30;
+  background: #FFFFFF;
+  border: 1px solid #E8E6DF;
+  border-left: 7px solid var(--tile-accent);
+  border-radius: 3px;
+  padding: 18px 16px;
+  text-decoration: none;
+  color: #2C2C2A;
+  transition: transform 0.12s ease, background 0.12s ease;
+  display: block;
+}
+.tile:hover { transform: translateY(-2px); background: #FBF6F2; }
+.tile .emoji { font-size: 28px; line-height: 1; margin-bottom: 10px; }
+.tile .cat {
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: #2C2C2A;
+  margin-bottom: 3px;
+}
+.tile .sub {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #888780;
+}
+
+/* Category accent tints for the hub grid — accent bar only. */
+.t-coral      { --tile-accent: #E8927C; }
+.t-teal       { --tile-accent: #2F9E8F; }
+.t-mustard    { --tile-accent: #F5B534; }
+.t-rose       { --tile-accent: #D46A80; }
+.t-sky        { --tile-accent: #A8C8E8; }
+.t-lavender   { --tile-accent: #D9BEEC; }
+.t-gold       { --tile-accent: #EFCB68; }
+.t-dusk       { --tile-accent: #5A7AAA; }
+.t-mint       { --tile-accent: #A8D8C8; }
+.t-terracotta { --tile-accent: #C4593E; }
