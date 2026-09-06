@@ -9875,8 +9875,9 @@ async function renderMatch() {
       var allFriendsMode = !friendCtx && groupCtx < 0;
       var isOneOnOne = !allFriendsMode && comps.length === 1;
 
-      function mkCell(text, bg, col) {
-        return '<div style="flex:1;font-size:11px;padding:6px 8px;border-radius:7px;background:' + bg + ';color:' + col + '">' + text + '</div>';
+      function mkCell(text, bg, col, leftBar) {
+        var lb = leftBar ? 'border-left:3px solid ' + leftBar + ';' : '';
+        return '<div style="flex:1;font-size:11px;padding:7px 9px;border-radius:3px;background:' + bg + ';color:' + col + ';' + lb + '">' + text + '</div>';
       }
       function rankText(rank, disp) {
         return matchRankBadge('#' + rank) + ' <span style="margin-left:4px">' + escapeHtml(disp) + '</span>';
@@ -9899,16 +9900,16 @@ async function renderMatch() {
         var theirOnly = all.filter(function(it){ return it.myRank===null && it.theirRank!==null; }).sort(function(a,b){ return a.theirRank-b.theirRank; });
         var sharedRows = shared.map(function(it){
           return '<div style="display:flex;gap:5px;margin-bottom:4px">'
-            + mkCell(rankText(it.myRank, it.display), pal.bg + 'CC', accent)
-            + mkCell(rankText(it.theirRank, it.display), pal.bg + 'CC', accent) + '</div>';
+            + mkCell(rankText(it.myRank, it.display), pal.bg + 'CC', accent, accent)
+            + mkCell(rankText(it.theirRank, it.display), pal.bg + 'CC', accent, accent) + '</div>';
         }).join('');
         var remCount = Math.max(myOnly.length, theirOnly.length);
         var remRows = '';
         for (var r=0;r<remCount;r++){
           var lm = myOnly[r], rt = theirOnly[r];
           remRows += '<div style="display:flex;gap:5px;margin-bottom:4px">'
-            + mkCell(lm ? rankText(lm.myRank, lm.display) : '', lm ? '#F1EFE8' : 'transparent', '#2C2C2A')
-            + mkCell(rt ? rankText(rt.theirRank, rt.display) : '', rt ? '#F1EFE8' : 'transparent', '#2C2C2A') + '</div>';
+            + mkCell(lm ? rankText(lm.myRank, lm.display) : '', lm ? pal.bg + '33' : 'transparent', lm ? accent : '#2C2C2A', lm ? accent : null)
+            + mkCell(rt ? rankText(rt.theirRank, rt.display) : '', rt ? pal.bg + '33' : 'transparent', rt ? accent : '#2C2C2A', rt ? accent : null) + '</div>';
         }
         var divider = (sharedRows && remRows) ? '<div style="font-size:9px;color:#A8A6A0;text-align:center;margin:8px 0 6px">— unique picks —</div>' : '';
         var pills = shared.map(function(it){ return '<span class="pill pill-green">' + escapeHtml(it.display) + '</span>'; }).join('');
@@ -9967,8 +9968,9 @@ async function renderMatch() {
           var totalParticipants = 1 + comps.length; // me + all compared friends
           var everyonePicked = totalPickers === totalParticipants;
           var somePicked = totalPickers > 1;
-          var bg = everyonePicked ? pal.bg + 'CC' : somePicked ? pal.bg + '77' : '#F1EFE8';
-          var col = everyonePicked || somePicked ? accent : '#2C2C2A';
+          var bg = everyonePicked ? pal.bg + 'CC' : somePicked ? pal.bg + '55' : pal.bg + '33';
+          var col = accent;
+          var barCol = everyonePicked ? accent : (somePicked ? accent : (item.myRank !== null || item.friendEntries.length ? accent : null));
 
           var myCell = item.myRank !== null ? rankText(item.myRank, item.display) : '<span style="color:#C4C2BA">—</span>';
           var rightCell;
@@ -9979,7 +9981,7 @@ async function renderMatch() {
             rightCell = matchRankBadge('#' + avgRank.toFixed(1).replace(/\.0$/,''))
               + ' <span style="font-size:10px;color:' + accent + ';opacity:0.75;margin-left:4px;font-weight:600">(' + item.friendEntries.length + '/' + comps.length + ')</span>';
           }
-          return '<div style="display:flex;gap:5px;margin-bottom:4px">' + mkCell(myCell, bg, col) + mkCell(rightCell, bg, col) + '</div>';
+          return '<div style="display:flex;gap:5px;margin-bottom:4px">' + mkCell(myCell, bg, col, barCol) + mkCell(rightCell, bg, col, barCol) + '</div>';
         }).join('');
         var sharedItems = sortedItems.filter(function(item) {
           return item.myRank !== null && item.friendEntries.length > 0;
