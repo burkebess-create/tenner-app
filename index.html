@@ -562,16 +562,16 @@
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
             <div id="list-detail-emoji" style="width:48px;height:48px;border-radius:12px;background:#FAECE7;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0"></div>
             <div style="flex:1;min-width:0">
-              <div id="list-detail-title" style="font-family:'DM Serif Display',Georgia,serif;font-size:22px;font-weight:400;letter-spacing:-0.02em;color:#2C2C2A;line-height:1.15"></div>
-              <div id="list-detail-meta" style="font-size:13.5px;color:#5F5E5A;margin-top:3px"></div>
+              <div id="list-detail-title" style="font-size:22px;font-weight:800;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1"></div>
+              <div id="list-detail-meta" style="font-size:10.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;opacity:0.85;margin-top:6px"></div>
             </div>
           </div>
           <div id="list-detail-items"></div>
           <div id="list-detail-share-cta" style="margin-top:16px"></div>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #F1EFE8;display:flex;align-items:center;justify-content:space-between">
+          <div style="margin-top:18px;background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px;display:flex;align-items:center;justify-content:space-between">
             <div>
-              <div style="font-size:12px;font-weight:600;color:#2C2C2A">Visible to friends</div>
-              <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Friends can see this list even if they haven't filled it out</div>
+              <div style="font-size:13px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em">Visible to friends</div>
+              <div style="font-size:11px;color:#5F5E5A;margin-top:3px;line-height:1.4">Friends can see this list even if they haven't filled it out</div>
             </div>
             <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;margin-left:12px">
               <input type="checkbox" id="list-detail-public-toggle" onchange="toggleListPublic(this.checked)" style="opacity:0;width:0;height:0;position:absolute">
@@ -580,10 +580,10 @@
               </span>
             </label>
           </div>
-          <div style="margin-top:10px;padding-top:10px;border-top:1px solid #F1EFE8;display:flex;align-items:center;justify-content:space-between">
+          <div style="margin-top:10px;background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px;display:flex;align-items:center;justify-content:space-between">
             <div>
-              <div style="font-size:12px;font-weight:600;color:#2C2C2A">Blind fill</div>
-              <div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">Friends must fill out their own list before seeing yours</div>
+              <div style="font-size:13px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em">Blind fill</div>
+              <div style="font-size:11px;color:#5F5E5A;margin-top:3px;line-height:1.4">Friends must fill out their own list before seeing yours</div>
             </div>
             <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;margin-left:12px">
               <input type="checkbox" id="list-detail-blind-toggle" onchange="toggleListBlindFill(this.checked)" style="opacity:0;width:0;height:0;position:absolute">
@@ -592,7 +592,7 @@
               </span>
             </label>
           </div>
-          <button class="btn-secondary" onclick="confirmDeleteList()" style="margin-top:12px;margin-bottom:0;color:#A32D2D;border-color:#F09595;font-size:12px">Delete list</button>
+          <button onclick="confirmDeleteList()" style="margin-top:14px;margin-bottom:0;background:transparent;border:1.5px solid #F09595;color:#A32D2D;border-radius:3px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;font-size:11px;padding:12px;cursor:pointer;width:100%">Delete list</button>
         </div>
       </div>
 
@@ -770,9 +770,13 @@
               <div class="emoji-grid" id="emoji-search-results" style="display:none;margin-bottom:4px"></div>
             </div>
           </div>
-          <div class="sec-label">Group name</div>
-          <input type="text" id="group-name" placeholder="e.g. High School Friends">
-          <button class="btn-primary" onclick="goToCg2()">Continue → Add members</button>
+          <div style="display:flex;align-items:center;gap:12px;margin:18px 0 10px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Group Name</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
+          <input type="text" id="group-name" placeholder="e.g. High School Friends" style="border-radius:3px">
+          <button class="btn-primary" onclick="goToCg2()" style="border-radius:3px;background:#D85A30;color:#FFFFFF;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;font-size:11px;padding:14px">Continue → Add members</button>
         </div>
       </div>
 
@@ -804,7 +808,7 @@
           </div>
           <div class="sec-label">Added to group (<span id="added-count">3</span>)</div>
           <div id="added-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
-          <button class="btn-primary" onclick="goToCg3()">Continue → Send a list</button>
+          <button class="btn-primary" onclick="goToCg3()" style="border-radius:3px;background:#D85A30;color:#FFFFFF;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;font-size:11px;padding:14px">Continue → Send a list</button>
         </div>
       </div>
 
@@ -836,8 +840,8 @@
               <label class="toggle"><input type="checkbox" id="cg3-blind-fill-toggle" checked><span class="toggle-slider"></span></label>
             </div>
           </div>
-          <button class="btn-primary" onclick="finishGroup()">Send to group &amp; finish</button>
-          <button class="btn-secondary" onclick="finishGroup(true)">Skip for now</button>
+          <button class="btn-primary" onclick="finishGroup()" style="border-radius:3px;background:#D85A30;color:#FFFFFF;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;font-size:11px;padding:14px">Send to group &amp; finish</button>
+          <button class="btn-secondary" onclick="finishGroup(true)" style="border-radius:3px;background:#FFFFFF;border:1.5px solid #D85A30;color:#D85A30;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;font-size:11px;padding:12px">Skip for now</button>
         </div>
       </div>
 
@@ -967,25 +971,37 @@
         </div>
         <div class="content">
           <div style="text-align:center;margin-bottom:18px">
-            <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;color:#2C2C2A;line-height:1.15;margin-bottom:6px">Grow your circle</div>
+            <div style="font-size:22px;font-weight:800;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1;margin-bottom:6px">Grow your circle</div>
             <div style="font-size:12.5px;color:#5F5E5A;line-height:1.5">Search for people already on Tenner, or invite friends who aren't yet.</div>
           </div>
 
-          <div class="sec-label" style="margin-top:0">Search Tenner</div>
+          <div style="display:flex;align-items:center;gap:12px;margin:8px 0 10px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Search Tenner</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
           <div style="display:flex;gap:6px;margin-bottom:8px">
             <input type="text" id="circle-friend-search" placeholder="@handle or phone number" style="margin-bottom:0;flex:1;font-size:13px;padding:9px 12px" onkeydown="if(event.key==='Enter')circleSearchFriend()">
-            <button class="btn-primary" onclick="circleSearchFriend()" style="width:auto;padding:9px 16px;margin-bottom:0;font-size:12px;white-space:nowrap">Search</button>
+            <button class="btn-primary" onclick="circleSearchFriend()" style="width:auto;padding:9px 16px;margin-bottom:0;font-size:11px;white-space:nowrap;border-radius:3px;background:#D85A30;color:#FFFFFF;font-weight:800;text-transform:uppercase;letter-spacing:0.14em">Search</button>
           </div>
           <div id="circle-friend-search-result" style="margin-bottom:20px"></div>
 
           <div id="mutuals-wrap" style="display:none;margin-bottom:20px">
-            <div class="sec-label" style="margin-top:0">People you may know</div>
+            <div style="display:flex;align-items:center;gap:12px;margin:0 0 10px">
+              <div style="flex:1;height:2px;background:#D85A30"></div>
+              <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">People you may know</div>
+              <div style="flex:1;height:2px;background:#D85A30"></div>
+            </div>
             <div style="font-size:11px;color:#888780;margin-bottom:8px">Friends of your friends, not yet in your Circle.</div>
             <div id="mutuals-list"></div>
           </div>
 
-          <div class="sec-label">Invite people not on Tenner</div>
-          <button class="btn-primary" onclick="openInviteModal()" style="margin-bottom:10px;font-size:13px;padding:12px">📤 Invite via link, email, or text</button>
+          <div style="display:flex;align-items:center;gap:12px;margin:14px 0 10px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Invite Off-Tenner</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
+          <button class="btn-primary" onclick="openInviteModal()" style="margin-bottom:10px;border-radius:3px;background:#D85A30;color:#FFFFFF;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;font-size:11px;padding:14px">📤 Invite via link, email, or text</button>
           <div style="font-size:11.5px;color:#888780;line-height:1.5;text-align:center;padding:6px 4px">You'll get a share sheet with a pre-composed message and your @handle so friends know who to add on Tenner.</div>
         </div>
       </div>
@@ -1031,14 +1047,14 @@
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
             <div id="friend-list-emoji" style="width:48px;height:48px;border-radius:12px;background:#FAECE7;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0"></div>
             <div style="flex:1;min-width:0">
-              <div id="friend-list-name" style="font-size:17px;font-weight:700;color:#2C2C2A;line-height:1.2"></div>
-              <div id="friend-list-meta" style="font-size:13.5px;color:#5F5E5A;margin-top:3px"></div>
+              <div id="friend-list-name" style="font-size:20px;font-weight:800;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1"></div>
+              <div id="friend-list-meta" style="font-size:10.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;opacity:0.85;margin-top:5px"></div>
             </div>
           </div>
           <div id="friend-list-reactions" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>
           <div id="friend-list-changes" style="display:none;margin-bottom:12px"></div>
           <div id="friend-list-items"></div>
-          <button id="friend-list-comment-btn" style="display:none;width:100%;margin-top:10px;background:#FFFFFF;border:1px solid #D3D1C7;border-radius:12px;padding:11px 14px;font-family:inherit;font-size:13px;font-weight:600;color:#2C2C2A;cursor:pointer;align-items:center;justify-content:center;gap:8px">💬 Comment on this list</button>
+          <button id="friend-list-comment-btn" style="display:none;width:100%;margin-top:10px;background:#FFFFFF;border:1.5px solid #D85A30;border-radius:3px;padding:12px 14px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;cursor:pointer;align-items:center;justify-content:center;gap:8px">💬 Comment on this list</button>
           <div id="friend-list-cta" style="margin-top:16px"></div>
         </div>
       </div>
@@ -1051,68 +1067,74 @@
           <span style="width:52px"></span>
         </div>
         <div class="content">
+          <div id="profile-folio" style="font-size:9.5px;letter-spacing:0.22em;color:#2C2C2A;opacity:0.55;font-weight:700;text-transform:uppercase;text-align:center;padding:2px 0 14px"></div>
           <!-- Big header card: photo + name + handle + stats -->
-          <div style="text-align:center;padding:16px 0 20px">
+          <div style="text-align:center;padding:4px 0 20px">
             <div id="profile-avatar" style="width:88px;height:88px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:30px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 12px">?</div>
-            <div id="profile-display-name" style="font-family:'DM Serif Display',Georgia,serif;font-size:22px;color:#2C2C2A;line-height:1.15">—</div>
-            <div id="profile-handle-display" style="font-size:13.5px;color:#5F5E5A;margin-top:2px">@—</div>
+            <div id="profile-display-name" style="font-size:22px;font-weight:800;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">—</div>
+            <div id="profile-handle-display" style="font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;opacity:0.85;margin-top:6px">@—</div>
             <div id="profile-on-tenner" style="font-size:10px;color:#888780;margin-top:4px;display:none"></div>
             <div style="display:flex;justify-content:center;gap:22px;margin-top:14px">
-              <div style="text-align:center"><div id="profile-stat-lists" style="font-size:17px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9.5px;color:#5F5E5A;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Lists</div></div>
-              <div style="text-align:center"><div id="profile-stat-friends" style="font-size:17px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9.5px;color:#5F5E5A;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Friends</div></div>
-              <div style="text-align:center"><div id="profile-stat-circles" style="font-size:17px;font-weight:700;color:#2C2C2A">0</div><div style="font-size:9.5px;color:#5F5E5A;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Groups</div></div>
+              <div style="text-align:center"><div id="profile-stat-lists" style="font-size:19px;font-weight:800;color:#2C2C2A;letter-spacing:-0.01em">0</div><div style="font-size:9.5px;color:#5F5E5A;text-transform:uppercase;letter-spacing:.14em;font-weight:700">Lists</div></div>
+              <div style="text-align:center"><div id="profile-stat-friends" style="font-size:19px;font-weight:800;color:#2C2C2A;letter-spacing:-0.01em">0</div><div style="font-size:9.5px;color:#5F5E5A;text-transform:uppercase;letter-spacing:.14em;font-weight:700">Friends</div></div>
+              <div style="text-align:center"><div id="profile-stat-circles" style="font-size:19px;font-weight:800;color:#2C2C2A;letter-spacing:-0.01em">0</div><div style="font-size:9.5px;color:#5F5E5A;text-transform:uppercase;letter-spacing:.14em;font-weight:700">Groups</div></div>
             </div>
           </div>
 
-          <!-- Sign out — wide warm-neutral tile, above the bento grid -->
-          <div onclick="signOut()" style="background:#EAE3DC;border:1.5px solid #2C2C2A;border-radius:18px;padding:14px 16px;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;gap:12px">
-            <div style="font-size:22px;line-height:1">🚪</div>
-            <div style="flex:1;font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A">Sign out</div>
-            <div style="font-size:16px;color:#888780">›</div>
+          <!-- Section header: settings -->
+          <div style="display:flex;align-items:center;gap:12px;margin:8px 0 14px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Settings</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
           </div>
 
-          <!-- Bento tile grid — each tile → sub-screen -->
+          <!-- Bento tile grid — editorial index-card style -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div onclick="go('s-profile-edit')" style="background:#F5D0C8AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
-              <div style="font-size:30px;line-height:1;margin-bottom:8px">✏️</div>
-              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Edit profile</div>
-              <div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">Name, handle, bio, birthday</div>
+            <div onclick="go('s-profile-edit')" style="background:#F5D0C833;border:1px solid #D85A3033;border-left:7px solid #D85A30;border-radius:3px;padding:14px;cursor:pointer">
+              <div style="font-size:26px;line-height:1;margin-bottom:8px">✏️</div>
+              <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Edit profile</div>
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#D85A30;opacity:0.8;margin-top:6px">Name · Handle · Bio</div>
             </div>
-            <div onclick="go('s-profile-comments')" style="background:#B8D0A8AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
-              <div style="font-size:30px;line-height:1;margin-bottom:8px">💬</div>
-              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Comment settings</div>
-              <div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">Who can comment, cleanup</div>
+            <div onclick="go('s-profile-comments')" style="background:#B8D0A833;border:1px solid #6B8E4E33;border-left:7px solid #6B8E4E;border-radius:3px;padding:14px;cursor:pointer">
+              <div style="font-size:26px;line-height:1;margin-bottom:8px">💬</div>
+              <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Comment settings</div>
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6B8E4E;opacity:0.85;margin-top:6px">Who can comment</div>
             </div>
-            <div onclick="go('s-profile-gift')" style="background:#EFCB68AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
-              <div style="font-size:30px;line-height:1;margin-bottom:8px">🎁</div>
-              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Your gift page</div>
-              <div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">Share link, wishlist categories</div>
+            <div onclick="go('s-profile-gift')" style="background:#EFCB6833;border:1px solid #B08A2233;border-left:7px solid #B08A22;border-radius:3px;padding:14px;cursor:pointer">
+              <div style="font-size:26px;line-height:1;margin-bottom:8px">🎁</div>
+              <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Your gift page</div>
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#B08A22;opacity:0.85;margin-top:6px">Share link · Wishlist</div>
             </div>
-            <div onclick="go('s-email-prefs')" style="background:#A8C8E8AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
-              <div style="font-size:30px;line-height:1;margin-bottom:8px">✉️</div>
-              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Email preferences</div>
-              <div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">What emails you receive</div>
+            <div onclick="go('s-email-prefs')" style="background:#A8C8E833;border:1px solid #3E6FA033;border-left:7px solid #3E6FA0;border-radius:3px;padding:14px;cursor:pointer">
+              <div style="font-size:26px;line-height:1;margin-bottom:8px">✉️</div>
+              <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Email preferences</div>
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#3E6FA0;opacity:0.85;margin-top:6px">What we send you</div>
             </div>
-            <div onclick="openPushSettings()" style="background:#F5B8A8AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
-              <div style="font-size:30px;line-height:1;margin-bottom:8px">🔔</div>
-              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Push notifications</div>
-              <div id="push-tile-status" style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">Get alerts on this device</div>
+            <div onclick="openPushSettings()" style="background:#F5B8A833;border:1px solid #D85A3033;border-left:7px solid #D85A30;border-radius:3px;padding:14px;cursor:pointer">
+              <div style="font-size:26px;line-height:1;margin-bottom:8px">🔔</div>
+              <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Push notifications</div>
+              <div id="push-tile-status" style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#D85A30;opacity:0.85;margin-top:6px">Alerts on this device</div>
             </div>
-            <div onclick="go('s-profile-account')" style="background:#D9BEECAA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
-              <div style="font-size:30px;line-height:1;margin-bottom:8px">🔒</div>
-              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Account &amp; security</div>
-              <div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">Password, email</div>
+            <div onclick="go('s-profile-account')" style="background:#D9BEEC33;border:1px solid #6B4E8E33;border-left:7px solid #6B4E8E;border-radius:3px;padding:14px;cursor:pointer">
+              <div style="font-size:26px;line-height:1;margin-bottom:8px">🔒</div>
+              <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Account &amp; security</div>
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6B4E8E;opacity:0.85;margin-top:6px">Password · Email</div>
             </div>
-            <div onclick="go('s-profile-feedback')" style="background:#A8D8C8AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">
-              <div style="font-size:30px;line-height:1;margin-bottom:8px">💡</div>
-              <div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">Feedback</div>
-              <div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">Ideas or bug reports</div>
+            <div onclick="go('s-profile-feedback')" style="background:#A8D8C833;border:1px solid #4E8E7433;border-left:7px solid #4E8E74;border-radius:3px;padding:14px;cursor:pointer">
+              <div style="font-size:26px;line-height:1;margin-bottom:8px">💡</div>
+              <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Feedback</div>
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#4E8E74;opacity:0.85;margin-top:6px">Ideas · Bugs</div>
             </div>
-            <div id="profile-admin-tile" onclick="go('s-admin')" style="display:none;grid-column:1/-1;background:#2C2C2A;border:1.5px solid #2C2C2A;border-radius:18px;padding:14px 16px;cursor:pointer;color:#FFFFFF">
+            <div onclick="signOut()" style="background:#EAE3DC;border:1px solid #2C2C2A33;border-left:7px solid #2C2C2A;border-radius:3px;padding:14px;cursor:pointer">
+              <div style="font-size:26px;line-height:1;margin-bottom:8px">🚪</div>
+              <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Sign out</div>
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#2C2C2A;opacity:0.6;margin-top:6px">End session</div>
+            </div>
+            <div id="profile-admin-tile" onclick="go('s-admin')" style="display:none;grid-column:1/-1;background:#2C2C2A;border:1px solid #2C2C2A;border-left:7px solid #D85A30;border-radius:3px;padding:14px 16px;cursor:pointer;color:#FFFFFF">
               <div style="display:flex;align-items:center;gap:12px">
-                <div style="font-size:24px;line-height:1">⚡</div>
-                <div style="flex:1"><div style="font-family:'DM Serif Display',Georgia,serif;font-size:16px;letter-spacing:-0.01em;line-height:1.1">Admin panel</div>
-                <div style="font-size:10px;opacity:0.7;font-weight:600;margin-top:3px">Categories, weekly lists, feedback, users</div></div>
+                <div style="font-size:22px;line-height:1">⚡</div>
+                <div style="flex:1"><div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;line-height:1.1">Admin panel</div>
+                <div style="font-size:9.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;margin-top:5px">Categories · Weekly · Users</div></div>
                 <div style="font-size:16px;opacity:0.5">›</div>
               </div>
             </div>
@@ -1128,8 +1150,13 @@
           <div style="width:52px"></div>
         </div>
         <div class="content">
-          <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;margin:8px 0 4px;color:#2C2C2A">Edit profile</div>
-          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">Your name, handle, birthday, and photo.</div>
+          <div style="display:flex;align-items:center;gap:12px;margin:8px 0 14px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Edit Profile</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
+          <div style="font-size:22px;font-weight:800;letter-spacing:-0.01em;margin:0 0 4px;color:#2C2C2A;line-height:1.1">Your details</div>
+          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">Name, handle, birthday, and photo.</div>
 
           <div style="text-align:center;padding:0 0 16px">
             <label style="position:relative;display:inline-block;cursor:pointer">
@@ -1180,8 +1207,8 @@
             </div>
           </div>
 
-          <button class="btn-primary" onclick="saveProfile()" style="margin-top:14px">Save changes</button>
-          <div id="profile-save-msg" style="display:none;font-size:11px;color:#27500A;background:#EAF3DE;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #97C459">Profile saved!</div>
+          <button class="btn-primary" onclick="saveProfile()" style="margin-top:14px;border-radius:3px;background:#D85A30;color:#FFFFFF;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;font-size:11px;padding:14px">Save changes</button>
+          <div id="profile-save-msg" style="display:none;font-size:11px;color:#27500A;background:#EAF3DE;padding:8px 10px;border-radius:3px;margin-bottom:8px;border:1px solid #97C459">Profile saved!</div>
         </div>
       </div>
 
@@ -1193,8 +1220,13 @@
           <div style="width:52px"></div>
         </div>
         <div class="content">
-          <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;margin:8px 0 4px;color:#2C2C2A">Comment settings</div>
-          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">Control who can comment on your lists and what comments you see.</div>
+          <div style="display:flex;align-items:center;gap:12px;margin:8px 0 14px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Comments</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
+          <div style="font-size:22px;font-weight:800;letter-spacing:-0.01em;margin:0 0 4px;color:#2C2C2A;line-height:1.1">Who can comment</div>
+          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">Control what appears on your lists and what you see on others'.</div>
 
           <div class="card no-hover" style="margin-bottom:12px">
             <div style="font-size:11px;font-weight:700;color:#2C2C2A;margin-bottom:6px">Which comments do I see on friends' lists?</div>
@@ -1225,12 +1257,12 @@
             </div>
           </div>
 
-          <button class="btn-primary" onclick="saveProfile()" style="margin-bottom:14px">Save changes</button>
+          <button class="btn-primary" onclick="saveProfile()" style="margin-bottom:14px;border-radius:3px;background:#D85A30;color:#FFFFFF;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;font-size:11px;padding:14px">Save changes</button>
 
-          <div class="card no-hover" style="margin-top:8px">
-            <div style="font-size:12px;font-weight:700;color:#2C2C2A;margin-bottom:4px">🗑️ One-time cleanup</div>
+          <div style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px;margin-top:8px">
+            <div style="font-size:13px;font-weight:800;color:#2C2C2A;margin-bottom:4px">🗑️ One-time cleanup</div>
             <div style="font-size:11px;color:#5F5E5A;line-height:1.5;margin-bottom:10px">Removes all comments others have left on your list items. Doesn't affect future comments — those still follow your settings above.</div>
-            <button class="btn-secondary" onclick="confirmDeleteAllMyListComments()" style="margin-bottom:0;color:#A32D2D;border-color:#F09595;font-size:12px">Delete every comment on my lists</button>
+            <button onclick="confirmDeleteAllMyListComments()" style="background:transparent;border:1.5px solid #F09595;color:#A32D2D;border-radius:3px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;font-size:11px;padding:12px;cursor:pointer;width:100%">Delete every comment</button>
           </div>
         </div>
       </div>
@@ -1243,31 +1275,40 @@
           <div style="width:52px"></div>
         </div>
         <div class="content">
-          <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;margin:8px 0 4px;color:#2C2C2A">Your gift page</div>
-          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">A shareable link so friends and family can shop for you — even people who aren't on Tenner.</div>
+          <div style="display:flex;align-items:center;gap:12px;margin:8px 0 14px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Gift Page</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
+          <div style="font-size:22px;font-weight:800;letter-spacing:-0.01em;margin:0 0 4px;color:#2C2C2A;line-height:1.1">Your shareable link</div>
+          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">Friends and family can shop for you — even people not on Tenner.</div>
 
-          <div class="card no-hover" style="margin-bottom:12px">
-            <div style="font-size:11px;color:#5F5E5A;line-height:1.55;margin-bottom:10px">Share this link with anyone — even people not on Tenner — so they can browse gift ideas built from your Top 10 lists.</div>
+          <div style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px;margin-bottom:12px">
+            <div style="font-size:11px;color:#5F5E5A;line-height:1.55;margin-bottom:10px">Share this with anyone. Gift ideas are built from your Top 10 lists.</div>
             <div style="display:flex;align-items:stretch;gap:6px;margin-bottom:8px">
-              <input type="text" id="profile-gift-link" readonly style="margin-bottom:0;flex:1;font-size:12px;padding:9px 11px;background:#F7F6F2;color:#2C2C2A" onclick="this.select()">
-              <button class="btn-primary" onclick="copyMyGiftPageLink()" style="width:auto;padding:9px 14px;margin-bottom:0;font-size:12px;white-space:nowrap">Copy</button>
+              <input type="text" id="profile-gift-link" readonly style="margin-bottom:0;flex:1;font-size:12px;padding:9px 11px;background:#F7F6F2;color:#2C2C2A;border-radius:3px" onclick="this.select()">
+              <button onclick="copyMyGiftPageLink()" style="border-radius:3px;background:#D85A30;color:#FFFFFF;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;font-size:11px;padding:9px 14px;border:none;cursor:pointer;white-space:nowrap">Copy</button>
             </div>
             <div style="display:flex;gap:6px">
-              <button class="btn-secondary" onclick="shareMyGiftPageLink()" style="flex:1;margin-bottom:0;font-size:12px;padding:9px">📤 Share</button>
-              <button class="btn-secondary" onclick="confirmRegenerateMyGiftPageToken()" style="flex:1;margin-bottom:0;font-size:12px;padding:9px;color:#A32D2D;border-color:#F09595">↻ Regenerate link</button>
+              <button onclick="shareMyGiftPageLink()" style="flex:1;background:#FFFFFF;border:1.5px solid #D85A30;color:#D85A30;border-radius:3px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;font-size:11px;padding:10px;cursor:pointer">📤 Share</button>
+              <button onclick="confirmRegenerateMyGiftPageToken()" style="flex:1;background:transparent;border:1.5px solid #F09595;color:#A32D2D;border-radius:3px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;font-size:11px;padding:10px;cursor:pointer">↻ Regenerate</button>
             </div>
-            <div style="font-size:10px;color:#888780;line-height:1.55;margin-top:8px">Regenerate to invalidate the old link — useful if you shared it somewhere public.</div>
+            <div style="font-size:10px;color:#888780;line-height:1.55;margin-top:8px">Regenerate to invalidate the old link.</div>
           </div>
 
-          <div class="sec-label" style="margin-top:20px">Wishlist visibility</div>
-          <div class="card no-hover" style="margin-bottom:12px">
-            <div style="font-size:11px;color:#5F5E5A;margin-bottom:8px">Which of your lists should show up as gift ideas on your gift page (and when friends look at your birthday)?</div>
+          <div style="display:flex;align-items:center;gap:12px;margin:20px 0 14px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Wishlist Visibility</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
+          <div style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px;margin-bottom:12px">
+            <div style="font-size:11px;color:#5F5E5A;margin-bottom:8px">Which lists show up as gift ideas on your gift page (and to friends on your birthday)?</div>
             <div id="wishlist-categories" style="display:flex;flex-wrap:wrap;gap:6px">
               <div style="font-size:11px;color:#888780">Create a list first, then come back to pick which ones can show up.</div>
             </div>
           </div>
 
-          <button class="btn-primary" onclick="saveProfile()" style="margin-top:4px">Save changes</button>
+          <button class="btn-primary" onclick="saveProfile()" style="margin-top:4px;border-radius:3px;background:#D85A30;color:#FFFFFF;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;font-size:11px;padding:14px">Save changes</button>
         </div>
       </div>
 
@@ -1279,8 +1320,13 @@
           <div style="width:52px"></div>
         </div>
         <div class="content">
-          <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;margin:8px 0 4px;color:#2C2C2A">Account &amp; security</div>
-          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">Your login, password, and account actions.</div>
+          <div style="display:flex;align-items:center;gap:12px;margin:8px 0 14px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Account · Security</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
+          <div style="font-size:22px;font-weight:800;letter-spacing:-0.01em;margin:0 0 4px;color:#2C2C2A;line-height:1.1">Your login</div>
+          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">Password, email, and account actions.</div>
 
           <div class="card no-hover" style="margin-bottom:12px">
             <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid #F1EFE8">
@@ -1315,18 +1361,23 @@
           <div style="width:52px"></div>
         </div>
         <div class="content">
-          <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;margin:8px 0 4px;color:#2C2C2A">Feedback</div>
-          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">Ideas, bug reports, or anything on your mind.</div>
+          <div style="display:flex;align-items:center;gap:12px;margin:8px 0 14px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Feedback</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
+          <div style="font-size:22px;font-weight:800;letter-spacing:-0.01em;margin:0 0 4px;color:#2C2C2A;line-height:1.1">Ideas &amp; bug reports</div>
+          <div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">Anything on your mind — we read every note.</div>
 
-          <div class="card no-hover" style="margin-bottom:12px">
+          <div style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px;margin-bottom:12px">
             <div style="font-size:13.5px;color:#5F5E5A;margin-bottom:8px">Found a bug or have an idea? Let us know.</div>
-            <select id="feedback-category" style="margin-bottom:6px;font-size:12px;padding:6px 8px">
+            <select id="feedback-category" style="margin-bottom:6px;font-size:12px;padding:6px 8px;border-radius:3px">
               <option value="idea">Idea / suggestion</option>
               <option value="bug">Bug report</option>
               <option value="other">Other</option>
             </select>
-            <textarea id="feedback-message" placeholder="Tell us what's on your mind…" maxlength="1000" style="width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;resize:none;height:100px;margin-bottom:6px"></textarea>
-            <button class="btn-primary" onclick="submitFeedback()" style="margin-bottom:0">Submit feedback</button>
+            <textarea id="feedback-message" placeholder="Tell us what's on your mind…" maxlength="1000" style="width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:3px;padding:7px 8px;font-size:12px;font-family:inherit;resize:none;height:100px;margin-bottom:6px"></textarea>
+            <button onclick="submitFeedback()" style="margin-bottom:0;border-radius:3px;background:#D85A30;color:#FFFFFF;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;font-size:11px;padding:14px;border:none;cursor:pointer;width:100%">Submit feedback</button>
           </div>
         </div>
       </div>
@@ -1344,13 +1395,18 @@
           <div style="width:36px"></div>
         </div>
         <div class="content">
-          <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;letter-spacing:-0.02em;margin:8px 0 4px;color:#2C2C2A">Email preferences</div>
-          <div style="font-size:13px;color:#5F5E5A;margin-bottom:20px">Choose which Tenner emails you want to receive. Essential emails (welcome, account) always send.</div>
+          <div style="display:flex;align-items:center;gap:12px;margin:8px 0 14px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Email Preferences</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
+          <div style="font-size:22px;font-weight:800;letter-spacing:-0.01em;margin:0 0 4px;color:#2C2C2A;line-height:1.1">What we send</div>
+          <div style="font-size:13px;color:#5F5E5A;margin-bottom:20px">Essentials (welcome, account) always send. Everything else is your call.</div>
           <div id="email-prefs-list"></div>
           <div style="margin-top:24px;padding-top:16px;border-top:1px solid #EAE3DC">
-            <button class="btn-secondary" onclick="unsubscribeAllNonEssential()" style="color:#A32D2D;border-color:#F09595">Unsubscribe from all non-essential</button>
+            <button onclick="unsubscribeAllNonEssential()" style="background:transparent;border:1.5px solid #F09595;color:#A32D2D;border-radius:3px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;font-size:11px;padding:12px;cursor:pointer;width:100%">Unsubscribe from all non-essential</button>
           </div>
-          <div id="email-prefs-status" style="display:none;margin-top:12px;font-size:12px;text-align:center;padding:10px;border-radius:8px;background:#EAF3DE;color:#27500A;border:1px solid #97C459"></div>
+          <div id="email-prefs-status" style="display:none;margin-top:12px;font-size:12px;text-align:center;padding:10px;border-radius:3px;background:#EAF3DE;color:#27500A;border:1px solid #97C459"></div>
         </div>
       </div>
 
@@ -4862,16 +4918,17 @@ async function renderGroupDetail() {
   var editBtn = document.getElementById('gdetail-edit-btn');
   if (editBtn) editBtn.style.display = isAdmin ? '' : 'none';
 
+  var _danger = 'background:transparent;border:1.5px solid #F09595;color:#A32D2D;border-radius:3px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;font-size:11px;padding:12px;cursor:pointer;width:100%';
   var deleteHtml = isAdmin
-    ? '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmAdminLeaveGroup(' + selGroupIdx + ')">Leave group</button>'
-      + '<button class="btn-secondary" style="margin-top:6px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmDeleteGroup()">Delete group for everyone</button>'
-    : '<button class="btn-secondary" style="margin-top:8px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmLeaveGroup(' + selGroupIdx + ')">Leave group</button>';
+    ? '<button style="margin-top:12px;' + _danger + '" onclick="confirmAdminLeaveGroup(' + selGroupIdx + ')">Leave group</button>'
+      + '<button style="margin-top:6px;' + _danger + '" onclick="confirmDeleteGroup()">Delete group for everyone</button>'
+    : '<button style="margin-top:12px;' + _danger + '" onclick="confirmLeaveGroup(' + selGroupIdx + ')">Leave group</button>';
 
   // Large avatar header
   var headerHtml = '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:16px">'
     + groupAvatarHtml(g, 88)
-    + '<div style="font-size:17px;font-weight:700;color:#2C2C2A;margin-top:10px">' + g.n + '</div>'
-    + '<div style="font-size:13.5px;color:#5F5E5A;margin-top:2px">' + memberCount + ' member' + (memberCount !== 1 ? 's' : '') + '</div>'
+    + '<div style="font-size:22px;font-weight:800;letter-spacing:-0.01em;color:#2C2C2A;margin-top:10px;line-height:1.1">' + g.n + '</div>'
+    + '<div style="font-size:10.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;opacity:0.85;margin-top:6px">' + memberCount + ' MEMBER' + (memberCount !== 1 ? 'S' : '') + '</div>'
     + '</div>';
 
   var el = document.getElementById('gdetail-content');
@@ -6249,6 +6306,20 @@ function renderProfileHeader() {
   });
   var dn = document.getElementById('profile-display-name'); if (dn) dn.textContent = name;
   var hd = document.getElementById('profile-handle-display'); if (hd) hd.textContent = handle;
+  // Editorial folio masthead
+  try {
+    var fo = document.getElementById('profile-folio');
+    if (fo) {
+      var _mo = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEPT','OCT','NOV','DEC'];
+      var _t = new Date();
+      var _dayN = '';
+      if (p.created_at) {
+        var _d = Math.max(1, Math.floor((_t - new Date(p.created_at)) / 86400000) + 1);
+        _dayN = '  ·  DAY ' + _d + ' ON TENNER';
+      }
+      fo.innerHTML = _mo[_t.getMonth()] + ' ' + _t.getDate() + '  ·  <span style="color:#D85A30">PROFILE</span>' + _dayN;
+    }
+  } catch(_e) {}
   var ni = document.getElementById('profile-name-input'); if (ni) ni.value = p.display_name || '';
   var hi = document.getElementById('profile-handle-input');
   var hlocked = document.getElementById('handle-locked-msg');
@@ -10158,24 +10229,32 @@ function switchAdminTab(tab) {
 // prepend a "← Admin home" back button.
 function renderAdminHub(el) {
   var tiles = [
-    { key: 'cats',     label: 'Categories',    emoji: '📂', desc: 'Built-in category catalog',        bg: '#F5D0C8AA' },
-    { key: 'items',    label: 'Category items',emoji: '📝', desc: 'Suggested items per category',     bg: '#B8D0A8AA' },
-    { key: 'weekly',   label: 'Weekly lists',  emoji: '🎊', desc: 'This week\'s prompt + backlog',    bg: '#EFCB68AA' },
-    { key: 'insights', label: 'Insights',      emoji: '📊', desc: 'Trending user-created categories', bg: '#A8C8E8AA' },
-    { key: 'users',    label: 'Users',         emoji: '👥', desc: 'Search + moderate accounts',       bg: '#D9BEECAA' },
-    { key: 'groups',   label: 'Groups',        emoji: '🎁', desc: 'Search + moderate groups',         bg: '#F5A896AA' },
-    { key: 'lists',    label: 'Lists',         emoji: '📋', desc: 'Audit all user lists',             bg: '#A8D8C8AA' },
-    { key: 'feedback', label: 'Feedback',      emoji: '💬', desc: 'User feedback inbox',              bg: '#F5B534AA' },
-    { key: 'invites',  label: 'Invites',       emoji: '🎯', desc: 'Recruiter leaderboard',            bg: '#E8927CAA' }
+    { key: 'cats',     label: 'Categories',    emoji: '📂', desc: 'Built-in catalog',         bg: '#F5D0C8', ac: '#D85A30' },
+    { key: 'items',    label: 'Category items',emoji: '📝', desc: 'Suggested items',          bg: '#B8D0A8', ac: '#6B8E4E' },
+    { key: 'weekly',   label: 'Weekly lists',  emoji: '🎊', desc: 'Prompts · backlog',        bg: '#EFCB68', ac: '#B08A22' },
+    { key: 'insights', label: 'Insights',      emoji: '📊', desc: 'Trending categories',      bg: '#A8C8E8', ac: '#3E6FA0' },
+    { key: 'users',    label: 'Users',         emoji: '👥', desc: 'Search · moderate',        bg: '#D9BEEC', ac: '#6B4E8E' },
+    { key: 'groups',   label: 'Groups',        emoji: '🎁', desc: 'Search · moderate',        bg: '#F5A896', ac: '#D85A30' },
+    { key: 'lists',    label: 'Lists',         emoji: '📋', desc: 'Audit user lists',         bg: '#A8D8C8', ac: '#4E8E74' },
+    { key: 'feedback', label: 'Feedback',      emoji: '💬', desc: 'Feedback inbox',           bg: '#F5B534', ac: '#B57F0F' },
+    { key: 'invites',  label: 'Invites',       emoji: '🎯', desc: 'Recruiter leaderboard',    bg: '#E8927C', ac: '#A32D2D' }
   ];
+  var today = new Date();
+  var months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEPT','OCT','NOV','DEC'];
+  var folio = months[today.getMonth()] + ' ' + today.getDate() + '  ·  <span style="color:#D85A30">ADMIN</span>  ·  CONTROL PANEL';
   el.innerHTML = '<div style="padding:14px 12px">'
-    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;letter-spacing:-0.02em;color:#2C2C2A;margin-bottom:14px">Admin</div>'
+    + '<div style="font-size:9.5px;letter-spacing:0.22em;color:#2C2C2A;opacity:0.55;font-weight:700;text-transform:uppercase;text-align:center;padding:2px 0 14px">' + folio + '</div>'
+    + '<div style="display:flex;align-items:center;gap:12px;margin:0 0 14px">'
+    +   '<div style="flex:1;height:2px;background:#D85A30"></div>'
+    +   '<div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Admin Bento</div>'
+    +   '<div style="flex:1;height:2px;background:#D85A30"></div>'
+    + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
     + tiles.map(function(t) {
-        return '<div onclick="switchAdminTab(\'' + t.key + '\')" style="background:' + t.bg + ';border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;cursor:pointer">'
-          + '<div style="font-size:30px;line-height:1;margin-bottom:8px">' + t.emoji + '</div>'
-          + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:16px;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">' + escapeHtml(t.label) + '</div>'
-          + '<div style="font-size:10px;color:#2C2C2A;opacity:0.65;font-weight:600;margin-top:3px">' + escapeHtml(t.desc) + '</div>'
+        return '<div onclick="switchAdminTab(\'' + t.key + '\')" style="background:' + t.bg + '33;border:1px solid ' + t.ac + '33;border-left:7px solid ' + t.ac + ';border-radius:3px;padding:14px;cursor:pointer">'
+          + '<div style="font-size:26px;line-height:1;margin-bottom:8px">' + t.emoji + '</div>'
+          + '<div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">' + escapeHtml(t.label) + '</div>'
+          + '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:' + t.ac + ';opacity:0.85;margin-top:6px">' + escapeHtml(t.desc) + '</div>'
           + '</div>';
       }).join('')
     + '</div></div>';
@@ -12340,10 +12419,11 @@ function renderGiftTileHtml(l, i) {
   var safeCat = String(l.category).replace(/'/g,"\\'");
   var subtitle = 'Top ' + count + ' pick' + (count === 1 ? '' : 's') + ' · ' + (isOpen ? 'tap to close ↑' : 'tap to shop ↓');
   // Single medium-tone fill, black border, no emoji chip
-  var html = '<div data-gift-tile-idx="' + i + '" style="' + span + 'background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:18px;padding:16px;position:relative;overflow:hidden;cursor:pointer" onclick="toggleGiftTile(\'' + safeCat + '\')">'
-    +   '<div style="font-size:36px;line-height:1;margin-bottom:10px">' + renderCatEmoji(emoji, 36) + '</div>'
-    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A;margin-bottom:4px">' + escapeHtml(l.category) + '</div>'
-    +   '<div style="font-size:11px;font-weight:600;color:#2C2C2A;opacity:0.7;letter-spacing:0.02em">' + subtitle + '</div>';
+  var _tileAccent = pal.accent || pal.fg || '#D85A30';
+  var html = '<div data-gift-tile-idx="' + i + '" style="' + span + 'background:' + pal.bg + '33;border:1px solid ' + _tileAccent + '33;border-left:7px solid ' + _tileAccent + ';border-radius:3px;padding:14px;position:relative;overflow:hidden;cursor:pointer" onclick="toggleGiftTile(\'' + safeCat + '\')">'
+    +   '<div style="font-size:32px;line-height:1;margin-bottom:10px">' + renderCatEmoji(emoji, 32) + '</div>'
+    +   '<div style="font-size:18px;font-weight:800;letter-spacing:-0.005em;line-height:1.1;color:#2C2C2A;margin-bottom:6px">' + escapeHtml(l.category) + '</div>'
+    +   '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:' + _tileAccent + ';opacity:0.85">' + subtitle + '</div>';
   if (isOpen) {
     var items = (l.items || []).slice(0, 5);
     html += '<div style="margin-top:14px;background:#FFFFFF;border-radius:14px;padding:6px" onclick="event.stopPropagation()">';
@@ -12425,7 +12505,7 @@ async function _openGiftGuide_deprecated_inapp(friendUserId) {
     + '<div style="display:inline-block;padding:4px;background:#FFFFFF;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,0.10)">'
     +   friendAvatarHtml(profile, 96)
     + '</div>'
-    + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:30px;letter-spacing:-0.02em;color:#2C2C2A;margin-top:14px;line-height:1.15">Gifts for<br>' + escapeHtml(name) + '</div>'
+    + '<div style="font-size:28px;font-weight:800;letter-spacing:-0.01em;color:#2C2C2A;margin-top:14px;line-height:1.05">Gifts for<br>' + escapeHtml(name) + '</div>'
     + '<div style="font-size:10px;color:#5F5E5A;margin-top:6px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">Tap to see profile ↗</div>'
     + countdown
     + '</div>';
