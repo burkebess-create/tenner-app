@@ -19,58 +19,65 @@
   header { background: #FDFCF8; border-bottom: 1px solid #EAE3DC; padding: 14px 20px; position: sticky; top: 0; z-index: 10; }
   header .wrap { max-width: 640px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
   header img { height: 28px; object-fit: contain; }
-  header .cta { background: #D85A30; color: #fff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 999px; border: none; cursor: pointer; font-family: inherit; }
+  header .cta { background: #D85A30; color: #fff; text-decoration: none; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; padding: 9px 14px; border-radius: 3px; border: none; cursor: pointer; font-family: inherit; }
 
   .page { max-width: 640px; margin: 0 auto; padding: 24px 20px 60px; }
 
-  .hero { border-radius: 24px; padding: 32px 20px 26px; text-align: center; margin-bottom: 20px; }
-  .avatar-ring { display: inline-block; padding: 5px; background: #FFFFFF; border-radius: 999px; box-shadow: 0 6px 18px rgba(0,0,0,0.10); }
-  .avatar { width: 92px; height: 92px; border-radius: 999px; background: #EAE3DC; color: #5F5E5A; font-size: 34px; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  /* Editorial hero: white card w/ 7px coral left bar, no more colored rounded blob */
+  .hero { background: #FFFFFF; border: 1px solid #E8E6DF; border-left: 7px solid #D85A30; border-radius: 3px; padding: 26px 20px 22px; text-align: center; margin-bottom: 18px; }
+  .avatar-ring { display: inline-block; padding: 4px; background: #FFFFFF; border: 1.5px solid #2C2C2A; border-radius: 999px; }
+  .avatar { width: 88px; height: 88px; border-radius: 999px; background: #EAE3DC; color: #5F5E5A; font-size: 32px; font-weight: 800; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .avatar img { width: 100%; height: 100%; object-fit: cover; }
-  .hero h1 { font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; font-size: 30px; letter-spacing: -0.02em; margin: 14px 0 4px; line-height: 1.15; color: #2C2C2A; }
+  .hero .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; color: #D85A30; text-transform: uppercase; margin: 14px 0 6px; }
+  .hero h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 8px; line-height: 1.1; color: #2C2C2A; }
   .hero .sub { font-size: 12px; color: #5F5E5A; margin: 6px 0 0; }
-  .hero .badge { display: inline-block; margin-top: 12px; background: #FFFFFF; border: 1px solid #F5C4B3; color: #D85A30; font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: 999px; letter-spacing: 0.02em; text-transform: uppercase; }
+  .hero .badge { display: inline-block; margin-top: 14px; background: #FFFFFF; border: 1.5px solid #D85A30; color: #D85A30; font-size: 10px; font-weight: 800; padding: 5px 10px; border-radius: 3px; letter-spacing: 0.14em; text-transform: uppercase; }
 
-  .disclosure { background: #FFFFFF; border: 1px solid #EAE3DC; border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: #5F5E5A; line-height: 1.55; text-align: center; }
+  .disclosure { background: #FFFFFF; border: 1px solid #E8E6DF; border-radius: 3px; padding: 10px 12px; margin-bottom: 14px; font-size: 11.5px; color: #5F5E5A; line-height: 1.5; text-align: center; }
 
-  .sec-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #888780; font-weight: 700; margin: 18px 0 10px; }
+  /* Coral rule-line section label */
+  .sec-label { display: flex; align-items: center; gap: 12px; margin: 22px 0 12px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.18em; color: #D85A30; font-weight: 800; }
+  .sec-label::before, .sec-label::after { content: ""; flex: 1; height: 2px; background: #D85A30; }
 
-  .bento { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .tile { border: 1.5px solid #2C2C2A; border-radius: 18px; padding: 16px; cursor: pointer; }
+  .bento { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* Editorial tile: subtle palette tint + accent left bar via CSS variable */
+  .tile { --tint: rgba(216,90,48,0.20); --accent: #D85A30; background: var(--tint); border: 1px solid rgba(216,90,48,0.20); border-left: 7px solid var(--accent); border-radius: 3px; padding: 14px 12px; cursor: pointer; color: #2C2C2A; }
   .tile.open { grid-column: 1 / -1; }
-  .tile-emoji { font-size: 36px; line-height: 1; margin-bottom: 10px; }
-  .tile-title { font-family: 'DM Serif Display', Georgia, serif; font-size: 20px; letter-spacing: -0.01em; line-height: 1.1; color: #2C2C2A; margin-bottom: 4px; }
-  .tile-sub { font-size: 11px; font-weight: 600; color: #2C2C2A; opacity: 0.7; letter-spacing: 0.02em; }
-  .picks { margin-top: 14px; background: #FFFFFF; border-radius: 14px; padding: 6px; display: none; }
+  .tile-emoji { font-size: 32px; line-height: 1; margin-bottom: 10px; }
+  .tile-title { font-size: 16px; font-weight: 800; letter-spacing: -0.005em; line-height: 1.1; color: #2C2C2A; margin-bottom: 4px; }
+  .tile-sub { font-size: 9.5px; font-weight: 700; color: var(--accent); opacity: 0.85; letter-spacing: 0.12em; text-transform: uppercase; }
+  .picks { margin-top: 12px; background: #FFFFFF; border: 1px solid #E8E6DF; border-radius: 3px; padding: 4px 6px; display: none; }
   .tile.open .picks { display: block; }
-  .pick { display: flex; align-items: center; gap: 10px; padding: 10px 8px; }
+  .pick { display: flex; align-items: center; gap: 10px; padding: 10px 6px; }
   .pick + .pick { border-top: 1px solid #F1EFE8; }
-  .pick .rank { width: 22px; height: 22px; border-radius: 999px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #2C2C2A; background: rgba(0,0,0,0.06); }
-  .pick .name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: #2C2C2A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pick .shop { background: #2C2C2A; color: #fff; text-decoration: none; font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 999px; flex-shrink: 0; }
+  .pick .rank { min-width: 22px; padding: 2px 7px; border-radius: 2px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #FFFFFF; background: #2C2C2A; }
+  .pick .name { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: #2C2C2A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pick .shop { background: #D85A30; color: #fff; text-decoration: none; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; padding: 6px 10px; border-radius: 3px; flex-shrink: 0; }
 
-  /* Category tints — matches app palette */
-  .t-mustard   { background: #F5B534AA; }
-  .t-gold      { background: #EFCB68AA; }
-  .t-terracotta{ background: #C4593EAA; color: #fff; } .t-terracotta .tile-title, .t-terracotta .tile-sub { color:#fff; }
-  .t-blush     { background: #F5D0C8AA; }
-  .t-sage      { background: #B8D0A8AA; }
-  .t-forest    { background: #3A7A5CAA; color: #fff; } .t-forest .tile-title, .t-forest .tile-sub { color:#fff; }
-  .t-teal      { background: #2F9E8FAA; color: #fff; } .t-teal .tile-title, .t-teal .tile-sub { color:#fff; }
-  .t-mint      { background: #A8D8C8AA; }
-  .t-sky       { background: #A8C8E8AA; }
-  .t-dusk      { background: #5A7AAAAA; color: #fff; } .t-dusk .tile-title, .t-dusk .tile-sub { color:#fff; }
-  .t-lavender  { background: #D9BEECAA; }
-  .t-plum      { background: #7A4A85AA; color: #fff; } .t-plum .tile-title, .t-plum .tile-sub { color:#fff; }
-  .t-coral     { background: #E8927CAA; }
-  .t-rose      { background: #D46A80AA; color: #fff; } .t-rose .tile-title, .t-rose .tile-sub { color:#fff; }
-  .t-salmon    { background: #F5A896AA; }
-  .t-peach     { background: #F5C098AA; }
+  /* Category tints — same palette hex, expressed via --tint/--accent so the
+     shared editorial .tile rule can consume them. Bg gets a light 20% wash;
+     the left bar carries the saturated version. */
+  .t-mustard   { --tint: rgba(245,181, 52,0.20); --accent: #8A5A00; }
+  .t-gold      { --tint: rgba(239,203,104,0.20); --accent: #7A5000; }
+  .t-terracotta{ --tint: rgba(196, 89, 62,0.20); --accent: #3A1408; }
+  .t-blush     { --tint: rgba(245,208,200,0.35); --accent: #8A3A20; }
+  .t-sage      { --tint: rgba(184,208,168,0.28); --accent: #3A5A30; }
+  .t-forest    { --tint: rgba( 58,122, 92,0.18); --accent: #0F2E20; }
+  .t-teal      { --tint: rgba( 47,158,143,0.20); --accent: #1F7268; }
+  .t-mint      { --tint: rgba(168,216,200,0.35); --accent: #2E6B5C; }
+  .t-sky       { --tint: rgba(168,200,232,0.35); --accent: #1F4E7A; }
+  .t-dusk      { --tint: rgba( 90,122,170,0.20); --accent: #223E70; }
+  .t-lavender  { --tint: rgba(217,190,236,0.35); --accent: #573A82; }
+  .t-plum      { --tint: rgba(122, 74,133,0.18); --accent: #3A1D48; }
+  .t-coral     { --tint: rgba(232,146,124,0.30); --accent: #7A2E1E; }
+  .t-rose      { --tint: rgba(212,106,128,0.22); --accent: #6E1A30; }
+  .t-salmon    { --tint: rgba(245,168,150,0.28); --accent: #7A2A18; }
+  .t-peach     { --tint: rgba(245,192,152,0.30); --accent: #7A4A20; }
 
-  .footer-block { background: #F1EFE8; border-radius: 20px; padding: 26px 20px; margin-top: 28px; text-align: center; }
-  .footer-block h2 { font-family: 'DM Serif Display', Georgia, serif; font-size: 24px; letter-spacing: -0.02em; margin: 0 0 8px; color: #2C2C2A; font-weight: 400; }
-  .footer-block p { font-size: 14px; color: #5F5E5A; margin: 0 0 14px; }
-  .footer-block .btn { display: inline-block; background: #2C2C2A; color: #fff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 12px 22px; border-radius: 999px; border: none; cursor: pointer; font-family: inherit; }
+  .footer-block { background: #FFFFFF; border: 1px solid #E8E6DF; border-left: 7px solid #D85A30; border-radius: 3px; padding: 22px 20px; margin-top: 28px; text-align: center; }
+  .footer-block h2 { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 8px; color: #2C2C2A; }
+  .footer-block p { font-size: 13.5px; color: #5F5E5A; margin: 0 0 14px; }
+  .footer-block .btn { display: inline-block; background: #D85A30; color: #fff; text-decoration: none; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; padding: 12px 20px; border-radius: 3px; border: none; cursor: pointer; font-family: inherit; }
 
   footer { text-align: center; padding: 30px 20px; color: #888780; font-size: 12px; }
   footer a { color: #888780; margin: 0 8px; }
@@ -268,8 +275,8 @@
     var host = document.getElementById('budget-pills-host');
     if (!host) return;
     var anyActive = !budgetRange;
-    var base = 'font-family:inherit;font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600;border:1px solid #D3D1C7;background:#FFF;color:#2C2C2A';
-    var active = 'font-family:inherit;font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600;border:1px solid #2C2C2A;background:#2C2C2A;color:#FFF';
+    var base = 'font-family:inherit;font-size:10px;padding:7px 12px;border-radius:3px;cursor:pointer;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;border:1px solid #D85A30;background:#FFF;color:#D85A30';
+    var active = 'font-family:inherit;font-size:10px;padding:7px 12px;border-radius:3px;cursor:pointer;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;border:1px solid #D85A30;background:#D85A30;color:#FFF';
     var html = '<button type="button" style="' + (anyActive ? active : base) + '" onclick="__tennerClearBudget()">Any</button>';
     html += BUCKETS.map(function(b, i) {
       var on = budgetRange && i >= budgetRange.lowIdx && i <= budgetRange.highIdx;
@@ -328,7 +335,7 @@
   function render(data) {
     var root = document.getElementById('page-root');
     if (!data) {
-      root.innerHTML = '<div class="empty"><div style="font-size:44px;margin-bottom:14px">🔗</div><div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;margin-bottom:6px;color:#2C2C2A">This link isn\'t valid.</div><div style="font-size:13px;color:#5F5E5A">It may have been regenerated. Ask your friend for a fresh link.</div></div>';
+      root.innerHTML = '<div class="empty"><div style="font-size:44px;margin-bottom:14px">🔗</div><div style="font-size:20px;font-weight:800;margin-bottom:6px;color:#2C2C2A;letter-spacing:-0.01em">This link isn\'t valid.</div><div style="font-size:13px;color:#5F5E5A">It may have been regenerated. Ask your friend for a fresh link.</div></div>';
       return;
     }
     var name = data.display_name || (data.handle ? '@' + data.handle : 'Your friend');
@@ -360,7 +367,7 @@
       ? '<img src="' + escapeHtml(data.photo) + '" alt="">'
       : escapeHtml(initials);
 
-    var html = '<div class="hero" style="background:linear-gradient(180deg,' + heroBgColor + ' 0%, #FDFCF8 100%)">'
+    var html = '<div class="hero" style="--hero-accent:' + heroBgColor + '">'
       + '<div class="avatar-ring"><div class="avatar">' + avatarHtml + '</div></div>'
       + '<h1>Gifts for<br>' + escapeHtml(name) + '</h1>'
       + '<div class="sub">Built from ' + escapeHtml(name) + '\'s Top 10 lists on Tenner</div>'
@@ -402,7 +409,7 @@
       html += '</div>';
     }
 
-    html += '<div style="text-align:center;font-size:12px;color:#5F5E5A;margin:22px 0 0;padding:10px 14px;background:#F1EFE8;border-radius:12px">Prefer general gift ideas by category? <a href="/gifts/" style="color:#D85A30;text-decoration:underline;font-weight:600">Browse Tenner\'s gift categories →</a></div>';
+    html += '<div style="text-align:center;font-size:12px;color:#5F5E5A;margin:22px 0 0;padding:12px 14px;background:#FFF;border:1px solid #E5E3DA;border-left:4px solid #D85A30;border-radius:3px">Prefer general gift ideas by category? <a href="/gifts/" style="color:#D85A30;text-decoration:none;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;font-size:11px">Browse categories →</a></div>';
 
     var footBtnLabel = _openedFromApp ? '← Back to Tenner' : 'Launch Tenner →';
     var footHeadline = _openedFromApp ? 'Head back to Tenner' : 'Make your own Top 10 lists';
@@ -422,7 +429,7 @@
     var q = new URLSearchParams(location.search);
     var token = q.get('t') || (location.pathname.split('/g/')[1] || '').replace(/\/$/, '');
     if (!token) {
-      document.getElementById('page-root').innerHTML = '<div class="empty"><div style="font-size:44px;margin-bottom:14px">🔗</div><div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;margin-bottom:6px;color:#2C2C2A">No gift-guide link provided.</div><div style="font-size:13px;color:#5F5E5A">Ask your friend for their share link.</div></div>';
+      document.getElementById('page-root').innerHTML = '<div class="empty"><div style="font-size:44px;margin-bottom:14px">🔗</div><div style="font-size:20px;font-weight:800;margin-bottom:6px;color:#2C2C2A;letter-spacing:-0.01em">No gift-guide link provided.</div><div style="font-size:13px;color:#5F5E5A">Ask your friend for their share link.</div></div>';
       return;
     }
     try {
@@ -450,7 +457,7 @@
     var root = document.getElementById('page-root');
     root.innerHTML = '<div class="empty">'
       + '<div style="font-size:44px;margin-bottom:14px">🔗</div>'
-      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;margin-bottom:6px;color:#2C2C2A">This link isn\'t valid.</div>'
+      + '<div style="font-size:20px;font-weight:800;margin-bottom:6px;color:#2C2C2A;letter-spacing:-0.01em">This link isn\'t valid.</div>'
       + '<div style="font-size:13px;color:#5F5E5A;margin-bottom:20px">It may have been regenerated. Ask your friend for a fresh link.</div>'
       + '<details style="margin-top:20px;text-align:left;background:#F1EFE8;border-radius:8px;padding:12px;font-size:11px;color:#5F5E5A"><summary style="cursor:pointer;font-weight:600">Debug info</summary>'
       + '<div style="margin-top:8px"><strong>' + title + '</strong></div>'
