@@ -1140,6 +1140,16 @@
               <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Account &amp; security</div>
               <div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6B4E8E;opacity:0.85;margin-top:6px">Password · Email</div>
             </div>
+            <div onclick="shareTennerApp()" style="grid-column:1/-1;background:#D85A30;border:1px solid #D85A30;border-left:7px solid #B84620;border-radius:3px;padding:14px 16px;cursor:pointer;color:#FFFFFF">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="font-size:22px;line-height:1">📣</div>
+                <div style="flex:1">
+                  <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;line-height:1.1">Invite friends to Tenner</div>
+                  <div style="font-size:9.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#FFE9D9;margin-top:5px">Share the app · Auto-connect on signup</div>
+                </div>
+                <div style="font-size:16px;opacity:0.7">›</div>
+              </div>
+            </div>
             <div onclick="go('s-profile-feedback')" style="background:#A8D8C833;border:1px solid #4E8E7433;border-left:7px solid #4E8E74;border-radius:3px;padding:14px;cursor:pointer">
               <div style="font-size:26px;line-height:1;margin-bottom:8px">💡</div>
               <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Feedback</div>
@@ -1897,10 +1907,13 @@ function go(id) {
     attachPullToRefresh(document.querySelector('#s-home .content'), function() { return loadState().then(renderHome); });
     renderDirtyBanner();
     renderCachedBanner();
+    if (userId) setTimeout(maybeShowIosInstallPrompt, 2500);
   }
   if (id === 's-gdetail') renderGroupDetail();
   if (id === 's-fdetail' && selFriendId) { renderFriendDetail(); markFriendViewed(selFriendId); }
-  if (id === 's-create1') { editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
+  if (id === 's-circle') maybeShowTabTip('circle');
+  if (id === 's-match') maybeShowTabTip('match');
+  if (id === 's-create1') { maybeShowTabTip('create'); editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
   if (id === 's-create2') { renderItems(); updateProg(); renderItemChips(); }
   if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); addedNonFriends = {}; clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
@@ -4007,6 +4020,98 @@ async function renderActivityFeed() {
   } catch(e) { console.warn('Activity feed failed', e); }
 }
 
+// Per-tab onboarding tip. Fires once per browser per tab for accounts less
+// than 14 days old — so existing veteran users never see it. Bottom-sheet
+// style so it doesn't obscure the tab's own top chrome.
+var ONBOARDING_TIPS = {
+  circle: { title: 'Your Circle', body: 'Tap any friend\'s avatar to see their Top 10 lists, comment on picks, or open their gift page. The row at top surfaces whoever\'s been most active lately.' },
+  create: { title: 'Create a list', body: 'Pick a category — or create your own — and rank your top 10 in order. Save it and choose who to share with: individual friends, a group, or just you.' },
+  match:  { title: 'Match', body: 'Pick a friend and a category you\'ve both filled. Tap Reveal to see your match percentage and a verdict — from "Opposites attract" to "Twins separated at birth."' }
+};
+function maybeShowTabTip(tabKey) {
+  try {
+    if (!myProfile || !myProfile.created_at) return;
+    var ageDays = (Date.now() - new Date(myProfile.created_at).getTime()) / 86400000;
+    if (ageDays > 14) return;
+    var k = 'tenner_tip_' + tabKey + '_v1';
+    if (localStorage.getItem(k)) return;
+    var t = ONBOARDING_TIPS[tabKey];
+    if (!t) return;
+    // Small delay so the tip doesn't collide with the initial welcome modal or a fresh nav animation
+    setTimeout(function() {
+      if (document.getElementById('onb-tip-' + tabKey)) return;
+      if (document.getElementById('onboarding-overlay')) return; // welcome modal open
+      var frame = document.querySelector('.frame') || document.body;
+      var el = document.createElement('div');
+      el.id = 'onb-tip-' + tabKey;
+      el.style.cssText = 'position:absolute;inset:0;background:rgba(20,10,4,0.5);z-index:9998;display:flex;align-items:flex-end;justify-content:center;padding:20px';
+      el.onclick = function(e){ if (e.target === el) dismissTabTip(tabKey); };
+      el.innerHTML = '<div style="background:#FFF;border-left:7px solid #D85A30;border-radius:3px;padding:20px 18px;width:100%;max-width:340px">'
+        + '<div style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;margin-bottom:8px">Tip for new users</div>'
+        + '<div style="font-size:19px;font-weight:800;color:#2C2C2A;margin-bottom:8px;letter-spacing:-0.01em">' + t.title + '</div>'
+        + '<div style="font-size:13.5px;color:#5F5E5A;line-height:1.5;margin-bottom:16px">' + t.body + '</div>'
+        + '<button onclick="dismissTabTip(\'' + tabKey + '\')" style="background:#D85A30;color:#FFF;border:none;border-radius:3px;padding:11px 16px;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer;font-family:inherit;width:100%">Got it</button>'
+        + '</div>';
+      frame.appendChild(el);
+      trackEvent('onboarding_tip_shown', { tab: tabKey });
+    }, 400);
+  } catch(e) { /* silent */ }
+}
+function dismissTabTip(tabKey) {
+  try {
+    localStorage.setItem('tenner_tip_' + tabKey + '_v1', '1');
+    var el = document.getElementById('onb-tip-' + tabKey);
+    if (el) el.remove();
+    trackEvent('onboarding_tip_dismissed', { tab: tabKey });
+  } catch(e) {}
+}
+
+// iOS Add-to-Home-Screen banner. iOS Safari doesn't fire beforeinstallprompt,
+// so we show a native-style hint after the user has meaningfully engaged
+// (at least one list, second session). Dismissible + persistent-dismiss.
+function maybeShowIosInstallPrompt() {
+  try {
+    if (localStorage.getItem('tenner_ios_install_dismissed')) return;
+    var ua = navigator.userAgent || '';
+    var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+    // Safari on iOS — Chrome/Firefox on iOS use a different engine and don't support A2HS well
+    var isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+    var isStandalone = (window.navigator.standalone === true) ||
+                       (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    if (!isIOS || !isSafari || isStandalone) return;
+    // Require engagement: at least one list saved + second session
+    var hasSecondVisit = !!localStorage.getItem('tenner_first_visit_at') && Date.now() - parseInt(localStorage.getItem('tenner_first_visit_at'),10) > 60*60*1000;
+    if (!localStorage.getItem('tenner_first_visit_at')) {
+      localStorage.setItem('tenner_first_visit_at', String(Date.now()));
+    }
+    if (!hasSecondVisit) return;
+    if (!MY_LISTS || MY_LISTS.length === 0) return;
+    if (document.getElementById('ios-install-banner')) return;
+    var frame = document.querySelector('.frame') || document.body;
+    var el = document.createElement('div');
+    el.id = 'ios-install-banner';
+    el.style.cssText = 'position:absolute;left:0;right:0;bottom:70px;z-index:9997;padding:0 12px;pointer-events:none';
+    el.innerHTML = '<div style="pointer-events:auto;background:#FFF;border:1px solid #EAE3DC;border-left:7px solid #D85A30;border-radius:3px;padding:12px 14px;box-shadow:0 8px 24px rgba(44,44,42,0.18);display:flex;gap:10px;align-items:center">'
+      + '<div style="font-size:22px;line-height:1;flex-shrink:0">📱</div>'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:12.5px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em">Install Tenner on your Home Screen</div>'
+      +   '<div style="font-size:11px;color:#5F5E5A;margin-top:3px;line-height:1.4">Tap <strong>Share</strong> ↑ in Safari, then <strong>Add to Home Screen</strong>.</div>'
+      + '</div>'
+      + '<button onclick="dismissIosInstall()" style="background:none;border:none;color:#888780;font-size:22px;cursor:pointer;padding:2px 8px;line-height:1">×</button>'
+      + '</div>';
+    frame.appendChild(el);
+    trackEvent('ios_install_prompt_shown', {});
+  } catch(e) { /* silent */ }
+}
+function dismissIosInstall() {
+  try {
+    localStorage.setItem('tenner_ios_install_dismissed', '1');
+    var el = document.getElementById('ios-install-banner');
+    if (el) el.remove();
+    trackEvent('ios_install_prompt_dismissed', {});
+  } catch(e) {}
+}
+
 function showOnboardingIfNeeded() {
   if (localStorage.getItem('tenner_onboarded')) return;
   if (MY_LISTS.length > 0 || myFriends.length > 0) { localStorage.setItem('tenner_onboarded','1'); return; }
@@ -5146,6 +5251,32 @@ function myHandleLine() {
   return h ? ('\n\nNot on Tenner yet? Add me @' + h) : '';
 }
 
+// Share Tenner itself (not tied to a group/list). Prefers native OS share
+// sheet on mobile → clipboard copy → text-preview modal on desktop.
+function shareTennerApp() {
+  var senderName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
+  var trackedUrl = 'https://mytenner.com/' + (userId ? '?from=' + encodeURIComponent(userId) : '');
+  var findLine = (myProfile && myProfile.handle) ? '\nFind me @' + myProfile.handle : '';
+  var text = 'I\'ve been using Tenner — make Top 10 lists of stuff you love (movies, books, restaurants, anything) and see how your picks match up with friends.\n\nJoin me → ' + trackedUrl + findLine + '\n\n— ' + senderName;
+  trackEvent('share_app_started', { method: navigator.share ? 'web_share' : 'clipboard' });
+  if (navigator.share) {
+    navigator.share({ title: 'Join me on Tenner', text: text, url: trackedUrl })
+      .then(function(){ trackEvent('share_app_completed', { method: 'web_share' }); })
+      .catch(function(){ /* user dismissed */ });
+    return;
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      showToast('Invite copied — paste it anywhere.');
+      trackEvent('share_app_completed', { method: 'clipboard' });
+    }).catch(function() {
+      showConfirm('Invite friends', text, 'Done', 'primary', function(){});
+    });
+  } else {
+    showConfirm('Invite friends', text, 'Done', 'primary', function(){});
+  }
+}
+
 function copyListInviteLink() {
   var url = getListInviteUrl();
   var textToCopy = url + myHandleLine();
@@ -5583,6 +5714,12 @@ function initPasswordRecoveryFlow() {
     if (event === 'PASSWORD_RECOVERY') {
       showSetNewPasswordModal();
     }
+    if (event === 'SIGNED_IN' && session && session.user) {
+      // trackOnce is per-user: fires on the very first sign-in only.
+      try { window.userId = session.user.id; } catch(e){}
+      trackOnce('signup_completed', { provider: (session.user.app_metadata && session.user.app_metadata.provider) || 'email' });
+      trackEvent('sign_in', { provider: (session.user.app_metadata && session.user.app_metadata.provider) || 'email' });
+    }
   });
 }
 
@@ -5664,6 +5801,7 @@ async function submitAuth() {
   if (currentAuthTab !== 'magic' && !password) { errEl.textContent = 'Please enter your password.'; errEl.style.display = 'block'; return; }
   btn.textContent = '...';
   btn.disabled = true;
+  trackEvent('auth_submit', { tab: currentAuthTab });
   try {
     var res;
     if (currentAuthTab === 'magic') {
@@ -5696,9 +5834,13 @@ async function submitAuth() {
       if (res.error) {
         errEl.textContent = authErrorText(res.error);
         errEl.style.display = 'block';
-      } else if (!res.data.session) {
-        successEl.innerHTML = '✓ Account created! Check your email for a confirmation link, then <a href="#" onclick="authTab(\'login\');return false;" style="color:#27500A;text-decoration:underline;font-weight:600">tap here to log in</a>.';
-        successEl.style.display = 'block';
+        trackEvent('signup_failed', { reason: (res.error.message || '').slice(0, 120) });
+      } else {
+        trackEvent('signup_started', { email_domain: (email.split('@')[1] || '').slice(0, 40) });
+        if (!res.data.session) {
+          successEl.innerHTML = '✓ Account created! Check your email for a confirmation link, then <a href="#" onclick="authTab(\'login\');return false;" style="color:#27500A;text-decoration:underline;font-weight:600">tap here to log in</a>.';
+          successEl.style.display = 'block';
+        }
       }
     }
   } catch(e) {
@@ -6792,8 +6934,11 @@ async function respondToFriendRequest(friendshipId, accept) {
   try {
     if (accept) {
       await sbClient.from('friendships').update({ status: 'accepted' }).eq('id', friendshipId);
+      trackOnce('first_friend_added', { via: 'accepted_request' });
+      trackEvent('friend_accepted', {});
     } else {
       await sbClient.from('friendships').delete().eq('id', friendshipId);
+      trackEvent('friend_declined', {});
     }
     await loadFriends();
     // Re-render alerts inbox if we're on it (friend request just left the list)
@@ -9326,6 +9471,9 @@ async function saveListToDb(listObj) {
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id,category' });
     if (res && res.error) throw res.error;
+    // Milestone: user has now saved at least one list.
+    trackOnce('first_list_created', { category: listObj.category || null, items: (listObj.items || []).length });
+    trackEvent('list_saved', { category: listObj.category || null, items: (listObj.items || []).length, is_public: !!listObj.is_public, ranked: listObj.ranked !== false });
   } catch(e) { console.warn('List save to DB failed', e); throw e; }
 }
 
@@ -12226,6 +12374,47 @@ function trackShopClick(payload) {
   } catch (e) { /* silent */ }
 }
 
+// ── Generic event tracking ─────────────────────────────────────────
+// Fire-and-forget INSERT into analytics_events. Never blocks. Safe to
+// call before sign-in (user_id will be null). Session id is a stable
+// per-tab random so we can group events into a session in the dashboard.
+function _tennerSessionId() {
+  try {
+    var k = 'tenner_sess_id';
+    var v = sessionStorage.getItem(k);
+    if (!v) {
+      v = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      sessionStorage.setItem(k, v);
+    }
+    return v;
+  } catch (e) { return null; }
+}
+function trackEvent(name, meta) {
+  try {
+    if (!sbClient || !name) return;
+    var row = {
+      user_id: (typeof userId !== 'undefined' && userId) ? userId : null,
+      event: String(name).slice(0, 64),
+      meta: meta || null,
+      session_id: _tennerSessionId(),
+      user_agent: (typeof navigator !== 'undefined') ? (navigator.userAgent || null) : null,
+      referer: (typeof document !== 'undefined') ? (document.referrer || null) : null
+    };
+    sbClient.from('analytics_events').insert(row).then(function(){}, function(){});
+  } catch (e) { /* silent */ }
+}
+// Milestone events fire once per user per name — persisted client-side so
+// even a returning cold-cache session won't double-count first_list_created.
+function trackOnce(name, meta) {
+  try {
+    var uid = (typeof userId !== 'undefined' && userId) ? userId : 'anon';
+    var k = 'tenner_evt_' + uid + '_' + name;
+    if (localStorage.getItem(k)) return;
+    localStorage.setItem(k, '1');
+    trackEvent(name, meta);
+  } catch (e) { /* silent */ }
+}
+
 function amazonSearchUrl(query, category) {
   var suffix = GIFT_CATEGORY_SUFFIX[category];
   if (!suffix) {
@@ -13012,6 +13201,8 @@ function setupRealtimeNotifications() {
               .maybeSingle();
             if (!existing.data) {
               await sbClient.from('friendships').insert({ requester_id: fromId, addressee_id: userId, status: 'accepted' });
+              trackOnce('first_friend_added', { via: 'invite_link_auto' });
+              trackEvent('friend_auto_added', { via: 'invite_link' });
               // Refresh local friends list so Circle shows the new connection immediately
               if (typeof loadFriends === 'function') loadFriends();
               // Notify the inviter that their invite converted (transactional — always fires, not batched into digest)

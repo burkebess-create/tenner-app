@@ -478,5 +478,32 @@
   <div class="fine">© Tenner. As an Amazon Associate, Tenner earns from qualifying purchases.</div>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Fire-and-forget page-view event so we can measure welcome→signup funnel.
+(function() {
+  try {
+    var SB_URL = 'https://bbjpvlmkhvggtwyvpzrq.supabase.co';
+    var SB_KEY = 'sb_publishable_jeeTdNoqIJXBtx_1W1TscQ_cnRAcwHx';
+    if (typeof supabase === 'undefined') return;
+    var sb = supabase.createClient(SB_URL, SB_KEY);
+    var sid;
+    try {
+      sid = sessionStorage.getItem('tenner_sess_id');
+      if (!sid) {
+        sid = Math.random().toString(36).slice(2,10) + Date.now().toString(36);
+        sessionStorage.setItem('tenner_sess_id', sid);
+      }
+    } catch(e) { sid = null; }
+    sb.from('analytics_events').insert({
+      event: 'welcome_view',
+      meta: { pathname: location.pathname },
+      session_id: sid,
+      user_agent: navigator.userAgent || null,
+      referer: document.referrer || null
+    }).then(function(){}, function(){});
+  } catch(e) { /* silent */ }
+})();
+</script>
 </body>
 </html>
