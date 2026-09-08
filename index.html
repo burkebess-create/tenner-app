@@ -10570,7 +10570,8 @@ function renderAdminHub(el) {
     { key: 'groups',   label: 'Groups',        emoji: '🎁', desc: 'Search · moderate',        bg: '#F5A896', ac: '#D85A30' },
     { key: 'lists',    label: 'Lists',         emoji: '📋', desc: 'Audit user lists',         bg: '#A8D8C8', ac: '#4E8E74' },
     { key: 'feedback', label: 'Feedback',      emoji: '💬', desc: 'Feedback inbox',           bg: '#F5B534', ac: '#B57F0F' },
-    { key: 'invites',  label: 'Invites',       emoji: '🎯', desc: 'Recruiter leaderboard',    bg: '#E8927C', ac: '#A32D2D' }
+    { key: 'invites',  label: 'Invites',       emoji: '🎯', desc: 'Recruiter leaderboard',    bg: '#E8927C', ac: '#A32D2D' },
+    { key: 'errors',   label: 'Errors',        emoji: '⚠️', desc: 'What broke · Last 7 days', bg: '#F5B534', ac: '#B57F0F' }
   ];
   var today = new Date();
   var months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEPT','OCT','NOV','DEC'];
@@ -10617,6 +10618,92 @@ async function renderAdmin() {
   if (_adminTab === 'lists')    return renderAdminLists(content);
   if (_adminTab === 'feedback') return renderAdminFeedback(content);
   if (_adminTab === 'invites')  return renderAdminInvites(content);
+  if (_adminTab === 'errors')   return renderAdminErrors(content);
+}
+
+// Turn a raw JS error message into a plain-English explanation for the
+// admin dashboard. Falls back to the raw message with a generic prefix.
+function humanizeError(msg) {
+  var m = String(msg || '').toLowerCase();
+  if (m.indexOf('script error') === 0) return 'A third-party script (probably an ad blocker or extension) failed silently. Usually harmless.';
+  if (m.indexOf('failed to fetch') >= 0 || m.indexOf('networkerror') >= 0 || m.indexOf('load failed') >= 0) return 'The app couldn\'t reach the internet or a server. Often a spotty connection.';
+  if (m.indexOf('supabase') >= 0 || m.indexOf('postgrest') >= 0 || m.indexOf('pgrst') >= 0) return 'A database request failed — the query returned an error or timed out.';
+  if (m.indexOf('cannot read') >= 0 || m.indexOf('undefined') >= 0 && m.indexOf('property') >= 0) return 'The code tried to use data that didn\'t exist — usually a missing field or a slow-loading response.';
+  if (m.indexOf('null is not') >= 0)  return 'The code expected something to exist but it didn\'t — probably a missing user, list, or friend record.';
+  if (m.indexOf('quota') >= 0 || m.indexOf('storage') >= 0) return 'The user\'s browser storage is full or blocked — private mode can cause this.';
+  if (m.indexOf('permission') >= 0)   return 'The user denied a permission (notifications, storage, etc.) or their browser blocked it.';
+  if (m.indexOf('service worker') >= 0) return 'The offline cache had trouble installing or updating.';
+  if (m.indexOf('resizeobserver') >= 0) return 'A harmless browser noise error — safe to ignore.';
+  if (m.indexOf('non-error promise rejection') >= 0) return 'A background task failed without a real error message. Usually a canceled fetch.';
+  if (m.indexOf('unauthorized') >= 0 || m.indexOf('401') >= 0) return 'The user\'s session expired mid-request. They probably need to sign in again.';
+  return 'Unexpected code error. Tap for the technical detail.';
+}
+function relTime(ts) {
+  if (!ts) return '';
+  var d = (Date.now() - new Date(ts).getTime()) / 1000;
+  if (d < 60)     return Math.max(1, Math.round(d)) + 's ago';
+  if (d < 3600)   return Math.round(d/60) + 'm ago';
+  if (d < 86400)  return Math.round(d/3600) + 'h ago';
+  return Math.round(d/86400) + 'd ago';
+}
+
+var _adminErrorsDays = 7;
+async function renderAdminErrors(el) {
+  el.innerHTML = ''
+    + '<div style="padding:12px 12px 4px;display:flex;align-items:center;gap:8px">'
+    +   '<div style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A">Window:</div>'
+    +   ['1','7','30'].map(function(n){
+          var active = _adminErrorsDays === parseInt(n,10);
+          return '<button onclick="_adminErrorsDays=' + n + ';renderAdminErrors(this.closest(\'#_admin-section-body\'))" style="border:1.5px solid ' + (active ? '#D85A30' : '#D3D1C7') + ';background:' + (active ? '#D85A30' : '#FFF') + ';color:' + (active ? '#FFF' : '#2C2C2A') + ';padding:5px 10px;border-radius:3px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">Last ' + n + 'd</button>';
+        }).join('')
+    + '</div>'
+    + '<div id="admin-errors-body" style="padding:12px"><div style="color:#888;font-size:12px;padding:20px;text-align:center">Loading…</div></div>';
+  var host = document.getElementById('admin-errors-body');
+  try {
+    var res = await sbClient.rpc('admin_get_error_summary', { days: _adminErrorsDays });
+    if (res.error) throw res.error;
+    var rows = res.data || [];
+    if (rows.length === 0) {
+      host.innerHTML = '<div style="background:#E8F0E4;border:1px solid #6B8E4E33;border-left:7px solid #6B8E4E;border-radius:3px;padding:16px 18px;text-align:center">'
+        + '<div style="font-size:28px;margin-bottom:8px">✅</div>'
+        + '<div style="font-size:14px;font-weight:800;color:#2C2C2A">No errors in the last ' + _adminErrorsDays + ' day' + (_adminErrorsDays === 1 ? '' : 's') + '.</div>'
+        + '<div style="font-size:12px;color:#5F5E5A;margin-top:4px">Everything ran clean. Nice.</div>'
+        + '</div>';
+      return;
+    }
+    var totalHits = rows.reduce(function(a,r){ return a + Number(r.hits); }, 0);
+    var totalUsers = rows.reduce(function(a,r){ return a + Number(r.users); }, 0);
+    var summaryHtml = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">'
+      + '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:5px solid #D85A30;border-radius:3px;padding:10px 12px"><div style="font-size:20px;font-weight:800;color:#2C2C2A">' + rows.length + '</div><div style="font-size:9px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A">Unique errors</div></div>'
+      + '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:5px solid #F5B534;border-radius:3px;padding:10px 12px"><div style="font-size:20px;font-weight:800;color:#2C2C2A">' + totalHits + '</div><div style="font-size:9px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A">Total hits</div></div>'
+      + '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:5px solid #2F9E8F;border-radius:3px;padding:10px 12px"><div style="font-size:20px;font-weight:800;color:#2C2C2A">' + totalUsers + '</div><div style="font-size:9px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A">Users hit</div></div>'
+      + '</div>';
+    var listHtml = rows.map(function(r, i) {
+      var human = humanizeError(r.message);
+      var severity = Number(r.users) >= 3 || Number(r.hits) >= 10 ? 'high' : (Number(r.hits) >= 3 ? 'medium' : 'low');
+      var sevColors = { high: '#D85A30', medium: '#F5B534', low: '#5F5E5A' };
+      var sevLabel  = { high: 'Frequent', medium: 'Occasional', low: 'One-off' };
+      var accent = sevColors[severity];
+      var detailId = 'err-detail-' + i;
+      return '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:7px solid ' + accent + ';border-radius:3px;padding:14px 16px;margin-bottom:10px">'
+        + '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">'
+        +   '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:' + accent + '">' + sevLabel[severity] + '</div>'
+        +   '<div style="flex:1;font-size:10.5px;color:#888780;font-weight:700">' + Number(r.hits) + ' hit' + (Number(r.hits) === 1 ? '' : 's') + ' · ' + Number(r.users) + ' user' + (Number(r.users) === 1 ? '' : 's') + ' · last ' + relTime(r.last_seen) + '</div>'
+        + '</div>'
+        + '<div style="font-size:14.5px;font-weight:700;color:#2C2C2A;line-height:1.4;margin-bottom:6px">' + escapeHtml(human) + '</div>'
+        + (r.sample_path ? '<div style="font-size:11px;color:#5F5E5A;margin-bottom:6px">Happens on: <code style="font-size:11px;background:#F1EFE8;padding:1px 5px;border-radius:2px">' + escapeHtml(r.sample_path) + '</code></div>' : '')
+        + '<button onclick="var d=document.getElementById(\'' + detailId + '\');d.style.display=d.style.display===\'none\'?\'block\':\'none\';this.textContent=d.style.display===\'none\'?\'Show technical detail\':\'Hide technical detail\'" style="background:none;border:none;color:#D85A30;font-size:10.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;padding:0;cursor:pointer;font-family:inherit">Show technical detail</button>'
+        + '<div id="' + detailId + '" style="display:none;margin-top:10px;padding:10px 12px;background:#F5F1EA;border-radius:3px;border:1px solid #EAE3DC">'
+        +   '<div style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#888780;margin-bottom:4px">Raw message</div>'
+        +   '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#2C2C2A;word-break:break-word;margin-bottom:8px">' + escapeHtml(r.message) + '</div>'
+        +   (r.sample_stack ? '<div style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#888780;margin-bottom:4px">Stack (most recent)</div><pre style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#5F5E5A;white-space:pre-wrap;word-break:break-word;margin:0;background:none">' + escapeHtml(r.sample_stack) + '</pre>' : '<div style="font-size:11px;color:#888780;font-style:italic">No stack trace captured.</div>')
+        + '</div>'
+        + '</div>';
+    }).join('');
+    host.innerHTML = summaryHtml + listHtml;
+  } catch(e) {
+    host.innerHTML = '<div style="padding:16px;text-align:center;color:#A32D2D;font-size:12px">Couldn\'t load errors: ' + escapeHtml(String(e && e.message || e)) + '</div>';
+  }
 }
 
 // --- Groups tab ---
