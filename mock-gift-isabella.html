@@ -19,131 +19,110 @@
     padding: 14px 18px; background: #FDFCF8;
     border-bottom: 1px solid #EAE3DC;
   }
-  header img.logo { height: 26px; }
+  header img.logo { height: 28px; }
   header .back {
     background: #D85A30; color: #FFF; border: none; border-radius: 3px;
-    padding: 9px 14px; font-size: 11px; font-weight: 800;
+    padding: 10px 16px; font-size: 12px; font-weight: 800;
     letter-spacing: 0.14em; text-transform: uppercase;
     font-family: inherit; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 8px;
   }
 
   .page { padding: 20px 16px 40px; }
 
-  /* Hero */
+  /* Hero — clean card, thick coral left bar, photo + name + date pill */
   .hero {
-    background: #FFF; border: 1px solid #EAE3DC; border-left: 7px solid #D85A30;
-    border-radius: 3px; padding: 26px 20px 22px; text-align: center;
-    margin-bottom: 14px;
-  }
-  .avatar-ring {
-    display: inline-block; padding: 4px; background: #FFF;
-    border-radius: 999px; border: 2px solid #2C2C2A;
-    margin-bottom: 14px;
+    background: #FDFCF8; border: 1px solid #EAE3DC; border-left: 9px solid #D85A30;
+    border-radius: 3px; padding: 30px 20px 26px; text-align: center;
+    margin-bottom: 22px;
   }
   .avatar {
-    width: 88px; height: 88px; border-radius: 999px; overflow: hidden;
-    background: #F5B534; color: #FFF;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 30px; font-weight: 800; letter-spacing: -0.02em;
+    width: 130px; height: 130px; border-radius: 999px;
+    background: #F5F1EA; padding: 6px;
+    margin: 0 auto 18px; overflow: hidden;
   }
-  .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .avatar img {
+    width: 100%; height: 100%; border-radius: 999px;
+    object-fit: cover; display: block;
+  }
   .hero h1 {
-    font-size: 26px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em;
-    margin: 0 0 6px;
+    font-size: 32px; font-weight: 800; letter-spacing: -0.02em;
+    margin: 0 0 18px; color: #2C2C2A;
   }
-  .hero .sub {
-    font-size: 13px; color: #5F5E5A; margin: 0 0 14px;
+  .hero .date-pill {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 12px 22px; border: 1.5px solid #D85A30; border-radius: 6px;
+    background: #FDFCF8;
+    color: #D85A30; font-size: 13px; font-weight: 800;
+    letter-spacing: 0.14em; text-transform: uppercase;
   }
-  .hero .badge {
-    display: inline-block; background: #2C2C2A; color: #FFF;
-    padding: 6px 12px; border-radius: 3px;
-    font-size: 10.5px; font-weight: 800; letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
-
-  /* Budget — one line */
-  .budget-label {
-    font-size: 10.5px; font-weight: 800; letter-spacing: 0.16em;
-    text-transform: uppercase; color: #888780;
-    text-align: center; margin: 18px 0 10px;
-  }
-  .budget-row {
-    display: flex; gap: 6px; justify-content: center; flex-wrap: nowrap;
-    overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;
-  }
-  .budget-row::-webkit-scrollbar { display: none; }
-  .pill {
-    flex-shrink: 0;
-    background: #FFF; color: #D85A30; border: 1.5px solid #D85A30;
-    padding: 7px 10px; border-radius: 3px;
-    font-size: 10px; font-weight: 800; letter-spacing: 0.10em;
-    text-transform: uppercase; font-family: inherit; cursor: pointer;
-    white-space: nowrap;
-  }
-  .pill.active { background: #D85A30; color: #FFF; }
+  .hero .date-pill .icon { font-size: 14px; }
 
   /* Section rule */
   .sec-rule {
-    display: flex; align-items: center; gap: 12px; margin: 26px 0 12px;
+    display: flex; align-items: center; gap: 14px; margin: 24px 0 18px;
   }
   .sec-rule .r { flex: 1; height: 2px; background: #D85A30; }
   .sec-rule .l {
-    font-size: 10.5px; font-weight: 800; letter-spacing: 0.16em;
+    font-size: 12px; font-weight: 800; letter-spacing: 0.20em;
     text-transform: uppercase; color: #D85A30;
   }
 
   /* Tiles */
   .tile {
-    border-radius: 3px; padding: 20px 18px; margin-bottom: 12px;
-    border-left: 7px solid #D85A30;
-    background: rgba(216,90,48,0.10);
+    border-radius: 3px; padding: 22px 22px; margin-bottom: 14px;
   }
-  .tile-emoji { font-size: 32px; line-height: 1; margin-bottom: 12px; }
-  .tile-title {
-    font-size: 20px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 6px;
+  .tile .emoji {
+    font-size: 30px; line-height: 1; margin-bottom: 14px; display: block;
   }
-  .tile-sub {
-    font-size: 10px; font-weight: 800; letter-spacing: 0.16em;
-    text-transform: uppercase; color: #D85A30;
+  .tile h2 {
+    font-size: 26px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 8px;
+    color: #2C2C2A;
+  }
+  .tile .meta {
+    font-size: 13px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase;
   }
 
-  /* Tile — movies (closed) */
-  .tile.movies {
-    background: rgba(212,106,128,0.14);
-    border-left-color: #D46A80;
+  /* Movies tile — pink bg, dark red left bar */
+  .movies {
+    background: #FBE6DE;
+    border-left: 10px solid #A54523;
   }
-  .tile.movies .tile-sub { color: #A54A5E; }
+  .movies .meta { color: #A54523; }
 
-  /* Tile — tv (open) */
-  .tile.tv {
-    background: rgba(47,158,143,0.10);
-    border-left-color: #2F9E8F;
+  /* TV Shows tile — teal bg, teal left bar, opened */
+  .tv {
+    background: #C9E4DA;
+    border-left: 10px solid #2F7562;
   }
-  .tile.tv .tile-sub { color: #1F7268; }
+  .tv .meta { color: #1F5A4A; }
 
+  /* Inset white card w/ picks */
   .picks {
-    background: #FFF; border: 1px solid #EAE3DC; border-radius: 3px;
-    margin-top: 14px; overflow: hidden;
+    background: #FFF; border-radius: 3px;
+    margin-top: 18px; overflow: hidden;
   }
   .pick {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 14px;
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 18px;
     border-bottom: 1px solid #EAE3DC;
   }
   .pick:last-child { border-bottom: none; }
   .pick .rank {
     background: #2C2C2A; color: #FFF; border-radius: 3px;
-    width: 26px; height: 26px; font-size: 12px; font-weight: 800;
+    width: 32px; height: 32px; font-size: 15px; font-weight: 800;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
   .pick .name {
-    flex: 1; font-size: 15px; font-weight: 700; color: #2C2C2A;
+    flex: 1; font-size: 17px; font-weight: 700; color: #2C2C2A;
   }
   .pick .shop {
     background: #D85A30; color: #FFF; border: none; border-radius: 3px;
-    padding: 8px 14px; font-size: 11px; font-weight: 800;
-    letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 10px 18px; font-size: 12px; font-weight: 800;
+    letter-spacing: 0.14em; text-transform: uppercase;
     text-decoration: none; font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
   }
 </style>
 </head>
@@ -157,42 +136,30 @@
 <div class="page">
 
   <div class="hero">
-    <div class="avatar-ring">
-      <div class="avatar">
-        <img src="assets/mock-isabella.jpg" alt="Isabella Torres" onerror="this.style.display='none';this.parentNode.textContent='IT'">
-      </div>
+    <div class="avatar">
+      <img src="assets/mock-isabella.jpg" alt="Isabella Torres">
     </div>
-    <h1>Gifts for<br>Isabella Torres</h1>
-    <p class="sub">Built from Isabella's Top 10 lists on Tenner</p>
-    <div class="badge">🎂 Sep 24 · In 16 days</div>
-  </div>
-
-  <div class="budget-label">Budget</div>
-  <div class="budget-row">
-    <button class="pill active">Any</button>
-    <button class="pill">Under $25</button>
-    <button class="pill">$25–$50</button>
-    <button class="pill">$50–$100</button>
-    <button class="pill">$100+</button>
+    <h1>Isabella Torres</h1>
+    <div class="date-pill"><span class="icon">🗓️</span>Oct 14 · In 37 Days</div>
   </div>
 
   <div class="sec-rule"><div class="r"></div><div class="l">Inspired by their lists</div><div class="r"></div></div>
 
   <div class="tile movies">
-    <div class="tile-emoji">🎬</div>
-    <div class="tile-title">Movies</div>
-    <div class="tile-sub">Top 3 picks · Tap to shop ↓</div>
+    <span class="emoji">🎬</span>
+    <h2>Movies</h2>
+    <div class="meta">Top 3 picks · Tap to shop →</div>
   </div>
 
   <div class="tile tv">
-    <div class="tile-emoji">📺</div>
-    <div class="tile-title">TV Shows</div>
-    <div class="tile-sub">Top 5 picks · Tap to close ↑</div>
+    <span class="emoji">📺</span>
+    <h2>TV Shows</h2>
+    <div class="meta">Top 5 picks · Tap to close ↑</div>
     <div class="picks">
       <div class="pick"><div class="rank">1</div><div class="name">The Office</div><a class="shop" href="#">Shop →</a></div>
-      <div class="pick"><div class="rank">2</div><div class="name">The Real Housewives</div><a class="shop" href="#">Shop →</a></div>
-      <div class="pick"><div class="rank">3</div><div class="name">Parks and Recreation</div><a class="shop" href="#">Shop →</a></div>
-      <div class="pick"><div class="rank">4</div><div class="name">The Traitors</div><a class="shop" href="#">Shop →</a></div>
+      <div class="pick"><div class="rank">2</div><div class="name">Real Housewives</div><a class="shop" href="#">Shop →</a></div>
+      <div class="pick"><div class="rank">3</div><div class="name">Parks and Rec</div><a class="shop" href="#">Shop →</a></div>
+      <div class="pick"><div class="rank">4</div><div class="name">Summer House</div><a class="shop" href="#">Shop →</a></div>
       <div class="pick"><div class="rank">5</div><div class="name">Abbott Elementary</div><a class="shop" href="#">Shop →</a></div>
     </div>
   </div>
