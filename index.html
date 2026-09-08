@@ -10545,6 +10545,28 @@ function switchAdminTab(tab) {
 // Admin hub — tile grid replaces the old tab strip. Each tile navigates into a
 // dedicated section by setting _adminTab + re-rendering. Section renderers
 // prepend a "← Admin home" back button.
+// Format a raw user count for the Users admin tile.
+//   n < 100,000  → localized with commas ("47" → "12,483")
+//   n < 1,000,000 → thousands ("125K", "999K")
+//   >=1M         → millions ("1.2M", "3M")
+function formatUserCount(n) {
+  n = Number(n) || 0;
+  if (n < 100000) return n.toLocaleString();
+  if (n < 1000000) return Math.round(n / 1000) + 'K';
+  var m = n / 1000000;
+  return (m >= 10 ? Math.round(m) : Math.round(m * 10) / 10) + 'M';
+}
+async function _updateAdminUsersCount() {
+  var el = document.getElementById('admin-tile-count-users');
+  if (!el || !sbClient) return;
+  try {
+    var res = await sbClient.from('profiles').select('id', { count: 'exact', head: true });
+    if (res.error || res.count == null) { el.style.display = 'none'; return; }
+    el.textContent = formatUserCount(res.count);
+    el.style.opacity = '1';
+  } catch (e) { el.style.display = 'none'; }
+}
+
 function renderAdminHub(el) {
   var tiles = [
     { key: 'cats',     label: 'Categories',    emoji: '📂', desc: 'Built-in catalog',         bg: '#F5D0C8', ac: '#D85A30' },
@@ -10570,13 +10592,18 @@ function renderAdminHub(el) {
     + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
     + tiles.map(function(t) {
-        return '<div onclick="switchAdminTab(\'' + t.key + '\')" style="background:' + t.bg + '33;border:1px solid ' + t.ac + '33;border-left:7px solid ' + t.ac + ';border-radius:3px;padding:14px;cursor:pointer">'
+        var countBadge = t.key === 'users'
+          ? '<div id="admin-tile-count-users" style="position:absolute;top:14px;right:14px;font-size:22px;font-weight:800;letter-spacing:-0.02em;color:' + t.ac + ';line-height:1;opacity:0.4">…</div>'
+          : '';
+        return '<div onclick="switchAdminTab(\'' + t.key + '\')" style="position:relative;background:' + t.bg + '33;border:1px solid ' + t.ac + '33;border-left:7px solid ' + t.ac + ';border-radius:3px;padding:14px;cursor:pointer">'
+          + countBadge
           + '<div style="font-size:26px;line-height:1;margin-bottom:8px">' + t.emoji + '</div>'
           + '<div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">' + escapeHtml(t.label) + '</div>'
           + '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:' + t.ac + ';opacity:0.85;margin-top:6px">' + escapeHtml(t.desc) + '</div>'
           + '</div>';
       }).join('')
     + '</div></div>';
+  _updateAdminUsersCount();
 }
 
 function _adminBackToHubBtn() {
