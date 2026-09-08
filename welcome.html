@@ -230,6 +230,50 @@
   }
   .callout p { margin: 0; color: #5F5E5A; font-size: 14.5px; }
 
+  /* ── Showcase: full gift-page mock ─────────────────────────── */
+  .showcase {
+    background: #F5F1EA; padding: 60px 24px 70px;
+    border-top: 1px solid #EAE3DC; border-bottom: 1px solid #EAE3DC;
+  }
+  .showcase .inner {
+    max-width: 1000px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr; gap: 30px; align-items: center;
+  }
+  @media (min-width: 780px) {
+    .showcase .inner { grid-template-columns: 1fr 1fr; gap: 50px; }
+  }
+  .showcase .copy .eyebrow {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.16em;
+    text-transform: uppercase; color: #D85A30; margin-bottom: 12px;
+  }
+  .showcase .copy h2 {
+    font-size: clamp(26px, 3.4vw, 34px); font-weight: 800; letter-spacing: -0.02em;
+    line-height: 1.1; margin: 0 0 14px;
+  }
+  .showcase .copy p {
+    font-size: 15.5px; color: #5F5E5A; margin: 0 0 12px; line-height: 1.55;
+  }
+  .showcase .copy .checks {
+    list-style: none; padding: 0; margin: 18px 0 22px;
+  }
+  .showcase .copy .checks li {
+    padding: 6px 0 6px 26px; font-size: 14.5px; color: #2C2C2A;
+    position: relative;
+  }
+  .showcase .copy .checks li::before {
+    content: '✓'; position: absolute; left: 0; top: 6px;
+    color: #D85A30; font-weight: 800;
+  }
+  .showcase .phone {
+    background: #2C2C2A; padding: 10px; border-radius: 38px;
+    box-shadow: 0 30px 80px rgba(44,44,42,0.22), 0 6px 16px rgba(44,44,42,0.10);
+    max-width: 320px; margin: 0 auto;
+  }
+  .showcase .phone img {
+    display: block; width: 100%; height: auto; border-radius: 30px;
+    background: #FDFCF8;
+  }
+
   /* ── Final CTA ─────────────────────────────────────────────── */
   .final-cta {
     text-align: center; padding: 60px 24px 40px; background: #FFF;
@@ -296,16 +340,16 @@
   <div class="shot shot-3">
     <div class="screen">
       <div class="notch"></div>
-      <div class="sec-rule"><div class="r"></div><div class="l">Gifts for Rosy</div><div class="r"></div></div>
+      <div class="sec-rule"><div class="r"></div><div class="l">Gifts for Isabella</div><div class="r"></div></div>
       <div class="gift-hero">
-        <div class="avatar">RP</div>
-        <div class="t">Gifts for Rosy</div>
-        <div class="bd">🎂 Birthday in 12 days</div>
+        <div class="avatar" style="background:transparent;padding:0;overflow:hidden"><img src="/assets/mock-isabella.jpg" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"></div>
+        <div class="t">Gifts for Isabella</div>
+        <div class="bd">🎂 Birthday in 16 days</div>
       </div>
-      <div class="pick"><div class="rank">1</div><div class="n">Stanley cup</div><div class="s">Shop →</div></div>
-      <div class="pick"><div class="rank">2</div><div class="n">Yeti tumbler</div><div class="s">Shop →</div></div>
-      <div class="pick"><div class="rank">3</div><div class="n">Hydro Flask</div><div class="s">Shop →</div></div>
-      <div class="pick"><div class="rank">4</div><div class="n">Owala FreeSip</div><div class="s">Shop →</div></div>
+      <div class="pick"><div class="rank">1</div><div class="n">The Office</div><div class="s">Shop →</div></div>
+      <div class="pick"><div class="rank">2</div><div class="n">Parks and Recreation</div><div class="s">Shop →</div></div>
+      <div class="pick"><div class="rank">3</div><div class="n">Abbott Elementary</div><div class="s">Shop →</div></div>
+      <div class="pick"><div class="rank">4</div><div class="n">The Traitors</div><div class="s">Shop →</div></div>
     </div>
     <div class="cap">Personal gift pages</div>
   </div>
@@ -344,11 +388,31 @@
   </div>
 </section>
 
+<section class="showcase">
+  <div class="inner">
+    <div class="copy">
+      <div class="eyebrow">What a gift page looks like</div>
+      <h2>The gift guide your friends wish everyone had.</h2>
+      <p>Every Tenner user gets a personalized page like this one — a real shortcut for family, friends, and anyone else who wants to buy them something they'll actually love.</p>
+      <ul class="checks">
+        <li>Pulled straight from their Top 10 lists</li>
+        <li>Shareable link — works even if they're not on Tenner</li>
+        <li>Filter by budget so nothing shown is out of reach</li>
+        <li>Birthday countdown so nobody's late again</li>
+      </ul>
+      <a href="/" class="cta-primary" onclick="try{sessionStorage.setItem('tennerLaunch','1')}catch(e){}">Get your gift page →</a>
+    </div>
+    <div class="phone">
+      <img src="/mock-gift-isabella.png" alt="A Tenner gift page for Isabella Torres, showing a birthday countdown, budget filter, and a Top 5 TV Shows list with Shop buttons">
+    </div>
+  </div>
+</section>
+
 <div class="callout">
   <div class="box">
     <div>
-      <h3>Great for gift-giving</h3>
-      <p>Every Tenner user gets a personalized gift page — the movies, gear, books, and coffee they'd actually love, all pulled from their Top 10 lists. Send the link to family (even non-Tenner users) and they shop with zero guesswork.</p>
+      <h3>Not on Tenner? Still shop the picks.</h3>
+      <p>Browse gift ideas by category — books, board games, coffee, sneakers, and more — built from what the Tenner community actually loves.</p>
     </div>
     <div><a href="/gifts/" class="cta-primary">Browse gifts →</a></div>
   </div>
