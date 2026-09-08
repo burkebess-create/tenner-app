@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Tenner — Top 10 Lists with Friends</title>
+<meta name="description" content="Make Top 10 lists, compare with friends, and turn what you love into a game — plus a built-in gift guide for everyone in your circle.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://mytenner.com/welcome.html">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mytenner.com/">
+<meta property="og:title" content="Tenner — Top 10 Lists with Friends">
+<meta property="og:description" content="Rank what you love. Compare with people you know. Never wonder what to buy them again.">
+<meta property="og:image" content="https://mytenner.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #2C2C2A; background: #FDFCF8; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: #D85A30; text-decoration: none; }
+
+  /* ── Header ────────────────────────────────────────────────── */
+  header.top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; max-width: 1080px; margin: 0 auto;
+    position: sticky; top: 0; background: rgba(253,252,248,0.94);
+    backdrop-filter: blur(8px); z-index: 10;
+    border-bottom: 1px solid rgba(216,90,48,0.08);
+  }
+  header.top img.logo { height: 26px; width: auto; }
+  header.top .signin {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #2C2C2A;
+    padding: 8px 14px; border-radius: 3px;
+    border: 1.5px solid #2C2C2A;
+  }
+
+  /* ── Hero ──────────────────────────────────────────────────── */
+  .hero {
+    max-width: 1080px; margin: 0 auto; padding: 40px 24px 24px;
+    text-align: center;
+  }
+  .hero .eyebrow {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.16em;
+    text-transform: uppercase; color: #D85A30; margin-bottom: 14px;
+  }
+  .hero h1 {
+    font-size: clamp(34px, 6vw, 56px); font-weight: 800; letter-spacing: -0.02em;
+    line-height: 1.05; margin: 0 auto 18px; max-width: 720px; color: #2C2C2A;
+  }
+  .hero h1 em { font-style: normal; color: #D85A30; }
+  .hero .lead {
+    font-size: clamp(16px, 2vw, 19px); color: #5F5E5A;
+    max-width: 560px; margin: 0 auto 28px; line-height: 1.5;
+  }
+  .hero .cta-row {
+    display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+    margin-bottom: 12px;
+  }
+  .cta-primary, .cta-ghost {
+    display: inline-block; padding: 14px 26px; border-radius: 999px;
+    font-size: 14px; font-weight: 800; letter-spacing: 0.06em;
+    text-transform: uppercase; cursor: pointer; font-family: inherit;
+    border: 1.5px solid transparent; text-decoration: none;
+  }
+  .cta-primary { background: #D85A30; color: #FFF; border-color: #D85A30; }
+  .cta-primary:hover { background: #B84620; border-color: #B84620; }
+  .cta-ghost { background: transparent; color: #D85A30; border-color: #D85A30; }
+  .cta-ghost:hover { background: rgba(216,90,48,0.08); }
+  .hero .sub-cta { font-size: 12px; color: #888780; margin-top: 6px; }
+
+  /* ── Screenshots row ───────────────────────────────────────── */
+  .shots {
+    display: flex; gap: 18px; justify-content: center; align-items: flex-end;
+    padding: 32px 20px 40px; overflow-x: auto;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .shots::-webkit-scrollbar { display: none; }
+  .shot {
+    flex: 0 0 auto; width: 240px; aspect-ratio: 9/19.5;
+    border-radius: 32px; padding: 8px; background: #2C2C2A;
+    box-shadow: 0 20px 60px rgba(44,44,42,0.18), 0 4px 12px rgba(44,44,42,0.08);
+    position: relative;
+  }
+  .shot:nth-child(2) { transform: translateY(-16px); }
+  .shot .screen {
+    width: 100%; height: 100%; border-radius: 26px; overflow: hidden;
+    background: #FDFCF8; display: flex; flex-direction: column;
+    padding: 22px 14px 14px; position: relative;
+  }
+  .shot .notch {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    width: 90px; height: 22px; background: #2C2C2A; border-radius: 12px;
+  }
+  .shot .cap {
+    position: absolute; bottom: -30px; left: 0; right: 0; text-align: center;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #888780;
+  }
+
+  /* Screenshot mock content — deliberately simple, brand-consistent */
+  .shot .sec-rule {
+    display: flex; align-items: center; gap: 6px; margin: 12px 0 8px;
+  }
+  .shot .sec-rule .r { flex: 1; height: 1.5px; background: #D85A30; }
+  .shot .sec-rule .l {
+    font-size: 8px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #D85A30;
+  }
+  .shot .tile {
+    background: #FFF; border: 1px solid #EAE3DC; border-left: 5px solid #D85A30;
+    border-radius: 3px; padding: 10px 12px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .shot .tile .em { font-size: 22px; }
+  .shot .tile .body { flex: 1; min-width: 0; }
+  .shot .tile .t { font-size: 12px; font-weight: 800; color: #2C2C2A; }
+  .shot .tile .s { font-size: 9px; color: #888780; letter-spacing: 0.08em;
+    text-transform: uppercase; font-weight: 700; margin-top: 2px; }
+
+  /* Shot 1 — My Lists */
+  .shot-1 .tile:nth-child(2) { border-left-color: #F5B534; }
+  .shot-1 .tile:nth-child(3) { border-left-color: #2F9E8F; }
+  .shot-1 .tile:nth-child(4) { border-left-color: #A8C8E8; }
+  .shot-1 .tile:nth-child(5) { border-left-color: #D46A80; }
+
+  /* Shot 2 — Match reveal */
+  .shot-2 .screen { justify-content: center; align-items: center; text-align: center; }
+  .shot-2 .ring {
+    width: 140px; height: 140px; border-radius: 50%;
+    border: 12px solid #2F9E8F; border-right-color: #F1EFE8;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 34px; font-weight: 800; color: #2F9E8F;
+    transform: rotate(-45deg); margin-bottom: 18px;
+  }
+  .shot-2 .ring span { transform: rotate(45deg); }
+  .shot-2 .verdict {
+    background: #D6F0EA; color: #1F7268; border-radius: 3px;
+    padding: 10px 14px; font-size: 12px; font-weight: 700; margin-top: 4px;
+  }
+  .shot-2 .who { font-size: 13px; color: #5F5E5A; margin-top: 6px; }
+
+  /* Shot 3 — Gift page */
+  .shot-3 .gift-hero {
+    background: rgba(216,90,48,0.08); border-left: 5px solid #D85A30;
+    border-radius: 3px; padding: 12px; text-align: center; margin-bottom: 10px;
+  }
+  .shot-3 .gift-hero .avatar {
+    width: 42px; height: 42px; border-radius: 50%; background: #F5B534;
+    color: #FFF; font-weight: 800; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 6px;
+  }
+  .shot-3 .gift-hero .t { font-size: 12px; font-weight: 800; }
+  .shot-3 .gift-hero .bd { font-size: 8px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #D85A30; margin-top: 4px; }
+  .shot-3 .pick {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    background: #FFF; border: 1px solid #EAE3DC; border-radius: 3px; margin-bottom: 6px;
+  }
+  .shot-3 .pick .rank {
+    width: 18px; height: 18px; background: #2C2C2A; color: #FFF;
+    border-radius: 3px; font-size: 9px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .shot-3 .pick .n { flex: 1; font-size: 10px; font-weight: 600; }
+  .shot-3 .pick .s { font-size: 8px; font-weight: 800; letter-spacing: 0.12em;
+    text-transform: uppercase; color: #D85A30; }
+
+  /* ── Section: How it works ─────────────────────────────────── */
+  section.block {
+    max-width: 960px; margin: 0 auto; padding: 60px 24px;
+  }
+  .rule-h {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 30px;
+  }
+  .rule-h .r { flex: 1; height: 2px; background: #D85A30; }
+  .rule-h .l {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.16em;
+    text-transform: uppercase; color: #D85A30;
+  }
+  .steps { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 720px) { .steps { grid-template-columns: repeat(3, 1fr); gap: 20px; } }
+  .step {
+    background: #FFF; border: 1px solid #EAE3DC; border-left: 7px solid #D85A30;
+    border-radius: 3px; padding: 22px 20px;
+  }
+  .step .n {
+    display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #D85A30; margin-bottom: 10px;
+  }
+  .step h3 {
+    font-size: 20px; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.01em;
+  }
+  .step p { margin: 0; color: #5F5E5A; font-size: 14px; }
+  .step:nth-child(2) { border-left-color: #F5B534; }
+  .step:nth-child(2) .n { color: #B57F0F; }
+  .step:nth-child(3) { border-left-color: #2F9E8F; }
+  .step:nth-child(3) .n { color: #1F7268; }
+
+  /* ── Section: Features ─────────────────────────────────────── */
+  .feats { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 720px) { .feats { grid-template-columns: 1fr 1fr; gap: 16px; } }
+  .feat {
+    background: #FFF; border: 1px solid #EAE3DC; border-radius: 3px;
+    padding: 18px 20px; display: flex; gap: 14px; align-items: flex-start;
+  }
+  .feat .em { font-size: 28px; line-height: 1; flex-shrink: 0; }
+  .feat h4 { margin: 0 0 4px; font-size: 15px; font-weight: 800; }
+  .feat p { margin: 0; font-size: 13.5px; color: #5F5E5A; line-height: 1.5; }
+
+  /* ── Callout ───────────────────────────────────────────────── */
+  .callout {
+    max-width: 960px; margin: 0 auto 40px; padding: 0 24px;
+  }
+  .callout .box {
+    background: #FFF; border: 1px solid #EAE3DC; border-left: 7px solid #D85A30;
+    border-radius: 3px; padding: 30px 26px; display: grid; gap: 16px;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 720px) {
+    .callout .box { grid-template-columns: 1fr auto; align-items: center; }
+  }
+  .callout h3 {
+    font-size: 22px; font-weight: 800; margin: 0 0 6px; letter-spacing: -0.01em;
+  }
+  .callout p { margin: 0; color: #5F5E5A; font-size: 14.5px; }
+
+  /* ── Final CTA ─────────────────────────────────────────────── */
+  .final-cta {
+    text-align: center; padding: 60px 24px 40px; background: #FFF;
+    border-top: 1px solid #EAE3DC;
+  }
+  .final-cta h2 {
+    font-size: clamp(28px, 4vw, 40px); font-weight: 800; letter-spacing: -0.02em;
+    margin: 0 auto 14px; max-width: 640px;
+  }
+  .final-cta p { color: #5F5E5A; max-width: 500px; margin: 0 auto 24px; }
+
+  /* ── Footer ────────────────────────────────────────────────── */
+  footer.bot {
+    text-align: center; padding: 30px 20px 40px; color: #888780; font-size: 12px;
+    background: #FFF;
+  }
+  footer.bot a { color: #888780; margin: 0 8px; }
+  footer.bot .fine { margin-top: 12px; font-size: 11px; color: #B8B6AE; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <a href="/welcome.html"><img class="logo" src="/logo-horizontal.png" alt="Tenner"></a>
+  <a href="/" class="signin" onclick="try{sessionStorage.setItem('tennerLaunch','1')}catch(e){}">Sign in</a>
+</header>
+
+<div class="hero">
+  <div class="eyebrow">A social app for people who love a good list</div>
+  <h1>Rank what you love.<br><em>Compare with people you know.</em></h1>
+  <p class="lead">Tenner turns your Top 10 lists — movies, restaurants, coffee shops, anything — into a game with your friends. Plus a built-in gift guide so nobody in your circle ever gets a bad present again.</p>
+  <div class="cta-row">
+    <a href="/" class="cta-primary" onclick="try{sessionStorage.setItem('tennerLaunch','1')}catch(e){}">Get started — it's free</a>
+    <a href="/gifts/" class="cta-ghost">Browse gifts</a>
+  </div>
+  <div class="sub-cta">No app to install. Works on your phone's browser.</div>
+</div>
+
+<div class="shots">
+  <div class="shot shot-1">
+    <div class="screen">
+      <div class="notch"></div>
+      <div class="sec-rule"><div class="r"></div><div class="l">Your lists</div><div class="r"></div></div>
+      <div class="tile"><div class="em">🎬</div><div class="body"><div class="t">Top 10 Movies</div><div class="s">10 picks · Public</div></div></div>
+      <div class="tile"><div class="em">🍕</div><div class="body"><div class="t">Top 10 Pizzas</div><div class="s">8 picks · Friends only</div></div></div>
+      <div class="tile"><div class="em">☕</div><div class="body"><div class="t">Top 10 Coffee Shops</div><div class="s">10 picks · Public</div></div></div>
+      <div class="tile"><div class="em">📚</div><div class="body"><div class="t">Top 10 Books</div><div class="s">6 picks · Draft</div></div></div>
+      <div class="tile"><div class="em">🌮</div><div class="body"><div class="t">Top 10 Tacos</div><div class="s">10 picks · Public</div></div></div>
+    </div>
+    <div class="cap">Your lists</div>
+  </div>
+
+  <div class="shot shot-2">
+    <div class="screen">
+      <div class="notch"></div>
+      <div class="sec-rule"><div class="r"></div><div class="l">Your match</div><div class="r"></div></div>
+      <div class="ring"><span>82%</span></div>
+      <div class="who">You &amp; Kara<br>on Top 10 Coffee Shops</div>
+      <div class="verdict">Dangerously aligned 🎯</div>
+    </div>
+    <div class="cap">Match reveals</div>
+  </div>
+
+  <div class="shot shot-3">
+    <div class="screen">
+      <div class="notch"></div>
+      <div class="sec-rule"><div class="r"></div><div class="l">Gifts for Rosy</div><div class="r"></div></div>
+      <div class="gift-hero">
+        <div class="avatar">RP</div>
+        <div class="t">Gifts for Rosy</div>
+        <div class="bd">🎂 Birthday in 12 days</div>
+      </div>
+      <div class="pick"><div class="rank">1</div><div class="n">Stanley cup</div><div class="s">Shop →</div></div>
+      <div class="pick"><div class="rank">2</div><div class="n">Yeti tumbler</div><div class="s">Shop →</div></div>
+      <div class="pick"><div class="rank">3</div><div class="n">Hydro Flask</div><div class="s">Shop →</div></div>
+      <div class="pick"><div class="rank">4</div><div class="n">Owala FreeSip</div><div class="s">Shop →</div></div>
+    </div>
+    <div class="cap">Personal gift pages</div>
+  </div>
+</div>
+
+<section class="block">
+  <div class="rule-h"><div class="r"></div><div class="l">How it works</div><div class="r"></div></div>
+  <div class="steps">
+    <div class="step">
+      <div class="n">Step 01</div>
+      <h3>Make a list</h3>
+      <p>Pick a category — or invent one — and drop in your Top 10. Ranked or unranked, your call. Movies, hikes, drinks, sneakers, anything.</p>
+    </div>
+    <div class="step">
+      <div class="n">Step 02</div>
+      <h3>Add friends</h3>
+      <p>Invite people with a link, or auto-connect when they sign up. Share lists one-on-one, in groups, or publicly to the whole community.</p>
+    </div>
+    <div class="step">
+      <div class="n">Step 03</div>
+      <h3>See your match</h3>
+      <p>A suspenseful tap-to-reveal shows how aligned your picks are — with a verdict from "Opposites attract" to "Twins separated at birth."</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" style="padding-top:0">
+  <div class="rule-h"><div class="r"></div><div class="l">What's inside</div><div class="r"></div></div>
+  <div class="feats">
+    <div class="feat"><div class="em">🎁</div><div><h4>Personal gift pages</h4><p>Every user gets a shareable /g/ link — family shops from your actual favorites. No more guessing.</p></div></div>
+    <div class="feat"><div class="em">🎊</div><div><h4>Weekly Tenner lists</h4><p>A new community prompt every week. Build a streak. Compare with everyone.</p></div></div>
+    <div class="feat"><div class="em">💬</div><div><h4>Comments &amp; reactions</h4><p>Drop a hot take on a friend's list. Debate their #1 pick. The fun is in the argument.</p></div></div>
+    <div class="feat"><div class="em">🙈</div><div><h4>Hidden fills for groups</h4><p>Everyone fills the same list without seeing each other's — then reveal together for a big moment.</p></div></div>
+    <div class="feat"><div class="em">📊</div><div><h4>Match scores &amp; jumps</h4><p>See most-alike and most-different friends across every category. Discover new stuff through people you trust.</p></div></div>
+    <div class="feat"><div class="em">🌎</div><div><h4>See all of Tenner</h4><p>After each weekly reveals, compare against the entire community — not just your circle.</p></div></div>
+  </div>
+</section>
+
+<div class="callout">
+  <div class="box">
+    <div>
+      <h3>Great for gift-giving</h3>
+      <p>Every Tenner user gets a personalized gift page — the movies, gear, books, and coffee they'd actually love, all pulled from their Top 10 lists. Send the link to family (even non-Tenner users) and they shop with zero guesswork.</p>
+    </div>
+    <div><a href="/gifts/" class="cta-primary">Browse gifts →</a></div>
+  </div>
+</div>
+
+<div class="final-cta">
+  <h2>Ready to rank what you love?</h2>
+  <p>Free to use. No app to install. Sign up in under a minute.</p>
+  <div class="cta-row" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+    <a href="/" class="cta-primary" onclick="try{sessionStorage.setItem('tennerLaunch','1')}catch(e){}">Get started</a>
+    <a href="/about.html" class="cta-ghost">Learn more</a>
+  </div>
+</div>
+
+<footer class="bot">
+  <a href="/about.html">About</a> ·
+  <a href="/gifts/">Gifts</a> ·
+  <a href="/privacy.html">Privacy</a> ·
+  <a href="/terms.html">Terms</a> ·
+  <a href="mailto:contact@mytenner.com">Contact</a>
+  <div class="fine">© Tenner. As an Amazon Associate, Tenner earns from qualifying purchases.</div>
+</footer>
+
+</body>
+</html>

@@ -30,6 +30,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<script>
+// First-touch gate: signed-out visitors landing on / (with no session and no
+// explicit "launch" intent) are redirected to the marketing page. Signed-in
+// users, PWA installs, and anyone coming from the marketing CTA go straight
+// through. Runs synchronously before any app code loads.
+(function() {
+  try {
+    if (location.hash || location.search) return; // deep links, invite links, /?from=, etc.
+    if (sessionStorage.getItem('tennerLaunch')) return; // clicked CTA on welcome
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return; // installed PWA
+    // Supabase session key uses the project ref.
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf('sb-') === 0 && k.indexOf('-auth-token') > 0) return;
+    }
+    location.replace('/welcome.html');
+  } catch(e) { /* on failure, fall through to the app */ }
+})();
+</script>
 <title>Tenner — Top 10 Lists</title>
 <meta name="description" content="Rank what you love. Compare with people you know. Create your Top 10 lists and see how you match up with friends.">
 <link rel="canonical" href="https://mytenner.com/">
