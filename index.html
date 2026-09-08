@@ -3074,6 +3074,8 @@ function onGroupPhotoUpload(input) {
       g.photo = dataUrl;
       g.emoji = '';
       updateSettingsAvatarPreview(g);
+      var url = await uploadPhotoToStorage(dataUrl, 'groups', g.id || (Date.now() + '-' + userId));
+      if (url) { g.photo = url; updateSettingsAvatarPreview(g); }
     });
   };
   reader.readAsDataURL(input.files[0]);
@@ -3089,6 +3091,10 @@ function onGroupPhotoUploadCreate(input) {
       selEmojiChar = '';
       var preview = document.getElementById('cg1-avatar-preview');
       if (preview) preview.innerHTML = '<img src="' + groupPhotoData + '" style="width:48px;height:48px;border-radius:12px;object-fit:cover">';
+      // No group id yet — bucket path uses a transient id so the URL still
+      // works. The create flow persists whatever's in groupPhotoData.
+      var url = await uploadPhotoToStorage(dataUrl, 'groups', 'new-' + Date.now() + '-' + (userId || 'anon'));
+      if (url) groupPhotoData = url;
     });
   };
   reader.readAsDataURL(input.files[0]);
@@ -6454,9 +6460,15 @@ function onProfilePhotoUpload(input) {
     resizeImage(e.target.result, 300).then(async function(dataUrl) {
       if (!(await guardImageUpload(dataUrl, 'profile_photo'))) { input.value = ''; return; }
       myProfile = myProfile || { id: userId };
+      // Optimistic preview using the local data URL — swap to the Storage
+      // URL once uploaded so subsequent renders come from CDN.
       myProfile.photo = dataUrl;
       renderProfileHeader();
-      if (sbClient && userId) saveProfilePhoto(dataUrl);
+      var url = await uploadPhotoToStorage(dataUrl, 'avatars', userId);
+      var toSave = url || dataUrl; // fall back to base64 if Storage errored
+      myProfile.photo = toSave;
+      renderProfileHeader();
+      if (sbClient && userId) saveProfilePhoto(toSave);
     });
   };
   reader.readAsDataURL(input.files[0]);
@@ -7305,6 +7317,8 @@ function onbPhotoChange(input) {
       myProfile.photo = dataUrl;
       var prev = document.getElementById('onb-photo-preview');
       if (prev) prev.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:cover">';
+      var url = await uploadPhotoToStorage(dataUrl, 'avatars', userId);
+      if (url) myProfile.photo = url; // saved to DB later in the onb flow
     });
   };
   reader.readAsDataURL(input.files[0]);
@@ -10600,6 +10614,11 @@ function renderAdminHub(el) {
     +   '<div style="flex:1;height:2px;background:#D85A30"></div>'
     + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+    + '<div id="admin-migrate-photos-tile" onclick="runPhotoBackfill()" style="grid-column:1/-1;background:#F5F1EA;border:1px solid #EAE3DC;border-left:7px solid #2C2C2A;border-radius:3px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:12px">'
+    +   '<div style="font-size:22px;line-height:1">🗃️</div>'
+    +   '<div style="flex:1"><div style="font-size:14px;font-weight:800;color:#2C2C2A">Migrate photos to Storage</div><div id="admin-migrate-photos-meta" style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A;margin-top:4px">Move base64 profile + group photos to the photos bucket. One-shot. Idempotent.</div></div>'
+    +   '<div style="font-size:16px;color:#5F5E5A;opacity:0.6">›</div>'
+    + '</div>'
     + tiles.map(function(t) {
         var countBadge = t.key === 'users'
           ? '<div id="admin-tile-count-users" style="position:absolute;top:14px;right:14px;font-size:22px;font-weight:800;letter-spacing:-0.02em;color:' + t.ac + ';line-height:1;opacity:0.4">…</div>'
@@ -10615,6 +10634,27 @@ function renderAdminHub(el) {
   _updateAdminUsersCount();
 }
 
+async function runPhotoBackfill() {
+  var meta = document.getElementById('admin-migrate-photos-meta');
+  if (!confirm('Run photo backfill?\n\nAll base64 profile + group photos will move to Supabase Storage. Safe to re-run.')) return;
+  if (meta) meta.textContent = 'Running…';
+  try {
+    var res = await sbClient.functions.invoke('backfill-photos-to-storage', { body: {} });
+    if (res.error) throw res.error;
+    var d = res.data || {};
+    if (!d.ok) throw new Error(d.error || 'unknown');
+    var s = d.stats || {};
+    var summary = 'Profiles: ' + (s.profiles_migrated || 0) + ' / ' + (s.profiles_scanned || 0)
+                + ' · Groups: ' + (s.groups_migrated || 0) + ' / ' + (s.groups_scanned || 0)
+                + ((s.profiles_failed || s.groups_failed) ? ' · Failed: ' + ((s.profiles_failed||0) + (s.groups_failed||0)) : '');
+    if (meta) meta.textContent = summary;
+    showToast('Backfill complete.');
+    if (s.errors && s.errors.length) console.warn('Backfill errors:', s.errors);
+  } catch(e) {
+    if (meta) meta.textContent = 'Failed: ' + (e.message || e);
+    showToast('Backfill failed. Check console.');
+  }
+}
 function _adminBackToHubBtn() {
   return '<div style="padding:10px 12px 0"><button class="back-btn" onclick="switchAdminTab(\'hub\')" style="font-size:11px">← Admin home</button></div>';
 }
@@ -12771,6 +12811,43 @@ async function moderateTextRemote(text) {
     return res.data;
   } catch(e) { return { flagged: false }; }
 }
+// ── Supabase Storage upload helpers ──────────────────────────────
+// Photos are no longer stored as base64 in the DB. New uploads go to the
+// public `photos` bucket; profiles/groups store just the URL. Old base64
+// values keep working — the render path accepts either.
+function dataUrlToBlob(dataUrl) {
+  try {
+    var parts  = dataUrl.split(',');
+    var mime   = (parts[0].match(/:(.*?);/) || [])[1] || 'image/jpeg';
+    var binary = atob(parts[1] || '');
+    var arr    = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  } catch(e) { return null; }
+}
+// Upload a data URL to the photos bucket. Returns the public URL on success
+// or null on failure — callers should fall back to storing the base64 so no
+// upload is ever "lost" if Storage momentarily errors.
+async function uploadPhotoToStorage(dataUrl, kind, ownerId) {
+  if (!sbClient || !dataUrl || !kind) return null;
+  if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return null;
+  var blob = dataUrlToBlob(dataUrl);
+  if (!blob) return null;
+  var ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+  var owner = ownerId || (userId || 'anon');
+  var path = kind + '/' + owner + '/' + Date.now() + '.' + ext;
+  try {
+    var up = await sbClient.storage.from('photos').upload(path, blob, {
+      contentType:  blob.type,
+      cacheControl: '31536000',
+      upsert:       false
+    });
+    if (up.error) { console.warn('photo upload error', up.error); return null; }
+    var pub = sbClient.storage.from('photos').getPublicUrl(path);
+    return (pub && pub.data && pub.data.publicUrl) || null;
+  } catch(e) { console.warn('photo upload exception', e); return null; }
+}
+
 // Convenience: run image moderation, show a prominent rejection UI on
 // flag, and return true only if the image passed. Callers should abort
 // the upload flow when this returns false.
