@@ -1529,9 +1529,13 @@
           </div>
           <div id="item-reactions-row" style="display:flex;flex-wrap:wrap;gap:4px;padding-bottom:8px;border-bottom:1px solid #F1EFE8;margin-bottom:10px"></div>
           <div id="item-comments-list" style="flex:1;overflow-y:auto;margin-bottom:12px"></div>
+          <div id="item-comment-mod-error" style="display:none;background:#FBE6DE;color:#712B13;border:1.5px solid #D85A30;border-left:6px solid #D85A30;border-radius:6px;padding:12px 14px;margin-bottom:10px;font-size:13px;font-weight:600;line-height:1.4;display:none;align-items:flex-start;gap:10px">
+            <div style="font-size:18px;line-height:1;flex-shrink:0">🛑</div>
+            <div style="flex:1"><div style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#A32D2D;margin-bottom:3px">Comment blocked</div><div id="item-comment-mod-error-text">This comment looks like it contains content that violates our guidelines. Please rephrase.</div></div>
+          </div>
           <div style="display:flex;gap:8px;align-items:flex-end;width:100%">
             <div style="flex:1 1 auto;min-width:0">
-              <textarea id="item-comment-input" placeholder="Leave a quote or comment…" maxlength="280" rows="1" style="display:block;width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;margin-bottom:0;resize:none;overflow-y:auto;max-height:120px;line-height:1.4" oninput="autoGrowCommentInput(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitItemComment();}"></textarea>
+              <textarea id="item-comment-input" placeholder="Leave a quote or comment…" maxlength="280" rows="1" style="display:block;width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;margin-bottom:0;resize:none;overflow-y:auto;max-height:120px;line-height:1.4" oninput="autoGrowCommentInput(this);clearCommentModError()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitItemComment();}"></textarea>
             </div>
             <button onclick="submitItemComment()" style="background:#D4622A;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap">Post</button>
           </div>
@@ -12730,6 +12734,29 @@ async function submitReport() {
   }
 }
 
+// Inline moderation-error banner for the item-comments modal. Sits right
+// above the input so users can't miss it (unlike a top-of-screen toast).
+function showCommentModError(msg) {
+  var el = document.getElementById('item-comment-mod-error');
+  if (!el) return;
+  var t = document.getElementById('item-comment-mod-error-text');
+  if (t && msg) t.textContent = msg;
+  el.style.display = 'flex';
+  // Nudge attention with a subtle shake
+  el.animate && el.animate([
+    { transform: 'translateX(0)' },
+    { transform: 'translateX(-4px)' },
+    { transform: 'translateX(4px)' },
+    { transform: 'translateX(-3px)' },
+    { transform: 'translateX(3px)' },
+    { transform: 'translateX(0)' }
+  ], { duration: 300, iterations: 1 });
+}
+function clearCommentModError() {
+  var el = document.getElementById('item-comment-mod-error');
+  if (el) el.style.display = 'none';
+}
+
 // ── OpenAI text moderation via edge function ─────────────────────
 // Returns { flagged, primary_label } — falls open on any error.
 async function moderateTextRemote(text) {
@@ -14016,6 +14043,7 @@ function openItemComments(listOwnerId, category, itemName) {
   activeCommentListOwner = listOwnerId; activeCommentCategory = category; activeCommentItem = itemName;
   var modal = document.getElementById('item-comments-modal');
   if (!modal) return;
+  clearCommentModError();
   // '__list__' sentinel = comments on the whole list rather than one item.
   // Give the modal a friendly title in that case.
   var title = (itemName === '__list__')
@@ -14317,11 +14345,12 @@ async function submitItemComment() {
     var mod = await moderateTextRemote(text);
     if (mod && mod.flagged) {
       var lbl = mod.primary_label || 'content that violates our guidelines';
-      showToast('This comment looks like it contains ' + lbl + '. Please rephrase.');
+      showCommentModError('This comment looks like it contains ' + lbl + '. Please rephrase before posting.');
       trackEvent('moderation_blocked', { surface: 'comment', category: mod.primary || 'unknown' });
       return;
     }
   } catch(e) { /* fall open */ }
+  clearCommentModError();
   try {
     var res = await sbClient.from('list_item_comments').insert({ from_user_id: userId, list_owner_id: activeCommentListOwner, category: activeCommentCategory, item_name: activeCommentItem, comment: text }).select('id').maybeSingle();
     if (res.error) throw res.error;
