@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Report button placement — Tenner</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #EAE3DC; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #2C2C2A; -webkit-font-smoothing: antialiased;
+    padding: 30px 20px 60px;
+  }
+
+  .header {
+    text-align: center; margin-bottom: 30px;
+  }
+  .header .eyebrow {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.18em;
+    text-transform: uppercase; color: #D85A30; margin-bottom: 8px;
+  }
+  .header h1 {
+    font-size: 22px; font-weight: 800; letter-spacing: -0.01em; margin: 0;
+  }
+
+  .stage {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+    max-width: 900px; margin: 0 auto;
+  }
+  .col { }
+  .col .label {
+    font-size: 10.5px; font-weight: 800; letter-spacing: 0.16em;
+    text-transform: uppercase; color: #5F5E5A;
+    text-align: center; margin-bottom: 8px;
+  }
+  .col .subtitle {
+    font-size: 11px; color: #888780; text-align: center; margin-bottom: 12px; line-height: 1.4;
+  }
+
+  .phone {
+    background: #FDFCF8; border: 1px solid #EAE3DC; border-radius: 22px;
+    padding: 16px 14px; box-shadow: 0 20px 40px rgba(44,44,42,0.10);
+    max-width: 360px; margin: 0 auto;
+  }
+  .sec-rule {
+    display: flex; align-items: center; gap: 10px; margin: 6px 0 14px;
+  }
+  .sec-rule .r { flex: 1; height: 2px; background: #D85A30; }
+  .sec-rule .l {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.16em;
+    text-transform: uppercase; color: #D85A30;
+  }
+
+  .pick {
+    background: #FFF; border: 1px solid #EAE3DC; border-left: 5px solid #D85A30;
+    border-radius: 3px; padding: 12px 14px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .pick .rank {
+    background: #2C2C2A; color: #FFF; border-radius: 3px;
+    width: 26px; height: 26px; font-size: 12px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .pick .name { flex: 1; font-size: 14px; font-weight: 700; }
+
+  .comment-thread {
+    margin-top: 4px;
+    background: #F5F1EA; border-radius: 3px; padding: 12px;
+  }
+  .comment-thread .head {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  }
+  .comment-thread .head .em { font-size: 14px; }
+  .comment-thread .head .t {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #5F5E5A;
+  }
+  .comment {
+    background: #FFF; border-radius: 3px; padding: 10px 12px;
+    margin-bottom: 8px; display: flex; align-items: flex-start; gap: 10px;
+  }
+  .comment .av {
+    width: 24px; height: 24px; border-radius: 50%; background: #F5B534;
+    color: #FFF; font-size: 10px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .comment .av.jt { background: #2F7562; }
+  .comment .body { flex: 1; min-width: 0; }
+  .comment .who {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+    text-transform: uppercase; color: #888780;
+  }
+  .comment .msg {
+    font-size: 13px; color: #2C2C2A; line-height: 1.4; margin-top: 2px;
+    word-break: break-word;
+  }
+
+  /* ── Pattern A: three-dot menu ─────────────────────── */
+  .dots {
+    flex-shrink: 0; color: #B8B6AE; font-size: 16px; padding: 4px 6px;
+    line-height: 1; align-self: flex-start; margin-top: -2px;
+    letter-spacing: 1px;
+  }
+  .menu {
+    position: absolute; right: 24px; margin-top: 6px;
+    background: #FFF; border: 1px solid #EAE3DC;
+    border-radius: 6px; padding: 4px 0; z-index: 5;
+    box-shadow: 0 8px 24px rgba(44,44,42,0.15); min-width: 140px;
+  }
+  .menu button {
+    display: block; width: 100%; text-align: left;
+    background: none; border: none; padding: 9px 14px;
+    font-family: inherit; font-size: 13px; color: #2C2C2A;
+    cursor: pointer;
+  }
+  .menu button.danger { color: #A32D2D; }
+  .menu button:hover { background: #F5F1EA; }
+  .relative { position: relative; }
+
+  /* ── Pattern B: inline flag icon ────────────────────── */
+  .flag {
+    flex-shrink: 0; padding: 4px 6px; line-height: 1;
+    align-self: flex-start; margin-top: -2px;
+  }
+  .flag svg {
+    width: 14px; height: 14px; fill: #B8B6AE; display: block;
+  }
+
+  .caption {
+    text-align: center; font-size: 11px; color: #5F5E5A;
+    margin-top: 16px; padding: 10px 14px;
+    background: #FFF; border: 1px solid #EAE3DC; border-radius: 3px;
+    line-height: 1.5;
+  }
+  .caption strong { color: #2C2C2A; }
+
+  @media (max-width: 720px) {
+    .stage { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="eyebrow">Report button — placement options</div>
+  <h1>Two patterns, both minimal</h1>
+</div>
+
+<div class="stage">
+
+  <!-- Pattern A: three-dot menu -->
+  <div class="col">
+    <div class="label">Pattern A</div>
+    <div class="subtitle">A "⋯" menu that reveals Report + Copy on tap. Most invisible until needed.</div>
+    <div class="phone">
+      <div class="sec-rule"><div class="r"></div><div class="l">Top 10 TV Shows · Isabella</div><div class="r"></div></div>
+
+      <div class="pick"><div class="rank">1</div><div class="name">The Office</div></div>
+      <div class="pick"><div class="rank">2</div><div class="name">The Real Housewives</div></div>
+
+      <div class="comment-thread">
+        <div class="head"><div class="em">💬</div><div class="t">Comments on Real Housewives</div></div>
+
+        <div class="comment">
+          <div class="av">J</div>
+          <div class="body">
+            <div class="who">Jane</div>
+            <div class="msg">Salt Lake was the peak season, no debate.</div>
+          </div>
+          <div class="dots">⋯</div>
+        </div>
+
+        <div class="comment relative">
+          <div class="av jt">JT</div>
+          <div class="body">
+            <div class="who">Jackson</div>
+            <div class="msg">disagree — Beverly Hills forever</div>
+          </div>
+          <div class="dots" style="color:#2C2C2A">⋯</div>
+          <div class="menu">
+            <button>Copy text</button>
+            <button class="danger">Report</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="caption">Tap the <strong>⋯</strong> on any comment. Report is one option in the menu, alongside Copy. Zero visual weight when not needed.</div>
+  </div>
+
+  <!-- Pattern B: inline flag -->
+  <div class="col">
+    <div class="label">Pattern B</div>
+    <div class="subtitle">A tiny grey flag icon that's always visible. One tap to open the report sheet.</div>
+    <div class="phone">
+      <div class="sec-rule"><div class="r"></div><div class="l">Top 10 TV Shows · Isabella</div><div class="r"></div></div>
+
+      <div class="pick"><div class="rank">1</div><div class="name">The Office</div></div>
+      <div class="pick"><div class="rank">2</div><div class="name">The Real Housewives</div></div>
+
+      <div class="comment-thread">
+        <div class="head"><div class="em">💬</div><div class="t">Comments on Real Housewives</div></div>
+
+        <div class="comment">
+          <div class="av">J</div>
+          <div class="body">
+            <div class="who">Jane</div>
+            <div class="msg">Salt Lake was the peak season, no debate.</div>
+          </div>
+          <div class="flag" title="Report">
+            <svg viewBox="0 0 16 16"><path d="M3 1v14h1.5V9.5h7.9L11 7l1.4-2.5H4.5V1z"/></svg>
+          </div>
+        </div>
+
+        <div class="comment">
+          <div class="av jt">JT</div>
+          <div class="body">
+            <div class="who">Jackson</div>
+            <div class="msg">disagree — Beverly Hills forever</div>
+          </div>
+          <div class="flag" title="Report">
+            <svg viewBox="0 0 16 16"><path d="M3 1v14h1.5V9.5h7.9L11 7l1.4-2.5H4.5V1z"/></svg>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="caption">A muted <strong>flag</strong> icon on every comment. Marginally more visible than Pattern A but signals "you can report" at a glance.</div>
+  </div>
+
+</div>
+
+</body>
+</html>
