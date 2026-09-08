@@ -1101,6 +1101,9 @@
             </div>
           </div>
 
+          <!-- Recent invites panel — populated async by renderInvitePanel() -->
+          <div id="profile-invite-panel" style="display:none;background:#FFF;border:1px solid #EAE3DC;border-left:7px solid #D85A30;border-radius:3px;padding:14px 16px;margin-bottom:14px;cursor:pointer" onclick="shareTennerApp()"></div>
+
           <!-- Section header: settings -->
           <div style="display:flex;align-items:center;gap:12px;margin:8px 0 14px">
             <div style="flex:1;height:2px;background:#D85A30"></div>
@@ -1976,7 +1979,7 @@ function go(id) {
       markNotificationsRead().then(updateNotificationBadge);
     });
   }
-  if (id === 's-profile') { loadProfile(); renderFriendsSection(); if (typeof updatePushTileStatus === 'function') updatePushTileStatus(); }
+  if (id === 's-profile') { loadProfile(); renderFriendsSection(); if (typeof updatePushTileStatus === 'function') updatePushTileStatus(); renderInvitePanel(); }
   // All profile sub-screens re-run loadProfile so their form fields populate,
   // avatars refresh, and the admin tile visibility recomputes when navigating.
   if (id === 's-profile-edit' || id === 's-profile-comments' || id === 's-profile-gift' || id === 's-profile-account' || id === 's-profile-feedback') {
@@ -5251,6 +5254,67 @@ function myHandleLine() {
   return h ? ('\n\nNot on Tenner yet? Add me @' + h) : '';
 }
 
+// Render the "Your invites" panel on the Profile screen. Uses the
+// get_my_invitees RPC which returns everyone whose profile has
+// invited_by = auth.uid(). Silently hides on error / no invites.
+async function renderInvitePanel() {
+  var host = document.getElementById('profile-invite-panel');
+  if (!host || !sbClient || !userId) return;
+  try {
+    var res = await sbClient.rpc('get_my_invitees');
+    if (res.error) { host.style.display = 'none'; return; }
+    var rows = res.data || [];
+    if (rows.length === 0) {
+      // Empty state — encourage first invite
+      host.style.display = 'block';
+      host.innerHTML = ''
+        + '<div style="display:flex;align-items:center;gap:12px">'
+        +   '<div style="font-size:26px;line-height:1">📣</div>'
+        +   '<div style="flex:1;min-width:0">'
+        +     '<div style="font-size:14px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em">Invite your first friend</div>'
+        +     '<div style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;margin-top:4px">Auto-connect on signup · Tap to share</div>'
+        +   '</div>'
+        +   '<div style="font-size:16px;color:#D85A30;opacity:0.7">›</div>'
+        + '</div>';
+      return;
+    }
+    host.style.display = 'block';
+    var count = rows.length;
+    var word = count === 1 ? 'friend' : 'friends';
+    // Show up to 5 avatars in a stacked row
+    var maxAv = 5;
+    var visible = rows.slice(0, maxAv);
+    var extra = count - visible.length;
+    var avatarsHtml = visible.map(function(r, i) {
+      var initials = (r.display_name || r.handle || '?').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();
+      var bg = getCategoryColor(r.display_name || r.handle || '?');
+      var inner = r.photo
+        ? '<img src="' + escapeHtml(r.photo) + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">'
+        : '<div style="width:100%;height:100%;background:' + (bg && bg.bg ? bg.bg : '#F5B534') + ';color:#2C2C2A;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">' + escapeHtml(initials) + '</div>';
+      return '<div style="width:32px;height:32px;border-radius:50%;overflow:hidden;border:2px solid #FFF;margin-left:' + (i === 0 ? '0' : '-10px') + ';box-shadow:0 1px 3px rgba(0,0,0,0.1)">' + inner + '</div>';
+    }).join('');
+    if (extra > 0) {
+      avatarsHtml += '<div style="width:32px;height:32px;border-radius:50%;background:#EAE3DC;color:#2C2C2A;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-left:-10px;border:2px solid #FFF">+' + extra + '</div>';
+    }
+    var firstName = ((rows[0].display_name || rows[0].handle || 'them').split(' ')[0]);
+    var subline = count === 1
+      ? escapeHtml(firstName) + ' joined from your invite'
+      : escapeHtml(firstName) + ' + ' + (count - 1) + ' other' + (count - 1 === 1 ? '' : 's') + ' joined from your invite' + (count > 1 ? 's' : '');
+    host.innerHTML = ''
+      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">'
+      +   '<div>'
+      +     '<div style="font-size:14px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em">Your invites</div>'
+      +     '<div style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;margin-top:3px">' + count + ' ' + word + ' joined · Tap to share more</div>'
+      +   '</div>'
+      +   '<div style="font-size:16px;color:#D85A30;opacity:0.7">›</div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:0">' + avatarsHtml + '</div>'
+      + '<div style="font-size:11.5px;color:#5F5E5A;margin-top:10px;line-height:1.4">' + subline + '.</div>';
+  } catch(e) {
+    host.style.display = 'none';
+  }
+}
+
 // Share Tenner itself (not tied to a group/list). Prefers native OS share
 // sheet on mobile → clipboard copy → text-preview modal on desktop.
 function shareTennerApp() {
@@ -5651,8 +5715,57 @@ var DEFAULT_LISTS = [
 function initSupabase() {
   try {
     sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Flush any errors that were captured before Supabase was ready.
+    if (Array.isArray(window._tennerErrBuf) && window._tennerErrBuf.length) {
+      var buf = window._tennerErrBuf;
+      window._tennerErrBuf = [];
+      buf.forEach(function(e) { try { trackEvent('js_error', e); } catch(_){} });
+    }
   } catch(e) { console.warn('Supabase init failed', e); }
 }
+
+// ── Global JS error catcher ───────────────────────────────────────
+// Buffers errors that fire before sbClient exists; drains once init runs.
+// Rate-limited to avoid flooding on a runaway error loop.
+(function() {
+  window._tennerErrBuf = [];
+  var count = 0, MAX_PER_SESSION = 25;
+  function report(payload) {
+    if (count >= MAX_PER_SESSION) return;
+    count++;
+    payload.pathname = (location && location.pathname) || null;
+    if (typeof sbClient !== 'undefined' && sbClient && typeof trackEvent === 'function') {
+      try { trackEvent('js_error', payload); } catch(_){}
+    } else {
+      window._tennerErrBuf.push(payload);
+    }
+  }
+  window.addEventListener('error', function(evt) {
+    try {
+      report({
+        message: (evt && evt.message ? String(evt.message).slice(0, 200) : 'error'),
+        source:  (evt && evt.filename ? String(evt.filename).slice(0, 200) : null),
+        line:    (evt && evt.lineno) || null,
+        col:     (evt && evt.colno) || null,
+        stack:   (evt && evt.error && evt.error.stack) ? String(evt.error.stack).slice(0, 1200) : null,
+        type:    'error'
+      });
+    } catch(_){}
+  });
+  window.addEventListener('unhandledrejection', function(evt) {
+    try {
+      var reason = evt && evt.reason;
+      var msg = 'unhandled_promise';
+      var stack = null;
+      if (reason) {
+        if (typeof reason === 'string') { msg = reason.slice(0, 200); }
+        else if (reason.message) { msg = String(reason.message).slice(0, 200); }
+        if (reason.stack) stack = String(reason.stack).slice(0, 1200);
+      }
+      report({ message: msg, stack: stack, type: 'unhandled_rejection' });
+    } catch(_){}
+  });
+})();
 
 function authTab(tab) {
   currentAuthTab = tab;
