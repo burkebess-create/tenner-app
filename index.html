@@ -3069,7 +3069,8 @@ function onGroupPhotoUpload(input) {
   if (!input.files || !input.files[0] || !g) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    resizeImage(e.target.result, 300).then(function(dataUrl) {
+    resizeImage(e.target.result, 300).then(async function(dataUrl) {
+      if (!(await guardImageUpload(dataUrl, 'group_photo'))) { input.value = ''; return; }
       g.photo = dataUrl;
       g.emoji = '';
       updateSettingsAvatarPreview(g);
@@ -3082,7 +3083,8 @@ function onGroupPhotoUploadCreate(input) {
   if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    resizeImage(e.target.result, 300).then(function(dataUrl) {
+    resizeImage(e.target.result, 300).then(async function(dataUrl) {
+      if (!(await guardImageUpload(dataUrl, 'group_photo_create'))) { input.value = ''; return; }
       groupPhotoData = dataUrl;
       selEmojiChar = '';
       var preview = document.getElementById('cg1-avatar-preview');
@@ -6449,7 +6451,8 @@ function onProfilePhotoUpload(input) {
   if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    resizeImage(e.target.result, 300).then(function(dataUrl) {
+    resizeImage(e.target.result, 300).then(async function(dataUrl) {
+      if (!(await guardImageUpload(dataUrl, 'profile_photo'))) { input.value = ''; return; }
       myProfile = myProfile || { id: userId };
       myProfile.photo = dataUrl;
       renderProfileHeader();
@@ -7296,7 +7299,8 @@ function onbPhotoChange(input) {
   if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    resizeImage(e.target.result, 300).then(function(dataUrl) {
+    resizeImage(e.target.result, 300).then(async function(dataUrl) {
+      if (!(await guardImageUpload(dataUrl, 'profile_photo_onboarding'))) { input.value = ''; return; }
       myProfile = myProfile || { id: userId };
       myProfile.photo = dataUrl;
       var prev = document.getElementById('onb-photo-preview');
@@ -12757,12 +12761,35 @@ function clearCommentModError() {
   if (el) el.style.display = 'none';
 }
 
-// ── OpenAI text moderation via edge function ─────────────────────
+// ── OpenAI moderation via edge function ─────────────────────────
 // Returns { flagged, primary_label } — falls open on any error.
 async function moderateTextRemote(text) {
   try {
     if (!sbClient || !text || !text.trim()) return { flagged: false };
     var res = await sbClient.functions.invoke('moderate-text', { body: { text: text } });
+    if (res.error || !res.data) return { flagged: false };
+    return res.data;
+  } catch(e) { return { flagged: false }; }
+}
+// Convenience: run image moderation, show a prominent rejection UI on
+// flag, and return true only if the image passed. Callers should abort
+// the upload flow when this returns false.
+async function guardImageUpload(dataUrl, contextLabel) {
+  var mod = await moderateImageRemote(dataUrl);
+  if (mod && mod.flagged) {
+    var lbl = mod.primary_label || 'content that violates our guidelines';
+    showConfirm('🛑 Image blocked', 'This image looks like it contains ' + lbl + '. Please pick a different image.', 'OK', 'primary', function(){});
+    trackEvent('moderation_blocked', { surface: contextLabel, category: mod.primary || 'unknown' });
+    return false;
+  }
+  return true;
+}
+
+async function moderateImageRemote(dataUrl) {
+  try {
+    if (!sbClient || !dataUrl || typeof dataUrl !== 'string') return { flagged: false };
+    if (!dataUrl.startsWith('data:image/') && !dataUrl.startsWith('http')) return { flagged: false };
+    var res = await sbClient.functions.invoke('moderate-text', { body: { image_url: dataUrl } });
     if (res.error || !res.data) return { flagged: false };
     return res.data;
   } catch(e) { return { flagged: false }; }
