@@ -122,11 +122,51 @@
   .shot .tile .s { font-size: 9px; color: #888780; letter-spacing: 0.08em;
     text-transform: uppercase; font-weight: 700; margin-top: 2px; }
 
-  /* Shot 1 — My Lists */
-  .shot-1 .tile:nth-child(2) { border-left-color: #F5B534; }
-  .shot-1 .tile:nth-child(3) { border-left-color: #2F9E8F; }
-  .shot-1 .tile:nth-child(4) { border-left-color: #A8C8E8; }
-  .shot-1 .tile:nth-child(5) { border-left-color: #D46A80; }
+  /* Shot 1 — My Lists (folio header + 2x2 colored grid) */
+  .shot-1 .folio {
+    font-size: 7px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #888780;
+    text-align: center; margin: 4px 0 10px;
+  }
+  .shot-1 .folio .active { color: #D85A30; }
+  .shot-1 .ml-head {
+    display: flex; align-items: center; gap: 5px; margin: 0 0 10px;
+  }
+  .shot-1 .ml-head .r { flex: 1; height: 1.5px; background: #D85A30; }
+  .shot-1 .ml-head .l {
+    font-size: 8px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #D85A30;
+  }
+  .shot-1 .ml-head .new {
+    background: #D85A30; color: #FFF; border-radius: 3px;
+    padding: 4px 7px; font-size: 7px; font-weight: 800;
+    letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .shot-1 .ml-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  }
+  .shot-1 .ml-tile {
+    border-radius: 3px; padding: 8px 8px 10px;
+    min-height: 74px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .shot-1 .ml-tile .em { font-size: 18px; line-height: 1; margin-bottom: 6px; }
+  .shot-1 .ml-tile .t {
+    font-size: 9.5px; font-weight: 800; color: #2C2C2A;
+    line-height: 1.1; margin-bottom: 4px; letter-spacing: -0.01em;
+  }
+  .shot-1 .ml-tile .m {
+    font-size: 6.5px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .shot-1 .ml-tile.books    { background: #F5EAC7; border-left: 6px solid #A8802B; }
+  .shot-1 .ml-tile.books .m { color: #A8802B; }
+  .shot-1 .ml-tile.romcoms  { background: #F7DCD0; border-left: 6px solid #A54523; }
+  .shot-1 .ml-tile.romcoms .m { color: #A54523; }
+  .shot-1 .ml-tile.travel   { background: #E1E5F0; border-left: 6px solid #2B3A6B; }
+  .shot-1 .ml-tile.travel .m { color: #2B3A6B; }
+  .shot-1 .ml-tile.tv       { background: #C9E4DA; border-left: 6px solid #1F5A4A; }
+  .shot-1 .ml-tile.tv .m    { color: #1F5A4A; }
 
   /* Shot 2 — Match reveal */
   .shot-2 .screen { justify-content: center; align-items: center; text-align: center; }
@@ -316,12 +356,14 @@
   <div class="shot shot-1">
     <div class="screen">
       <div class="notch"></div>
-      <div class="sec-rule"><div class="r"></div><div class="l">Your lists</div><div class="r"></div></div>
-      <div class="tile"><div class="em">🎬</div><div class="body"><div class="t">Top 10 Movies</div><div class="s">10 picks · Updated today</div></div></div>
-      <div class="tile"><div class="em">🍕</div><div class="body"><div class="t">Top 10 Pizzas</div><div class="s">8 picks · Updated 2d ago</div></div></div>
-      <div class="tile"><div class="em">🎤</div><div class="body"><div class="t">Top 10 Concerts</div><div class="s">10 picks · Updated 1w ago</div></div></div>
-      <div class="tile"><div class="em">📚</div><div class="body"><div class="t">Top 10 Books</div><div class="s">6 picks · Draft</div></div></div>
-      <div class="tile"><div class="em">🌮</div><div class="body"><div class="t">Top 10 Tacos</div><div class="s">10 picks · Updated 3w ago</div></div></div>
+      <div class="folio">Sep 7 · <span class="active">My Lists</span> · Day 88</div>
+      <div class="ml-head"><div class="r"></div><div class="l">My Lists · 4</div><div class="r"></div><span class="new">+ New</span></div>
+      <div class="ml-grid">
+        <div class="ml-tile books"><div><span class="em">📚</span><div class="t">Top 10 Books</div></div><div class="m">Ranked · 10 items</div></div>
+        <div class="ml-tile romcoms"><div><span class="em">🎬</span><div class="t">Top 10 Rom Coms</div></div><div class="m">Ranked · 10 items</div></div>
+        <div class="ml-tile travel"><div><span class="em">✈️</span><div class="t">Top 10 Travel</div></div><div class="m">Ranked · 10 items</div></div>
+        <div class="ml-tile tv"><div><span class="em">📺</span><div class="t">Top 10 TV Shows</div></div><div class="m">Ranked · 10 items</div></div>
+      </div>
     </div>
     <div class="cap">Your lists</div>
   </div>
