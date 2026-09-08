@@ -10578,7 +10578,8 @@ function renderAdminHub(el) {
     { key: 'lists',    label: 'Lists',         emoji: '📋', desc: 'Audit user lists',         bg: '#A8D8C8', ac: '#4E8E74' },
     { key: 'feedback', label: 'Feedback',      emoji: '💬', desc: 'Feedback inbox',           bg: '#F5B534', ac: '#B57F0F' },
     { key: 'invites',  label: 'Invites',       emoji: '🎯', desc: 'Recruiter leaderboard',    bg: '#E8927C', ac: '#A32D2D' },
-    { key: 'errors',   label: 'Errors',        emoji: '⚠️', desc: 'What broke · Last 7 days', bg: '#F5B534', ac: '#B57F0F' }
+    { key: 'errors',   label: 'Errors',        emoji: '⚠️', desc: 'What broke · Last 7 days', bg: '#F5B534', ac: '#B57F0F' },
+    { key: 'reports',  label: 'Reports',       emoji: '🚩', desc: 'Content reports · Queue',  bg: '#F5A896', ac: '#A32D2D' }
   ];
   var today = new Date();
   var months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEPT','OCT','NOV','DEC'];
@@ -10631,6 +10632,74 @@ async function renderAdmin() {
   if (_adminTab === 'feedback') return renderAdminFeedback(content);
   if (_adminTab === 'invites')  return renderAdminInvites(content);
   if (_adminTab === 'errors')   return renderAdminErrors(content);
+  if (_adminTab === 'reports')  return renderAdminReports(content);
+}
+
+var _adminReportsStatus = 'pending';
+var _reportStatusColors = { pending: '#D85A30', reviewing: '#F5B534', resolved: '#4E8E74', dismissed: '#5F5E5A' };
+async function renderAdminReports(el) {
+  el.innerHTML = ''
+    + '<div style="padding:12px 12px 4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+    +   ['pending','reviewing','resolved','dismissed','all'].map(function(s) {
+          var active = _adminReportsStatus === s;
+          var col = _reportStatusColors[s] || '#5F5E5A';
+          return '<button onclick="_adminReportsStatus=\'' + s + '\';renderAdminReports(this.closest(\'#_admin-section-body\'))" style="border:1.5px solid ' + (active ? col : '#D3D1C7') + ';background:' + (active ? col : '#FFF') + ';color:' + (active ? '#FFF' : '#2C2C2A') + ';padding:5px 10px;border-radius:3px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">' + s + '</button>';
+        }).join('')
+    + '</div>'
+    + '<div id="admin-reports-body" style="padding:12px"><div style="color:#888;font-size:12px;padding:20px;text-align:center">Loading…</div></div>';
+  var host = document.getElementById('admin-reports-body');
+  try {
+    var res = await sbClient.rpc('admin_get_reports', { p_status: _adminReportsStatus, p_limit: 100 });
+    if (res.error) throw res.error;
+    var rows = res.data || [];
+    if (rows.length === 0) {
+      host.innerHTML = '<div style="background:#E8F0E4;border:1px solid #6B8E4E33;border-left:7px solid #6B8E4E;border-radius:3px;padding:16px 18px;text-align:center">'
+        + '<div style="font-size:28px;margin-bottom:8px">🕊</div>'
+        + '<div style="font-size:14px;font-weight:800;color:#2C2C2A">Nothing in the ' + _adminReportsStatus + ' queue.</div>'
+        + '</div>';
+      return;
+    }
+    host.innerHTML = rows.map(function(r) {
+      var col = _reportStatusColors[r.status] || '#5F5E5A';
+      var ctx = r.target_context || {};
+      var kindLabel = { comment:'Comment', list_item:'List item', list:'List', user:'User', group:'Group' }[r.kind] || r.kind;
+      var reasonLabel = (REPORT_REASONS.find(function(x){ return x.key === r.reason; }) || {}).label || r.reason;
+      var previewHtml = ctx.preview
+        ? '<div style="background:#F5F1EA;border:1px solid #EAE3DC;border-left:4px solid ' + col + ';border-radius:3px;padding:10px 12px;font-size:12.5px;color:#2C2C2A;font-style:italic;margin:10px 0">"' + escapeHtml(String(ctx.preview).slice(0,280)) + '"</div>'
+        : '';
+      var contextLine = '';
+      if (ctx.category || ctx.item_name) {
+        contextLine = '<div style="font-size:11px;color:#5F5E5A;margin-top:4px">Thread: ' + escapeHtml(ctx.category || '') + (ctx.item_name ? ' · ' + escapeHtml(ctx.item_name) : '') + '</div>';
+      }
+      var actionsHtml = r.status === 'pending' || r.status === 'reviewing'
+        ? '<div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">'
+          +   (r.status === 'pending' ? '<button onclick="_resolveReport(' + r.id + ',\'reviewing\')" style="background:#F5B534;color:#FFF;border:none;border-radius:3px;padding:8px 12px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">Mark reviewing</button>' : '')
+          +   '<button onclick="_resolveReport(' + r.id + ',\'resolved\',\'action_taken\')" style="background:#4E8E74;color:#FFF;border:none;border-radius:3px;padding:8px 12px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">Resolve · Action taken</button>'
+          +   '<button onclick="_resolveReport(' + r.id + ',\'dismissed\',\'no_violation\')" style="background:transparent;color:#5F5E5A;border:1.5px solid #D3D1C7;border-radius:3px;padding:8px 12px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">Dismiss</button>'
+          + '</div>'
+        : '<div style="font-size:11px;color:#888780;margin-top:10px;font-style:italic">' + escapeHtml(r.status) + (r.resolved_at ? ' · ' + relTime(r.resolved_at) : '') + (r.resolution ? ' · ' + escapeHtml(r.resolution) : '') + '</div>';
+      return '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:7px solid ' + col + ';border-radius:3px;padding:14px 16px;margin-bottom:10px">'
+        + '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">'
+        +   '<div style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:' + col + '">' + escapeHtml(kindLabel) + ' · ' + escapeHtml(r.status) + '</div>'
+        +   '<div style="flex:1;font-size:10.5px;color:#888780;font-weight:700">' + relTime(r.created_at) + '</div>'
+        + '</div>'
+        + '<div style="font-size:14px;font-weight:800;color:#2C2C2A;line-height:1.3">' + escapeHtml(reasonLabel) + '</div>'
+        + (r.detail ? '<div style="font-size:12px;color:#5F5E5A;margin-top:4px;line-height:1.4">' + escapeHtml(r.detail) + '</div>' : '')
+        + previewHtml
+        + contextLine
+        + actionsHtml
+        + '</div>';
+    }).join('');
+  } catch(e) {
+    host.innerHTML = '<div style="padding:16px;text-align:center;color:#A32D2D;font-size:12px">Couldn\'t load reports: ' + escapeHtml(String(e && e.message || e)) + '</div>';
+  }
+}
+async function _resolveReport(id, status, resolution) {
+  try {
+    var r = await sbClient.rpc('admin_resolve_report', { p_id: id, p_status: status, p_resolution: resolution || null });
+    if (r.error) throw r.error;
+    renderAdminReports(document.getElementById('_admin-section-body'));
+  } catch(e) { showToast('Update failed: ' + (e.message || e)); }
 }
 
 // Turn a raw JS error message into a plain-English explanation for the
@@ -12568,6 +12637,110 @@ function giftBudgetRh() {
 // Fire-and-forget shop-link click log. Best-effort — never blocks navigation.
 // Anonymous visitors log with user_id=null. When a gift-page URL is being
 // viewed with a ?from= param, the friend's userId is passed as fromUserId.
+// Copy arbitrary text to the clipboard with a toast + graceful fallback.
+function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function(){ showToast('Copied.'); }, function(){ showToast('Copy failed.'); });
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); showToast('Copied.'); } catch(e) { showToast('Copy failed.'); }
+      document.body.removeChild(ta);
+    }
+  } catch(e) { showToast('Copy failed.'); }
+}
+
+// ── Content reporting ─────────────────────────────────────────────
+// Opens a small "why?" modal, submits into content_reports, and pings admin.
+var REPORT_REASONS = [
+  { key: 'hate',       label: 'Hate speech or slurs' },
+  { key: 'harassment', label: 'Harassment or bullying' },
+  { key: 'sexual',     label: 'Sexual or explicit content' },
+  { key: 'violence',   label: 'Violence or threats' },
+  { key: 'minors',     label: 'Involves a minor / unsafe for children' },
+  { key: 'spam',       label: 'Spam or scam' },
+  { key: 'other',      label: 'Something else' }
+];
+function openReportModal(opts) {
+  opts = opts || {};
+  var frame = document.querySelector('.frame') || document.body;
+  var existing = document.getElementById('report-modal');
+  if (existing) existing.remove();
+  var el = document.createElement('div');
+  el.id = 'report-modal';
+  el.style.cssText = 'position:absolute;inset:0;background:rgba(20,10,4,0.7);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px';
+  el.onclick = function(e){ if (e.target === el) closeReportModal(); };
+  var previewHtml = '';
+  if (opts.context && opts.context.preview) {
+    previewHtml = '<div style="background:#F5F1EA;border:1px solid #EAE3DC;border-left:4px solid #D85A30;border-radius:3px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#5F5E5A;font-style:italic;max-height:80px;overflow:hidden">"' + opts.context.preview + '"</div>';
+  }
+  var kindLabel = { comment:'this comment', list_item:'this item', list:'this list', user:'this person', group:'this group' }[opts.kind] || 'this';
+  el.innerHTML = '<div class="pop-in" style="background:#FFF;border-left:7px solid #D85A30;border-radius:3px;padding:22px 20px;width:100%;max-width:340px;max-height:80vh;overflow-y:auto">'
+    + '<div style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;margin-bottom:8px">Report ' + kindLabel + '</div>'
+    + '<div style="font-size:19px;font-weight:800;color:#2C2C2A;margin-bottom:12px;letter-spacing:-0.01em">What\'s the problem?</div>'
+    + previewHtml
+    + '<div id="report-reasons" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">'
+    +   REPORT_REASONS.map(function(r) {
+          return '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#FDFCF8;border:1px solid #EAE3DC;border-radius:3px;cursor:pointer;font-size:13px;color:#2C2C2A"><input type="radio" name="report-reason" value="' + r.key + '" style="margin:0"><span>' + r.label + '</span></label>';
+        }).join('')
+    + '</div>'
+    + '<textarea id="report-detail" placeholder="Add detail (optional)…" maxlength="500" rows="3" style="width:100%;font-size:13px;font-family:inherit;padding:8px 10px;border:1px solid #EAE3DC;border-radius:3px;resize:vertical;margin-bottom:14px"></textarea>'
+    + '<div id="report-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:11px;padding:8px 10px;border-radius:3px;margin-bottom:10px"></div>'
+    + '<div style="display:flex;gap:8px">'
+    +   '<button type="button" onclick="closeReportModal()" style="flex:1;background:transparent;color:#2C2C2A;border:1.5px solid #D3D1C7;border-radius:3px;padding:11px 14px;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer;font-family:inherit">Cancel</button>'
+    +   '<button type="button" id="report-submit-btn" onclick="submitReport()" style="flex:2;background:#D85A30;color:#FFF;border:none;border-radius:3px;padding:11px 14px;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer;font-family:inherit">Submit report</button>'
+    + '</div>'
+    + '</div>';
+  frame.appendChild(el);
+  window._pendingReport = { kind: opts.kind, targetId: opts.targetId, targetOwner: opts.targetOwner || null, context: opts.context || null };
+}
+function closeReportModal() {
+  var el = document.getElementById('report-modal');
+  if (el) el.remove();
+  window._pendingReport = null;
+}
+async function submitReport() {
+  if (!sbClient || !userId || !window._pendingReport) { closeReportModal(); return; }
+  var reasonEl = document.querySelector('input[name="report-reason"]:checked');
+  var errEl = document.getElementById('report-error');
+  if (!reasonEl) { errEl.textContent = 'Please pick a reason.'; errEl.style.display = 'block'; return; }
+  var detail = (document.getElementById('report-detail') || {}).value || null;
+  var btn = document.getElementById('report-submit-btn');
+  if (btn) { btn.textContent = '...'; btn.disabled = true; }
+  var pr = window._pendingReport;
+  try {
+    var res = await sbClient.from('content_reports').insert({
+      kind:           pr.kind,
+      target_id:      String(pr.targetId),
+      target_owner:   pr.targetOwner || null,
+      target_context: pr.context || null,
+      reporter_id:    userId,
+      reason:         reasonEl.value,
+      detail:         detail ? String(detail).slice(0, 500) : null,
+      status:         'pending'
+    });
+    if (res.error) throw res.error;
+    trackEvent('content_report_submitted', { kind: pr.kind, reason: reasonEl.value });
+    closeReportModal();
+    showToast('Thanks — we\'ll take a look.');
+  } catch(e) {
+    if (errEl) { errEl.textContent = 'Could not submit. Please try again.'; errEl.style.display = 'block'; }
+    if (btn) { btn.textContent = 'Submit report'; btn.disabled = false; }
+  }
+}
+
+// ── OpenAI text moderation via edge function ─────────────────────
+// Returns { flagged, primary_label } — falls open on any error.
+async function moderateTextRemote(text) {
+  try {
+    if (!sbClient || !text || !text.trim()) return { flagged: false };
+    var res = await sbClient.functions.invoke('moderate-text', { body: { text: text } });
+    if (res.error || !res.data) return { flagged: false };
+    return res.data;
+  } catch(e) { return { flagged: false }; }
+}
+
 function trackShopClick(payload) {
   try {
     if (!sbClient) return;
@@ -13953,6 +14126,7 @@ async function loadItemComments(listOwnerId, category, itemName) {
       // prepends '@Name ' so it clearly reads as a reply. Edit/Delete for MY comments.
       var safeName = String(name).replace(/'/g, "\\'").replace(/"/g, '&quot;');
       // WhatsApp/iMessage-style `…` overflow menu for own comments, Reply link for others.
+      var safeBody = String(c.comment || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ');
       var actions = isMine
         ? '<div style="position:absolute;top:8px;right:0">'
           +   '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\')" style="background:none;border:none;color:#888780;font-size:16px;padding:0 6px;cursor:pointer;font-family:inherit;line-height:1" title="More">⋯</button>'
@@ -13961,8 +14135,13 @@ async function loadItemComments(listOwnerId, category, itemName) {
           +     '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\');deleteItemComment(\'' + c.id + '\')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#A32D2D;font-size:12px;padding:10px 14px;cursor:pointer;font-family:inherit;border-top:1px solid #F1EFE8">Delete</button>'
           +   '</div>'
           + '</div>'
-        : '<div style="display:flex;gap:8px;margin-top:6px">'
-          +   '<button type="button" onclick="replyToItemComment(\'' + safeName + '\')" style="background:none;border:none;color:#D85A30;font-size:11px;padding:2px 0;cursor:pointer;font-family:inherit;text-decoration:underline;font-weight:600">↩ Reply</button>'
+        : '<div style="position:absolute;top:8px;right:0">'
+          +   '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\')" style="background:none;border:none;color:#888780;font-size:16px;padding:0 6px;cursor:pointer;font-family:inherit;line-height:1" title="More">⋯</button>'
+          +   '<div id="cmenu-' + c.id + '" style="display:none;position:absolute;right:0;top:22px;background:#FFFFFF;border:1px solid #D3D1C7;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.12);z-index:20;min-width:130px;overflow:hidden">'
+          +     '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\');replyToItemComment(\'' + safeName + '\')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#2C2C2A;font-size:12px;padding:10px 14px;cursor:pointer;font-family:inherit">↩ Reply</button>'
+          +     '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\');copyToClipboard(\'' + safeBody + '\')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#2C2C2A;font-size:12px;padding:10px 14px;cursor:pointer;font-family:inherit;border-top:1px solid #F1EFE8">Copy text</button>'
+          +     '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\');openReportModal({kind:\'comment\',targetId:\'' + c.id + '\',targetOwner:\'' + c.from_user_id + '\',context:{list_owner_id:\'' + listOwnerId + '\',category:\'' + String(category).replace(/\'/g,"\\'") + '\',item_name:\'' + String(itemName).replace(/\'/g,"\\'") + '\',preview:\'' + safeBody.slice(0,140) + '\'}})" style="display:block;width:100%;text-align:left;background:none;border:none;color:#A32D2D;font-size:12px;padding:10px 14px;cursor:pointer;font-family:inherit;border-top:1px solid #F1EFE8">Report</button>'
+          +   '</div>'
           + '</div>';
       return '<div data-comment-id="' + c.id + '" style="position:relative;padding:10px 0;border-bottom:1px solid #F5F3EE;' + indentStyle + '">'
         + '<div style="font-size:11px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + editedTag + when + '</div>'
@@ -14132,6 +14311,17 @@ async function submitItemComment() {
   var inp = document.getElementById('item-comment-input');
   if (!inp || !inp.value.trim() || !sbClient) return;
   var text = inp.value.trim().slice(0, 280);
+  // Pre-submit text moderation — falls open if the edge function is
+  // misconfigured or unreachable, so an outage never blocks legit comments.
+  try {
+    var mod = await moderateTextRemote(text);
+    if (mod && mod.flagged) {
+      var lbl = mod.primary_label || 'content that violates our guidelines';
+      showToast('This comment looks like it contains ' + lbl + '. Please rephrase.');
+      trackEvent('moderation_blocked', { surface: 'comment', category: mod.primary || 'unknown' });
+      return;
+    }
+  } catch(e) { /* fall open */ }
   try {
     var res = await sbClient.from('list_item_comments').insert({ from_user_id: userId, list_owner_id: activeCommentListOwner, category: activeCommentCategory, item_name: activeCommentItem, comment: text }).select('id').maybeSingle();
     if (res.error) throw res.error;
