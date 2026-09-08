@@ -2220,6 +2220,7 @@ function showMatchReveal(friendProfile, score, categoryLabel, friendId) {
     +   '</div>'
     +   '<div class="slide-up" style="background:' + bgAccent + ';color:' + verdictColor + ';border-radius:12px;padding:12px 14px;font-size:14px;font-weight:600">' + verdict + '</div>'
     +   '<button class="btn-secondary" onclick="closeMatchReveal()" style="margin-top:14px;margin-bottom:0">See the details</button>'
+    +   (friendId ? '<div style="margin-top:10px"><button onclick="closeMatchReveal();openGiftGuide(\'' + friendId + '\')" style="background:none;border:none;color:#D85A30;font-size:10.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;padding:6px 8px;font-family:inherit">🎁 See gifts ' + escapeHtml((name || 'they').split(' ')[0]) + ' would love →</button></div>' : '')
     + '</div>';
   frame.appendChild(overlay);
   // Trigger the ring & count-up animation on next frame
@@ -4136,8 +4137,8 @@ async function renderTodayOnTenner() {
   // Day-of-year rotates the starting slot; then we try each in order and use the first that yields content.
   var d = new Date();
   var dayIdx = Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000);
-  var slots = ['countdown', 'friend', 'match', 'stat'];
-  var order = slots.slice(dayIdx % 4).concat(slots.slice(0, dayIdx % 4));
+  var slots = ['countdown', 'gift', 'friend', 'match', 'stat'];
+  var order = slots.slice(dayIdx % slots.length).concat(slots.slice(0, dayIdx % slots.length));
   for (var i = 0; i < order.length; i++) {
     var card = await tryTodaySlot(order[i]);
     if (card) { host.innerHTML = card; return; }
@@ -4159,6 +4160,22 @@ async function tryTodaySlot(kind) {
     var wkCatEsc = wk.category.replace(/'/g,"\\'");
     var wkEmojiEsc = (wk.emoji || '📋').replace(/'/g,"\\'");
     return todayCard('⏰', 'Top 10 ' + escapeHtml(wk.category) + ' — this week', subtitle, "openWeeklyListFlow('" + wkCatEsc + "','" + wkEmojiEsc + "')");
+  }
+  if (kind === 'gift') {
+    // Surface a friend with an upcoming birthday (3-45 days). Only fires
+    // when real signal exists; falls through otherwise.
+    var acceptedG = (myFriends || []).filter(function(f){ return f.status === 'accepted' && f.profile && f.profile.birthday; });
+    if (!acceptedG.length) return null;
+    var candidates = acceptedG.map(function(f) {
+      var d = daysUntilBirthday(f.profile.birthday);
+      return { f: f, d: d };
+    }).filter(function(x) { return x.d !== null && x.d !== undefined && x.d >= 3 && x.d <= 45; });
+    if (!candidates.length) return null;
+    candidates.sort(function(a,b){ return a.d - b.d; });
+    var pick = candidates[0];
+    var pname = (pick.f.profile.display_name || (pick.f.profile.handle ? '@' + pick.f.profile.handle : 'A friend'));
+    var whenStr = pick.d === 1 ? 'tomorrow' : ('in ' + pick.d + ' days');
+    return todayCard('🎁', pname + '\'s birthday ' + whenStr, 'Shop gift ideas built from their Top 10 lists', "openGiftGuide('" + pick.f.friendId + "')");
   }
   if (kind === 'friend') {
     var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted'; });
@@ -8397,11 +8414,15 @@ async function renderFriendDetail() {
   } else if (bdayShort) {
     countdownPill = '<div style="display:inline-block;background:rgba(255,255,255,0.5);color:#2C2C2A;font-size:10px;font-weight:700;padding:5px 12px;border-radius:99px;margin-top:12px;letter-spacing:0.05em">🎂 ' + bdayShort.toUpperCase() + '</div>';
   }
+  var giftPill = isAccepted
+    ? '<div style="margin-top:12px"><button onclick="openGiftGuide(\'' + selFriendId + '\')" style="display:inline-flex;align-items:center;gap:6px;background:transparent;color:#D85A30;border:1.5px solid #D85A30;border-radius:3px;padding:6px 12px;font-size:10.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">🎁 Shop gifts for ' + escapeHtml(name.split(' ')[0]) + '</button></div>'
+    : '';
   var hero = '<div style="background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:22px;padding:24px 16px;margin-bottom:14px;text-align:center;position:relative">'
     + '<div style="display:inline-block;padding:4px;background:#FFFFFF;border-radius:999px;border:1.5px solid #2C2C2A">' + friendAvatarHtml(p, 88) + '</div>'
     + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:26px;letter-spacing:-0.02em;color:#2C2C2A;margin-top:12px;line-height:1.15">' + escapeHtml(name) + newBadge + '</div>'
     + (handle ? '<div style="font-size:13px;color:#2C2C2A;opacity:0.7;margin-top:2px;font-weight:600">' + escapeHtml(handle) + '</div>' : '')
     + countdownPill
+    + giftPill
     + (isPendingInbound ? '<div style="font-size:11px;color:#2C2C2A;margin-top:10px;font-weight:600">wants to connect with you</div>' : '')
     + '</div>';
 
@@ -12464,7 +12485,7 @@ async function openGiftGuide(friendUserId) {
     var token = r && r.data && r.data.gift_share_token;
     if (token) {
       // Open in a new tab so the user doesn't lose in-app state
-      var url = '/g?t=' + encodeURIComponent(token);
+      var url = '/g?t=' + encodeURIComponent(token) + (userId ? '&from=' + encodeURIComponent(userId) : '') + '&utm_source=app&utm_medium=friend_detail';
       var win = window.open(url, '_blank');
       // Popup-blocker fallback: navigate in same tab
       if (!win) window.location.href = url;

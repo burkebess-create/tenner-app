@@ -63,19 +63,24 @@ function isBirthdayInDays(birthdayStr: string, targetDays: number) {
   return wrapDiff === targetDays;
 }
 
-async function runBirthdayReminders(supabase: any) {
-  console.log("Running birthday reminders...");
-  // Fetch all accepted friendships
+// Amazon affiliate search URL built the same way the app builds it.
+function amazonSearchUrl(item: string, category: string) {
+  const q = `${item} ${category || ''} gift`.trim();
+  return `https://www.amazon.com/s?k=${encodeURIComponent(q).replace(/%20/g, '+')}&tag=tenner09-20`;
+}
+
+async function runBirthdayReminders(supabase: any, targetDays: number) {
+  console.log(`Running birthday reminders (${targetDays}-day)...`);
+  const emailType = `birthday_reminder_${targetDays}`;
   const { data: friendships, error: fErr } = await supabase
     .from("friendships")
     .select("requester_id, addressee_id, status")
     .eq("status", "accepted");
   if (fErr) throw fErr;
 
-  // Fetch all profiles with a birthday set + all user emails
   const { data: profiles, error: pErr } = await supabase
     .from("profiles")
-    .select("id, display_name, email, birthday");
+    .select("id, display_name, email, birthday, gift_share_token");
   if (pErr) throw pErr;
   const profileById: Record<string, any> = {};
   profiles?.forEach((p: any) => { profileById[p.id] = p; });
@@ -84,7 +89,6 @@ async function runBirthdayReminders(supabase: any) {
   const bdayYear = new Date().getFullYear();
 
   for (const f of friendships || []) {
-    // For each friendship, produce two (viewer, friend) pairings so both sides get reminded
     const pairings = [
       { viewer: f.requester_id, friend: f.addressee_id },
       { viewer: f.addressee_id, friend: f.requester_id },
@@ -93,35 +97,69 @@ async function runBirthdayReminders(supabase: any) {
       const viewerProfile = profileById[pair.viewer];
       const friendProfile = profileById[pair.friend];
       if (!viewerProfile?.email || !friendProfile?.birthday) continue;
-      if (!isBirthdayInDays(friendProfile.birthday, 14)) continue;
+      if (!isBirthdayInDays(friendProfile.birthday, targetDays)) continue;
 
-      // Dedupe via email_log
       const refKey = `${pair.friend}_${bdayYear}`;
       const { data: existing } = await supabase
         .from("email_log")
         .select("id")
         .eq("user_id", pair.viewer)
-        .eq("email_type", "birthday_reminder_14")
+        .eq("email_type", emailType)
         .eq("ref_key", refKey)
         .maybeSingle();
       if (existing) continue;
 
+      // Pull the recipient's most-recently-updated public list to seed inline picks
+      let picksHtml = "";
+      try {
+        const { data: topList } = await supabase
+          .from("lists")
+          .select("category, emoji, items")
+          .eq("user_id", pair.friend)
+          .eq("is_public", true)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (topList && Array.isArray(topList.items) && topList.items.length > 0) {
+          const picks = topList.items.slice(0, 3);
+          const rows = picks.map((it: string, i: number) => {
+            const shopUrl = `${amazonSearchUrl(it, topList.category)}&ascsubtag=bday${targetDays}_${pair.viewer.slice(0,8)}`;
+            return `<tr><td style="padding:10px 12px;border-bottom:1px solid #EAE3DC;vertical-align:middle">
+              <span style="display:inline-block;width:22px;height:22px;background:#2C2C2A;color:#fff;border-radius:3px;font-size:11px;font-weight:800;text-align:center;line-height:22px;margin-right:10px">${i + 1}</span>
+              <span style="font-size:14px;color:#2C2C2A;font-weight:600">${escapeHtml(it)}</span>
+            </td><td style="padding:10px 12px;border-bottom:1px solid #EAE3DC;text-align:right;vertical-align:middle">
+              <a href="${shopUrl}" style="color:#D85A30;font-size:12px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;text-decoration:none">Shop →</a>
+            </td></tr>`;
+          }).join("");
+          picksHtml = `<p style="margin-top:20px;margin-bottom:8px;font-size:12px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#888780">From their Top 10 ${escapeHtml(topList.category)}</p>
+            <table style="width:100%;border-collapse:collapse;background:#FDFCF8;border:1px solid #EAE3DC;border-radius:6px">${rows}</table>`;
+        }
+      } catch (e) { console.error("inline picks fetch failed:", e); }
+
+      // Deep link into their personal gift page with viewer id for click attribution.
+      const giftUrl = friendProfile.gift_share_token
+        ? `${APP_URL}g?t=${encodeURIComponent(friendProfile.gift_share_token)}&from=${encodeURIComponent(pair.viewer)}&utm_source=email&utm_medium=birthday&utm_campaign=bday${targetDays}`
+        : `${APP_URL}?utm_source=email&utm_medium=birthday&utm_campaign=bday${targetDays}`;
+
       try {
         const friendName = friendProfile.display_name || "your friend";
-        const subject = `${friendName}'s birthday in 14 days 🎂`;
-        const html = baseTemplate(`${friendName}'s birthday is coming up.`,
-          `<h1>🎂 ${escapeHtml(friendName)}'s birthday is in 14 days</h1>
-           <p>Open Tenner to see a curated gift guide based on ${escapeHtml(friendName)}'s Top 10 lists.</p>
-           <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">See gift ideas →</a></p>`);
+        const daysCopy = targetDays === 3 ? "in just 3 days" : `in ${targetDays} days`;
+        const urgency = targetDays === 3 ? "⏰ Last-minute reminder — " : "";
+        const subject = `${urgency}${friendName}'s birthday ${daysCopy} 🎂`;
+        const html = baseTemplate(`${friendName}'s birthday is ${daysCopy}.`,
+          `<h1>🎂 ${escapeHtml(friendName)}'s birthday is ${daysCopy}</h1>
+           <p>Here are a few ideas built from their Top 10 lists on Tenner.</p>
+           ${picksHtml}
+           <p style="text-align:center;margin-top:24px"><a href="${giftUrl}" class="cta">See their full gift guide →</a></p>`);
         await sendResend(viewerProfile.email, subject, html);
         await supabase.from("email_log").insert({
           user_id: pair.viewer,
-          email_type: "birthday_reminder_14",
+          email_type: emailType,
           ref_key: refKey,
         });
         sentCount++;
       } catch (e) {
-        console.error(`Birthday reminder failed for ${viewerProfile.email}:`, e);
+        console.error(`Birthday reminder (${targetDays}d) failed for ${viewerProfile.email}:`, e);
       }
     }
   }
@@ -427,7 +465,9 @@ Deno.serve(async (_req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
     const dayOfWeek = new Date().getUTCDay(); // 0=Sun, 5=Fri
 
-    const birthdaySent = await runBirthdayReminders(supabase);
+    const birthdaySent14 = await runBirthdayReminders(supabase, 14);
+    const birthdaySent3 = await runBirthdayReminders(supabase, 3);
+    const birthdaySent = birthdaySent14 + birthdaySent3;
     const weeklySent = await runWeeklyRevealEmails(supabase);
     const feedbackDigested = await runFeedbackDigest(supabase);
     // Day-gated runs: nudge/streak only fire on reveal day (typically Friday),
