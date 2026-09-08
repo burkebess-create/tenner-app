@@ -1101,8 +1101,8 @@
             </div>
           </div>
 
-          <!-- Recent invites panel — populated async by renderInvitePanel() -->
-          <div id="profile-invite-panel" style="display:none;background:#FFF;border:1px solid #EAE3DC;border-left:7px solid #D85A30;border-radius:3px;padding:14px 16px;margin-bottom:14px;cursor:pointer" onclick="shareTennerApp()"></div>
+          <!-- Combined invite hub: primary CTA + social-proof panel of who has joined. -->
+          <div id="profile-invite-panel" style="background:#FFF;border:1px solid #EAE3DC;border-left:7px solid #D85A30;border-radius:3px;padding:16px 18px;margin-bottom:14px"></div>
 
           <!-- Section header: settings -->
           <div style="display:flex;align-items:center;gap:12px;margin:8px 0 14px">
@@ -1142,16 +1142,6 @@
               <div style="font-size:26px;line-height:1;margin-bottom:8px">🔒</div>
               <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Account &amp; security</div>
               <div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6B4E8E;opacity:0.85;margin-top:6px">Password · Email</div>
-            </div>
-            <div onclick="shareTennerApp()" style="grid-column:1/-1;background:#D85A30;border:1px solid #D85A30;border-left:7px solid #B84620;border-radius:3px;padding:14px 16px;cursor:pointer;color:#FFFFFF">
-              <div style="display:flex;align-items:center;gap:12px">
-                <div style="font-size:22px;line-height:1">📣</div>
-                <div style="flex:1">
-                  <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;line-height:1.1">Invite friends to Tenner</div>
-                  <div style="font-size:9.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#FFE9D9;margin-top:5px">Share the app · Auto-connect on signup</div>
-                </div>
-                <div style="font-size:16px;opacity:0.7">›</div>
-              </div>
             </div>
             <div onclick="go('s-profile-feedback')" style="background:#A8D8C833;border:1px solid #4E8E7433;border-left:7px solid #4E8E74;border-radius:3px;padding:14px;cursor:pointer">
               <div style="font-size:26px;line-height:1;margin-bottom:8px">💡</div>
@@ -5254,34 +5244,31 @@ function myHandleLine() {
   return h ? ('\n\nNot on Tenner yet? Add me @' + h) : '';
 }
 
-// Render the "Your invites" panel on the Profile screen. Uses the
-// get_my_invitees RPC which returns everyone whose profile has
-// invited_by = auth.uid(). Silently hides on error / no invites.
+// Combined invite hub on the Profile screen. The primary action (share
+// the app) is always front-and-centre; social-proof avatars + count of
+// invitees appear below when the user has any, driven by get_my_invitees.
+function _renderInviteHeader(hasInvites) {
+  return ''
+    + '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">'
+    +   '<div style="font-size:32px;line-height:1;flex-shrink:0">📣</div>'
+    +   '<div style="flex:1;min-width:0">'
+    +     '<div style="font-size:18px;font-weight:800;color:#2C2C2A;letter-spacing:-0.01em;line-height:1.15">Invite friends to Tenner</div>'
+    +     '<div style="font-size:12px;color:#5F5E5A;margin-top:4px;line-height:1.4">' + (hasInvites ? 'Share the app — anyone who signs up from your link becomes a friend automatically.' : 'Anyone who signs up from your link becomes a friend automatically. No app to install.') + '</div>'
+    +   '</div>'
+    + '</div>'
+    + '<button onclick="shareTennerApp()" style="width:100%;background:#D85A30;color:#FFF;border:none;border-radius:3px;padding:12px 14px;font-size:12px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px">Share invite link →</button>';
+}
 async function renderInvitePanel() {
   var host = document.getElementById('profile-invite-panel');
   if (!host || !sbClient || !userId) return;
+  // Render primary CTA immediately so the panel never appears empty during the RPC round-trip.
+  host.innerHTML = _renderInviteHeader(false);
   try {
     var res = await sbClient.rpc('get_my_invitees');
-    if (res.error) { host.style.display = 'none'; return; }
+    if (res.error) return;
     var rows = res.data || [];
-    if (rows.length === 0) {
-      // Empty state — encourage first invite
-      host.style.display = 'block';
-      host.innerHTML = ''
-        + '<div style="display:flex;align-items:center;gap:12px">'
-        +   '<div style="font-size:26px;line-height:1">📣</div>'
-        +   '<div style="flex:1;min-width:0">'
-        +     '<div style="font-size:14px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em">Invite your first friend</div>'
-        +     '<div style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;margin-top:4px">Auto-connect on signup · Tap to share</div>'
-        +   '</div>'
-        +   '<div style="font-size:16px;color:#D85A30;opacity:0.7">›</div>'
-        + '</div>';
-      return;
-    }
-    host.style.display = 'block';
+    if (rows.length === 0) return; // keep the empty-state header
     var count = rows.length;
-    var word = count === 1 ? 'friend' : 'friends';
-    // Show up to 5 avatars in a stacked row
     var maxAv = 5;
     var visible = rows.slice(0, maxAv);
     var extra = count - visible.length;
@@ -5291,27 +5278,25 @@ async function renderInvitePanel() {
       var inner = r.photo
         ? '<img src="' + escapeHtml(r.photo) + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">'
         : '<div style="width:100%;height:100%;background:' + (bg && bg.bg ? bg.bg : '#F5B534') + ';color:#2C2C2A;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">' + escapeHtml(initials) + '</div>';
-      return '<div style="width:32px;height:32px;border-radius:50%;overflow:hidden;border:2px solid #FFF;margin-left:' + (i === 0 ? '0' : '-10px') + ';box-shadow:0 1px 3px rgba(0,0,0,0.1)">' + inner + '</div>';
+      return '<div style="width:34px;height:34px;border-radius:50%;overflow:hidden;border:2px solid #FFF;margin-left:' + (i === 0 ? '0' : '-10px') + ';box-shadow:0 1px 3px rgba(0,0,0,0.1)">' + inner + '</div>';
     }).join('');
     if (extra > 0) {
-      avatarsHtml += '<div style="width:32px;height:32px;border-radius:50%;background:#EAE3DC;color:#2C2C2A;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-left:-10px;border:2px solid #FFF">+' + extra + '</div>';
+      avatarsHtml += '<div style="width:34px;height:34px;border-radius:50%;background:#EAE3DC;color:#2C2C2A;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-left:-10px;border:2px solid #FFF">+' + extra + '</div>';
     }
+    var word = count === 1 ? 'friend has' : 'friends have';
     var firstName = ((rows[0].display_name || rows[0].handle || 'them').split(' ')[0]);
     var subline = count === 1
-      ? escapeHtml(firstName) + ' joined from your invite'
-      : escapeHtml(firstName) + ' + ' + (count - 1) + ' other' + (count - 1 === 1 ? '' : 's') + ' joined from your invite' + (count > 1 ? 's' : '');
-    host.innerHTML = ''
-      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">'
-      +   '<div>'
-      +     '<div style="font-size:14px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em">Your invites</div>'
-      +     '<div style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;margin-top:3px">' + count + ' ' + word + ' joined · Tap to share more</div>'
-      +   '</div>'
-      +   '<div style="font-size:16px;color:#D85A30;opacity:0.7">›</div>'
+      ? escapeHtml(firstName) + ' joined from your invite.'
+      : escapeHtml(firstName) + ' + ' + (count - 1) + ' other' + (count - 1 === 1 ? '' : 's') + ' joined from your invites.';
+    host.innerHTML = _renderInviteHeader(true)
+      + '<div style="height:1px;background:#EAE3DC;margin:16px 0 12px"></div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">'
+      +   '<div style="font-size:10px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#D85A30">' + count + ' ' + word + ' joined</div>'
       + '</div>'
-      + '<div style="display:flex;align-items:center;gap:0">' + avatarsHtml + '</div>'
-      + '<div style="font-size:11.5px;color:#5F5E5A;margin-top:10px;line-height:1.4">' + subline + '.</div>';
+      + '<div style="display:flex;align-items:center;gap:0;margin-bottom:8px">' + avatarsHtml + '</div>'
+      + '<div style="font-size:12px;color:#5F5E5A;line-height:1.45">' + subline + '</div>';
   } catch(e) {
-    host.style.display = 'none';
+    // Keep the primary CTA visible even if the RPC fails.
   }
 }
 
