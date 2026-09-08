@@ -85,7 +85,7 @@
   .back-btn:hover { background: #F1EFE8; }
   .content { flex: 1; overflow-y: auto; padding: 14px; background: #fff; min-height: 0; }
   .bnav { display: flex; background: #fff; border-top: 1px solid #F1EFE8; flex-shrink: 0; padding-bottom: 8px; }
-  .ni { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 9px; color: #888780; cursor: pointer; padding: 8px 2px 4px; }
+  .ni { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; color: #888780; cursor: pointer; padding: 10px 2px 6px; min-height: 44px; }
   .ni.active { color: #D85A30; }
   .ni svg { width: 20px; height: 20px; }
   /* All overlays/modals constrained to the phone frame */
@@ -8392,6 +8392,22 @@ function renderFdetailActionBanner(f, newestPublicList) {
 }
 
 async function renderFriendDetail() {
+  // Kick a background refresh so stale friend/list state (e.g. request accepted
+  // on another device, friend just published a list) reconciles on nav-in.
+  // Fire-and-forget: the initial render uses the cached myFriends and re-renders
+  // if loadFriends comes back with a materially different record.
+  if (typeof loadFriends === 'function') {
+    (async function(){
+      try {
+        var beforeStatus = (myFriends.find(function(x){ return x.friendId === selFriendId; }) || {}).status;
+        await loadFriends();
+        var after = myFriends.find(function(x){ return x.friendId === selFriendId; });
+        if (after && after.status !== beforeStatus && document.getElementById('s-fdetail').classList.contains('active')) {
+          renderFriendDetail();
+        }
+      } catch(e){}
+    })();
+  }
   var f = myFriends.find(function(x) { return x.friendId === selFriendId; });
   var el = document.getElementById('fdetail-content');
   var titleEl = document.getElementById('fdetail-title');
@@ -12258,19 +12274,24 @@ function renderGiftBudgetPills() {
 
 function daysUntilBirthday(birthdayStr) {
   if (!birthdayStr) return null;
-  // birthday format: YYYY-MM-DD; we only care about month/day
+  // birthday format: YYYY-MM-DD; we only care about month/day.
+  // Feb-29 births are observed on Feb-28 in non-leap years.
   var parts = birthdayStr.split('-');
   if (parts.length < 3) return null;
   var m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
   if (!m || !d) return null;
+  var isLeap = function(y) { return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; };
   var today = new Date();
   var year = today.getFullYear();
-  var target = new Date(year, m - 1, d);
+  var observeDay = (m === 2 && d === 29 && !isLeap(year)) ? 28 : d;
+  var target = new Date(year, m - 1, observeDay);
   var msPerDay = 24 * 60 * 60 * 1000;
   var todayMidnight = new Date(year, today.getMonth(), today.getDate());
   var diff = Math.round((target - todayMidnight) / msPerDay);
   if (diff < 0) {
-    target = new Date(year + 1, m - 1, d);
+    var ny = year + 1;
+    var od = (m === 2 && d === 29 && !isLeap(ny)) ? 28 : d;
+    target = new Date(ny, m - 1, od);
     diff = Math.round((target - todayMidnight) / msPerDay);
   }
   return diff;
@@ -13690,7 +13711,7 @@ async function submitItemComment() {
   if (!inp || !inp.value.trim() || !sbClient) return;
   var text = inp.value.trim().slice(0, 280);
   try {
-    var res = await sbClient.from('list_item_comments').insert({ from_user_id: userId, list_owner_id: activeCommentListOwner, category: activeCommentCategory, item_name: activeCommentItem, comment: text }).select('id').single();
+    var res = await sbClient.from('list_item_comments').insert({ from_user_id: userId, list_owner_id: activeCommentListOwner, category: activeCommentCategory, item_name: activeCommentItem, comment: text }).select('id').maybeSingle();
     if (res.error) throw res.error;
     inp.value = '';
     autoGrowCommentInput(inp);
