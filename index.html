@@ -2220,7 +2220,7 @@ function showMatchReveal(friendProfile, score, categoryLabel, friendId) {
     +   '</div>'
     +   '<div class="slide-up" style="background:' + bgAccent + ';color:' + verdictColor + ';border-radius:12px;padding:12px 14px;font-size:14px;font-weight:600">' + verdict + '</div>'
     +   '<button class="btn-secondary" onclick="closeMatchReveal()" style="margin-top:14px;margin-bottom:0">See the details</button>'
-    +   (friendId ? '<div style="margin-top:10px"><button onclick="closeMatchReveal();openGiftGuide(\'' + friendId + '\')" style="background:none;border:none;color:#D85A30;font-size:10.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;padding:6px 8px;font-family:inherit">🎁 See gifts ' + escapeHtml((name || 'they').split(' ')[0]) + ' would love →</button></div>' : '')
+    +   (friendId && friendHasGiftPage(friendId) ? '<div style="margin-top:10px"><button onclick="closeMatchReveal();openGiftGuide(\'' + friendId + '\',\'match_reveal\')" style="background:none;border:none;color:#D85A30;font-size:10.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;padding:6px 8px;font-family:inherit">🎁 Shop gifts for ' + escapeHtml((name || 'they').split(' ')[0]) + ' →</button></div>' : '')
     + '</div>';
   frame.appendChild(overlay);
   // Trigger the ring & count-up animation on next frame
@@ -4169,13 +4169,18 @@ async function tryTodaySlot(kind) {
     var candidates = acceptedG.map(function(f) {
       var d = daysUntilBirthday(f.profile.birthday);
       return { f: f, d: d };
-    }).filter(function(x) { return x.d !== null && x.d !== undefined && x.d >= 3 && x.d <= 45; });
+    }).filter(function(x) {
+      if (x.d === null || x.d === undefined) return false;
+      if (x.d < 0 || x.d > 45) return false;
+      // Only surface friends who have a gift page ready — avoids the cold-shower toast on tap.
+      return !!(x.f.profile && x.f.profile.gift_share_token);
+    });
     if (!candidates.length) return null;
     candidates.sort(function(a,b){ return a.d - b.d; });
     var pick = candidates[0];
     var pname = (pick.f.profile.display_name || (pick.f.profile.handle ? '@' + pick.f.profile.handle : 'A friend'));
-    var whenStr = pick.d === 1 ? 'tomorrow' : ('in ' + pick.d + ' days');
-    return todayCard('🎁', pname + '\'s birthday ' + whenStr, 'Shop gift ideas built from their Top 10 lists', "openGiftGuide('" + pick.f.friendId + "')");
+    var whenStr = pick.d === 0 ? 'is today 🎉' : pick.d === 1 ? 'is tomorrow' : ('in ' + pick.d + ' days');
+    return todayCard('🎁', pname + '\'s birthday ' + whenStr, 'Shop gift ideas built from their Top 10 lists', "openGiftGuide('" + pick.f.friendId + "','today_gift')");
   }
   if (kind === 'friend') {
     var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted'; });
@@ -6445,7 +6450,7 @@ async function loadFriends() {
       var friendIds = rows.map(function(f) { return f.requester_id === userId ? f.addressee_id : f.requester_id; });
       var profileMap = {};
       try {
-        var pRes = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').in('id', friendIds);
+        var pRes = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio, gift_share_token').in('id', friendIds);
         if (pRes.data) pRes.data.forEach(function(p) { profileMap[p.id] = p; });
       } catch(pe) { console.warn('Profile fetch failed', pe); }
       myFriends = rows.map(function(f) {
@@ -8350,7 +8355,7 @@ function renderFdetailActionBanner(f, newestPublicList) {
       else if (days > 0) msg = firstName + '\'s birthday is in <strong>' + days + ' days</strong>';
       else msg = firstName + '\'s birthday was <strong>' + Math.abs(days) + ' day' + (Math.abs(days)===1?'':'s') + ' ago</strong> — still time!';
       el.style.display = 'block';
-      el.innerHTML = '<div onclick="openGiftGuide(\'' + fid + '\')" style="background:linear-gradient(135deg,#FFE9D9 0%,#FFC9A8 100%);border:1.5px solid #2C2C2A;border-radius:16px;padding:14px 14px;display:flex;align-items:center;gap:12px;cursor:pointer">'
+      el.innerHTML = '<div onclick="openGiftGuide(\'' + fid + '\',\'fdetail_birthday_banner\')" style="background:linear-gradient(135deg,#FFE9D9 0%,#FFC9A8 100%);border:1.5px solid #2C2C2A;border-radius:16px;padding:14px 14px;display:flex;align-items:center;gap:12px;cursor:pointer">'
         + '<div style="font-size:28px;line-height:1;flex-shrink:0">🎂</div>'
         + '<div style="flex:1;min-width:0">'
         +   '<div style="font-size:12.5px;color:#2C2C2A;line-height:1.3">' + msg + '</div>'
@@ -8415,7 +8420,7 @@ async function renderFriendDetail() {
     countdownPill = '<div style="display:inline-block;background:rgba(255,255,255,0.5);color:#2C2C2A;font-size:10px;font-weight:700;padding:5px 12px;border-radius:99px;margin-top:12px;letter-spacing:0.05em">🎂 ' + bdayShort.toUpperCase() + '</div>';
   }
   var giftPill = isAccepted
-    ? '<div style="margin-top:12px"><button onclick="openGiftGuide(\'' + selFriendId + '\')" style="display:inline-flex;align-items:center;gap:6px;background:transparent;color:#D85A30;border:1.5px solid #D85A30;border-radius:3px;padding:6px 12px;font-size:10.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">🎁 Shop gifts for ' + escapeHtml(name.split(' ')[0]) + '</button></div>'
+    ? '<div style="margin-top:12px"><button onclick="openGiftGuide(\'' + selFriendId + '\',\'fdetail_hero\')" style="display:inline-flex;align-items:center;gap:6px;background:transparent;color:#D85A30;border:1.5px solid #D85A30;border-radius:999px;padding:6px 14px;font-size:10.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">🎁 Shop gifts for ' + escapeHtml(name.split(' ')[0]) + '</button></div>'
     : '';
   var hero = '<div style="background:' + pal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:22px;padding:24px 16px;margin-bottom:14px;text-align:center;position:relative">'
     + '<div style="display:inline-block;padding:4px;background:#FFFFFF;border-radius:999px;border:1.5px solid #2C2C2A">' + friendAvatarHtml(p, 88) + '</div>'
@@ -12341,7 +12346,7 @@ async function renderGifts() {
       listSummary = 'No shared lists yet — tap to ask';
     } else {
       ctaLabel = 'See gifts →';
-      cardClick = 'onclick="openGiftGuide(\'' + p.id + '\')" style="cursor:pointer"';
+      cardClick = 'onclick="openGiftGuide(\'' + p.id + '\',\'gifts_tab\')" style="cursor:pointer"';
       var catNames = visibleLists.slice(0, 3).map(function(l){ return l.category; }).join(' · ');
       var more = visibleLists.length > 3 ? ' · +' + (visibleLists.length - 3) : '';
       listSummary = catNames + more;
@@ -12431,7 +12436,7 @@ function cssEscape(str) {
 
 // Re-render pills + tiles without re-fetching from Supabase or jumping scroll.
 function rerenderGiftGuideInPlace() {
-  if (!_giftGuideCache) { if (_giftGuideFriendId) openGiftGuide(_giftGuideFriendId); return; }
+  if (!_giftGuideCache) { if (_giftGuideFriendId) openGiftGuide(_giftGuideFriendId, 'inapp_rerender'); return; }
   var pillsHost = document.getElementById('gift-budget-pills-host');
   if (pillsHost) pillsHost.innerHTML = renderGiftBudgetPills();
   var tilesHost = document.getElementById('gift-tiles-host');
@@ -12478,21 +12483,47 @@ function renderGiftTileHtml(l, i) {
 // Now redirects to the public /g page so affiliate links live outside the login.
 // The in-app s-gift-guide screen still exists but is no longer navigated to;
 // keeping it around avoids ripping out the old render code prematurely.
-async function openGiftGuide(friendUserId) {
+function friendHasGiftPage(friendId) {
+  var f = (myFriends || []).find(function(x){ return x.friendId === friendId; });
+  return !!(f && f.profile && f.profile.gift_share_token);
+}
+function openGiftGuide(friendUserId, source) {
   if (!sbClient) return;
-  try {
-    var r = await sbClient.from('profiles').select('gift_share_token').eq('id', friendUserId).maybeSingle();
+  // Open the tab SYNCHRONOUSLY inside the click handler so mobile Safari
+  // doesn't block it as a non-gesture popup. We'll set the location once
+  // we've resolved the token.
+  var win = window.open('', '_blank');
+  var src = source || 'unknown';
+  var buildUrl = function(token) {
+    return '/g?t=' + encodeURIComponent(token)
+      + (userId ? '&from=' + encodeURIComponent(userId) : '')
+      + '&utm_source=app&utm_medium=' + encodeURIComponent(src);
+  };
+  // Fast path: token already hydrated on the friend record
+  var cached = (myFriends || []).find(function(x){ return x.friendId === friendUserId; });
+  var cachedToken = cached && cached.profile && cached.profile.gift_share_token;
+  if (cachedToken) {
+    if (win) win.location = buildUrl(cachedToken);
+    else window.location.href = buildUrl(cachedToken);
+    return;
+  }
+  // Slow path: hit the DB, then either point the pre-opened tab at the URL
+  // or (if popup was blocked) fall back to same-tab navigation.
+  sbClient.from('profiles').select('gift_share_token').eq('id', friendUserId).maybeSingle().then(function(r) {
     var token = r && r.data && r.data.gift_share_token;
     if (token) {
-      // Open in a new tab so the user doesn't lose in-app state
-      var url = '/g?t=' + encodeURIComponent(token) + (userId ? '&from=' + encodeURIComponent(userId) : '') + '&utm_source=app&utm_medium=friend_detail';
-      var win = window.open(url, '_blank');
-      // Popup-blocker fallback: navigate in same tab
-      if (!win) window.location.href = url;
-      return;
+      if (win) win.location = buildUrl(token);
+      else window.location.href = buildUrl(token);
+      // Backfill the cache so next click is synchronous.
+      if (cached && cached.profile) cached.profile.gift_share_token = token;
+    } else {
+      if (win) win.close();
+      showToast('Your friend hasn\'t set up their gift page yet. Ask them to sign in and it\'ll auto-generate.');
     }
-    showToast('Your friend hasn\'t set up their gift page yet. Ask them to sign in and it\'ll auto-generate.');
-  } catch(e) { showToast('Could not open gift guide.'); }
+  }, function() {
+    if (win) win.close();
+    showToast('Could not open gift guide.');
+  });
 }
 
 // The original in-app render function is preserved below for backward compatibility

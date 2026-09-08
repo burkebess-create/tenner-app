@@ -53,14 +53,25 @@ function isBirthdayInDays(birthdayStr: string, targetDays: number) {
   const parts = birthdayStr.split("-");
   if (parts.length < 3) return false;
   const m = parseInt(parts[1], 10);
-  const d = parseInt(parts[2], 10);
+  let d = parseInt(parts[2], 10);
   if (!m || !d) return false;
   const today = new Date();
-  let target = new Date(today.getFullYear(), m - 1, d);
-  const midnightToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const year = today.getFullYear();
+  const isLeap = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  // Feb 29 born: observe on Feb 28 in non-leap years.
+  let observeMonth = m, observeDay = d;
+  if (m === 2 && d === 29 && !isLeap(year)) observeDay = 28;
+  let target = new Date(year, observeMonth - 1, observeDay);
+  const midnightToday = new Date(year, today.getMonth(), today.getDate());
+  if (target.getTime() < midnightToday.getTime()) {
+    // Roll to next year (may or may not be leap).
+    const ny = year + 1;
+    let od = d;
+    if (m === 2 && d === 29 && !isLeap(ny)) od = 28;
+    target = new Date(ny, m - 1, od);
+  }
   const diffDays = Math.round((+target - +midnightToday) / (1000 * 60 * 60 * 24));
-  const wrapDiff = diffDays < 0 ? diffDays + 365 : diffDays;
-  return wrapDiff === targetDays;
+  return diffDays === targetDays;
 }
 
 // Amazon affiliate search URL built the same way the app builds it.
@@ -99,7 +110,7 @@ async function runBirthdayReminders(supabase: any, targetDays: number) {
       if (!viewerProfile?.email || !friendProfile?.birthday) continue;
       if (!isBirthdayInDays(friendProfile.birthday, targetDays)) continue;
 
-      const refKey = `${pair.friend}_${bdayYear}`;
+      const refKey = `${pair.friend}_${bdayYear}_${targetDays}`;
       const { data: existing } = await supabase
         .from("email_log")
         .select("id")
