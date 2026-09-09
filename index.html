@@ -3045,7 +3045,7 @@ function friendAvatarHtml(profile, size) {
   var base = 'width:' + size + 'px;height:' + size + 'px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;';
   if (p.photo) {
     return '<div style="' + base + '">'
-      + '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover"></div>';
+      + '<img src="' + rewriteToCdn(p.photo) + '" style="width:100%;height:100%;object-fit:cover"></div>';
   }
   var fontSize = Math.round(size * 0.38);
   // Warm neutral fallback — doesn't clash with any category color in the app palette
@@ -6422,7 +6422,10 @@ async function loadProfile() {
   if (adminTile) adminTile.style.display = IS_ADMIN ? 'block' : 'none';
   try {
     var res = await sbClient.from('profiles').select('*').eq('id', userId).maybeSingle();
-    if (res.data) myProfile = res.data;
+    if (res.data) {
+      if (res.data.photo) res.data.photo = rewriteToCdn(res.data.photo);
+      myProfile = res.data;
+    }
   } catch(e) { console.warn('Profile load failed', e); }
   // Auto-generate a public gift-share token for users who don't have one yet
   // (post-SQL-backfill signups). Silent — the token appears next time we render.
@@ -6729,6 +6732,9 @@ async function loadFriends() {
       var profileMap = {};
       try {
         var pRes = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio, gift_share_token').in('id', friendIds);
+        // Rewrite Supabase Storage URLs onto the img.mytenner.com CDN so
+        // every rendered <img> flows through Cloudflare (cache + CSAM).
+        if (pRes && pRes.data) pRes.data.forEach(function(row){ if (row.photo) row.photo = rewriteToCdn(row.photo); });
         if (pRes.data) pRes.data.forEach(function(p) { profileMap[p.id] = p; });
       } catch(pe) { console.warn('Profile fetch failed', pe); }
       myFriends = rows.map(function(f) {
@@ -12825,9 +12831,21 @@ function dataUrlToBlob(dataUrl) {
     return new Blob([arr], { type: mime });
   } catch(e) { return null; }
 }
-// Upload a data URL to the photos bucket. Returns the public URL on success
-// or null on failure — callers should fall back to storing the base64 so no
-// upload is ever "lost" if Storage momentarily errors.
+// The Supabase-Storage public host for the photos bucket. We rewrite every
+// public URL onto img.mytenner.com so Cloudflare caches + CSAM-scans it.
+var PHOTO_CDN_HOST = 'img.mytenner.com';
+function rewriteToCdn(url) {
+  if (!url || typeof url !== 'string') return url;
+  // Only rewrite the Supabase Storage public path. Leaves base64, non-Supabase
+  // URLs, and already-rewritten URLs alone.
+  return url.replace(/^https:\/\/bbjpvlmkhvggtwyvpzrq\.supabase\.co\/storage\/v1\/object\/public\//,
+                     'https://' + PHOTO_CDN_HOST + '/storage/v1/object/public/');
+}
+
+// Upload a data URL to the photos bucket. Returns a CDN-fronted public URL
+// (through img.mytenner.com) on success or null on failure — callers should
+// fall back to storing the base64 so no upload is ever "lost" if Storage
+// momentarily errors.
 async function uploadPhotoToStorage(dataUrl, kind, ownerId) {
   if (!sbClient || !dataUrl || !kind) return null;
   if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return null;
@@ -12844,7 +12862,8 @@ async function uploadPhotoToStorage(dataUrl, kind, ownerId) {
     });
     if (up.error) { console.warn('photo upload error', up.error); return null; }
     var pub = sbClient.storage.from('photos').getPublicUrl(path);
-    return (pub && pub.data && pub.data.publicUrl) || null;
+    var url = (pub && pub.data && pub.data.publicUrl) || null;
+    return rewriteToCdn(url);
   } catch(e) { console.warn('photo upload exception', e); return null; }
 }
 
