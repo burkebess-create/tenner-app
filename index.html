@@ -10740,10 +10740,20 @@ async function _updateAdminUsersCount() {
   var el = document.getElementById('admin-tile-count-users');
   if (!el || !sbClient) return;
   try {
-    var res = await sbClient.from('profiles').select('id', { count: 'exact', head: true });
-    if (res.error || res.count == null) { el.style.display = 'none'; return; }
-    el.textContent = formatUserCount(res.count);
+    // Headline number is REAL users — working (test/QA) and channel accounts
+    // are excluded so the figure means something.
+    var res = await sbClient.rpc('admin_user_counts');
+    if (res.error || !res.data || !res.data.length) { el.style.display = 'none'; return; }
+    var c = res.data[0];
+    el.textContent = formatUserCount(c.real_users);
     el.style.opacity = '1';
+    var excluded = Number(c.internal_users || 0) + Number(c.channel_users || 0);
+    var desc = document.getElementById('admin-tile-desc-users');
+    if (desc) {
+      desc.textContent = excluded > 0
+        ? 'Real users · ' + excluded + ' working excluded'
+        : 'Search · moderate';
+    }
   } catch (e) { el.style.display = 'none'; }
 }
 
@@ -10785,7 +10795,7 @@ function renderAdminHub(el) {
           + countBadge
           + '<div style="font-size:26px;line-height:1;margin-bottom:8px">' + t.emoji + '</div>'
           + '<div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">' + escapeHtml(t.label) + '</div>'
-          + '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:' + t.ac + ';opacity:0.85;margin-top:6px">' + escapeHtml(t.desc) + '</div>'
+          + '<div' + (t.key === 'users' ? ' id="admin-tile-desc-users"' : '') + ' style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:' + t.ac + ';opacity:0.85;margin-top:6px">' + escapeHtml(t.desc) + '</div>'
           + '</div>';
       }).join('')
     + '</div></div>';
@@ -11636,20 +11646,33 @@ function deleteAdminWeekly(id) {
 
 // --- Users tab ---
 var _adminUserSearch = '';
+// Users tab filter: 'all' | 'real' | 'internal'
+var _adminUserFilter = 'real';
 async function renderAdminUsers(el) {
-  var q = sbClient.from('profiles').select('id, email, display_name, handle, phone, is_banned, banned_at, banned_reason, created_at').order('created_at', {ascending:false}).limit(200);
+  var q = sbClient.from('profiles').select('id, email, display_name, handle, phone, is_banned, banned_at, banned_reason, is_internal, is_system, created_at').order('created_at', {ascending:false}).limit(300);
   var res = await q;
   if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(res.error.message) + '</div>'; return; }
   var all = res.data || [];
+  var realCount     = all.filter(function(u){ return !u.is_internal && !u.is_system; }).length;
+  var internalCount = all.filter(function(u){ return !!u.is_internal; }).length;
+  var channelCount  = all.filter(function(u){ return !!u.is_system; }).length;
+  // Apply the working-account filter first, then the text search.
+  var scoped = all.filter(function(u) {
+    if (_adminUserFilter === 'real')     return !u.is_internal && !u.is_system;
+    if (_adminUserFilter === 'internal') return !!u.is_internal || !!u.is_system;
+    return true;
+  });
   var term = (_adminUserSearch || '').toLowerCase();
-  var users = term ? all.filter(function(u) {
+  var users = term ? scoped.filter(function(u) {
     return (u.email || '').toLowerCase().indexOf(term) >= 0
         || (u.display_name || '').toLowerCase().indexOf(term) >= 0
         || (u.handle || '').toLowerCase().indexOf(term) >= 0;
-  }) : all;
+  }) : scoped;
   var rows = users.map(function(u) {
     var bannedTag = u.is_banned ? '<span style="font-size:9px;background:#F5C4B3;color:#712B13;padding:2px 6px;border-radius:99px;margin-left:6px">Banned</span>' : '';
-    return '<div class="card" onclick="openAdminUserDetail(\'' + u.id + '\')" style="margin-bottom:8px;cursor:pointer">'
+    if (u.is_internal) bannedTag += '<span style="font-size:8.5px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;background:#3E6FA0;color:#FFF;padding:2px 6px;border-radius:3px;margin-left:6px">Working</span>';
+    if (u.is_system)   bannedTag += '<span style="font-size:8.5px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;background:#D85A30;color:#FFF;padding:2px 6px;border-radius:3px;margin-left:6px">Channel</span>';
+    return '<div class="card" onclick="openAdminUserDetail(\'' + u.id + '\')" style="margin-bottom:8px;cursor:pointer' + (u.is_internal || u.is_system ? ';opacity:0.72' : '') + '">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
       +   '<div style="flex:1;min-width:0">'
       +     '<div style="font-size:12px;font-weight:600;color:#2C2C2A;word-wrap:break-word">' + escapeHtml(u.display_name || '—') + bannedTag + '</div>'
@@ -11659,11 +11682,29 @@ async function renderAdminUsers(el) {
       +   '<span style="font-size:18px;color:#D3D1C7">›</span>'
       + '</div></div>';
   }).join('');
+  var filterPills = [
+    { key: 'real',     label: 'Real · ' + realCount,                          col: '#4E8E74' },
+    { key: 'internal', label: 'Working · ' + (internalCount + channelCount),  col: '#3E6FA0' },
+    { key: 'all',      label: 'All · ' + all.length,                          col: '#5F5E5A' }
+  ].map(function(f) {
+    var on = _adminUserFilter === f.key;
+    return '<button onclick="_adminUserFilter=\'' + f.key + '\';renderAdmin()" style="border:1.5px solid ' + (on ? f.col : '#D3D1C7') + ';background:' + (on ? f.col : '#FFF') + ';color:' + (on ? '#FFF' : '#2C2C2A') + ';padding:5px 10px;border-radius:3px;font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;font-family:inherit">' + f.label + '</button>';
+  }).join('');
   el.innerHTML = '<div style="padding:12px">'
+    + '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">' + filterPills + '</div>'
     + '<input type="text" placeholder="Search by name, email, or handle" value="' + escapeHtml(_adminUserSearch) + '" oninput="_adminUserSearch=this.value;renderAdmin()" style="margin-bottom:10px;font-size:12px;padding:6px 8px">'
-    + '<div style="font-size:10px;color:#888780;margin-bottom:8px">' + users.length + ' of ' + all.length + ' users</div>'
+    + '<div style="font-size:10px;color:#888780;margin-bottom:8px">Showing ' + users.length + ' of ' + scoped.length + '</div>'
     + (rows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No users match.</div>')
     + '</div>';
+}
+
+function toggleInternalAccount(uid, makeInternal) {
+  sbClient.rpc('admin_set_internal', { p_uid: uid, p_internal: !!makeInternal }).then(function(r) {
+    if (r.error) { showToast('Error: ' + r.error.message); return; }
+    showToast(makeInternal ? 'Marked as working account' : 'Marked as real account');
+    openAdminUserDetail(uid);
+    if (typeof _updateAdminUsersCount === 'function') _updateAdminUsersCount();
+  });
 }
 
 function banUser(uid, name) {
@@ -11790,10 +11831,21 @@ function renderAdminUserDetail(p, counts, isAdminUser) {
     ? '<div style="background:#F5C4B3;color:#712B13;padding:10px 12px;border-radius:10px;margin-bottom:12px;border:1px solid #F0997B;font-size:12px"><strong>Banned</strong>' + (p.banned_at ? ' on ' + new Date(p.banned_at).toLocaleDateString() : '') + (p.banned_reason ? ' — ' + escapeHtml(p.banned_reason) : '') + '</div>'
     : '';
   var adminBadge = isAdminUser ? '<span style="font-size:9px;background:#D6F0EA;color:#1F7268;padding:2px 8px;border-radius:99px;margin-left:6px;font-weight:600">ADMIN</span>' : '';
+  if (p.is_internal) adminBadge += '<span style="font-size:8.5px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;background:#3E6FA0;color:#FFF;padding:2px 7px;border-radius:3px;margin-left:6px">Working</span>';
+  if (p.is_system)   adminBadge += '<span style="font-size:8.5px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;background:#D85A30;color:#FFF;padding:2px 7px;border-radius:3px;margin-left:6px">Channel</span>';
+  // Working-account toggle: excludes the account from real-user counts.
+  var internalToggle = '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:5px solid #3E6FA0;border-radius:3px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:12px">'
+    + '<div style="flex:1;min-width:0">'
+    +   '<div style="font-size:13px;font-weight:800;color:#2C2C2A">Working account</div>'
+    +   '<div style="font-size:11px;color:#5F5E5A;margin-top:3px;line-height:1.4">' + (p.is_internal ? 'Excluded from real-user counts and the Real filter.' : 'Mark this as a test / QA / platform account.') + '</div>'
+    + '</div>'
+    + '<button onclick="toggleInternalAccount(\'' + p.id + '\',' + (p.is_internal ? 'false' : 'true') + ')" style="flex-shrink:0;background:' + (p.is_internal ? '#3E6FA0' : 'transparent') + ';color:' + (p.is_internal ? '#FFF' : '#3E6FA0') + ';border:1.5px solid #3E6FA0;border-radius:3px;padding:8px 14px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">' + (p.is_internal ? 'On' : 'Off') + '</button>'
+    + '</div>';
   var bday = p.birthday ? ('🎂 ' + p.birthday.slice(5).replace('-', '/')) : '—';
 
   el.innerHTML = '<div style="padding:14px">'
     + bannedBanner
+    + internalToggle
     + '<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">'
     +   friendAvatarHtml(p, 56)
     +   '<div style="flex:1;min-width:0">'

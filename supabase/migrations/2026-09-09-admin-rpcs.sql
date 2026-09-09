@@ -181,3 +181,34 @@ begin
      limit p_limit;
 end $$;
 grant execute on function public.admin_invite_leaderboard(integer) to authenticated;
+
+-- ── Working accounts (test / QA / platform) ──────────────────────────
+-- Added 2026-09-09. is_internal marks a real, loginable account that should
+-- be excluded from real-user metrics. Distinct from is_system (marketing
+-- channel accounts, which cannot log in at all).
+alter table public.profiles add column if not exists is_internal boolean not null default false;
+create index if not exists idx_profiles_is_internal on public.profiles(is_internal) where is_internal;
+
+create or replace function public.admin_set_internal(p_uid uuid, p_internal boolean)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from admins where user_id = auth.uid()) then raise exception 'not_admin'; end if;
+  update profiles set is_internal = coalesce(p_internal, false) where id = p_uid;
+end $$;
+grant execute on function public.admin_set_internal(uuid, boolean) to authenticated;
+
+create or replace function public.admin_user_counts()
+returns table (real_users bigint, internal_users bigint, channel_users bigint, banned_users bigint, total bigint)
+language sql security definer set search_path = public stable as $$
+  select
+    count(*) filter (where not coalesce(is_internal,false) and not coalesce(is_system,false))::bigint,
+    count(*) filter (where coalesce(is_internal,false))::bigint,
+    count(*) filter (where coalesce(is_system,false))::bigint,
+    count(*) filter (where coalesce(is_banned,false))::bigint,
+    count(*)::bigint
+  from profiles
+  where exists (select 1 from admins where user_id = auth.uid());
+$$;
+grant execute on function public.admin_user_counts() to authenticated;
+
+-- guard_moderation_columns() also covers is_internal (see companion migration).
