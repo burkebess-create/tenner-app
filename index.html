@@ -487,6 +487,9 @@
           </div>
           <div id="auth-password-hint" style="display:none;font-size:10px;color:#888780;margin-bottom:8px">At least 6 characters</div>
           <div id="auth-magic-hint" style="display:none;font-size:10px;color:#888780;margin-bottom:8px">We'll email you a link — no password needed.</div>
+          <!-- Cloudflare Turnstile CAPTCHA — only shown on signup tab.
+               Hidden until TURNSTILE_SITE_KEY is populated; empty div is inert. -->
+          <div id="turnstile-container" style="display:none;margin:10px 0;min-height:65px;display:flex;justify-content:center"></div>
           <button class="btn-primary" id="auth-submit" onclick="submitAuth()" style="margin-top:12px">Log in</button>
           <div style="display:flex;align-items:center;gap:8px;margin:12px 0">
             <div style="flex:1;height:1px;background:#D3D1C7"></div>
@@ -5699,6 +5702,53 @@ async function nudgeFriend(friendName, category) {
 }
 var currentAuthTab = 'login';
 
+// Cloudflare Turnstile config. Paste the site key from Cloudflare Dashboard →
+// Turnstile → Add site here to activate the CAPTCHA on the signup tab.
+// Also set TURNSTILE_SECRET_KEY as an Edge Function secret in Supabase for the
+// verify-turnstile function to actually validate tokens.
+var TURNSTILE_SITE_KEY = '';   // e.g. '0x4AAAAAABc...'  — leave '' to disable
+var _turnstileWidgetId = null;
+var _turnstileToken = null;
+var _turnstileScriptRequested = false;
+function ensureTurnstileScript(cb) {
+  if (window.turnstile) { cb(); return; }
+  if (_turnstileScriptRequested) { setTimeout(function(){ ensureTurnstileScript(cb); }, 200); return; }
+  _turnstileScriptRequested = true;
+  var s = document.createElement('script');
+  s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+  s.async = true; s.defer = true;
+  s.onload = function() { cb(); };
+  document.head.appendChild(s);
+}
+function renderTurnstileWidget() {
+  if (!TURNSTILE_SITE_KEY) return;
+  var host = document.getElementById('turnstile-container');
+  if (!host) return;
+  host.style.display = 'flex';
+  ensureTurnstileScript(function() {
+    if (_turnstileWidgetId !== null) return; // already rendered
+    try {
+      _turnstileWidgetId = window.turnstile.render(host, {
+        sitekey: TURNSTILE_SITE_KEY,
+        theme: 'light',
+        callback: function(token) { _turnstileToken = token; },
+        'error-callback': function() { _turnstileToken = null; },
+        'expired-callback': function() { _turnstileToken = null; if (_turnstileWidgetId !== null) window.turnstile.reset(_turnstileWidgetId); }
+      });
+    } catch(e) { console.warn('turnstile render failed', e); }
+  });
+}
+function hideTurnstileWidget() {
+  var host = document.getElementById('turnstile-container');
+  if (host) host.style.display = 'none';
+}
+function resetTurnstileWidget() {
+  _turnstileToken = null;
+  if (_turnstileWidgetId !== null && window.turnstile) {
+    try { window.turnstile.reset(_turnstileWidgetId); } catch(e) {}
+  }
+}
+
 var DEFAULT_GROUPS = [
   {n:'College Friends', emoji:'🎓', meta:'6 members · 3 lists compared', pill:'73% avg', pillClass:'pill-coral', memberIdxs:[0,1,2,3,4]},
   {n:'Work Team', emoji:'💼', meta:'4 members · 1 list compared', pill:'2 pending', pillClass:'pill-amber', memberIdxs:[0,2,3]}
@@ -5784,6 +5834,10 @@ function authTab(tab) {
   if (resend) resend.style.display = 'none';
   var forgot = document.getElementById('auth-forgot-link');
   if (forgot) forgot.style.display = tab === 'login' ? 'block' : 'none';
+  // Show the Turnstile widget only on the signup tab. Hidden on login/magic
+  // where it isn't needed. No-op when TURNSTILE_SITE_KEY is unset.
+  if (tab === 'signup') renderTurnstileWidget();
+  else hideTurnstileWidget();
 }
 
 async function startPasswordReset() {
@@ -5936,6 +5990,31 @@ async function submitAuth() {
         if (resendEl && (msg.indexOf('confirm') >= 0 || msg.indexOf('not confirmed') >= 0)) resendEl.style.display = 'block';
       }
     } else {
+      // Turnstile check on signup. Skipped entirely if no site key configured.
+      if (TURNSTILE_SITE_KEY) {
+        if (!_turnstileToken) {
+          errEl.textContent = 'Please complete the human check above before signing up.';
+          errEl.style.display = 'block';
+          btn.textContent = 'Create account'; btn.disabled = false;
+          return;
+        }
+        try {
+          var verify = await sbClient.functions.invoke('verify-turnstile', { body: { token: _turnstileToken } });
+          if (verify.error || !verify.data || verify.data.success !== true) {
+            errEl.textContent = 'Human check failed. Please try again.';
+            errEl.style.display = 'block';
+            btn.textContent = 'Create account'; btn.disabled = false;
+            resetTurnstileWidget();
+            return;
+          }
+        } catch(e) {
+          errEl.textContent = 'Could not verify the human check. Try again.';
+          errEl.style.display = 'block';
+          btn.textContent = 'Create account'; btn.disabled = false;
+          resetTurnstileWidget();
+          return;
+        }
+      }
       res = await sbClient.auth.signUp({
         email: email,
         password: password,
@@ -9752,16 +9831,40 @@ async function checkAdminStatus() {
 async function checkIfBanned() {
   if (!sbClient || !userId) return false;
   try {
-    var res = await sbClient.from('profiles').select('is_banned, banned_reason').eq('id', userId).maybeSingle();
+    var res = await sbClient.from('profiles').select('is_banned, banned_reason, banned_at').eq('id', userId).maybeSingle();
     if (res.data && res.data.is_banned) {
-      var reason = res.data.banned_reason ? '\n\nReason: ' + res.data.banned_reason : '';
-      alert('Your account has been suspended.' + reason + '\n\nContact contact@mytenner.com if you believe this is a mistake.');
-      await sbClient.auth.signOut();
-      location.reload();
+      showSuspendedScreen(res.data.banned_reason, res.data.banned_at);
+      // Sign out in the background so their session token stops working. The
+      // screen stays up regardless — no reload race.
+      try { await sbClient.auth.signOut(); } catch(e) {}
       return true;
     }
   } catch (e) {}
   return false;
+}
+function showSuspendedScreen(reason, bannedAt) {
+  var frame = document.querySelector('.frame') || document.body;
+  var whenLine = '';
+  if (bannedAt) {
+    try { whenLine = 'Suspended on ' + new Date(bannedAt).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }) + '.'; } catch(e) {}
+  }
+  var reasonHtml = reason
+    ? '<div style="background:#FBE6DE;border:1px solid #F0997B;border-left:6px solid #D85A30;border-radius:3px;padding:14px 16px;margin:18px 0;text-align:left"><div style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#A32D2D;margin-bottom:6px">Reason given</div><div style="font-size:14px;color:#2C2C2A;line-height:1.5">' + escapeHtml(reason) + '</div></div>'
+    : '<div style="font-size:13px;color:#5F5E5A;font-style:italic;margin:18px 0">No specific reason was provided.</div>';
+  var html = '<div id="suspended-screen" style="position:absolute;inset:0;background:#FDFCF8;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;overflow-y:auto">'
+    + '<img src="/logo-horizontal.png" alt="Tenner" style="height:32px;margin-bottom:28px">'
+    + '<div style="font-size:11px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#D85A30;margin-bottom:12px">Account suspended</div>'
+    + '<div style="font-size:26px;font-weight:800;color:#2C2C2A;letter-spacing:-0.01em;line-height:1.15;margin-bottom:10px">Your Tenner account has been suspended.</div>'
+    + (whenLine ? '<div style="font-size:12px;color:#888780;margin-bottom:4px">' + whenLine + '</div>' : '')
+    + reasonHtml
+    + '<div style="font-size:14px;color:#5F5E5A;line-height:1.5;max-width:360px;margin:0 auto">If you believe this was a mistake, reach out at <a href="mailto:contact@mytenner.com" style="color:#D85A30;font-weight:700">contact@mytenner.com</a> and we\'ll review it.</div>'
+    + '<a href="/welcome.html" style="margin-top:26px;background:#2C2C2A;color:#FFF;padding:12px 22px;border-radius:3px;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;text-decoration:none">Back to Tenner home →</a>'
+    + '</div>';
+  var existing = document.getElementById('suspended-screen');
+  if (existing) existing.remove();
+  var wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  frame.appendChild(wrap.firstElementChild);
 }
 
 async function loadState() {
@@ -10728,10 +10831,32 @@ async function renderAdminReports(el) {
       if (ctx.category || ctx.item_name) {
         contextLine = '<div style="font-size:11px;color:#5F5E5A;margin-top:4px">Thread: ' + escapeHtml(ctx.category || '') + (ctx.item_name ? ' · ' + escapeHtml(ctx.item_name) : '') + '</div>';
       }
+      // Kind-specific "delete the content" action. This is the primary
+      // moderation click — it removes the offending content AND resolves
+      // the report in one step.
+      var deleteBtnHtml = '';
+      if (r.status === 'pending' || r.status === 'reviewing') {
+        var deleteLabel = null, deletePayload = null;
+        if (r.kind === 'comment') { deleteLabel = 'Delete comment'; deletePayload = "{kind:'comment', comment_id:'" + r.target_id + "'}"; }
+        else if (r.kind === 'list') { deleteLabel = 'Delete list'; deletePayload = "{kind:'list', list_id:'" + r.target_id + "'}"; }
+        else if (r.kind === 'group') { deleteLabel = 'Delete group'; deletePayload = "{kind:'group', group_id:'" + r.target_id + "'}"; }
+        else if (r.kind === 'list_item' && ctx.list_owner_id && ctx.category && ctx.item_name) {
+          deleteLabel = 'Delete item';
+          deletePayload = "{kind:'list_item', owner:'" + ctx.list_owner_id + "', category:'" + String(ctx.category).replace(/'/g,"\\'") + "', item:'" + String(ctx.item_name).replace(/'/g,"\\'") + "'}";
+        }
+        else if (r.kind === 'user' && r.target_owner) {
+          deleteLabel = 'Ban user';
+          deletePayload = "{kind:'user', uid:'" + r.target_owner + "'}";
+        }
+        if (deleteLabel) {
+          deleteBtnHtml = '<button onclick="_reportAction(' + r.id + ',' + deletePayload + ')" style="background:#A32D2D;color:#FFF;border:none;border-radius:3px;padding:8px 12px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">' + deleteLabel + '</button>';
+        }
+      }
       var actionsHtml = r.status === 'pending' || r.status === 'reviewing'
         ? '<div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">'
+          +   deleteBtnHtml
           +   (r.status === 'pending' ? '<button onclick="_resolveReport(' + r.id + ',\'reviewing\')" style="background:#F5B534;color:#FFF;border:none;border-radius:3px;padding:8px 12px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">Mark reviewing</button>' : '')
-          +   '<button onclick="_resolveReport(' + r.id + ',\'resolved\',\'action_taken\')" style="background:#4E8E74;color:#FFF;border:none;border-radius:3px;padding:8px 12px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">Resolve · Action taken</button>'
+          +   '<button onclick="_resolveReport(' + r.id + ',\'resolved\',\'no_delete\')" style="background:transparent;color:#4E8E74;border:1.5px solid #4E8E74;border-radius:3px;padding:8px 12px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">Resolve without deleting</button>'
           +   '<button onclick="_resolveReport(' + r.id + ',\'dismissed\',\'no_violation\')" style="background:transparent;color:#5F5E5A;border:1.5px solid #D3D1C7;border-radius:3px;padding:8px 12px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">Dismiss</button>'
           + '</div>'
         : '<div style="font-size:11px;color:#888780;margin-top:10px;font-style:italic">' + escapeHtml(r.status) + (r.resolved_at ? ' · ' + relTime(r.resolved_at) : '') + (r.resolution ? ' · ' + escapeHtml(r.resolution) : '') + '</div>';
@@ -10757,6 +10882,50 @@ async function _resolveReport(id, status, resolution) {
     if (r.error) throw r.error;
     renderAdminReports(document.getElementById('_admin-section-body'));
   } catch(e) { showToast('Update failed: ' + (e.message || e)); }
+}
+// Kind-aware moderation action. Deletes the offending content (or bans the
+// user for kind='user') and then resolves the report as action-taken.
+async function _reportAction(reportId, payload) {
+  var confirmMsg = {
+    comment:   'Delete this comment for everyone?',
+    list:      'Delete this entire list for everyone?',
+    group:     'Delete this group for everyone?',
+    list_item: 'Delete this item from the list?',
+    user:      'Ban this user? They will be signed out on next app load and see a suspension screen.'
+  }[payload.kind] || 'Take moderation action?';
+  if (!confirm(confirmMsg)) return;
+  try {
+    if (payload.kind === 'comment') {
+      var r = await sbClient.rpc('admin_delete_comment', { p_id: payload.comment_id });
+      if (r.error) throw r.error;
+    } else if (payload.kind === 'list') {
+      var r2 = await sbClient.rpc('admin_delete_list', { p_id: payload.list_id });
+      if (r2.error) throw r2.error;
+    } else if (payload.kind === 'group') {
+      var r3 = await sbClient.rpc('admin_delete_group', { p_id: payload.group_id });
+      if (r3.error) throw r3.error;
+    } else if (payload.kind === 'list_item') {
+      var r4 = await sbClient.rpc('admin_delete_list_item', { p_owner: payload.owner, p_category: payload.category, p_item_name: payload.item });
+      if (r4.error) throw r4.error;
+    } else if (payload.kind === 'user') {
+      var reason = prompt('Reason for banning this user (shown to them):', '');
+      if (reason === null) return;
+      var r5 = await sbClient.rpc('admin_ban_user', { p_uid: payload.uid, p_reason: reason || null });
+      if (r5.error) throw r5.error;
+      // Fire ban-notification email in the background.
+      sendBanNotificationEmail(payload.uid, reason || '');
+    }
+    await sbClient.rpc('admin_resolve_report', { p_id: reportId, p_status: 'resolved', p_resolution: 'action_taken' });
+    showToast('Action taken.');
+    renderAdminReports(document.getElementById('_admin-section-body'));
+  } catch(e) { showToast('Action failed: ' + (e.message || e)); }
+}
+async function sendBanNotificationEmail(uid, reason) {
+  try {
+    var res = await sbClient.from('profiles').select('email, display_name').eq('id', uid).maybeSingle();
+    if (!res.data || !res.data.email) return;
+    sendAppEmail('account_suspended', res.data.email, { name: res.data.display_name || 'there', reason: reason || null });
+  } catch(e) { console.warn('ban email skipped', e); }
 }
 
 // Turn a raw JS error message into a plain-English explanation for the
@@ -11443,10 +11612,11 @@ async function renderAdminUsers(el) {
 }
 
 function banUser(uid, name) {
-  var reason = prompt('Reason for banning ' + name + ' (optional):', '');
+  var reason = prompt('Reason for banning ' + name + ' (shown to them):', '');
   if (reason === null) return;
-  sbClient.from('profiles').update({ is_banned: true, banned_at: new Date().toISOString(), banned_reason: reason || null }).eq('id', uid).then(function(r) {
+  sbClient.rpc('admin_ban_user', { p_uid: uid, p_reason: reason || null }).then(function(r) {
     if (r.error) { showToast('Error: ' + r.error.message); return; }
+    sendBanNotificationEmail(uid, reason || '');
     showToast('User banned');
     renderAdmin();
   });

@@ -26,8 +26,9 @@ const EMAIL_TYPE_TO_CATEGORY: Record<string, string> = {
   streak_in_danger:"weekly",
   birthday_reminder:    "reminders",
   birthday_reminder_14: "reminders",
-  welcome:         "essential",
-  feedback_update: "essential",
+  welcome:            "essential",
+  feedback_update:    "essential",
+  account_suspended:  "essential",
 };
 
 function baseTemplate(preheader: string, contentHtml: string, unsubToken?: string, category?: string) {
@@ -110,6 +111,23 @@ function templateWeeklyReveal(data: any) {
   return { subject: `🎊 Tenner reveal: Top 10 ${cat}`, html: baseTemplate(preheader, body, data.__unsub_token, data.__category) };
 }
 
+function templateAccountSuspended(data: any) {
+  const name   = data.name || 'there';
+  const reason = data.reason ? String(data.reason) : '';
+  const reasonBlock = reason
+    ? `<p style="background:#FBE6DE;border:1px solid #F0997B;border-left:4px solid #D85A30;padding:12px 14px;border-radius:6px;color:#2C2C2A;margin:16px 0"><strong style="display:block;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#A32D2D;margin-bottom:6px">Reason given</strong>${escapeHtml(reason)}</p>`
+    : `<p style="color:#5F5E5A;font-style:italic">No specific reason was provided.</p>`;
+  const body = `
+    <h1>Your Tenner account has been suspended</h1>
+    <p>Hi ${escapeHtml(name)},</p>
+    <p>Your Tenner account was suspended by our moderation team. When you next open the app, you'll be signed out and see a suspension notice.</p>
+    ${reasonBlock}
+    <p>If you believe this was a mistake, reply to this email or reach us at <a href="mailto:contact@mytenner.com" style="color:#D85A30">contact@mytenner.com</a> and we'll review it.</p>`;
+  return {
+    subject: 'Your Tenner account has been suspended',
+    html: baseTemplate('Your Tenner account has been suspended.', body, data.__unsub_token, data.__category)
+  };
+}
 function templateFeedbackUpdate(data: any) {
   const status = data.status || "updated";
   const message = data.message || "";
@@ -279,6 +297,7 @@ Deno.serve(async (req) => {
       case "new_comment":        tpl = templateNewComment(enrichedData); break;
       case "friend_request":     tpl = templateFriendRequest(enrichedData); break;
       case "list_share":         tpl = templateListShare(enrichedData); break;
+      case "account_suspended":  tpl = templateAccountSuspended(enrichedData); break;
       default: throw new Error(`Unknown email type: ${type}`);
     }
 
