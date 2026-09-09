@@ -5978,6 +5978,12 @@ async function resendConfirmation() {
 function authErrorText(err) {
   if (!err) return 'Something went wrong. Please try again.';
   var msg = err.message || err.error_description || err.error || err.msg;
+  // Suspended accounts are hard-banned at the auth layer, so Supabase rejects
+  // the sign-in before our own suspension screen can run. Translate its raw
+  // "User is banned" into something a real person can act on.
+  if (msg && /banned|user_banned/i.test(String(msg))) {
+    return 'This account has been suspended. Contact contact@mytenner.com if you believe this is a mistake.';
+  }
   if (msg && typeof msg === 'string' && msg.trim()) return msg;
   if (err.status || err.code) return 'Error ' + (err.status || err.code) + '. Please try again.';
   try { console.warn('Auth error object:', err); } catch(e) {}
@@ -6189,9 +6195,14 @@ function onSignedIn(session) {
   if (emailEl) emailEl.textContent = currentUserEmail;
   var emailInfo = document.getElementById('profile-email-info');
   if (emailInfo) emailInfo.textContent = currentUserEmail;
-  // Fire a welcome email once per user (idempotent via email_log)
-  setTimeout(function() { sendWelcomeEmailIfNeeded(); }, 2000);
+  // Fire a welcome email once per user (idempotent via email_log).
+  // Handle is stored so checkIfBanned() can cancel it — otherwise a banned
+  // user who authenticates successfully still gets a "Welcome to Tenner"
+  // email in the 2s before the ban check signs them out.
+  if (_welcomeEmailTimer) clearTimeout(_welcomeEmailTimer);
+  _welcomeEmailTimer = setTimeout(function() { sendWelcomeEmailIfNeeded(); }, 2000);
 }
+var _welcomeEmailTimer = null;
 
 // --- Transactional email helpers ---
 // Invokes the send-email Edge Function. Fire-and-forget — never blocks UI.
@@ -6411,6 +6422,11 @@ async function pushResubscribeSilently() {
 async function sendWelcomeEmailIfNeeded() {
   if (!sbClient || !userId || !currentUserEmail) return;
   try {
+    // Never welcome a suspended account. Checked here as well as via the
+    // cancelled timer, because the timer can already be mid-flight when the
+    // ban check completes.
+    var banChk = await sbClient.from('profiles').select('is_banned').eq('id', userId).maybeSingle();
+    if (banChk.data && banChk.data.is_banned) return;
     // Dedupe: check email_log
     var chk = await sbClient.from('email_log')
       .select('id')
@@ -9864,6 +9880,8 @@ async function checkIfBanned() {
   try {
     var res = await sbClient.from('profiles').select('is_banned, banned_reason, banned_at').eq('id', userId).maybeSingle();
     if (res.data && res.data.is_banned) {
+      // Cancel any queued welcome email before it fires.
+      if (_welcomeEmailTimer) { clearTimeout(_welcomeEmailTimer); _welcomeEmailTimer = null; }
       showSuspendedScreen(res.data.banned_reason, res.data.banned_at);
       // Sign out in the background so their session token stops working. The
       // screen stays up regardless — no reload race.
@@ -11660,8 +11678,8 @@ function banUser(uid, name) {
 }
 
 function unbanUser(uid) {
-  showConfirm('Unban this user?', 'They will regain access on next reload.', 'Unban', 'primary', function() {
-    sbClient.from('profiles').update({ is_banned: false, banned_at: null, banned_reason: null }).eq('id', uid).then(function(r) {
+  showConfirm('Unban this user?', 'They will be able to sign in again immediately.', 'Unban', 'primary', function() {
+    sbClient.rpc('admin_unban_user', { p_uid: uid }).then(function(r) {
       if (r.error) { showToast('Error: ' + r.error.message); return; }
       showToast('User unbanned');
       renderAdmin();
