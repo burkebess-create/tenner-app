@@ -57,6 +57,18 @@
       localStorage.setItem('tenner_attribution', JSON.stringify(found));
     }
 
+    // ── Marketing-channel credit (?ch=instagram) ─────────────────────
+    // Resolves later to a system profile so the channel shows up in the
+    // invite leaderboard next to real recruiters. First-touch: never
+    // overwritten, and never clobbers a real person's ?from= invite.
+    var ch = qs.get('ch');
+    if (ch && !localStorage.getItem('tenner_pending_channel') && !localStorage.getItem('tenner_pending_from')) {
+      localStorage.setItem('tenner_pending_channel', JSON.stringify({
+        slug: String(ch).toLowerCase().slice(0, 40),
+        ts: Date.now()
+      }));
+    }
+
     // ── Routing gate ─────────────────────────────────────────────────
     // Signed-out visitors go to the marketing page. Everyone with real
     // intent (a session, an installed PWA, an invite link, an in-app deep
@@ -6877,7 +6889,7 @@ async function findProfileByHandle(handle) {
   if (!sbClient || !handle) return null;
   var norm = handle.replace(/^@/, '').toLowerCase();
   try {
-    var direct = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('handle', norm).neq('id', userId).maybeSingle();
+    var direct = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('handle', norm).neq('id', userId).eq('is_system', false).maybeSingle();
     if (direct.data) return direct.data;
     var alias = await sbClient.from('handle_aliases').select('user_id').eq('handle', norm).maybeSingle();
     if (alias && alias.data && alias.data.user_id && alias.data.user_id !== userId) {
@@ -6893,7 +6905,7 @@ async function findProfileByHandle(handle) {
 async function isHandleTaken(candidate) {
   if (!sbClient) return false;
   try {
-    var p = await sbClient.from('profiles').select('id').eq('handle', candidate).neq('id', userId).maybeSingle();
+    var p = await sbClient.from('profiles').select('id').eq('handle', candidate).neq('id', userId).eq('is_system', false).maybeSingle();
     if (p.data) return true;
     var a = await sbClient.from('handle_aliases').select('user_id').eq('handle', candidate).neq('user_id', userId).maybeSingle();
     return !!(a && a.data);
@@ -6941,7 +6953,7 @@ async function searchFriend() {
     var isPhone = /^\+/.test(query) || /^[\d\s\-().]{7,}$/.test(query);
     if (isPhone) {
       var normalized = query.replace(/\s/g, '');
-      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('phone', normalized).neq('id', userId).maybeSingle();
+      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('phone', normalized).neq('id', userId).eq('is_system', false).maybeSingle();
     } else {
       var hProfile = await findProfileByHandle(query);
       res = { data: hProfile };
@@ -9450,7 +9462,7 @@ async function circleSearchFriend() {
     var isPhone = /^\+/.test(query) || /^[\d\s\-().]{7,}$/.test(query);
     if (isPhone) {
       var normalized = query.replace(/\s/g, '');
-      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('phone', normalized).neq('id', userId).maybeSingle();
+      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('phone', normalized).neq('id', userId).eq('is_system', false).maybeSingle();
     } else {
       var hProfile2 = await findProfileByHandle(query);
       res = { data: hProfile2 };
@@ -11223,11 +11235,17 @@ async function renderAdminInvites(el) {
       var direct = Number(r.direct_count) || 0;
       var indirect = Number(r.indirect_count) || 0;
       var total = Number(r.total_count) || 0;
+      var channelTag = r.is_system
+        ? ' <span style="font-size:8.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;background:#D85A30;color:#FFF;padding:2px 6px;border-radius:3px;vertical-align:middle;margin-left:4px">Channel</span>'
+        : '';
+      var subLine = r.is_system
+        ? 'Marketing channel · ?ch=' + escapeHtml(r.handle || '')
+        : escapeHtml(r.email || '');
       html += '<div class="card no-hover" onclick="openAdminUserDetail(\'' + r.user_id + '\')" style="margin-bottom:6px;padding:10px 12px;cursor:pointer">'
         + '<div style="display:flex;align-items:center;gap:10px">'
         + '<div style="font-size:14px;font-weight:700;width:32px;text-align:center;flex-shrink:0">' + medal + '</div>'
-        + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + '</div>'
-        + '<div style="font-size:10px;color:#888780;margin-top:1px">' + escapeHtml(r.email || '') + '</div></div>'
+        + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + channelTag + '</div>'
+        + '<div style="font-size:10px;color:#888780;margin-top:1px">' + subLine + '</div></div>'
         + '<div style="display:flex;gap:4px;flex-shrink:0">'
         +   '<span style="font-size:10px;background:#D6F0EA;color:#1F7268;padding:3px 8px;border-radius:99px;font-weight:600" title="Direct invitees">D ' + direct + '</span>'
         +   '<span style="font-size:10px;background:#F1EFE8;color:#5F5E5A;padding:3px 8px;border-radius:99px;font-weight:600" title="Indirect (their invitees\' invitees)">I ' + indirect + '</span>'
@@ -13929,12 +13947,42 @@ function setupRealtimeNotifications() {
             try { raw = localStorage.getItem('tenner_pending_from'); } catch(e) {}
             if (raw) { try { fromId = (JSON.parse(raw) || {}).from; } catch(e) {} }
           }
+          // No human inviter? Fall back to a marketing channel (?ch=instagram).
+          // Resolved by handle so new channels are a DB insert, not a code change.
+          if (!fromId && sbClient) {
+            var chRaw = null;
+            try { chRaw = localStorage.getItem('tenner_pending_channel'); } catch(e) {}
+            if (chRaw) {
+              var slug = null;
+              try { slug = (JSON.parse(chRaw) || {}).slug; } catch(e) {}
+              if (slug) {
+                var chProf = await sbClient.from('profiles')
+                  .select('id').eq('handle', slug).eq('is_system', true).maybeSingle();
+                if (chProf.data && chProf.data.id) fromId = chProf.data.id;
+              }
+              try { localStorage.removeItem('tenner_pending_channel'); } catch(e) {}
+            }
+          }
           if (!fromId || fromId === userId || !sbClient) return;
+          // Is the inviter a marketing-channel account (e.g. Tenner on
+          // Instagram) rather than a real person? Those get attribution
+          // credit in the leaderboard but must never become a friend or
+          // receive a "your invite converted" push.
+          var inviterProf = await sbClient.from('profiles').select('is_system, email').eq('id', fromId).maybeSingle();
+          var inviterIsSystem = !!(inviterProf.data && inviterProf.data.is_system);
           // Check current invited_by — only write if unset
           var cur = await sbClient.from('profiles').select('invited_by').eq('id', userId).maybeSingle();
           var isFreshAttribution = !(cur.data && cur.data.invited_by);
           if (isFreshAttribution) {
-            await sbClient.from('profiles').update({ invited_by: fromId, invite_source: 'link' }).eq('id', userId);
+            await sbClient.from('profiles').update({
+              invited_by: fromId,
+              invite_source: inviterIsSystem ? 'channel' : 'link'
+            }).eq('id', userId);
+          }
+          if (inviterIsSystem) {
+            trackEvent('channel_signup_attributed', { channel_id: fromId });
+            try { localStorage.removeItem('tenner_pending_from'); } catch(e) {}
+            return; // no friendship, no push
           }
           // Auto-friend: create accepted friendship if none exists yet in either direction.
           try {
