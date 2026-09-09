@@ -212,3 +212,28 @@ $$;
 grant execute on function public.admin_user_counts() to authenticated;
 
 -- guard_moderation_columns() also covers is_internal (see companion migration).
+
+-- ── LinkedIn marketing channel account (added 2026-09-09) ────────────
+-- banned_until MUST be finite; GoTrue cannot scan Postgres 'infinity'.
+do $$
+declare v_id uuid := '00000000-0000-4000-8000-000000000002';
+begin
+  if not exists (select 1 from auth.users where id = v_id) then
+    insert into auth.users (
+      instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+      created_at, updated_at, raw_app_meta_data, raw_user_meta_data, banned_until
+    ) values (
+      '00000000-0000-0000-0000-000000000000', v_id, 'authenticated', 'authenticated',
+      'linkedin@channels.mytenner.com',
+      '$2a$10$SYSTEMACCOUNTNOLOGINPOSSIBLEXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+      now(), now(), now(),
+      '{"provider":"system","providers":["system"]}'::jsonb,
+      '{"system_channel":"linkedin"}'::jsonb,
+      '2999-12-31 23:59:59+00'::timestamptz
+    );
+  end if;
+  insert into public.profiles (id, display_name, handle, email, is_system, created_at)
+  values (v_id, 'Tenner on LinkedIn', 'linkedin', 'linkedin@channels.mytenner.com', true, now())
+  on conflict (id) do update
+    set display_name = excluded.display_name, handle = excluded.handle, is_system = true;
+end $$;
