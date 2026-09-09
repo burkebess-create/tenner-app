@@ -80,21 +80,45 @@
     scrollbar-width: none; -webkit-overflow-scrolling: touch;
   }
   .shots::-webkit-scrollbar { display: none; }
-  .shot {
-    flex: 0 0 auto; width: 240px; aspect-ratio: 9/19.5;
-    border-radius: 32px; padding: 8px; background: #2C2C2A;
+  /* ── ONE phone treatment, used for every phone on this page ──────
+     --phone-w drives the width; bezel radius, bezel thickness, screen
+     radius and notch all scale off it, so every frame is identical in
+     size AND proportion. Change the one value to resize them all.     */
+  .shot,
+  .showcase .phone {
+    --phone-w: 240px;
+    flex: 0 0 auto;
+    width: var(--phone-w);
+    aspect-ratio: 9 / 19.5;
+    background: #2C2C2A;
+    border-radius: calc(var(--phone-w) * 0.1333);
+    padding: calc(var(--phone-w) * 0.0333);
     box-shadow: 0 20px 60px rgba(44,44,42,0.18), 0 4px 12px rgba(44,44,42,0.08);
     position: relative;
+    box-sizing: border-box;
   }
   .shot:nth-child(2) { transform: translateY(-16px); }
-  .shot .screen {
-    width: 100%; height: 100%; border-radius: 26px; overflow: hidden;
-    background: #FDFCF8; display: flex; flex-direction: column;
-    padding: 22px 14px 14px; position: relative;
+  .shot .screen,
+  .showcase .phone .screen {
+    width: 100%; height: 100%;
+    border-radius: calc(var(--phone-w) * 0.1083);
+    overflow: hidden;
+    background: #FDFCF8;
+    position: relative;
+    box-sizing: border-box;
   }
-  .shot .notch {
-    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
-    width: 90px; height: 22px; background: #2C2C2A; border-radius: 12px;
+  .shot .screen {
+    display: flex; flex-direction: column;
+    padding: 22px 14px 14px;
+  }
+  .shot .notch,
+  .showcase .phone .notch {
+    position: absolute; top: calc(var(--phone-w) * 0.025); left: 50%;
+    transform: translateX(-50%);
+    width: calc(var(--phone-w) * 0.375);
+    height: calc(var(--phone-w) * 0.0917);
+    background: #2C2C2A; border-radius: 999px;
+    z-index: 2;
   }
   .shot .cap {
     position: absolute; bottom: -30px; left: 0; right: 0; text-align: center;
@@ -304,13 +328,10 @@
     content: '✓'; position: absolute; left: 0; top: 6px;
     color: #D85A30; font-weight: 800;
   }
-  .showcase .phone {
-    background: #2C2C2A; padding: 10px; border-radius: 38px;
-    box-shadow: 0 30px 80px rgba(44,44,42,0.22), 0 6px 16px rgba(44,44,42,0.10);
-    max-width: 320px; margin: 0 auto;
-  }
-  .showcase .phone img {
-    display: block; width: 100%; height: auto; border-radius: 30px;
+  .showcase .phone { margin: 0 auto; }
+  .showcase .phone .screen img {
+    display: block; width: 100%; height: 100%;
+    object-fit: cover; object-position: top center;
     background: #FDFCF8;
   }
 
@@ -445,7 +466,10 @@
       <a href="/" class="cta-primary" onclick="try{sessionStorage.setItem('tennerLaunch','1')}catch(e){}">Get your gift page →</a>
     </div>
     <div class="phone">
-      <img src="/mock-gift-isabella.png" alt="A Tenner gift page for Isabella Torres, showing a birthday countdown, budget filter, and a Top 5 TV Shows list with Shop buttons">
+      <div class="notch"></div>
+      <div class="screen">
+        <img src="mock-gift-isabella.png" alt="A Tenner gift page for Isabella Torres, showing a birthday countdown and a Top 5 TV Shows list with Shop buttons">
+      </div>
     </div>
   </div>
 </section>
