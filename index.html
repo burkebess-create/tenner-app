@@ -37,15 +37,40 @@
 // through. Runs synchronously before any app code loads.
 (function() {
   try {
-    if (location.hash || location.search) return; // deep links, invite links, /?from=, etc.
-    if (sessionStorage.getItem('tennerLaunch')) return; // clicked CTA on welcome
-    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return; // installed PWA
-    // Supabase session key uses the project ref.
+    var qs = new URLSearchParams(location.search);
+
+    // ── First-touch attribution ──────────────────────────────────────
+    // Record the first marketing source this browser ever arrives with and
+    // never overwrite it, so someone who clicks an Instagram link, browses,
+    // leaves, then returns directly is still credited to Instagram when they
+    // eventually sign up.
+    var TRACK_KEYS = ['src','ref','utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+    var found = {};
+    TRACK_KEYS.forEach(function(k) {
+      var v = qs.get(k);
+      if (v) found[k] = String(v).slice(0, 64);
+    });
+    if (Object.keys(found).length && !localStorage.getItem('tenner_attribution')) {
+      found.first_seen = new Date().toISOString();
+      found.landing = location.pathname;
+      if (document.referrer) found.referrer = document.referrer.slice(0, 200);
+      localStorage.setItem('tenner_attribution', JSON.stringify(found));
+    }
+
+    // ── Routing gate ─────────────────────────────────────────────────
+    // Signed-out visitors go to the marketing page. Everyone with real
+    // intent (a session, an installed PWA, an invite link, an in-app deep
+    // link, or a click-through from welcome) goes straight to the app.
+    if (location.hash) return;                            // in-app deep links / auth callbacks
+    if (qs.get('from') || qs.get('fill')) return;         // friend + list invites
+    if (sessionStorage.getItem('tennerLaunch')) return;   // clicked the welcome CTA
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
       if (k && k.indexOf('sb-') === 0 && k.indexOf('-auth-token') > 0) return;
     }
-    location.replace('/welcome.html');
+    // Carry the query string through so welcome.html can log the source.
+    location.replace('/welcome.html' + (location.search || ''));
   } catch(e) { /* on failure, fall through to the app */ }
 })();
 </script>
@@ -374,18 +399,12 @@
       if (_from) {
         try { localStorage.setItem('tenner_pending_from', JSON.stringify({ from: decodeURIComponent(_from), ts: Date.now() })); } catch(e) {}
       }
-      var seen = localStorage.getItem('tenner_seen_about');
-      var hasSession = false;
-      for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (k && k.indexOf('supabase.auth') === 0) { hasSession = true; break; }
-      }
-      var fromAbout = document.referrer && document.referrer.indexOf('about.html') >= 0;
-      // Also skip the redirect entirely when they arrived with an inviter id —
-      // that user is coming from a specific invite, no need for the marketing detour.
-      if (!seen && !hasSession && !fromAbout && !_from && location.search.indexOf('skipIntro') < 0) {
-        location.replace('about.html');
-      }
+      // NOTE: the old "redirect first-time visitors to about.html" block that
+      // used to live here has been removed. The first-touch gate at the top of
+      // <head> now owns marketing routing (signed-out -> /welcome.html) and ran
+      // long before this point. Keeping both meant a visitor arriving with any
+      // query string (e.g. ?utm_source=instagram) skipped the first gate and got
+      // sent to about.html instead of the welcome page.
     } catch (e) {}
   })();
 
@@ -13097,13 +13116,29 @@ function _tennerSessionId() {
     return v;
   } catch (e) { return null; }
 }
+// First-touch marketing attribution captured by the gate in <head>.
+// Merged into every event so any funnel step can be sliced by channel.
+function _tennerAttribution() {
+  try {
+    var raw = localStorage.getItem('tenner_attribution');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
 function trackEvent(name, meta) {
   try {
     if (!sbClient || !name) return;
+    var attr = _tennerAttribution();
+    var merged = meta || null;
+    if (attr) {
+      merged = merged || {};
+      merged.src         = attr.src || attr.utm_source || null;
+      merged.utm_medium  = attr.utm_medium || null;
+      merged.utm_campaign= attr.utm_campaign || null;
+    }
     var row = {
       user_id: (typeof userId !== 'undefined' && userId) ? userId : null,
       event: String(name).slice(0, 64),
-      meta: meta || null,
+      meta: merged,
       session_id: _tennerSessionId(),
       user_agent: (typeof navigator !== 'undefined') ? (navigator.userAgent || null) : null,
       referer: (typeof document !== 'undefined') ? (document.referrer || null) : null

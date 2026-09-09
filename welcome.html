@@ -519,9 +519,35 @@
         sessionStorage.setItem('tenner_sess_id', sid);
       }
     } catch(e) { sid = null; }
+    // First-touch attribution. Someone landing here directly (not via the
+    // gate on /) still gets their source recorded, and we never overwrite an
+    // earlier one so the original channel keeps the credit through signup.
+    var qs = new URLSearchParams(location.search);
+    var TRACK_KEYS = ['src','ref','utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+    var found = {};
+    TRACK_KEYS.forEach(function(k){ var v = qs.get(k); if (v) found[k] = String(v).slice(0,64); });
+    var attr = null;
+    try {
+      var existing = localStorage.getItem('tenner_attribution');
+      if (existing) {
+        attr = JSON.parse(existing);
+      } else if (Object.keys(found).length) {
+        found.first_seen = new Date().toISOString();
+        found.landing = location.pathname;
+        if (document.referrer) found.referrer = document.referrer.slice(0,200);
+        localStorage.setItem('tenner_attribution', JSON.stringify(found));
+        attr = found;
+      }
+    } catch(e) {}
+
     sb.from('analytics_events').insert({
       event: 'welcome_view',
-      meta: { pathname: location.pathname },
+      meta: {
+        pathname: location.pathname,
+        src: (attr && (attr.src || attr.utm_source)) || null,
+        utm_medium: (attr && attr.utm_medium) || null,
+        utm_campaign: (attr && attr.utm_campaign) || null
+      },
       session_id: sid,
       user_agent: navigator.userAgent || null,
       referer: document.referrer || null
