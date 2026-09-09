@@ -10650,9 +10650,12 @@ async function runPhotoBackfill() {
     var d = res.data || {};
     if (!d.ok) throw new Error(d.error || 'unknown');
     var s = d.stats || {};
-    var summary = 'Profiles: ' + (s.profiles_migrated || 0) + ' / ' + (s.profiles_scanned || 0)
-                + ' · Groups: ' + (s.groups_migrated || 0) + ' / ' + (s.groups_scanned || 0)
-                + ((s.profiles_failed || s.groups_failed) ? ' · Failed: ' + ((s.profiles_failed||0) + (s.groups_failed||0)) : '');
+    var totalTouched = (s.profiles_migrated||0) + (s.profiles_rewritten||0) + (s.groups_migrated||0) + (s.groups_rewritten||0);
+    var summary = totalTouched === 0
+      ? 'Nothing to migrate — all photos already on the CDN.'
+      : 'Profiles: ' + (s.profiles_migrated||0) + ' migrated · ' + (s.profiles_rewritten||0) + ' rewritten' +
+        ' · Groups: ' + (s.groups_migrated||0) + ' migrated · ' + (s.groups_rewritten||0) + ' rewritten' +
+        ((s.profiles_failed || s.groups_failed) ? ' · Failed: ' + ((s.profiles_failed||0) + (s.groups_failed||0)) : '');
     if (meta) meta.textContent = summary;
     showToast('Backfill complete.');
     if (s.errors && s.errors.length) console.warn('Backfill errors:', s.errors);
