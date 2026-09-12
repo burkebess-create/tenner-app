@@ -8740,7 +8740,7 @@ function openFriendList(listData, origin) {
         + '</div>';
     } else {
       pickBar.style.display = 'block';
-      pickBar.innerHTML = '<button onclick="enterPickMode()" style="width:100%;background:transparent;border:1.5px solid #D85A30;border-radius:3px;padding:11px 14px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;color:#D85A30;cursor:pointer;line-height:1.35">＋ Add items from ' + escapeHtml(friendName.split(' ')[0]) + ' to my list</button>';
+      pickBar.innerHTML = '<button onclick="enterPickMode()" style="width:100%;background:transparent;border:1.5px solid #D85A30;border-radius:3px;padding:11px 14px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;color:#D85A30;cursor:pointer;line-height:1.35">＋ Add items from ' + escapeHtml(friendName.split(' ')[0]) + '’s list to my list</button>';
     }
   }
   renderPickFooter();
