@@ -1316,7 +1316,7 @@
             </label>
             <label style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;cursor:pointer;font-size:12px;color:#2C2C2A;border-top:1px solid #F1EFE8">
               <input type="radio" name="comment-visibility" value="mutual" style="margin-top:2px;flex-shrink:0">
-              <span><strong>Only from people I know</strong><br><span style="color:#5F5E5A;font-size:11px">Hide comments from strangers — only show those left by my own Tenner friends.</span></span>
+              <span><strong>Only from people I know</strong><br><span style="color:#5F5E5A;font-size:11px">Hide comments from strangers — only show those left by my own Tenner friends, people in my groups, and the list owner.</span></span>
             </label>
             <label style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;cursor:pointer;font-size:12px;color:#2C2C2A;border-top:1px solid #F1EFE8">
               <input type="radio" name="comment-visibility" value="none" style="margin-top:2px;flex-shrink:0">
@@ -15335,6 +15335,32 @@ function markCommentThreadRead(listOwnerId, category, itemName) {
   }, { onConflict: 'user_id,list_owner_id,category,item_name' }).then(function(){});
 }
 
+// Everyone who shares an accepted group membership with me, as a lookup.
+// Keyed on my current group ids rather than cleared by hand, so joining or
+// leaving a group invalidates it automatically and there's no call site to
+// forget. (Someone else joining one of my groups mid-session isn't caught —
+// they show up on the next load. That's a filter, not a permission.)
+// Fails soft: an empty map just means "people I know" falls back to friends.
+var _groupCoMemberIds = null;
+var _groupCoMemberKey = null;
+
+async function getGroupCoMemberIds() {
+  var gids = (MY_GROUPS || []).map(function(g){ return g.id; }).filter(Boolean).sort();
+  var key = gids.join(',');
+  if (_groupCoMemberIds && _groupCoMemberKey === key) return _groupCoMemberIds;
+  var map = {};
+  if (!gids.length) { _groupCoMemberIds = map; _groupCoMemberKey = key; return map; }
+  try {
+    var res = await sbClient.from('group_members')
+      .select('user_id').in('group_id', gids).eq('status', 'accepted');
+    if (res.error) { console.warn('co-members load failed', res.error); return map; }
+    (res.data || []).forEach(function(r) { if (r.user_id !== userId) map[r.user_id] = true; });
+  } catch (e) { console.warn('co-members load failed', e); return map; }
+  _groupCoMemberIds = map;
+  _groupCoMemberKey = key;
+  return map;
+}
+
 async function loadItemComments(listOwnerId, category, itemName) {
   var el = document.getElementById('item-comments-list');
   if (!sbClient || !el) return;
@@ -15357,9 +15383,16 @@ async function loadItemComments(listOwnerId, category, itemName) {
         }
       }
       if (pref === 'mutual') {
+        // "People I know" = my accepted friends AND people I share a group
+        // with. Inside a group the non-friend members are exactly the people
+        // you'd expect to hear from, so hiding them read as a bug.
         var myFriendIds = (myFriends || []).filter(function(f){ return f.status === 'accepted'; }).map(function(f){ return f.friendId; });
+        var coMembers = await getGroupCoMemberIds();
         comments = comments.filter(function(c) {
-          return c.from_user_id === userId || c.from_user_id === listOwnerId || myFriendIds.indexOf(c.from_user_id) >= 0;
+          return c.from_user_id === userId
+            || c.from_user_id === listOwnerId
+            || myFriendIds.indexOf(c.from_user_id) >= 0
+            || coMembers[c.from_user_id] === true;
         });
       }
     }
