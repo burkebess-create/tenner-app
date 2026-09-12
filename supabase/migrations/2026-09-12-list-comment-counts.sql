@@ -1,5 +1,10 @@
 -- 2026-09-12 — Per-item comment counts for a friend's list
 --
+-- SUPERSEDED the same day by 2026-09-12-comment-visibility-fix.sql. The
+-- SECURITY DEFINER version below is unsafe once its access check calls
+-- _can_view_list, and the underlying SELECT restriction it worked around has
+-- since been fixed. Kept only as a record of what was applied. Do not re-run.
+--
 -- Why this needs an RPC rather than a query:
 --
 -- list_item_comments SELECT is restricted to the list owner, the comment's
