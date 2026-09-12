@@ -14054,30 +14054,33 @@ function setupRealtimeNotifications() {
             try { localStorage.removeItem('tenner_pending_from'); } catch(e) {}
             return; // no friendship, no push
           }
-          // Auto-friend: create accepted friendship if none exists yet in either direction.
+          // Auto-friend via RPC. This CANNOT be done as a direct insert from
+          // the client: friendships_insert requires requester_id = auth.uid(),
+          // but the friendship must record the INVITER as requester. The RPC
+          // does it server-side with validation.
           try {
-            var existing = await sbClient.from('friendships')
-              .select('id, status')
-              .or('and(requester_id.eq.' + fromId + ',addressee_id.eq.' + userId + '),and(requester_id.eq.' + userId + ',addressee_id.eq.' + fromId + ')')
-              .maybeSingle();
-            if (!existing.data) {
-              await sbClient.from('friendships').insert({ requester_id: fromId, addressee_id: userId, status: 'accepted' });
+            var af = await sbClient.rpc('accept_invite_friendship', { p_inviter: fromId });
+            if (af.error) {
+              console.warn('auto-friend rpc failed', af.error);
+              trackEvent('auto_friend_failed', { reason: (af.error.message || '').slice(0, 120) });
+            } else if (af.data === 'created' || af.data === 'upgraded') {
               trackOnce('first_friend_added', { via: 'invite_link_auto' });
-              trackEvent('friend_auto_added', { via: 'invite_link' });
+              trackEvent('friend_auto_added', { via: 'invite_link', outcome: af.data });
               // Refresh local friends list so Circle shows the new connection immediately
               if (typeof loadFriends === 'function') loadFriends();
               // Notify the inviter that their invite converted (transactional — always fires, not batched into digest)
-              try {
-                var invProf = await sbClient.from('profiles').select('email').eq('id', fromId).maybeSingle();
-                var myName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
-                if (invProf.data && invProf.data.email && typeof sendAppPush === 'function') {
-                  sendAppPush(invProf.data.email, 'Tenner', myName + ' joined from your invite — you\'re now friends', '/#circle');
-                }
-              } catch(e) { /* best-effort */ }
-            } else if (existing.data.status === 'pending') {
-              // If a request was already pending in either direction, treat the invite click as acceptance
-              await sbClient.from('friendships').update({ status: 'accepted' }).eq('id', existing.data.id);
-              if (typeof loadFriends === 'function') loadFriends();
+              if (af.data === 'created') {
+                try {
+                  var invProf = await sbClient.from('profiles').select('email').eq('id', fromId).maybeSingle();
+                  var myName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
+                  if (invProf.data && invProf.data.email && typeof sendAppPush === 'function') {
+                    sendAppPush(invProf.data.email, 'Tenner', myName + ' joined from your invite — you\'re now friends', '/#circle');
+                  }
+                } catch(e) { /* best-effort */ }
+              }
+            } else {
+              // 'already_friends' | 'self' | 'inviter_ineligible' | ...
+              trackEvent('auto_friend_noop', { outcome: String(af.data || 'unknown') });
             }
           } catch(e) { console.warn('auto-friend failed', e); }
           try { localStorage.removeItem('tenner_pending_from'); } catch(e) {}

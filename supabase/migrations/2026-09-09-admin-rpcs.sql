@@ -237,3 +237,37 @@ begin
   on conflict (id) do update
     set display_name = excluded.display_name, handle = excluded.handle, is_system = true;
 end $$;
+
+-- ── Fix: auto-friend on invite (added 2026-09-12) ────────────────────
+-- Auto-friend could never work from the client. friendships_insert requires
+-- requester_id = auth.uid(), but the flow runs in the NEW USER's session while
+-- setting requester_id to the INVITER, so RLS rejected every insert — silently,
+-- because supabase-js returns errors in the result object rather than throwing.
+create or replace function public.accept_invite_friendship(p_inviter uuid)
+returns text language plpgsql security definer set search_path = public as $$
+declare v_me uuid := auth.uid(); v_existing record;
+begin
+  if v_me is null      then return 'not_authenticated'; end if;
+  if p_inviter is null then return 'no_inviter';        end if;
+  if p_inviter = v_me  then return 'self';              end if;
+  if not exists (
+    select 1 from profiles where id = p_inviter
+       and coalesce(is_system,false) = false and coalesce(is_banned,false) = false
+  ) then return 'inviter_ineligible'; end if;
+  if coalesce((select is_banned from profiles where id = v_me), false) then return 'caller_banned'; end if;
+
+  select id, status into v_existing from friendships
+   where (requester_id = p_inviter and addressee_id = v_me)
+      or (requester_id = v_me and addressee_id = p_inviter) limit 1;
+
+  if v_existing.id is null then
+    insert into friendships (requester_id, addressee_id, status)
+    values (p_inviter, v_me, 'accepted');
+    return 'created';
+  elsif v_existing.status = 'pending' then
+    update friendships set status = 'accepted' where id = v_existing.id;
+    return 'upgraded';
+  end if;
+  return 'already_friends';
+end $$;
+grant execute on function public.accept_invite_friendship(uuid) to authenticated;
