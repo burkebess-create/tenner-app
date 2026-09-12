@@ -7242,6 +7242,12 @@ async function loadMutualFriendSuggestions() {
   var relatedIds = {};
   relatedIds[userId] = true;
   (myFriends || []).forEach(function(f){ relatedIds[f.friendId] = true; });
+  // Anyone I've said "not now" to. Stored server-side so it follows me across
+  // devices. A failed read just means we suggest them again — never block.
+  var dRes = await sbClient.from('friend_suggestion_dismissals').select('dismissed_id').eq('user_id', userId);
+  if (dRes.error) console.warn('dismissals load failed', dRes.error);
+  _dismissedSuggestions = {};
+  (dRes.data || []).forEach(function(d){ _dismissedSuggestions[d.dismissed_id] = true; relatedIds[d.dismissed_id] = true; });
   host.innerHTML = '<div style="font-size:11px;color:#888780;padding:6px">Loading…</div>';
   wrap.style.display = 'block';
   try {
@@ -7305,8 +7311,47 @@ function renderMutualSuggestions(candidates, profileById, friendNameById) {
       +   '<div style="font-size:10.5px;color:#5F5E5A;margin-top:3px">' + escapeHtml(mutualText) + '</div>'
       + '</div>'
       + '<button class="btn-primary" onclick="sendMutualFriendRequest(\'' + c.id + '\', this)" style="width:auto;padding:6px 12px;margin-bottom:0;font-size:11px;white-space:nowrap">Add</button>'
+      + '<button onclick="dismissSuggestion(\'' + c.id + '\', this)" aria-label="Not interested in ' + escapeHtml(name) + '" title="Don\'t suggest again" style="background:none;border:none;color:#A8A6A0;font-size:17px;line-height:1;padding:6px 4px;margin-left:2px;cursor:pointer;flex-shrink:0">×</button>'
       + '</div>';
   }).join('');
+}
+
+var _dismissedSuggestions = {};
+
+// "Don't suggest again". Hides the card immediately and writes after a grace
+// period, so Undo costs nothing. Private to the user — the other person is
+// never notified and nothing about their account changes.
+function dismissSuggestion(otherId, btn) {
+  if (!sbClient || !userId || !otherId) return;
+  var card = btn && btn.closest ? btn.closest('.card') : null;
+  if (card) card.style.display = 'none';
+  var host = document.getElementById('mutuals-list');
+  var wrap = document.getElementById('mutuals-wrap');
+  // If that was the last visible suggestion, collapse the whole section.
+  function anyLeft() {
+    if (!host) return false;
+    return Array.prototype.slice.call(host.querySelectorAll('.card')).some(function(c){ return c.style.display !== 'none'; });
+  }
+  if (!anyLeft() && wrap) wrap.style.display = 'none';
+
+  showUndoToast('We won\'t suggest them again', 'Undo', 5000, function commit() {
+    _dismissedSuggestions[otherId] = true;
+    sbClient.from('friend_suggestion_dismissals')
+      .upsert({ user_id: userId, dismissed_id: otherId }, { onConflict: 'user_id,dismissed_id' })
+      .then(function(r) {
+        if (r.error) {
+          // Nothing was saved — put the card back rather than pretend it stuck.
+          console.warn('dismiss failed', r.error);
+          delete _dismissedSuggestions[otherId];
+          if (card) card.style.display = '';
+          if (wrap) wrap.style.display = 'block';
+          showToast('Could not save that — they may show up again.');
+        }
+      });
+  }, function undo() {
+    if (card) card.style.display = '';
+    if (wrap) wrap.style.display = 'block';
+  });
 }
 
 async function sendMutualFriendRequest(addresseeId, btn) {
