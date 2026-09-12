@@ -1936,6 +1936,13 @@ function go(id) {
   // Sync desktop-sidebar active state to the same mapping as bnav (plus explicit
   // s-profile and s-notifications states since sidebar has entries for those).
   syncDesktopSidebar(id);
+  // Leaving a friend's list always drops select mode. Without this, backing
+  // out mid-selection leaves _pickMode true and the NEXT friend's list opens
+  // already in select mode with stale ticks.
+  if (id !== 's-friend-list' && typeof _pickMode !== 'undefined' && _pickMode) {
+    _pickMode = false;
+    _pickSelected = [];
+  }
   if (id === 's-home') {
     renderHome(); renderTopbarAvatars(); refreshNotifications().then(function(){ renderLists(); }); if (userId) showOnboardingIfNeeded();
     attachPullToRefresh(document.querySelector('#s-home .content'), function() { return loadState().then(renderHome); });
@@ -14118,10 +14125,19 @@ async function saveList() {
   if (dest === 's-list-detail') {
     showListDetail(listObj);
   } else if (dest === 's-friend-list') {
-    // Refresh the CTA on the friend list view (they now have the list)
-    var ctaEl = document.getElementById('friend-list-cta');
-    if (ctaEl) ctaEl.innerHTML = '';
-    go('s-friend-list');
+    // go() only toggles screen visibility — there's no re-render hook for this
+    // screen, so without repainting we'd return to whatever was last drawn
+    // (e.g. select mode, still ticked). Rebuild from the cached list so the
+    // rows, the "on your list" state and the CTA all reflect the new save.
+    _pickMode = false;
+    _pickSelected = [];
+    if (_pickCtx && _pickCtx.listData) {
+      openFriendList(_pickCtx.listData, friendListOrigin);
+    } else {
+      var ctaEl = document.getElementById('friend-list-cta');
+      if (ctaEl) ctaEl.innerHTML = '';
+      go('s-friend-list');
+    }
   } else {
     go(dest);
   }
