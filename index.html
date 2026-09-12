@@ -1107,7 +1107,9 @@
           </div>
           <div id="friend-list-reactions" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>
           <div id="friend-list-changes" style="display:none;margin-bottom:12px"></div>
+          <div id="friend-list-pick-bar" style="display:none;margin-bottom:10px"></div>
           <div id="friend-list-items"></div>
+          <div id="friend-list-pick-footer" style="display:none;position:sticky;bottom:0;padding:10px 0 4px;background:linear-gradient(to top, #FDFCF8 70%, rgba(253,252,248,0))"></div>
           <button id="friend-list-comment-btn" style="display:none;width:100%;margin-top:10px;background:#FFFFFF;border:1.5px solid #D85A30;border-radius:3px;padding:12px 14px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;cursor:pointer;align-items:center;justify-content:center;gap:8px">💬 Comment on this list</button>
           <div id="friend-list-cta" style="margin-top:16px"></div>
         </div>
@@ -1945,7 +1947,7 @@ function go(id) {
   if (id === 's-circle') maybeShowTabTip('circle');
   if (id === 's-match') maybeShowTabTip('match');
   if (id === 's-create1') { maybeShowTabTip('create'); editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
-  if (id === 's-create2') { renderItems(); updateProg(); renderItemChips(); }
+  if (id === 's-create2') { maybeRestoreOverflowDraft(); renderItems(); updateProg(); renderItemChips(); }
   if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); addedNonFriends = {}; clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
   if (id === 's-cg3') renderListPicker();
@@ -2414,7 +2416,11 @@ function showUndoToast(msg, undoLabel, durationMs, onCommit, onUndo) {
   };
 }
 
-function showConfirm(title, message, okLabel, style, onOk) {
+// onCancel is optional. It fires when the user dismisses via the Cancel
+// button — needed by callers that await a decision and would otherwise hang.
+var _confirmOnCancel = null;
+function showConfirm(title, message, okLabel, style, onOk, onCancel) {
+  _confirmOnCancel = typeof onCancel === 'function' ? onCancel : null;
   document.getElementById('confirm-title').textContent = title;
   document.getElementById('confirm-message').textContent = message;
   var okBtn = document.getElementById('confirm-ok');
@@ -2427,12 +2433,16 @@ function showConfirm(title, message, okLabel, style, onOk) {
   } else {
     okBtn.style.cssText = 'width:100%;padding:14px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px;color:#fff;background:#D85A30;border:none;';
   }
-  okBtn.onclick = function() { closeConfirm(); onOk(); };
+  okBtn.onclick = function() { _confirmOnCancel = null; closeConfirm(); onOk(); };
   document.getElementById('confirm-modal').style.display = 'flex';
 }
 
 function closeConfirm() {
   document.getElementById('confirm-modal').style.display = 'none';
+  // Fire (once) for callers awaiting a decision.
+  var cb = _confirmOnCancel;
+  _confirmOnCancel = null;
+  if (cb) cb();
 }
 
 function checkListComplete() {
@@ -2905,8 +2915,31 @@ function renderItems() {
         + '<button onclick="moveItem(' + i + ',1)"' + (i === items.length - 1 ? ' disabled' : '') + ' style="background:none;border:none;font-size:18px;line-height:1;padding:6px 5px;flex-shrink:0;cursor:pointer;color:' + (i === items.length - 1 ? '#DAD8D0' : '#888780') + '">▼</button>'
       : '';
     var dragHandle = IS_TOUCH ? '' : '<span style="font-size:14px;color:#C8C6BE;cursor:grab;padding:0 4px;flex-shrink:0">⠿</span>';
+    // Anything past the top 10 is in the overflow tray — visually demoted and
+    // labelled, because it will NOT be saved.
+    var isOverflow = i >= MAX_SAVED_ITEMS;
+    if (isOverflow) {
+      div.style.background = '#FDF6E8';
+      div.style.borderColor = '#E8C97A';
+      div.style.opacity = '0.92';
+    }
+    // Transient "from Kara" credit on picks borrowed this session.
+    var fromWho = _itemProvenance[item];
+    var fromTag = fromWho
+      ? '<span style="font-size:8.5px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#B57F0F;background:#FBF0D8;padding:2px 6px;border-radius:3px;flex-shrink:0;margin-left:4px">from ' + escapeHtml(String(fromWho).split(' ')[0]) + '</span>'
+      : '';
+    // Cutoff divider sits immediately before the first overflow row.
+    if (i === MAX_SAVED_ITEMS) {
+      var cut = document.createElement('div');
+      cut.style.cssText = 'display:flex;align-items:center;gap:10px;margin:12px 2px 8px';
+      cut.innerHTML = '<div style="flex:1;height:2px;background:#E8C97A"></div>'
+        + '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#B57F0F;white-space:nowrap">Top 10 cutoff — below won\'t save</div>'
+        + '<div style="flex:1;height:2px;background:#E8C97A"></div>';
+      list.appendChild(cut);
+    }
     div.innerHTML = badge
       + '<input type="text" value="' + item.replace(/"/g,'&quot;') + '" id="item-edit-inp-' + i + '" oninput="onItemEditType(this.value,' + i + ')" onkeydown="onItemEditKey(event,' + i + ')" onblur="onItemEditBlur(' + i + ',this)" style="flex:1;font-size:13.5px;color:#2C2C2A;border:none;background:transparent;outline:none;padding:0;min-width:0">'
+      + fromTag
       + moveBtns
       + dragHandle
       + '<button onmousedown="removeItem(' + i + ')" style="background:none;border:none;color:#888780;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0">×</button>'
@@ -2915,6 +2948,47 @@ function renderItems() {
     attachLiveDrag(div);
     list.appendChild(div);
   });
+  renderOverflowWarning();
+  // Keep the draft in sync so an accidental navigation doesn't lose picks
+  // sitting below the cutoff.
+  saveOverflowDraft(selCat, items, _itemProvenance);
+}
+
+// If a previous session left picks below the cutoff for this category and
+// they were never resolved, bring them back rather than losing them silently.
+function maybeRestoreOverflowDraft() {
+  try {
+    var d = loadOverflowDraft(selCat);
+    if (!d || !Array.isArray(d.items)) return;
+    if (d.items.length <= items.length) return; // nothing extra to restore
+    items = d.items.slice();
+    _itemProvenance = d.provenance || {};
+    var over = items.length - MAX_SAVED_ITEMS;
+    if (over > 0) {
+      showToast('Restored ' + over + ' unsaved pick' + (over === 1 ? '' : 's') + ' below your top 10.');
+    }
+  } catch (e) { /* draft is best-effort */ }
+}
+
+// Banner above the editor whenever the working list exceeds what can be saved.
+function renderOverflowWarning() {
+  var host = document.getElementById('overflow-warning');
+  if (!host) {
+    var list = document.getElementById('items-list');
+    if (!list || !list.parentNode) return;
+    host = document.createElement('div');
+    host.id = 'overflow-warning';
+    list.parentNode.insertBefore(host, list);
+  }
+  var over = items.length - MAX_SAVED_ITEMS;
+  if (over <= 0) { host.style.display = 'none'; host.innerHTML = ''; return; }
+  host.style.display = 'block';
+  host.innerHTML = '<div style="background:#FDF6E8;border:1px solid #E8C97A;border-left:6px solid #B57F0F;border-radius:3px;padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;align-items:flex-start">'
+    + '<div style="font-size:18px;line-height:1;flex-shrink:0">⚠️</div>'
+    + '<div style="flex:1;min-width:0">'
+    +   '<div style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#B57F0F;margin-bottom:3px">' + over + ' item' + (over === 1 ? '' : 's') + ' past your top 10</div>'
+    +   '<div style="font-size:12.5px;color:#5F5E5A;line-height:1.45">Only the first ' + MAX_SAVED_ITEMS + ' will be saved. Drag the ones you want to keep above the cutoff line, then delete the rest.</div>'
+    + '</div></div>';
 }
 
 // Live-drag physics: the dragged row lifts off and follows the pointer;
@@ -8433,6 +8507,136 @@ async function renderFriendListChanges(ownerId, category) {
   } catch(e) { /* table may not exist yet — silent */ }
 }
 
+// ── "Add to my list" — borrow picks from a friend's list ─────────────
+// Select mode on a friend's list lets you tick items and copy them into your
+// own list for that category. Anything past the top 10 lands in an overflow
+// tray in the editor that you can reorder out of before saving.
+var MAX_SAVED_ITEMS = 10;
+var _pickMode = false;
+var _pickSelected = [];      // item names ticked in the current session
+var _pickCtx = null;         // { cat, emoji, ranked, friendName }
+// itemName -> friendName, for the transient "from Kara" badge in the editor.
+// Cleared on save; never persisted to the DB.
+var _itemProvenance = {};
+
+function _overflowDraftKey(cat) { return 'tenner_overflow_' + String(cat || '').toLowerCase(); }
+function saveOverflowDraft(cat, itemsArr, provenance) {
+  try {
+    if (!cat) return;
+    if (!itemsArr || itemsArr.length <= MAX_SAVED_ITEMS) { clearOverflowDraft(cat); return; }
+    localStorage.setItem(_overflowDraftKey(cat), JSON.stringify({
+      items: itemsArr, provenance: provenance || {}, ts: Date.now()
+    }));
+  } catch (e) { /* storage full / private mode — draft is best-effort */ }
+}
+function loadOverflowDraft(cat) {
+  try {
+    var raw = localStorage.getItem(_overflowDraftKey(cat));
+    if (!raw) return null;
+    var d = JSON.parse(raw);
+    if (!d || !Array.isArray(d.items)) return null;
+    // Drop stale drafts after 30 days so they can't surprise someone months later.
+    if (d.ts && Date.now() - d.ts > 30 * 24 * 3600 * 1000) { clearOverflowDraft(cat); return null; }
+    return d;
+  } catch (e) { return null; }
+}
+function clearOverflowDraft(cat) {
+  try { localStorage.removeItem(_overflowDraftKey(cat)); } catch (e) {}
+}
+
+// Items already on my list for this category (lowercased) — used to grey out
+// picks you've already got.
+function _myItemsForCat(cat) {
+  var mine = MY_LISTS.find(function(l) { return (l.category || l.n.replace('Top 10 ', '')) === cat; });
+  return (mine && Array.isArray(mine.items) ? mine.items : []).map(function(x) { return String(x).toLowerCase(); });
+}
+
+function enterPickMode() {
+  _pickMode = true;
+  _pickSelected = [];
+  if (_pickCtx) openFriendList(_pickCtx.listData, friendListOrigin);
+  trackEvent('borrow_picks_opened', { category: _pickCtx && _pickCtx.cat });
+}
+function exitPickMode() {
+  _pickMode = false;
+  _pickSelected = [];
+  if (_pickCtx) openFriendList(_pickCtx.listData, friendListOrigin);
+}
+function togglePickItem(name) {
+  var i = _pickSelected.indexOf(name);
+  if (i >= 0) _pickSelected.splice(i, 1); else _pickSelected.push(name);
+  renderPickFooter();
+  // Re-render just the ticked state without rebuilding the whole screen
+  document.querySelectorAll('#friend-list-items [data-pick-name]').forEach(function(row) {
+    var on = _pickSelected.indexOf(row.getAttribute('data-pick-name')) >= 0;
+    var box = row.querySelector('.pick-box');
+    if (box) {
+      box.style.background = on ? '#D85A30' : '#FFFFFF';
+      box.style.borderColor = on ? '#D85A30' : '#D3D1C7';
+      box.textContent = on ? '✓' : '';
+    }
+  });
+}
+function renderPickFooter() {
+  var el = document.getElementById('friend-list-pick-footer');
+  if (!el) return;
+  if (!_pickMode) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  var n = _pickSelected.length;
+  el.style.display = 'block';
+  el.innerHTML = ''
+    + '<div style="display:flex;gap:8px">'
+    +   '<button onclick="exitPickMode()" style="flex:0 0 auto;background:transparent;color:#5F5E5A;border:1.5px solid #D3D1C7;border-radius:3px;padding:12px 16px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer">Cancel</button>'
+    +   '<button ' + (n === 0 ? 'disabled' : '') + ' onclick="commitPickedItems()" style="flex:1;background:' + (n ? '#D85A30' : '#EAE3DC') + ';color:' + (n ? '#FFF' : '#A8A69E') + ';border:none;border-radius:3px;padding:12px 16px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;cursor:' + (n ? 'pointer' : 'default') + '">'
+    +     (n === 0 ? 'Select items to add' : 'Add ' + n + ' item' + (n === 1 ? '' : 's') + ' →')
+    +   '</button>'
+    + '</div>';
+}
+
+// Copy the ticked items into my list for this category and open the editor.
+function commitPickedItems() {
+  if (!_pickCtx || !_pickSelected.length) return;
+  var cat   = _pickCtx.cat;
+  var emoji = _pickCtx.emoji;
+  var friendName = _pickCtx.friendName;
+  var picked = _pickSelected.slice();
+
+  var idx = MY_LISTS.findIndex(function(l) { return (l.category || l.n.replace('Top 10 ', '')) === cat; });
+  var base = idx >= 0 ? (MY_LISTS[idx].items || []).slice() : [];
+  var baseLower = base.map(function(x) { return String(x).toLowerCase(); });
+
+  // Defensive dedupe — the picker greys these out, but guard anyway.
+  var added = picked.filter(function(p) { return baseLower.indexOf(String(p).toLowerCase()) < 0; });
+
+  editingListIdx = idx;
+  selCat = cat;
+  selCatEmoji = emoji || getCatEmoji(cat);
+  isRanked = idx >= 0 ? (MY_LISTS[idx].ranked !== false) : (_pickCtx.ranked !== false);
+  items = base.concat(added);
+
+  added.forEach(function(name) { _itemProvenance[name] = friendName; });
+  saveOverflowDraft(cat, items, _itemProvenance);
+
+  _pickMode = false;
+  _pickSelected = [];
+  listOrigin = 's-friend-list';
+
+  trackEvent('borrow_picks_added', {
+    category: cat, count: added.length,
+    overflow: Math.max(0, items.length - MAX_SAVED_ITEMS),
+    new_list: idx < 0
+  });
+
+  renderCatGrid();
+  renderItems();
+  updateProg();
+  go('s-create2');
+
+  var over = items.length - MAX_SAVED_ITEMS;
+  showToast(over > 0
+    ? 'Added ' + added.length + ' — ' + over + ' past your top 10. Reorder before saving.'
+    : 'Added ' + added.length + ' to your Top 10 ' + cat + '.');
+}
+
 function openFriendList(listData, origin) {
   friendListOrigin = origin || (document.getElementById('s-circle').classList.contains('active') ? 's-circle' : 's-fdetail');
   // Prefer the friend id embedded in listData (which is always correct) over selFriendId
@@ -8472,6 +8676,34 @@ function openFriendList(listData, origin) {
   var iHaveIt = MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
   var isBlindLocked = !!listData.blind_fill && !iHaveIt;
 
+  // Remember enough context to drive select mode and the copy-over.
+  _pickCtx = { cat: cat, emoji: emoji, ranked: listData.is_ranked !== false, friendName: friendName, listData: listData };
+
+  // "Add to my list" entry point — hidden while blind-locked or on an empty list.
+  var pickBar = document.getElementById('friend-list-pick-bar');
+  if (pickBar) {
+    if (isBlindLocked || items.length === 0) {
+      pickBar.style.display = 'none';
+      pickBar.innerHTML = '';
+      _pickMode = false;
+    } else if (_pickMode) {
+      var remaining = items.filter(function(it) {
+        return _myItemsForCat(cat).indexOf(String(it).toLowerCase()) < 0;
+      }).length;
+      pickBar.style.display = 'block';
+      pickBar.innerHTML = '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:5px solid #D85A30;border-radius:3px;padding:10px 12px;font-size:12px;color:#5F5E5A;line-height:1.4">'
+        + '<strong style="color:#2C2C2A">Pick what you want.</strong> '
+        + (remaining === 0
+            ? 'You already have every pick on this list.'
+            : 'Tap any item to add it to your Top 10 ' + escapeHtml(cat) + '.')
+        + '</div>';
+    } else {
+      pickBar.style.display = 'block';
+      pickBar.innerHTML = '<button onclick="enterPickMode()" style="width:100%;background:transparent;border:1.5px solid #D85A30;border-radius:3px;padding:11px 14px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;cursor:pointer">＋ Add to my list</button>';
+    }
+  }
+  renderPickFooter();
+
   var el = document.getElementById('friend-list-items');
   if (isBlindLocked) {
     el.innerHTML = '<div style="text-align:center;padding:28px 16px">'
@@ -8485,15 +8717,35 @@ function openFriendList(listData, origin) {
   } else {
     var _ownerId = listData.user_id || selFriendId;
     var _cat = cat;
-    el.innerHTML = items.map(function(item, i) {
-      var itemEsc = item.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-      return '<div class="rank-item" data-item-name="' + escapeHtml(item) + '" style="margin-bottom:6px;cursor:pointer" onclick="openItemComments(\'' + escapeHtml(_ownerId || '') + '\',\'' + escapeHtml(_cat) + '\',\'' + itemEsc + '\')">'
-        + (listData.is_ranked !== false ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>')
-        + '<span style="flex:1;font-size:13.5px;color:#2C2C2A;min-width:0;overflow-wrap:break-word">' + escapeHtml(item) + '</span>'
-        + '<span class="item-reactions-inline" style="display:flex;gap:3px;margin-left:6px;flex-shrink:0"></span>'
-        + '<span style="font-size:14px;color:#888780;margin-left:6px">💬</span>'
-        + '</div>';
-    }).join('');
+    var _mineLower = _myItemsForCat(cat);
+    if (_pickMode) {
+      // Select mode: rows become checkboxes. Items already on my list are
+      // shown as such and can't be ticked.
+      el.innerHTML = items.map(function(item, i) {
+        var already = _mineLower.indexOf(String(item).toLowerCase()) >= 0;
+        var on = _pickSelected.indexOf(item) >= 0;
+        var itemEsc = item.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+        return '<div class="rank-item" data-pick-name="' + escapeHtml(item) + '" style="margin-bottom:6px;'
+          + (already ? 'opacity:0.5;cursor:default' : 'cursor:pointer') + '"'
+          + (already ? '' : ' onclick="togglePickItem(\'' + itemEsc + '\')"') + '>'
+          + (already
+              ? '<div class="pick-box" style="width:20px;height:20px;border-radius:3px;border:1.5px solid #D3D1C7;background:#F1EFE8;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:#888780">✓</div>'
+              : '<div class="pick-box" style="width:20px;height:20px;border-radius:3px;border:1.5px solid ' + (on ? '#D85A30' : '#D3D1C7') + ';background:' + (on ? '#D85A30' : '#FFFFFF') + ';color:#FFF;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:800">' + (on ? '✓' : '') + '</div>')
+          + '<span style="flex:1;font-size:13.5px;color:#2C2C2A;min-width:0;overflow-wrap:break-word;margin-left:10px">' + escapeHtml(item) + '</span>'
+          + (already ? '<span style="font-size:9px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#888780;flex-shrink:0">On your list</span>' : '')
+          + '</div>';
+      }).join('');
+    } else {
+      el.innerHTML = items.map(function(item, i) {
+        var itemEsc = item.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+        return '<div class="rank-item" data-item-name="' + escapeHtml(item) + '" style="margin-bottom:6px;cursor:pointer" onclick="openItemComments(\'' + escapeHtml(_ownerId || '') + '\',\'' + escapeHtml(_cat) + '\',\'' + itemEsc + '\')">'
+          + (listData.is_ranked !== false ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>')
+          + '<span style="flex:1;font-size:13.5px;color:#2C2C2A;min-width:0;overflow-wrap:break-word">' + escapeHtml(item) + '</span>'
+          + '<span class="item-reactions-inline" style="display:flex;gap:3px;margin-left:6px;flex-shrink:0"></span>'
+          + '<span style="font-size:14px;color:#888780;margin-left:6px">💬</span>'
+          + '</div>';
+      }).join('');
+    }
     var reactionsEl = document.getElementById('friend-list-reactions');
     if (reactionsEl && _ownerId) loadAndRenderReactions(_ownerId, _cat, reactionsEl);
     // Decorate friend's items with per-item reaction badges. Targets the friend-list
@@ -8502,7 +8754,7 @@ function openFriendList(listData, origin) {
     // Wire up the whole-list comment button
     var lcBtn = document.getElementById('friend-list-comment-btn');
     if (lcBtn && _ownerId) {
-      lcBtn.style.display = 'flex';
+      lcBtn.style.display = _pickMode ? 'none' : 'flex';
       lcBtn.onclick = function() { openItemComments(_ownerId, _cat, '__list__'); };
     }
   }
@@ -8521,6 +8773,7 @@ function openFriendList(listData, origin) {
         + 'listOrigin=\'s-friend-list\';renderCatGrid();renderItems();updateProg();go(\'s-create2\');'
         + '})()">Edit your list</button>';
       ctaEl.innerHTML += '<button class="btn-primary" style="margin-top:6px;margin-bottom:0" onclick="openMatchWithFriend(\'' + selFriendId + '\',\'s-friend-list\',\'' + cat.replace(/'/g,"\\'") + '\')">📊 Compare with ' + escapeHtml(friendName.split(' ')[0]) + ' →</button>';
+      if (_pickMode) ctaEl.innerHTML = '';
     } else {
       ctaEl.innerHTML = '<button class="btn-primary" onclick="'
         + 'selCat=\'' + cat.replace(/'/g,"\\'") + '\';'
@@ -8529,6 +8782,7 @@ function openFriendList(listData, origin) {
         + 'listOrigin=\'s-friend-list\';renderCatGrid();renderItems();updateProg();go(\'s-create2\')'
         + '">Fill out your own ' + escapeHtml(listData.name || ('Top 10 ' + cat)) + '</button>';
     }
+    if (_pickMode) ctaEl.innerHTML = '';
   }
 
   go('s-friend-list');
@@ -13739,6 +13993,28 @@ async function saveList() {
   if (pending && pending.value && pending.value.trim()) {
     doAddItem();
   }
+  // Overflow gate: only the top 10 can be saved. Confirm before discarding,
+  // and name what's being dropped so it isn't a surprise.
+  var liveItems = items.filter(function(i){ return String(i).trim(); });
+  if (liveItems.length > MAX_SAVED_ITEMS) {
+    var dropped = liveItems.slice(MAX_SAVED_ITEMS);
+    var preview = dropped.slice(0, 3).map(function(x){ return '“' + x + '”'; }).join(', ')
+      + (dropped.length > 3 ? ' and ' + (dropped.length - 3) + ' more' : '');
+    var proceed = await new Promise(function(resolve) {
+      showConfirm(
+        'Save only your top ' + MAX_SAVED_ITEMS + '?',
+        dropped.length + ' item' + (dropped.length === 1 ? '' : 's') + ' below the cutoff will be discarded: ' + preview + '.',
+        'Save top ' + MAX_SAVED_ITEMS,
+        'primary',
+        function() { resolve(true); },
+        function() { resolve(false); }
+      );
+    });
+    if (!proceed) return;
+    items = liveItems.slice(0, MAX_SAVED_ITEMS);
+    trackEvent('overflow_discarded_on_save', { category: selCat, dropped: dropped.length });
+    renderItems();
+  }
   var listName = 'Top 10 ' + selCat;
   var itemCount = items.filter(function(i) { return i.trim(); }).length;
   var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
@@ -13761,6 +14037,10 @@ async function saveList() {
     showToast('Saved locally — will retry sync automatically.');
   }
   if (isUpdate) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
+  // The list is committed — drop the overflow draft and the transient
+  // "from <friend>" credits for this category.
+  clearOverflowDraft(selCat);
+  _itemProvenance = {};
   var isFreshComplete = !isUpdate && itemCount === 10;
   var dest = listOrigin;
   listOrigin = 's-home';
