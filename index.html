@@ -3919,16 +3919,7 @@ function showListDetail(l, origin) {
   if (listItems.length === 0) {
     el.innerHTML = '<div style="font-size:12px;color:#888780;text-align:center;padding:20px">No items yet.</div>';
   } else {
-    // Determine which items have new comments since last Alerts view — shows a small
-    // 💬 badge on those items so users notice comment activity without opening Alerts
-    var newCommentItems = {};
     var listCat = l.category || l.n.replace('Top 10 ', '');
-    var sinceMs = _lastAlertsSeenAt ? new Date(_lastAlertsSeenAt).getTime() : 0;
-    (MY_COMMENTS_ON_ME || []).forEach(function(c) {
-      if (c.category !== listCat) return;
-      if (new Date(c.created_at).getTime() <= sinceMs) return;
-      newCommentItems[c.item_name] = (newCommentItems[c.item_name] || 0) + 1;
-    });
     var listCatEsc = String(listCat).replace(/'/g, "\\'");
     listItems.forEach(function(item, i) {
       var itemEsc = String(item).replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -3938,15 +3929,14 @@ function showListDetail(l, origin) {
       row.style.cursor = 'pointer';
       row.setAttribute('data-item-name', item);
       row.setAttribute('onclick', "openItemComments('" + userId + "','" + listCatEsc + "','" + itemEsc + "')");
-      var badge = newCommentItems[item]
-        ? '<span style="display:inline-flex;align-items:center;gap:3px;background:#D85A30;color:#FFFFFF;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:8px;flex-shrink:0" title="' + newCommentItems[item] + ' new comment' + (newCommentItems[item] !== 1 ? 's' : '') + '">💬 ' + newCommentItems[item] + '</span>'
-        : '<span style="font-size:14px;color:#B8B5A8;margin-left:8px;flex-shrink:0" title="Comments">💬</span>';
       row.innerHTML = (l.ranked ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>') + '<span style="flex:1;font-size:13.5px;color:#2C2C2A;min-width:0;overflow-wrap:break-word">' + escapeHtml(item) + '</span>'
-        + '<span class="item-reactions-inline" style="display:flex;gap:3px;margin-left:6px;flex-shrink:0"></span>' + badge;
+        + '<span class="item-reactions-inline" style="display:flex;gap:3px;margin-left:6px;flex-shrink:0"></span>'
+        + '<span class="item-comment-badge" style="margin-left:8px;flex-shrink:0">' + commentBadgeHtml(null) + '</span>';
       el.appendChild(row);
     });
     // Fetch item reactions once and decorate each row asynchronously
     decorateItemsWithReactions(userId, listCat);
+    decorateItemsWithCommentCounts(userId, listCat, '#list-detail-items', 'list-detail-comment-btn');
   }
   // Reactions on own list
   var reactionsEl = document.getElementById('list-detail-reactions');
@@ -15291,9 +15281,13 @@ async function loadItemReactions(listOwnerId, category, itemName, containerEl) {
 function closeItemComments() {
   var modal = document.getElementById('item-comments-modal');
   if (modal) modal.style.display = 'none';
-  var screen = document.getElementById('s-friend-list');
-  if (screen && screen.classList.contains('active') && activeCommentListOwner && activeCommentCategory) {
+  if (!activeCommentListOwner || !activeCommentCategory) return;
+  var fl = document.getElementById('s-friend-list');
+  var ld = document.getElementById('s-list-detail');
+  if (fl && fl.classList.contains('active')) {
     decorateItemsWithCommentCounts(activeCommentListOwner, activeCommentCategory, '#friend-list-items');
+  } else if (ld && ld.classList.contains('active')) {
+    decorateItemsWithCommentCounts(activeCommentListOwner, activeCommentCategory, '#list-detail-items', 'list-detail-comment-btn');
   }
 }
 
@@ -15383,7 +15377,8 @@ async function fetchCommentCountMap(listOwnerId, category) {
   return map;
 }
 
-async function decorateItemsWithCommentCounts(listOwnerId, category, scopeSel) {
+// Used by both a friend's list and your own — same badges, same unread rule.
+async function decorateItemsWithCommentCounts(listOwnerId, category, scopeSel, btnId) {
   var scope = scopeSel || '#friend-list-items';
   var map = await fetchCommentCountMap(listOwnerId, category);
   document.querySelectorAll(scope + ' .rank-item').forEach(function(row) {
@@ -15393,11 +15388,11 @@ async function decorateItemsWithCommentCounts(listOwnerId, category, scopeSel) {
     host.innerHTML = commentBadgeHtml(map[name]);
   });
   // The whole-list thread uses the '__list__' sentinel item name.
-  renderFriendListCommentBtn(map['__list__']);
+  renderListCommentBtn(map['__list__'], btnId || 'friend-list-comment-btn');
 }
 
-function renderFriendListCommentBtn(info) {
-  var btn = document.getElementById('friend-list-comment-btn');
+function renderListCommentBtn(info, btnId) {
+  var btn = document.getElementById(btnId || 'friend-list-comment-btn');
   if (!btn) return;
   if (!info || !info.total) { btn.innerHTML = '💬 Comment on this list'; return; }
   var bits = info.total + ' comment' + (info.total === 1 ? '' : 's') + ' on this list';
