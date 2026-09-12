@@ -7111,7 +7111,24 @@ async function loadMutualFriendSuggestions() {
   if (!wrap || !host) return;
   if (!sbClient || !userId) { wrap.style.display = 'none'; return; }
   var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted'; });
-  if (accepted.length === 0) { wrap.style.display = 'none'; return; }
+  if (accepted.length === 0) {
+    // Suggestions are friends-of-friends, so they need at least one ACCEPTED
+    // connection to traverse. We deliberately don't seed from pending requests:
+    // showing you someone's friends before they've accepted you would expose
+    // their social graph to a stranger. Explain the state instead of hiding.
+    var outbound = (myFriends || []).filter(function(f){ return f.status === 'pending' && f.isRequester; }).length;
+    wrap.style.display = 'block';
+    host.innerHTML = '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:5px solid #D85A30;border-radius:3px;padding:14px 16px">'
+      + '<div style="font-size:13px;font-weight:800;color:#2C2C2A;margin-bottom:4px">'
+      +   (outbound > 0 ? 'Waiting on your first connection' : 'Add a friend to see suggestions')
+      + '</div>'
+      + '<div style="font-size:12.5px;color:#5F5E5A;line-height:1.45">'
+      +   (outbound > 0
+          ? 'You\'ve sent ' + outbound + ' request' + (outbound === 1 ? '' : 's') + '. Once someone accepts, we\'ll suggest people you both know.'
+          : 'Search for someone above, or share your invite link. Once you have a friend, we\'ll suggest people you both know.')
+      + '</div></div>';
+    return;
+  }
   var friendIds = accepted.map(function(f){ return f.friendId; });
   // Everyone I have any relationship with (accepted OR pending, either direction) — to exclude.
   var relatedIds = {};
@@ -8330,6 +8347,29 @@ function scrollToAnchor(id) {
   if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// Outbound friend requests you've sent but they haven't accepted yet.
+// Rendered as real rows (muted, dashed, PENDING badge) rather than a bare
+// count, so it's obvious who you're waiting on.
+function renderSentPendingRows(sent) {
+  if (!sent || !sent.length) return '';
+  return sent.map(function(f) {
+    var p = f.profile || {};
+    var name = p.display_name || p.handle || 'Unknown';
+    var handle = p.handle ? '@' + p.handle.toUpperCase() : '';
+    return '<div onclick="openFriendDetail(\'' + f.friendId + '\')" style="background:#FAF8F5;border:1px dashed #D3D1C7;border-left:7px solid #C8C6BE;border-radius:3px;padding:12px 14px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:12px;opacity:0.85">'
+      + '<div style="filter:grayscale(1);opacity:0.75;flex-shrink:0">' + friendAvatarHtml(p, 38) + '</div>'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="display:flex;align-items:center;gap:8px">'
+      +     '<div style="font-size:15px;font-weight:800;line-height:1.1;color:#5F5E5A;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">' + escapeHtml(name) + '</div>'
+      +     '<div style="flex-shrink:0;background:#EAE3DC;color:#5F5E5A;font-size:9px;font-weight:800;padding:4px 8px;border-radius:2px;letter-spacing:0.12em;white-space:nowrap">PENDING</div>'
+      +   '</div>'
+      +   '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.11em;color:#888780;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+      +     (handle ? handle + '  ·  ' : '') + 'WAITING TO ACCEPT'
+      +   '</div>'
+      + '</div></div>';
+  }).join('');
+}
+
 function renderCircleFriends() {
   var pending = myFriends.filter(function(f) { return f.status === 'pending' && !f.isRequester; });
   var accepted = myFriends.filter(function(f) { return f.status === 'accepted'; });
@@ -8444,8 +8484,9 @@ function renderCircleFriends() {
       html += '<div id="circle-friends-extra" style="display:none">' + friendRows.slice(FRIENDS_PREVIEW).join('') + '</div>'
         + '<button onclick="toggleCircleSection(\'friends\')" id="circle-friends-toggle" style="width:100%;padding:9px;background:#FFFFFF;border:1.5px solid #D85A30;border-radius:3px;font-size:10.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;cursor:pointer;margin-bottom:4px">▼ Show all ' + accepted.length + ' friends</button>';
     }
+    html += renderSentPendingRows(sent);
   } else if (sent.length > 0) {
-    html = '<div style="font-size:11px;color:#888780;padding:8px 0">' + sent.length + ' request' + (sent.length>1?'s':'') + ' sent — waiting for them to accept.</div>';
+    html = renderSentPendingRows(sent);
   } else {
     html = '<div style="font-size:11px;color:#888780;padding:8px 0">Search by @handle or phone number, or invite someone by email to add friends.</div>';
   }
