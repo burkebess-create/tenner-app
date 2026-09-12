@@ -12898,7 +12898,13 @@ async function renderAdminItems(el) {
 var _adminItemsCache = [];
 var _adminItemSearch = '';
 var _adminItemSort = 'az';         // 'az' | 'added'
-var ADMIN_ITEM_RENDER_CAP = 200;   // keep the DOM sane — Movies has thousands
+var ADMIN_ITEM_PAGE = 200;         // keep the DOM sane — Movies has thousands
+var _adminItemShown = ADMIN_ITEM_PAGE;
+
+function showMoreAdminItems() {
+  _adminItemShown += ADMIN_ITEM_PAGE;
+  renderAdminItemRows(true);
+}
 
 // PostgREST caps a plain select at 1000 rows, so page through the whole set.
 async function fetchAllCategoryItems(catId) {
@@ -12915,9 +12921,12 @@ async function fetchAllCategoryItems(catId) {
 }
 
 // Rewrites just the rows, so typing in the search box never loses focus.
-function renderAdminItemRows() {
+// keepPage: true when called from "See more" — any other call (a new search,
+// a sort change) starts back at the first page.
+function renderAdminItemRows(keepPage) {
   var host = document.getElementById('admin-item-rows');
   if (!host) return;
+  if (!keepPage) _adminItemShown = ADMIN_ITEM_PAGE;
   var all = _adminItemsCache || [];
 
   // Flag repeated text so duplicates are visible however the list is sorted.
@@ -12937,11 +12946,12 @@ function renderAdminItemRows() {
     });
   }
 
-  var shown = list.slice(0, ADMIN_ITEM_RENDER_CAP);
+  var shown = list.slice(0, _adminItemShown);
   var status = q
     ? (list.length ? list.length + ' match' + (list.length === 1 ? '' : 'es') + ' of ' + all.length : 'No match for “' + escapeHtml(_adminItemSearch) + '” in ' + all.length + ' items')
     : all.length + ' item' + (all.length === 1 ? '' : 's');
-  if (shown.length < list.length) status += ' · showing first ' + shown.length + ', search to narrow';
+  var remaining = list.length - shown.length;
+  if (remaining > 0) status += ' · showing ' + shown.length;
 
   var rows = shown.map(function(it) {
     var dupe = seen[String(it.item_text || '').trim().toLowerCase()] > 1
@@ -12954,17 +12964,46 @@ function renderAdminItemRows() {
       + '</div>';
   }).join('');
 
+  var moreBtn = remaining > 0
+    ? '<button class="btn-secondary" onclick="showMoreAdminItems()" style="margin-top:8px">See ' + Math.min(ADMIN_ITEM_PAGE, remaining) + ' more (' + remaining + ' left)</button>'
+    : '';
+
   host.innerHTML = '<div style="font-size:10.5px;color:#888780;margin-bottom:6px">' + status + '</div>'
-    + (rows || (all.length ? '' : '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No items yet.</div>'));
+    + (rows || (all.length ? '' : '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No items yet.</div>'))
+    + moreBtn;
+}
+
+// Postgres unique index on (category_id, lower(btrim(item_text))).
+function isDuplicateItemError(err) {
+  return !!err && (err.code === '23505' || /duplicate key|uq_category_items_cat_text/i.test(err.message || ''));
 }
 
 function addAdminItem() {
-  var v = (document.getElementById('admin-new-item').value || '').trim();
+  var inp = document.getElementById('admin-new-item');
+  var v = (inp.value || '').trim();
   if (!v || !_adminSelectedCatId) return;
+  // Check the already-loaded list first so the warning is instant.
+  var hit = (_adminItemsCache || []).filter(function(it) {
+    return String(it.item_text || '').trim().toLowerCase() === v.toLowerCase();
+  })[0];
+  if (hit) {
+    showToast('“' + hit.item_text + '” is already in this category.');
+    _adminItemSearch = v;
+    var sInp = document.getElementById('admin-item-search');
+    if (sInp) sInp.value = v;
+    renderAdminItemRows();
+    return;
+  }
   sbClient.from('category_items').select('sort_order').eq('category_id', _adminSelectedCatId).order('sort_order', {ascending:false}).limit(1).then(function(r) {
     var next = ((r.data && r.data[0] && r.data[0].sort_order) || 0) + 1;
     sbClient.from('category_items').insert({ category_id: _adminSelectedCatId, item_text: v, sort_order: next }).then(function(r2) {
-      if (r2.error) { showToast('Error: ' + r2.error.message); return; }
+      // The database is the real guard — the cache can be stale if someone
+      // else added the same item since this screen loaded.
+      if (r2.error) {
+        showToast(isDuplicateItemError(r2.error) ? '“' + v + '” is already in this category.' : 'Error: ' + r2.error.message);
+        return;
+      }
+      inp.value = '';
       loadCategoriesFromDb().then(renderAdmin);
     });
   });
@@ -12988,7 +13027,7 @@ function openBulkAddItems() {
     +   '<textarea id="bulk-add-text" placeholder="The Godfather&#10;The Dark Knight&#10;Inception&#10;…" style="width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;height:180px;margin-bottom:8px"></textarea>'
     +   '<div style="font-size:10px;color:#888780;text-align:center;margin:6px 0">— or —</div>'
     +   '<label class="btn-secondary" style="display:block;text-align:center;padding:9px;font-size:12px;cursor:pointer;margin-bottom:12px">Upload CSV / text file<input type="file" accept=".csv,.txt,text/*" onchange="onBulkAddFile(this)" style="display:none"></label>'
-    +   '<label style="display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:12px"><input type="checkbox" id="bulk-add-dedupe" checked> Skip duplicates (case-insensitive)</label>'
+    +   '<div style="font-size:11px;color:#5F5E5A;margin-bottom:12px">Anything already in this category is skipped automatically (case-insensitive).</div>'
     +   '<div style="display:flex;gap:8px">'
     +     '<button class="btn-secondary" onclick="closeBulkAddModal()" style="margin-bottom:0">Cancel</button>'
     +     '<button class="btn-primary"   onclick="submitBulkAddItems()" style="margin-bottom:0">Add all</button>'
@@ -13024,33 +13063,37 @@ async function submitBulkAddItems() {
   if (!_adminSelectedCatId) return;
   var text = (document.getElementById('bulk-add-text').value || '').trim();
   if (!text) { showToast('Nothing to add.'); return; }
-  var dedupe = document.getElementById('bulk-add-dedupe').checked;
   var lines = text.split(/\r?\n/).map(function(x){ return x.trim(); }).filter(Boolean);
   if (!lines.length) { showToast('Nothing to add.'); return; }
-  // Fetch existing items so we can determine next sort_order and dedupe
-  var exRes = await sbClient.from('category_items').select('item_text, sort_order').eq('category_id', _adminSelectedCatId);
+  // Fetch every existing item (paged — a plain select stops at 1000) so the
+  // duplicate check sees the whole category. Duplicates are always skipped:
+  // the database rejects them outright, so inserting them would fail the batch.
+  var exRes = await fetchAllCategoryItems(_adminSelectedCatId);
   if (exRes.error) { showToast('Error: ' + exRes.error.message); return; }
   var existing = exRes.data || [];
-  var existingLower = new Set(existing.map(function(r){ return (r.item_text||'').toLowerCase(); }));
+  var existingLower = new Set(existing.map(function(r){ return (r.item_text||'').trim().toLowerCase(); }));
   var maxOrder = existing.reduce(function(m, r){ return Math.max(m, r.sort_order || 0); }, 0);
   var toInsert = [];
   var skipped = 0;
   lines.forEach(function(line) {
-    if (dedupe && existingLower.has(line.toLowerCase())) { skipped++; return; }
-    existingLower.add(line.toLowerCase()); // avoid dupes within the paste too
+    var key = line.toLowerCase();
+    if (existingLower.has(key)) { skipped++; return; }
+    existingLower.add(key); // avoid dupes within the paste too
     maxOrder++;
     toInsert.push({ category_id: _adminSelectedCatId, item_text: line, sort_order: maxOrder });
   });
-  if (!toInsert.length) { showToast('All items were duplicates. Nothing added.'); return; }
+  if (!toInsert.length) { showToast('Every item is already in this category. Nothing added.'); return; }
   // Insert in chunks of 100 to avoid huge payloads
+  var added = 0;
   var chunks = [];
   for (var i = 0; i < toInsert.length; i += 100) chunks.push(toInsert.slice(i, i+100));
   for (var j = 0; j < chunks.length; j++) {
     var r = await sbClient.from('category_items').insert(chunks[j]);
-    if (r.error) { showToast('Error after ' + (j*100) + ' rows: ' + r.error.message); break; }
+    if (r.error) { showToast('Added ' + added + ', then hit an error: ' + r.error.message); break; }
+    added += chunks[j].length;
   }
   closeBulkAddModal();
-  showToast('Added ' + toInsert.length + (skipped ? ' (' + skipped + ' duplicates skipped)' : ''));
+  if (added) showToast('Added ' + added + (skipped ? ' · ' + skipped + ' already existed' : ''));
   loadCategoriesFromDb().then(renderAdmin);
 }
 
@@ -13059,7 +13102,10 @@ function editAdminItem(id) {
   var v = prompt('Edit item text:'); if (v === null) return;
   v = v.trim(); if (!v) return;
   sbClient.from('category_items').update({ item_text: v }).eq('id', id).then(function(r) {
-    if (r.error) { showToast('Error: ' + r.error.message); return; }
+    if (r.error) {
+      showToast(isDuplicateItemError(r.error) ? '“' + v + '” is already in this category.' : 'Error: ' + r.error.message);
+      return;
+    }
     loadCategoriesFromDb().then(renderAdmin);
   });
 }
