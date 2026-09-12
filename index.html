@@ -8338,10 +8338,10 @@ function gettingStartedTasks() {
   var listsN    = (MY_LISTS || []).length;
   var profileIncomplete = !p.display_name || !p.photo;
   var tasks = [];
-  if (acceptedN < 2) {
+  if (acceptedN < 1) {
     tasks.push({
       emoji: '👋', accent: '#D85A30', tint: '#F5D0C8',
-      title: acceptedN === 0 ? 'Add your first friends' : 'Add a few more friends',
+      title: 'Add your first friend',
       body: 'Search by name or handle, see people you may know, or share your invite link.',
       action: "go('s-add-friends')"
     });
