@@ -1578,11 +1578,11 @@
       </div>
 
       <!-- ITEM COMMENTS MODAL -->
-      <div id="item-comments-modal" onclick="if(event.target===this)this.style.display='none'" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:flex-end;justify-content:center">
+      <div id="item-comments-modal" onclick="if(event.target===this)closeItemComments()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:flex-end;justify-content:center">
         <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;padding:20px;max-height:70vh;display:flex;flex-direction:column">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <div id="item-comments-title" style="font-size:12px;font-weight:600;color:#2C2C2A"></div>
-            <button onclick="document.getElementById('item-comments-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;padding:0 4px">×</button>
+            <button onclick="closeItemComments()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;padding:0 4px">×</button>
           </div>
           <div id="item-reactions-row" style="display:flex;flex-wrap:wrap;gap:4px;padding-bottom:8px;border-bottom:1px solid #F1EFE8;margin-bottom:10px"></div>
           <div id="item-comments-list" style="flex:1;overflow-y:auto;margin-bottom:12px"></div>
@@ -9010,9 +9010,10 @@ function openFriendList(listData, origin) {
           + (listData.is_ranked !== false ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>')
           + '<span style="flex:1;font-size:13.5px;color:#2C2C2A;min-width:0;overflow-wrap:break-word">' + escapeHtml(item) + '</span>'
           + '<span class="item-reactions-inline" style="display:flex;gap:3px;margin-left:6px;flex-shrink:0"></span>'
-          + '<span style="font-size:14px;color:#888780;margin-left:6px">💬</span>'
+          + '<span class="item-comment-badge" style="margin-left:6px;flex-shrink:0">' + commentBadgeHtml(null) + '</span>'
           + '</div>';
       }).join('');
+      decorateItemsWithCommentCounts(_ownerId, _cat, '#friend-list-items');
     }
     var reactionsEl = document.getElementById('friend-list-reactions');
     if (reactionsEl && _ownerId) loadAndRenderReactions(_ownerId, _cat, reactionsEl);
@@ -15205,6 +15206,17 @@ async function loadItemReactions(listOwnerId, category, itemName, containerEl) {
   } catch(e) { console.warn('loadItemReactions', e); }
 }
 
+// Closing the thread means I've now read it, so repaint the badges behind the
+// modal — the one I just opened should drop from unread to read immediately.
+function closeItemComments() {
+  var modal = document.getElementById('item-comments-modal');
+  if (modal) modal.style.display = 'none';
+  var screen = document.getElementById('s-friend-list');
+  if (screen && screen.classList.contains('active') && activeCommentListOwner && activeCommentCategory) {
+    decorateItemsWithCommentCounts(activeCommentListOwner, activeCommentCategory, '#friend-list-items');
+  }
+}
+
 function openItemComments(listOwnerId, category, itemName) {
   activeCommentListOwner = listOwnerId; activeCommentCategory = category; activeCommentItem = itemName;
   var modal = document.getElementById('item-comments-modal');
@@ -15234,6 +15246,86 @@ function openItemComments(listOwnerId, category, itemName) {
   // Fire-and-forget: record that this user just opened the thread. Powers
   // the "Seen by @friend" line under the latest comment for other participants.
   markCommentThreadRead(listOwnerId, category, itemName);
+}
+
+// ── Comment badges on a friend's list ────────────────────────────────────
+// Three states, driven by one badge:
+//   unread  — coral, filled: comments newer than the last time I opened it
+//   read    — outlined, grey: comments exist, I've seen them all
+//   none    — plain grey icon
+// A dot marks threads I've commented in myself.
+//
+// Counts come from the list_comment_counts RPC, not a direct table read:
+// comment SELECT is limited to threads you're part of, so a plain query would
+// undercount. The RPC returns counts and timestamps only — never text.
+function commentBadgeHtml(info) {
+  if (!info || !info.total) {
+    return '<span style="font-size:14px;color:#B8B5A8" title="No comments yet">💬</span>';
+  }
+  var mine = info.mine > 0;
+  var label = info.total + ' comment' + (info.total === 1 ? '' : 's')
+    + (info.unread ? ' · new since you last looked' : '')
+    + (mine ? ' · you commented' : '');
+  var dot = mine
+    ? '<span style="width:4px;height:4px;border-radius:50%;background:' + (info.unread ? '#FFFFFF' : '#5F5E5A') + ';flex-shrink:0"></span>'
+    : '';
+  var css = info.unread
+    ? 'background:#D85A30;color:#FFFFFF;border:1px solid #D85A30'
+    : 'background:#FFFFFF;color:#5F5E5A;border:1px solid #D3D1C7';
+  return '<span title="' + escapeHtml(label) + '" aria-label="' + escapeHtml(label) + '" '
+    + 'style="display:inline-flex;align-items:center;gap:4px;' + css
+    + ';font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;line-height:1.5">'
+    + '💬 ' + info.total + dot + '</span>';
+}
+
+// Fetches counts + my read timestamps once, then paints every row.
+async function fetchCommentCountMap(listOwnerId, category) {
+  var map = {};
+  if (!sbClient || !userId || !listOwnerId || !category) return map;
+  var cRes = await sbClient.rpc('list_comment_counts', { p_owner: listOwnerId, p_category: category });
+  if (cRes.error) { console.warn('comment counts failed', cRes.error); return map; }
+  var reads = {};
+  var rRes = await sbClient.from('comment_thread_reads')
+    .select('item_name, last_read_at')
+    .eq('user_id', userId).eq('list_owner_id', listOwnerId).eq('category', category);
+  if (rRes.error) console.warn('thread reads failed', rRes.error);
+  (rRes.data || []).forEach(function(r) { reads[r.item_name] = new Date(r.last_read_at).getTime(); });
+  (cRes.data || []).forEach(function(row) {
+    var lastMs = row.last_at ? new Date(row.last_at).getTime() : 0;
+    var readMs = reads[row.item_name] || 0;
+    map[row.item_name] = {
+      total: Number(row.total) || 0,
+      mine: Number(row.mine) || 0,
+      // Never mark my own comment unread to me.
+      unread: lastMs > readMs && Number(row.total) > Number(row.mine)
+    };
+  });
+  return map;
+}
+
+async function decorateItemsWithCommentCounts(listOwnerId, category, scopeSel) {
+  var scope = scopeSel || '#friend-list-items';
+  var map = await fetchCommentCountMap(listOwnerId, category);
+  document.querySelectorAll(scope + ' .rank-item').forEach(function(row) {
+    var name = row.getAttribute('data-item-name');
+    var host = row.querySelector('.item-comment-badge');
+    if (!host || !name) return;
+    host.innerHTML = commentBadgeHtml(map[name]);
+  });
+  // The whole-list thread uses the '__list__' sentinel item name.
+  renderFriendListCommentBtn(map['__list__']);
+}
+
+function renderFriendListCommentBtn(info) {
+  var btn = document.getElementById('friend-list-comment-btn');
+  if (!btn) return;
+  if (!info || !info.total) { btn.innerHTML = '💬 Comment on this list'; return; }
+  var bits = info.total + ' comment' + (info.total === 1 ? '' : 's') + ' on this list';
+  if (info.unread) bits += ' · new';
+  if (info.mine) bits += ' · you commented';
+  btn.innerHTML = '💬 ' + escapeHtml(bits);
+  btn.style.borderColor = info.unread ? '#D85A30' : '#D85A30';
+  btn.style.background = info.unread ? '#FAECE7' : '#FFFFFF';
 }
 
 function markCommentThreadRead(listOwnerId, category, itemName) {
