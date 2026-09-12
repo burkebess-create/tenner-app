@@ -11573,23 +11573,65 @@ async function renderAdminErrors(el) {
         + '</div>';
       return;
     }
-    var totalHits = rows.reduce(function(a,r){ return a + Number(r.hits); }, 0);
-    var totalUsers = rows.reduce(function(a,r){ return a + Number(r.users); }, 0);
+    // An error counts as resolved only while nothing new has happened since it
+    // was marked. If it fires again afterwards it returns to the active list
+    // flagged as a regression, rather than staying hidden.
+    rows.forEach(function(r) {
+      var resolvedMs = r.resolved_at ? new Date(r.resolved_at).getTime() : 0;
+      var lastMs     = r.last_seen   ? new Date(r.last_seen).getTime()   : 0;
+      r._isResolved = !!resolvedMs && lastMs <= resolvedMs;
+      r._regressed  = !!resolvedMs && lastMs >  resolvedMs;
+    });
+    var active   = rows.filter(function(r){ return !r._isResolved; });
+    var resolved = rows.filter(function(r){ return  r._isResolved; });
+
+    // Headline stats deliberately count ACTIVE errors only — resolved ones
+    // would otherwise keep inflating the numbers forever. Their own hit and
+    // user counts stay on their cards as a historical record.
+    var totalHits  = active.reduce(function(a,r){ return a + Number(r.hits); }, 0);
+    var totalUsers = active.reduce(function(a,r){ return a + Number(r.users); }, 0);
     var summaryHtml = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">'
-      + '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:5px solid #D85A30;border-radius:3px;padding:10px 12px"><div style="font-size:20px;font-weight:800;color:#2C2C2A">' + rows.length + '</div><div style="font-size:9px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A">Unique errors</div></div>'
+      + '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:5px solid #D85A30;border-radius:3px;padding:10px 12px"><div style="font-size:20px;font-weight:800;color:#2C2C2A">' + active.length + '</div><div style="font-size:9px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A">Open errors</div></div>'
       + '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:5px solid #F5B534;border-radius:3px;padding:10px 12px"><div style="font-size:20px;font-weight:800;color:#2C2C2A">' + totalHits + '</div><div style="font-size:9px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A">Total hits</div></div>'
       + '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:5px solid #2F9E8F;border-radius:3px;padding:10px 12px"><div style="font-size:20px;font-weight:800;color:#2C2C2A">' + totalUsers + '</div><div style="font-size:9px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A">Users hit</div></div>'
       + '</div>';
-    var listHtml = rows.map(function(r, i) {
+    var listHtml = renderErrorCards(active, 'a');
+    var resolvedHtml = '';
+    if (resolved.length) {
+      resolvedHtml = '<div style="display:flex;align-items:center;gap:10px;margin:24px 0 10px">'
+        + '<div style="flex:1;height:2px;background:#6B8E4E"></div>'
+        + '<div style="font-size:10px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#6B8E4E">Resolved (' + resolved.length + ')</div>'
+        + '<div style="flex:1;height:2px;background:#6B8E4E"></div></div>'
+        + '<div style="font-size:10.5px;color:#888780;margin-bottom:10px;line-height:1.45">Not counted in the stats above. Hit and user counts are kept here as a record of who was affected. If one of these happens again it moves back up top, flagged as returned.</div>'
+        + renderErrorCards(resolved, 'r');
+    }
+    host.innerHTML = summaryHtml
+      + (active.length
+          ? listHtml
+          : '<div style="background:#E8F0E4;border:1px solid #6B8E4E33;border-left:7px solid #6B8E4E;border-radius:3px;padding:16px 18px;text-align:center"><div style="font-size:24px;margin-bottom:6px">✅</div><div style="font-size:13.5px;font-weight:800;color:#2C2C2A">No open errors.</div><div style="font-size:12px;color:#5F5E5A;margin-top:3px">Everything reported has been marked resolved.</div></div>')
+      + resolvedHtml;
+  } catch(e) {
+    host.innerHTML = '<div style="padding:16px;text-align:center;color:#A32D2D;font-size:12px">Couldn\'t load errors: ' + escapeHtml(String(e && e.message || e)) + '</div>';
+  }
+}
+
+function renderErrorCards(rows, idPrefix) {
+  return rows.map(function(r, i) {
       var human = humanizeError(r.message);
       var severity = Number(r.users) >= 3 || Number(r.hits) >= 10 ? 'high' : (Number(r.hits) >= 3 ? 'medium' : 'low');
       var sevColors = { high: '#D85A30', medium: '#F5B534', low: '#5F5E5A' };
       var sevLabel  = { high: 'Frequent', medium: 'Occasional', low: 'One-off' };
-      var accent = sevColors[severity];
-      var detailId = 'err-detail-' + i;
-      return '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:7px solid ' + accent + ';border-radius:3px;padding:14px 16px;margin-bottom:10px">'
+      var accent = r._isResolved ? '#6B8E4E' : sevColors[severity];
+      var detailId = 'err-detail-' + idPrefix + i;
+      var msgAttr = encodeURIComponent(r.message);
+      var statusChip = r._isResolved
+        ? '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#6B8E4E">✓ Resolved ' + relTime(r.resolved_at) + '</div>'
+        : (r._regressed
+            ? '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#A32D2D">↩ Returned after fix</div>'
+            : '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:' + accent + '">' + sevLabel[severity] + '</div>');
+      return '<div style="background:' + (r._isResolved ? '#FBFBF7' : '#FFF') + ';border:1px solid #EAE3DC;border-left:7px solid ' + accent + ';border-radius:3px;padding:14px 16px;margin-bottom:10px">'
         + '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">'
-        +   '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:' + accent + '">' + sevLabel[severity] + '</div>'
+        +   statusChip
         +   '<div style="flex:1;font-size:10.5px;color:#888780;font-weight:700">' + Number(r.hits) + ' hit' + (Number(r.hits) === 1 ? '' : 's') + ' · ' + Number(r.users) + ' user' + (Number(r.users) === 1 ? '' : 's') + ' · last ' + relTime(r.last_seen) + '</div>'
         + '</div>'
         + '<div style="font-size:14.5px;font-weight:700;color:#2C2C2A;line-height:1.4;margin-bottom:6px">' + escapeHtml(human) + '</div>'
@@ -11600,12 +11642,37 @@ async function renderAdminErrors(el) {
         +   '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#2C2C2A;word-break:break-word;margin-bottom:8px">' + escapeHtml(r.message) + '</div>'
         +   (r.sample_stack ? '<div style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#888780;margin-bottom:4px">Stack (most recent)</div><pre style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#5F5E5A;white-space:pre-wrap;word-break:break-word;margin:0;background:none">' + escapeHtml(r.sample_stack) + '</pre>' : '<div style="font-size:11px;color:#888780;font-style:italic">No stack trace captured.</div>')
         + '</div>'
+        + (r.resolved_note ? '<div style="font-size:11px;color:#5F5E5A;margin-top:10px;padding:8px 10px;background:#F1F5EE;border-left:3px solid #6B8E4E;border-radius:2px"><strong>Note:</strong> ' + escapeHtml(r.resolved_note) + '</div>' : '')
+        + '<div style="margin-top:12px;padding-top:10px;border-top:1px solid #F1EFE8">'
+        +   (r._isResolved
+              ? '<button onclick="unresolveError(\'' + msgAttr + '\')" style="background:none;border:1px solid #D3D1C7;color:#5F5E5A;border-radius:3px;padding:7px 12px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">Reopen</button>'
+              : '<button onclick="resolveError(\'' + msgAttr + '\')" style="background:#6B8E4E;border:1px solid #6B8E4E;color:#FFF;border-radius:3px;padding:7px 12px;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;font-family:inherit">✓ Mark resolved</button>')
+        + '</div>'
         + '</div>';
     }).join('');
-    host.innerHTML = summaryHtml + listHtml;
-  } catch(e) {
-    host.innerHTML = '<div style="padding:16px;text-align:center;color:#A32D2D;font-size:12px">Couldn\'t load errors: ' + escapeHtml(String(e && e.message || e)) + '</div>';
-  }
+}
+
+// Resolving is keyed on the error message, which is what groups these rows.
+function resolveError(encodedMsg) {
+  var msg = decodeURIComponent(encodedMsg);
+  // Native prompt, consistent with the other admin-only editors (editAdminItem).
+  // Cancel aborts; an empty note just resolves without one.
+  var note = prompt('Mark as resolved.\n\nOptional note — what fixed it?', '');
+  if (note === null) return;
+  sbClient.rpc('admin_resolve_error', { p_message: msg, p_note: note || null }).then(function(r) {
+    if (r.error) { showToast('Error: ' + r.error.message); return; }
+    showToast('Marked resolved');
+    renderAdminErrors(document.getElementById('_admin-section-body'));
+  });
+}
+
+function unresolveError(encodedMsg) {
+  var msg = decodeURIComponent(encodedMsg);
+  sbClient.rpc('admin_unresolve_error', { p_message: msg }).then(function(r) {
+    if (r.error) { showToast('Error: ' + r.error.message); return; }
+    showToast('Reopened');
+    renderAdminErrors(document.getElementById('_admin-section-body'));
+  });
 }
 
 // --- Groups tab ---
