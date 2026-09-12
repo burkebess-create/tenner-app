@@ -12872,25 +12872,90 @@ async function renderAdminItems(el) {
     var label = (typeof c.emoji === 'string' && c.emoji.indexOf('data:') === 0) ? ('🖼️ ' + c.name) : ((c.emoji || '📋') + ' ' + c.name);
     return '<option value="' + c.id + '"' + (c.id === _adminSelectedCatId ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
   }).join('');
-  var itemsRes = await sbClient.from('category_items').select('*').eq('category_id', _adminSelectedCatId).order('sort_order');
+  var itemsRes = await fetchAllCategoryItems(_adminSelectedCatId);
   if (itemsRes.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(itemsRes.error.message) + '</div>'; return; }
-  var itemRows = (itemsRes.data || []).map(function(it) {
-    return '<div class="card no-hover" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding:8px 10px">'
-      + '<span style="font-size:12px">' + escapeHtml(it.item_text) + '</span>'
-      + '<div><button class="back-btn" onclick="editAdminItem(\'' + it.id + '\')" style="margin-right:4px">Edit</button>'
-      + '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminItem(\'' + it.id + '\')">×</button></div>'
-      + '</div>';
-  }).join('');
+  _adminItemsCache = itemsRes.data || [];
   el.innerHTML = '<div style="padding:12px">'
     + '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Category</div>'
-    + '<select onchange="_adminSelectedCatId=this.value;renderAdmin()" style="margin-bottom:10px;font-size:13px;padding:6px 8px">' + opts + '</select>'
+    + '<select onchange="_adminSelectedCatId=this.value;_adminItemSearch=\'\';renderAdmin()" style="margin-bottom:10px;font-size:13px;padding:6px 8px">' + opts + '</select>'
     + '<div style="display:flex;gap:6px;margin-bottom:6px">'
     + '<input type="text" id="admin-new-item" placeholder="New item text…" style="flex:1;margin-bottom:0;font-size:13px">'
     + '<button class="btn-primary" style="width:auto;padding:9px 16px;margin-bottom:0" onclick="addAdminItem()">Add</button>'
     + '</div>'
     + '<button class="btn-secondary" onclick="openBulkAddItems()" style="margin-bottom:10px">Bulk add (paste list or upload CSV)</button>'
-    + (itemRows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No items yet.</div>')
+    + '<div style="display:flex;gap:6px;margin-bottom:8px">'
+    +   '<input type="search" id="admin-item-search" placeholder="Search items…" value="' + escapeHtml(_adminItemSearch) + '" oninput="_adminItemSearch=this.value;renderAdminItemRows()" style="flex:1;margin-bottom:0;font-size:13px">'
+    +   '<select id="admin-item-sort" onchange="_adminItemSort=this.value;renderAdminItemRows()" style="width:auto;margin-bottom:0;font-size:12px;padding:6px 8px">'
+    +     '<option value="az"' + (_adminItemSort === 'az' ? ' selected' : '') + '>A–Z</option>'
+    +     '<option value="added"' + (_adminItemSort === 'added' ? ' selected' : '') + '>Order added</option>'
+    +   '</select>'
+    + '</div>'
+    + '<div id="admin-item-rows"></div>'
     + '</div>';
+  renderAdminItemRows();
+}
+
+var _adminItemsCache = [];
+var _adminItemSearch = '';
+var _adminItemSort = 'az';         // 'az' | 'added'
+var ADMIN_ITEM_RENDER_CAP = 200;   // keep the DOM sane — Movies has thousands
+
+// PostgREST caps a plain select at 1000 rows, so page through the whole set.
+async function fetchAllCategoryItems(catId) {
+  if (!catId) return { data: [] };
+  var out = [], size = 1000;
+  for (var page = 0; page < 60; page++) {
+    var r = await sbClient.from('category_items').select('*').eq('category_id', catId)
+      .order('sort_order').range(page * size, page * size + size - 1);
+    if (r.error) return { error: r.error };
+    out = out.concat(r.data || []);
+    if (!r.data || r.data.length < size) break;
+  }
+  return { data: out };
+}
+
+// Rewrites just the rows, so typing in the search box never loses focus.
+function renderAdminItemRows() {
+  var host = document.getElementById('admin-item-rows');
+  if (!host) return;
+  var all = _adminItemsCache || [];
+
+  // Flag repeated text so duplicates are visible however the list is sorted.
+  var seen = {};
+  all.forEach(function(it) {
+    var k = String(it.item_text || '').trim().toLowerCase();
+    seen[k] = (seen[k] || 0) + 1;
+  });
+
+  var q = _adminItemSearch.trim().toLowerCase();
+  var list = q
+    ? all.filter(function(it) { return String(it.item_text || '').toLowerCase().indexOf(q) >= 0; })
+    : all.slice();
+  if (_adminItemSort === 'az') {
+    list.sort(function(a, b) {
+      return String(a.item_text || '').localeCompare(String(b.item_text || ''), undefined, { sensitivity: 'base' });
+    });
+  }
+
+  var shown = list.slice(0, ADMIN_ITEM_RENDER_CAP);
+  var status = q
+    ? (list.length ? list.length + ' match' + (list.length === 1 ? '' : 'es') + ' of ' + all.length : 'No match for “' + escapeHtml(_adminItemSearch) + '” in ' + all.length + ' items')
+    : all.length + ' item' + (all.length === 1 ? '' : 's');
+  if (shown.length < list.length) status += ' · showing first ' + shown.length + ', search to narrow';
+
+  var rows = shown.map(function(it) {
+    var dupe = seen[String(it.item_text || '').trim().toLowerCase()] > 1
+      ? '<span style="font-size:8.5px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#B57F0F;background:#FBF0D8;padding:2px 6px;border-radius:3px;margin-left:6px;flex-shrink:0">Dupe</span>'
+      : '';
+    return '<div class="card no-hover" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding:8px 10px">'
+      + '<span style="font-size:12px;min-width:0;display:flex;align-items:center"><span style="overflow-wrap:break-word;min-width:0">' + escapeHtml(it.item_text) + '</span>' + dupe + '</span>'
+      + '<div style="flex-shrink:0"><button class="back-btn" onclick="editAdminItem(\'' + it.id + '\')" style="margin-right:4px">Edit</button>'
+      + '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminItem(\'' + it.id + '\')">×</button></div>'
+      + '</div>';
+  }).join('');
+
+  host.innerHTML = '<div style="font-size:10.5px;color:#888780;margin-bottom:6px">' + status + '</div>'
+    + (rows || (all.length ? '' : '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No items yet.</div>'));
 }
 
 function addAdminItem() {
