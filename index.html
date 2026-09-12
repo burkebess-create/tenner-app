@@ -2620,14 +2620,23 @@ window.addEventListener('orientationchange', function() { setTimeout(fitCatGridT
 
 var CAT_EMOJI_DEFAULTS = ['📋','🎯','🏆','⭐','🔥','💡','🎮','🎵','📚','🎬','📺','🍕','🏀','✈️','🌟','💎','🎨','🌮','🎤','🐾','🍔','🍷','🐶','🚀','🎸','🌊','❤️','🎉'];
 
+var _settingCatEmoji = false;
 function setCatEmoji(em) {
   selCatEmoji = em;
   var cur = document.getElementById('cat-emoji-current');
   if (cur) cur.textContent = em;
   renderCatEmojiPicker();
-  // Re-highlight active in the search results too, if present
+  // Re-highlight active in the search results too, if present. Guarded: this
+  // calls back into onCatEmojiSearch, which can call setCatEmoji again, and
+  // that mutual recursion once ran away and blew the stack. The re-highlight
+  // is cosmetic, so skipping it on re-entry costs nothing.
+  if (_settingCatEmoji) return;
   var sInp = document.getElementById('cat-emoji-search');
-  if (sInp && sInp.value.trim()) onCatEmojiSearch(sInp.value);
+  if (sInp && sInp.value.trim()) {
+    _settingCatEmoji = true;
+    try { onCatEmojiSearch(sInp.value); }
+    finally { _settingCatEmoji = false; }
+  }
 }
 
 function renderCatEmojiPicker() {
@@ -2656,11 +2665,15 @@ function onCatEmojiSearch(val) {
   // If the user typed/pasted an actual emoji (non-letter), use it directly.
   var firstChar = firstGrapheme(val);
   if (firstChar && !/[a-z0-9]/i.test(firstChar)) {
-    setCatEmoji(firstChar);
+    // Clear the field BEFORE selecting. setCatEmoji re-runs this search to
+    // re-highlight the active emoji, so leaving the pasted emoji in the box
+    // sends it straight back here — that mutual recursion never terminates
+    // and blew the stack ("Maximum call stack size exceeded") for real users.
     resultsEl.style.display = 'none';
     resultsEl.innerHTML = '';
     var sInp = document.getElementById('cat-emoji-search');
     if (sInp) sInp.value = '';
+    setCatEmoji(firstChar);
     return;
   }
   var matches = EMOJI_SEARCH_POOL.filter(function(entry) {
