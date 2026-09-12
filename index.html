@@ -8733,14 +8733,14 @@ function openFriendList(listData, origin) {
       }).length;
       pickBar.style.display = 'block';
       pickBar.innerHTML = '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:5px solid #D85A30;border-radius:3px;padding:10px 12px;font-size:12px;color:#5F5E5A;line-height:1.4">'
-        + '<strong style="color:#2C2C2A">Pick what you want.</strong> '
+        + '<strong style="color:#2C2C2A">Pick from ' + escapeHtml(friendName.split(' ')[0]) + '’s list.</strong> '
         + (remaining === 0
             ? 'You already have every pick on this list.'
             : 'Tap any item to add it to your Top 10 ' + escapeHtml(cat) + '.')
         + '</div>';
     } else {
       pickBar.style.display = 'block';
-      pickBar.innerHTML = '<button onclick="enterPickMode()" style="width:100%;background:transparent;border:1.5px solid #D85A30;border-radius:3px;padding:11px 14px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;cursor:pointer">＋ Add to my list</button>';
+      pickBar.innerHTML = '<button onclick="enterPickMode()" style="width:100%;background:transparent;border:1.5px solid #D85A30;border-radius:3px;padding:11px 14px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;color:#D85A30;cursor:pointer;line-height:1.35">＋ Add items from ' + escapeHtml(friendName.split(' ')[0]) + ' to my list</button>';
     }
   }
   renderPickFooter();
