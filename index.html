@@ -736,6 +736,7 @@
               Similar item exists: <strong id="item-warn-name"></strong> — use that instead?
             </div>
           </div>
+          <div id="overflow-warning" style="display:none;margin-top:12px"></div>
           <button class="btn-primary" id="create2-continue-new" onclick="checkListComplete()" style="margin-top:8px;border-radius:3px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;font-size:11px;padding:14px">Continue →</button>
           <button class="btn-primary" id="create2-save-edit" onclick="saveList()" style="margin-top:8px;display:none;border-radius:3px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;font-size:11px;padding:14px">Save changes</button>
           <button class="btn-secondary" id="create2-save-share-edit" onclick="checkListComplete()" style="margin-bottom:0;display:none;border-radius:3px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;font-size:11px">Save & sharing options →</button>
@@ -2972,18 +2973,14 @@ function maybeRestoreOverflowDraft() {
 
 // Banner above the editor whenever the working list exceeds what can be saved.
 function renderOverflowWarning() {
+  // Lives just above the save buttons — the moment the warning actually
+  // matters is when you're about to commit.
   var host = document.getElementById('overflow-warning');
-  if (!host) {
-    var list = document.getElementById('items-list');
-    if (!list || !list.parentNode) return;
-    host = document.createElement('div');
-    host.id = 'overflow-warning';
-    list.parentNode.insertBefore(host, list);
-  }
+  if (!host) return;
   var over = items.length - MAX_SAVED_ITEMS;
   if (over <= 0) { host.style.display = 'none'; host.innerHTML = ''; return; }
   host.style.display = 'block';
-  host.innerHTML = '<div style="background:#FDF6E8;border:1px solid #E8C97A;border-left:6px solid #B57F0F;border-radius:3px;padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;align-items:flex-start">'
+  host.innerHTML = '<div style="background:#FDF6E8;border:1px solid #E8C97A;border-left:6px solid #B57F0F;border-radius:3px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start">'
     + '<div style="font-size:18px;line-height:1;flex-shrink:0">⚠️</div>'
     + '<div style="flex:1;min-width:0">'
     +   '<div style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#B57F0F;margin-bottom:3px">' + over + ' item' + (over === 1 ? '' : 's') + ' past your top 10</div>'
@@ -3115,11 +3112,18 @@ function updateProg() {
   var ph = document.getElementById('prog-hint');
   var db = document.getElementById('done-banner');
   var aa = document.getElementById('add-area');
-  if (pf) pf.style.width = Math.round(n/10*100) + '%';
+  var over = n - 10;
+  if (pf) pf.style.width = Math.min(100, Math.round(n/10*100)) + '%';
   if (pc) pc.textContent = n + '/10';
   var hints = ['Add your first item below','Great start! Keep going...','Nice! ' + (10-n) + ' more to go...','Looking good! ' + (10-n) + ' left...','Halfway there!','More than halfway!','Almost there...','So close!','Just one more!', IS_TOUCH ? 'List complete! Press and hold, then drag to reorder.' : 'List complete! Click and drag to reorder.'];
-  if (ph) ph.textContent = hints[Math.min(n, 9)];
-  if (db) db.style.display = n >= 10 ? 'block' : 'none';
+  if (ph) {
+    ph.textContent = over > 0
+      ? 'Drag your keepers above the cutoff line below.'
+      : hints[Math.min(n, 9)];
+  }
+  // Suppress the celebratory "List complete!" while the list is over the
+  // limit — the overflow warning above the save button owns that state.
+  if (db) db.style.display = (n >= 10 && over <= 0) ? 'block' : 'none';
   if (aa) aa.style.display = n >= 10 ? 'none' : 'block';
 }
 
