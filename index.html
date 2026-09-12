@@ -316,7 +316,15 @@
   .nav-btn { display: block; width: 100%; text-align: left; padding: 7px 10px; border-radius: 8px; border: none; background: transparent; color: #2C2C2A; font-size: 12px; cursor: pointer; font-family: inherit; margin-bottom: 2px; }
   .nav-btn:hover { background: #FAECE7; color: #993C1D; }
   .nav-btn.active { background: #FAECE7; color: #993C1D; font-weight: 600; }
-  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  /* --cs is the category-tile scale. fitCatGridToViewport() shrinks it on short
+     screens so the whole Create step fits without scrolling, down to a floor. */
+  .cat-grid { --cs: 1; display: grid; grid-template-columns: 1fr 1fr; gap: calc(8px * var(--cs)); margin-bottom: calc(12px * var(--cs)); }
+  #cat-grid .cat-card { padding: calc(14px * var(--cs)) calc(12px * var(--cs)); }
+  #cat-grid .cat-emoji { line-height: 1; margin-bottom: calc(10px * var(--cs)); }
+  #cat-grid .cat-emoji > span { font-size: calc(32px * var(--cs)) !important; }
+  #cat-grid .cat-emoji > img { width: calc(32px * var(--cs)) !important; height: calc(32px * var(--cs)) !important; }
+  #cat-grid .cat-name { font-size: calc(15px * var(--cs)); font-weight: 800; letter-spacing: -0.005em; line-height: 1.1; color: #2C2C2A; margin-bottom: calc(5px * var(--cs)); }
+  #cat-grid .cat-hint { font-size: calc(9.5px * var(--cs)); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.85; }
   .cat-card { background: #fff; border: 1px solid #E8E6DF; border-radius: 10px; padding: 10px 8px; cursor: pointer; text-align: center; touch-action: manipulation; }
   .cat-card.selected { border-color: #D85A30; border-width: 1.5px; background: #FAECE7; }
   /* Only apply hover styling on devices that actually have a mouse — prevents multi-finger touch from making multiple cards appear selected simultaneously. */
@@ -1955,7 +1963,7 @@ function go(id) {
   if (id === 's-fdetail' && selFriendId) { renderFriendDetail(); markFriendViewed(selFriendId); }
   if (id === 's-circle') maybeShowTabTip('circle');
   if (id === 's-match') maybeShowTabTip('match');
-  if (id === 's-create1') { maybeShowTabTip('create'); editingListIdx = -1; selCat = 'Movies'; selCatEmoji = getCatEmoji('Movies'); items = []; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
+  if (id === 's-create1') { maybeShowTabTip('create'); editingListIdx = -1; selCat = ''; var _vc = visibleCategoriesForUser()[0]; selCat = _vc ? _vc.n : ''; selCatEmoji = _vc ? _vc.e : '📋'; items = []; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
   if (id === 's-create2') { maybeRestoreOverflowDraft(); renderItems(); updateProg(); renderItemChips(); }
   if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); addedNonFriends = {}; clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
@@ -2506,10 +2514,44 @@ function nudgeCreate1Continue() {
   btn.classList.add('cta-pulsing');
 }
 
+// How many category tiles the Create screen shows at once. Categories the user
+// already has a list for drop out and the next unowned one (by the admin's
+// sort_order) takes the empty slot.
+var CAT_GRID_SLOTS = 8;
+
+function visibleCategoriesForUser() {
+  var owned = {};
+  (MY_LISTS || []).forEach(function(l) {
+    var c = String(l.category || l.n || '').trim().toLowerCase();
+    if (c) owned[c] = true;
+  });
+  // CATS is already in admin sort_order, so slicing gives the queue for free.
+  var out = (CATS || []).filter(function(c) {
+    return !owned[String(c.n || '').trim().toLowerCase()];
+  }).slice(0, CAT_GRID_SLOTS);
+  // Keep whatever is currently selected on screen, even if it fell out of the
+  // slice (e.g. arriving here from "fill out this list" on a friend's list).
+  if (selCat && !out.some(function(c){ return c.n === selCat; })) {
+    var sel = (CATS || []).filter(function(c){ return c.n === selCat; })[0];
+    if (sel) out = [sel].concat(out.slice(0, CAT_GRID_SLOTS - 1));
+  }
+  return out;
+}
+
 function renderCatGrid() {
   var grid = document.getElementById('cat-grid');
   grid.innerHTML = '';
-  var ordered = antiAdjacentByColor(CATS, function(c){ return getCategoryColor(c.n).key; });
+  var visible = visibleCategoriesForUser();
+  if (!visible.length) {
+    // They have a list for every standard category — send them to the free-form field.
+    grid.innerHTML = '<div style="grid-column:1/-1;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;background:#fff;padding:14px 16px">'
+      + '<div style="font-size:13px;font-weight:800;color:#2C2C2A;margin-bottom:4px">You\'ve made every category we have 🎉</div>'
+      + '<div style="font-size:11.5px;color:#5F5E5A;line-height:1.4">Make your own below — Top 10 anything.</div>'
+      + '</div>';
+    fitCatGridToViewport();
+    return;
+  }
+  var ordered = antiAdjacentByColor(visible, function(c){ return getCategoryColor(c.n).key; });
   ordered.forEach(function(cat) {
     var pal = getCategoryColor(cat.n);
     var accent = pal.accent || pal.fg || '#2C2C2A';
@@ -2520,15 +2562,50 @@ function renderCatGrid() {
     // Selected state uses a bolder inner ring + wider bar instead of scale.
     var leftBar = selected ? '11px' : '7px';
     var borderColor = selected ? accent : accent + '33';
-    div.style.cssText = 'background:' + pal.bg + '33;border:1px solid ' + borderColor + ';border-left:' + leftBar + ' solid ' + accent + ';border-radius:3px;padding:14px 12px;cursor:pointer;text-align:left;touch-action:manipulation;transition:border-left-width 0.15s ease,border-color 0.15s ease;'
+    // Padding / type sizes live in CSS so they can scale off --cs (see .cat-grid).
+    div.style.cssText = 'background:' + pal.bg + '33;border:1px solid ' + borderColor + ';border-left:' + leftBar + ' solid ' + accent + ';border-radius:3px;cursor:pointer;text-align:left;touch-action:manipulation;transition:border-left-width 0.15s ease,border-color 0.15s ease;'
       + (selected ? 'box-shadow:0 0 0 2px ' + accent + '55;' : '');
-    div.innerHTML = '<div style="font-size:32px;line-height:1;margin-bottom:10px">' + renderCatEmoji(cat.e, 32) + '</div>'
-      + '<div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;line-height:1.1;color:#2C2C2A;margin-bottom:5px">Top 10 ' + escapeHtml(cat.n) + '</div>'
-      + '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;color:' + accent + ';opacity:0.85;text-transform:uppercase">' + (selected ? 'Selected ✓' : 'Tap to pick') + '</div>';
+    div.innerHTML = '<div class="cat-emoji">' + renderCatEmoji(cat.e, 32) + '</div>'
+      + '<div class="cat-name">Top 10 ' + escapeHtml(cat.n) + '</div>'
+      + '<div class="cat-hint" style="color:' + accent + '">' + (selected ? 'Selected ✓' : 'Tap to pick') + '</div>';
     div.onclick = function() { selCat = cat.n; selCatEmoji = cat.e; renderCatGrid(); document.getElementById('cat-inp').value = ''; document.getElementById('cat-warn').style.display = 'none'; document.getElementById('cat-sugs').style.display = 'none'; document.getElementById('cat-emoji-row').style.display = 'none'; nudgeCreate1Continue(); };
     grid.appendChild(div);
   });
+  fitCatGridToViewport();
 }
+
+// Shrink the category tiles just enough that the whole Create step (tiles +
+// "or make your own" + ranked toggle + Continue) fits without scrolling.
+// Stops at CAT_SCALE_MIN — below that we let the screen scroll instead.
+var CAT_SCALE_MIN = 0.68;
+function fitCatGridToViewport() {
+  var grid = document.getElementById('cat-grid');
+  if (!grid) return;
+  var screen = document.getElementById('s-create1');
+  if (!screen || screen.style.display === 'none' || !screen.offsetParent) return;
+  var scroller = grid.parentElement;
+  while (scroller && !scroller.classList.contains('content')) scroller = scroller.parentElement;
+  if (!scroller) return;
+
+  var scale = 1;
+  grid.style.setProperty('--cs', '1');
+  // A couple of passes: the grid isn't purely linear in --cs (borders and the
+  // text below it don't scale), so one correction converges on the right value.
+  for (var pass = 0; pass < 3; pass++) {
+    var overflow = scroller.scrollHeight - scroller.clientHeight;
+    if (overflow <= 1) break;
+    var gridH = grid.getBoundingClientRect().height;
+    if (gridH <= 0) break;
+    var next = scale * Math.max(0, (gridH - overflow) / gridH);
+    next = Math.max(CAT_SCALE_MIN, Math.min(1, next));
+    if (Math.abs(next - scale) < 0.01) break;
+    scale = next;
+    grid.style.setProperty('--cs', String(scale));
+  }
+}
+
+window.addEventListener('resize', fitCatGridToViewport);
+window.addEventListener('orientationchange', function() { setTimeout(fitCatGridToViewport, 150); });
 
 var CAT_EMOJI_DEFAULTS = ['📋','🎯','🏆','⭐','🔥','💡','🎮','🎵','📚','🎬','📺','🍕','🏀','✈️','🌟','💎','🎨','🌮','🎤','🐾','🍔','🍷','🐶','🚀','🎸','🌊','❤️','🎉'];
 
@@ -12538,11 +12615,29 @@ async function renderAdminCats(el) {
 
   function fmtDate(v) { if (!v) return '—'; try { return new Date(v).toLocaleDateString(); } catch(e) { return '—'; } }
 
-  var activeRows = active.map(function(c) {
+  var activeRows = active.map(function(c, i) {
     var seasonBadge = c.is_seasonal ? '<span style="font-size:9px;background:#FAECE7;color:#993C1D;padding:2px 6px;border-radius:99px;margin-left:6px">Seasonal ' + escapeHtml(c.active_from || '?') + ' → ' + escapeHtml(c.active_to || '?') + '</span>' : '';
-    return '<div class="card no-hover" style="margin-bottom:6px">'
+    // Divider between the categories that fill the Create screen's slots and
+    // the ones queued behind them.
+    var divider = (i === CAT_GRID_SLOTS && active.length > CAT_GRID_SLOTS)
+      ? '<div style="display:flex;align-items:center;gap:10px;margin:16px 0 10px">'
+        + '<div style="flex:1;height:2px;background:#D85A30"></div>'
+        + '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.14em;color:#D85A30;text-transform:uppercase">In waiting</div>'
+        + '<div style="flex:1;height:2px;background:#D85A30"></div></div>'
+        + '<div style="font-size:10.5px;color:#888780;margin-bottom:8px;line-height:1.4">These appear on the Create screen in this order as users fill out the categories above.</div>'
+      : '';
+    var slotBadge = i < CAT_GRID_SLOTS
+      ? '<span style="font-size:9px;background:#EAF3EE;color:#2F6B52;padding:2px 6px;border-radius:99px;margin-left:6px">Slot ' + (i + 1) + '</span>'
+      : '<span style="font-size:9px;background:#F1EFE8;color:#5F5E5A;padding:2px 6px;border-radius:99px;margin-left:6px">Queued #' + (i - CAT_GRID_SLOTS + 1) + '</span>';
+    var arrows = '<div style="display:flex;flex-direction:column;gap:2px;margin-right:6px;flex-shrink:0">'
+      + '<button class="back-btn" style="padding:1px 7px;line-height:1.3' + (i === 0 ? ';opacity:.35' : '') + '"' + (i === 0 ? ' disabled' : '') + ' onclick="moveAdminCat(\'' + c.id + '\',-1)">▲</button>'
+      + '<button class="back-btn" style="padding:1px 7px;line-height:1.3' + (i === active.length - 1 ? ';opacity:.35' : '') + '"' + (i === active.length - 1 ? ' disabled' : '') + ' onclick="moveAdminCat(\'' + c.id + '\',1)">▼</button>'
+      + '</div>';
+    return divider
+      + '<div class="card no-hover" style="margin-bottom:6px">'
       + '<div style="display:flex;justify-content:space-between;align-items:center">'
-      +   '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0"><span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' + renderCatEmoji(c.emoji, 22) + '</span><div style="min-width:0"><strong style="font-size:13px">' + escapeHtml(c.name) + '</strong>' + seasonBadge + '<div style="font-size:10px;color:#888780">Created ' + fmtDate(c.created_at) + '</div></div></div>'
+      +   arrows
+      +   '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0"><span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' + renderCatEmoji(c.emoji, 22) + '</span><div style="min-width:0"><strong style="font-size:13px">' + escapeHtml(c.name) + '</strong>' + slotBadge + seasonBadge + '<div style="font-size:10px;color:#888780">Created ' + fmtDate(c.created_at) + '</div></div></div>'
       +   '<div style="flex-shrink:0"><button class="back-btn" onclick="editAdminCat(\'' + c.id + '\')" style="margin-right:4px">Edit</button>'
       +   '<button class="back-btn" onclick="retireAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')" style="margin-right:4px">Retire</button>'
       +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')">Delete</button></div>'
@@ -12577,6 +12672,27 @@ async function renderAdminCats(el) {
         : '')
     + (showRetired ? '<div style="margin-top:10px">' + retiredRows + '</div>' : '')
     + '</div>';
+}
+
+// Move an active category up/down in the ordering that drives both the Create
+// screen's 8 slots and the queue behind them. Rewrites sort_order sequentially
+// so pre-existing gaps or ties can't make the order ambiguous.
+async function moveAdminCat(id, dir) {
+  var res = await sbClient.from('categories').select('id,sort_order,retired_at').order('sort_order');
+  if (res.error) { showToast('Error: ' + res.error.message); return; }
+  var active = (res.data || []).filter(function(c){ return !c.retired_at; });
+  var i = -1;
+  for (var k = 0; k < active.length; k++) { if (active[k].id === id) { i = k; break; } }
+  var j = i + dir;
+  if (i < 0 || j < 0 || j >= active.length) return;
+  var tmp = active[i]; active[i] = active[j]; active[j] = tmp;
+  for (var n = 0; n < active.length; n++) {
+    if (active[n].sort_order === n + 1) continue;
+    var upd = await sbClient.from('categories').update({ sort_order: n + 1 }).eq('id', active[n].id);
+    if (upd.error) { showToast('Error: ' + upd.error.message); return; }
+  }
+  await loadCategoriesFromDb();
+  renderAdmin();
 }
 
 function retireAdminCat(id, name) {
