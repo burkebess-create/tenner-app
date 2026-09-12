@@ -8327,12 +8327,18 @@ async function updateGroupMetaCounts() {
 //   2. Make a list      — no lists yet
 //   3. Finish profile   — missing display name or photo
 function gettingStartedTasks() {
-  var acceptedN = ((myFriends || []).filter(function(f){ return f.status === 'accepted'; })).length;
+  var p = myProfile || {};
+  // Don't count the inviter you were auto-connected to on signup — that
+  // friendship was created for you, not by you, so it isn't evidence the
+  // user has figured out how to build a circle.
+  var accepted = (myFriends || []).filter(function(f) {
+    return f.status === 'accepted' && !(p.invited_by && f.friendId === p.invited_by);
+  });
+  var acceptedN = accepted.length;
   var listsN    = (MY_LISTS || []).length;
-  var p         = myProfile || {};
   var profileIncomplete = !p.display_name || !p.photo;
   var tasks = [];
-  if (acceptedN < 3) {
+  if (acceptedN < 2) {
     tasks.push({
       emoji: '👋', accent: '#D85A30', tint: '#F5D0C8',
       title: acceptedN === 0 ? 'Add your first friends' : 'Add a few more friends',
