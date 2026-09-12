@@ -284,6 +284,17 @@
   @media (prefers-reduced-motion: reduce) {
     #items-list .rank-item, #items-list .rank-item.dragging, #items-list .rank-item.landed, #items-list .rank-item.sliding { transition: none; animation: none; }
   }
+  /* Same drag physics as the list editor, for any other reorderable list
+     (admin categories). Mark the container .drag-list and each row .drag-row. */
+  .drag-list.dragging-active * {
+    user-select: none !important; -webkit-user-select: none !important; -moz-user-select: none !important; -webkit-touch-callout: none !important;
+  }
+  .drag-list .drag-row.sliding { transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1); }
+  .drag-list .drag-row.dragging { z-index: 30; position: relative; cursor: grabbing; box-shadow: 0 12px 26px rgba(0,0,0,0.22); background: #fff; touch-action: none; transition: none; }
+  .drag-list .drag-row.landed { animation: rank-item-land 0.34s cubic-bezier(0.2,0.9,0.3,1.5); }
+  @media (prefers-reduced-motion: reduce) {
+    .drag-list .drag-row, .drag-list .drag-row.dragging, .drag-list .drag-row.landed, .drag-list .drag-row.sliding { transition: none; animation: none; }
+  }
   .rank-badge { width: 22px; height: 22px; border-radius: 50%; background: #FAECE7; color: #993C1D; font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .rank-dot { width: 8px; height: 8px; border-radius: 50%; background: #D85A30; flex-shrink: 0; margin: 0 7px; }
   .sugs { background: #fff; border: 1px solid #D3D1C7; border-radius: 8px; overflow: hidden; margin-top: -6px; margin-bottom: 8px; display: none; }
@@ -3075,7 +3086,13 @@ function renderOverflowWarning() {
 
 // Live-drag physics: the dragged row lifts off and follows the pointer;
 // the other rows shuffle in real time to open a slot at the current hover index.
-function attachLiveDrag(el) {
+// Live drag-to-reorder. Defaults to the list-item editor (`items` + renderItems);
+// pass opts to reuse the same physics for any other vertical list:
+//   opts.count(), opts.margin (row gap in px), opts.onDrop(fromIdx, toIdx)
+function attachLiveDrag(el, opts) {
+  opts = opts || {};
+  var rowGap = opts.margin != null ? opts.margin : 5;
+  var countOf = opts.count || function() { return items.length; };
   var startY = 0, startX = 0;
   var pointerId = null;
   var isDragging = false;
@@ -3104,9 +3121,9 @@ function attachLiveDrag(el) {
     isDragging = true;
     listEl = el.parentNode;
     siblings = Array.prototype.slice.call(listEl.children);
-    // Row stride = height + margin-bottom (from .rank-item CSS: 5px)
+    // Row stride = height + the list's row gap
     var rect = el.getBoundingClientRect();
-    rowStride = rect.height + 5;
+    rowStride = rect.height + rowGap;
     el.classList.add('dragging');
     listEl.classList.add('dragging-active');
     hoverIdx = srcIdx;
@@ -3144,7 +3161,7 @@ function attachLiveDrag(el) {
     el.style.transform = 'translateY(' + (dy + lift) + 'px) scale(1.03) rotate(-1.5deg)';
     // Compute new hover index based on the center of the dragged row
     var newHover = srcIdx + Math.round(dy / rowStride);
-    newHover = Math.max(0, Math.min(items.length - 1, newHover));
+    newHover = Math.max(0, Math.min(countOf() - 1, newHover));
     if (newHover !== hoverIdx) {
       hoverIdx = newHover;
       applyShifts();
@@ -3174,7 +3191,9 @@ function attachLiveDrag(el) {
       el.classList.remove('dragging', 'sliding');
       el.style.transform = '';
       if (listEl) listEl.classList.remove('dragging-active');
-      if (landIdx !== srcIdx) {
+      if (landIdx !== srcIdx && opts.onDrop) {
+        opts.onDrop(srcIdx, landIdx);
+      } else if (landIdx !== srcIdx) {
         var moved = items.splice(srcIdx, 1)[0];
         items.splice(landIdx, 0, moved);
         renderItems();
@@ -12617,26 +12636,17 @@ async function renderAdminCats(el) {
 
   var activeRows = active.map(function(c, i) {
     var seasonBadge = c.is_seasonal ? '<span style="font-size:9px;background:#FAECE7;color:#993C1D;padding:2px 6px;border-radius:99px;margin-left:6px">Seasonal ' + escapeHtml(c.active_from || '?') + ' → ' + escapeHtml(c.active_to || '?') + '</span>' : '';
-    // Divider between the categories that fill the Create screen's slots and
-    // the ones queued behind them.
-    var divider = (i === CAT_GRID_SLOTS && active.length > CAT_GRID_SLOTS)
-      ? '<div style="display:flex;align-items:center;gap:10px;margin:16px 0 10px">'
-        + '<div style="flex:1;height:2px;background:#D85A30"></div>'
-        + '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.14em;color:#D85A30;text-transform:uppercase">In waiting</div>'
-        + '<div style="flex:1;height:2px;background:#D85A30"></div></div>'
-        + '<div style="font-size:10.5px;color:#888780;margin-bottom:8px;line-height:1.4">These appear on the Create screen in this order as users fill out the categories above.</div>'
-      : '';
     var slotBadge = i < CAT_GRID_SLOTS
       ? '<span style="font-size:9px;background:#EAF3EE;color:#2F6B52;padding:2px 6px;border-radius:99px;margin-left:6px">Slot ' + (i + 1) + '</span>'
-      : '<span style="font-size:9px;background:#F1EFE8;color:#5F5E5A;padding:2px 6px;border-radius:99px;margin-left:6px">Queued #' + (i - CAT_GRID_SLOTS + 1) + '</span>';
-    var arrows = '<div style="display:flex;flex-direction:column;gap:2px;margin-right:6px;flex-shrink:0">'
-      + '<button class="back-btn" style="padding:1px 7px;line-height:1.3' + (i === 0 ? ';opacity:.35' : '') + '"' + (i === 0 ? ' disabled' : '') + ' onclick="moveAdminCat(\'' + c.id + '\',-1)">▲</button>'
-      + '<button class="back-btn" style="padding:1px 7px;line-height:1.3' + (i === active.length - 1 ? ';opacity:.35' : '') + '"' + (i === active.length - 1 ? ' disabled' : '') + ' onclick="moveAdminCat(\'' + c.id + '\',1)">▼</button>'
-      + '</div>';
-    return divider
-      + '<div class="card no-hover" style="margin-bottom:6px">'
+      : '<span style="font-size:9px;background:#F1EFE8;color:#5F5E5A;padding:2px 6px;border-radius:99px;margin-left:6px">In waiting #' + (i - CAT_GRID_SLOTS + 1) + '</span>';
+    // Inset shadow (not a border) marks where the visible 8 end, so every row
+    // keeps the same height — the drag maths assume a constant row stride.
+    var cutMark = (i === CAT_GRID_SLOTS && active.length > CAT_GRID_SLOTS)
+      ? 'box-shadow:inset 0 3px 0 0 #D85A30;' : '';
+    var handle = '<span style="font-size:15px;color:#C8C6BE;cursor:grab;padding:0 8px 0 2px;flex-shrink:0;touch-action:none">⠿</span>';
+    return '<div class="card no-hover drag-row" data-idx="' + i + '" data-cat-id="' + c.id + '" style="margin-bottom:6px;' + cutMark + '">'
       + '<div style="display:flex;justify-content:space-between;align-items:center">'
-      +   arrows
+      +   handle
       +   '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0"><span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' + renderCatEmoji(c.emoji, 22) + '</span><div style="min-width:0"><strong style="font-size:13px">' + escapeHtml(c.name) + '</strong>' + slotBadge + seasonBadge + '<div style="font-size:10px;color:#888780">Created ' + fmtDate(c.created_at) + '</div></div></div>'
       +   '<div style="flex-shrink:0"><button class="back-btn" onclick="editAdminCat(\'' + c.id + '\')" style="margin-right:4px">Edit</button>'
       +   '<button class="back-btn" onclick="retireAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')" style="margin-right:4px">Retire</button>'
@@ -12666,30 +12676,46 @@ async function renderAdminCats(el) {
   el.innerHTML = '<div style="padding:12px">'
     + '<div style="font-size:10px;color:#888780;margin-bottom:6px">Popularity based on ' + analytics.totalUsers + ' total Tenner users.</div>'
     + '<button class="btn-primary" onclick="editAdminCat(null)" style="margin-bottom:12px">+ New category</button>'
-    + (activeRows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No active categories yet.</div>')
+    + (active.length
+        ? '<div style="font-size:10.5px;color:#5F5E5A;line-height:1.45;background:#FAF8F2;border:1px solid #E8E6DF;border-left:5px solid #D85A30;border-radius:3px;padding:8px 10px;margin-bottom:10px">'
+          + '<strong style="color:#2C2C2A">Press and drag to reorder.</strong> The top ' + CAT_GRID_SLOTS + ' fill the Create screen. The rest wait in line and move up as users fill out the ones above them.</div>'
+        : '')
+    + (activeRows
+        ? '<div class="drag-list" id="admin-cat-list">' + activeRows + '</div>'
+        : '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No active categories yet.</div>')
     + (retired.length
         ? '<div style="text-align:center;margin-top:14px"><button class="btn-secondary" style="font-size:11px;padding:6px 14px;width:auto" onclick="window._adminShowRetired=!window._adminShowRetired;renderAdmin()">' + (showRetired ? '▲ Hide retired categories' : '▼ Show retired categories (' + retired.length + ')') + '</button></div>'
         : '')
     + (showRetired ? '<div style="margin-top:10px">' + retiredRows + '</div>' : '')
     + '</div>';
+
+  // Press-and-drag reordering, same physics as the list editor.
+  _adminCatOrder = active.slice();
+  var dragHost = el.querySelector('#admin-cat-list');
+  if (dragHost) {
+    Array.prototype.slice.call(dragHost.children).forEach(function(row) {
+      attachLiveDrag(row, {
+        margin: 6,
+        count: function() { return _adminCatOrder.length; },
+        onDrop: commitAdminCatDrag
+      });
+    });
+  }
 }
 
-// Move an active category up/down in the ordering that drives both the Create
-// screen's 8 slots and the queue behind them. Rewrites sort_order sequentially
-// so pre-existing gaps or ties can't make the order ambiguous.
-async function moveAdminCat(id, dir) {
-  var res = await sbClient.from('categories').select('id,sort_order,retired_at').order('sort_order');
-  if (res.error) { showToast('Error: ' + res.error.message); return; }
-  var active = (res.data || []).filter(function(c){ return !c.retired_at; });
-  var i = -1;
-  for (var k = 0; k < active.length; k++) { if (active[k].id === id) { i = k; break; } }
-  var j = i + dir;
-  if (i < 0 || j < 0 || j >= active.length) return;
-  var tmp = active[i]; active[i] = active[j]; active[j] = tmp;
-  for (var n = 0; n < active.length; n++) {
-    if (active[n].sort_order === n + 1) continue;
-    var upd = await sbClient.from('categories').update({ sort_order: n + 1 }).eq('id', active[n].id);
-    if (upd.error) { showToast('Error: ' + upd.error.message); return; }
+var _adminCatOrder = [];
+
+// Persist a drag: reorder locally, save sequential sort_order, then re-render.
+async function commitAdminCatDrag(from, to) {
+  var order = _adminCatOrder.slice();
+  if (from < 0 || from >= order.length || to < 0 || to >= order.length) return;
+  order.splice(to, 0, order.splice(from, 1)[0]);
+  _adminCatOrder = order;
+  for (var n = 0; n < order.length; n++) {
+    if (order[n].sort_order === n + 1) continue;
+    var upd = await sbClient.from('categories').update({ sort_order: n + 1 }).eq('id', order[n].id);
+    if (upd.error) { showToast('Error: ' + upd.error.message); renderAdmin(); return; }
+    order[n].sort_order = n + 1;
   }
   await loadCategoriesFromDb();
   renderAdmin();
