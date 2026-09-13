@@ -6263,11 +6263,24 @@ async function submitAuth() {
   btn.disabled = false;
 }
 
-async function signInWithGoogle() {
-  await sbClient.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: 'https://mytenner.com/' }
-  });
+// forceChooser: ask Google which account to use instead of letting it
+// auto-pick. Deliberately NOT the default — it would add a tap for the
+// majority who have one Google account. We can't see how many accounts are on
+// the device (Google doesn't expose that to a web page), so instead we offer
+// the chooser at the one moment the wrong account actually shows itself:
+// a Google sign-in that lands on the signup screen (see renderOnbStep1).
+async function signInWithGoogle(forceChooser) {
+  var options = { redirectTo: 'https://mytenner.com/' };
+  if (forceChooser) options.queryParams = { prompt: 'select_account' };
+  await sbClient.auth.signInWithOAuth({ provider: 'google', options: options });
+}
+
+// Signed in as the wrong Google account: drop this session and start over with
+// the account chooser up. The half-made account is left alone — it has no data
+// and reusing the email later still works.
+async function switchGoogleAccount() {
+  try { await sbClient.auth.signOut(); } catch (e) { /* signing out is best-effort */ }
+  await signInWithGoogle(true);
 }
 
 function openChangeEmail() {
@@ -6376,6 +6389,13 @@ async function signOut() {
 function onSignedIn(session) {
   userId = session.user.id;
   currentUserEmail = session.user.email;
+  // Remember how they got in, so onboarding can offer an account switch to
+  // someone Google signed in as the wrong person.
+  try {
+    var am = session.user.app_metadata || {};
+    var provs = am.providers || (am.provider ? [am.provider] : []);
+    _signedInWithGoogle = provs.indexOf('google') >= 0;
+  } catch (e) { _signedInWithGoogle = false; }
   var emailEl = document.getElementById('profile-email');
   if (emailEl) emailEl.textContent = currentUserEmail;
   var emailInfo = document.getElementById('profile-email-info');
@@ -6388,6 +6408,7 @@ function onSignedIn(session) {
   _welcomeEmailTimer = setTimeout(function() { sendWelcomeEmailIfNeeded(); }, 2000);
 }
 var _welcomeEmailTimer = null;
+var _signedInWithGoogle = false;
 
 // --- Transactional email helpers ---
 // Invokes the send-email Edge Function. Fire-and-forget — never blocks UI.
@@ -7534,7 +7555,19 @@ function renderOnbStep() {
 
 function renderOnbStep1(body) {
   var current = (myProfile && myProfile.display_name) || '';
-  body.innerHTML = ''
+  // Someone who already has a Tenner account only reaches this screen if
+  // Google signed them in as a different account than the one they made it
+  // with — common when a phone has two Gmail accounts, and especially in an
+  // installed app, which has its own session and picks silently. Naming the
+  // email they've arrived as is what makes the mistake obvious.
+  var wrongAccountNote = (_signedInWithGoogle && currentUserEmail)
+    ? '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:5px solid #D85A30;border-radius:3px;padding:11px 13px;margin-bottom:16px;text-align:left">'
+      + '<div style="font-size:12px;color:#2C2C2A;line-height:1.45">Setting up a new account for <strong>' + escapeHtml(currentUserEmail) + '</strong>.</div>'
+      + '<div style="font-size:11.5px;color:#5F5E5A;line-height:1.45;margin-top:4px">Already on Tenner? You may have signed in with a different Google account.</div>'
+      + '<button onclick="switchGoogleAccount()" style="background:none;border:none;color:#D85A30;font-size:10.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;padding:6px 0 0;cursor:pointer;font-family:inherit">Use a different Google account</button>'
+      + '</div>'
+    : '';
+  body.innerHTML = wrongAccountNote
     + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:28px;letter-spacing:-0.02em;color:#2C2C2A;text-align:center;margin-bottom:8px;line-height:1.15">What should we call you?</div>'
     + '<div style="font-size:13px;color:#5F5E5A;text-align:center;margin-bottom:20px">This is how friends will see you on Tenner.</div>'
     + '<input type="text" id="onb-name" value="' + escapeHtml(current) + '" placeholder="Your name" autocomplete="name" autofocus style="margin-bottom:6px;text-align:center">'
