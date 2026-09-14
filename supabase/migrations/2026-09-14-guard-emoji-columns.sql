@@ -53,3 +53,33 @@ drop trigger if exists trg_guard_emoji on public.lists;
 create trigger trg_guard_emoji
   before insert or update on public.lists
   for each row execute function public.guard_emoji_value();
+
+-- ─────────────────────────────────────────────────────────────────────
+-- Amended the same day: allow a hosted icon URL.
+--
+-- The first version exempted only data:image URLs. Once category icons move
+-- to Storage the replacement value is an https://img.mytenner.com/... URL —
+-- longer than 24 chars and not a data URL — so this guard would have silently
+-- rewritten every migrated icon to 📋, undoing the migration as it ran.
+-- Caught before running it.
+-- ─────────────────────────────────────────────────────────────────────
+create or replace function public.guard_emoji_value()
+returns trigger language plpgsql set search_path = public
+as $$
+begin
+  if new.emoji is not null
+     and new.emoji !~* '^data:image/(png|jpe?g|gif|webp|svg\+xml);base64,'
+     and new.emoji !~* '^https://[^[:space:]]+$'
+     and length(new.emoji) > 24
+  then
+    new.emoji := '📋';
+  end if;
+  -- A hosted URL has no business being enormous either.
+  if new.emoji is not null
+     and new.emoji ~* '^https://'
+     and length(new.emoji) > 512
+  then
+    new.emoji := '📋';
+  end if;
+  return new;
+end $$;

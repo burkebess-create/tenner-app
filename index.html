@@ -11330,9 +11330,26 @@ var _adminEmojiPreview = '📋'; // current emoji value in the editor (unicode o
 // value longer than a plausible emoji is dropped for the fallback instead of
 // being shown. This function can never emit more than a few characters of text.
 var EMOJI_MAX_TEXT_LEN = 24;   // generous: the longest ZWJ sequences are ~11
+
+// For contexts that can only take literal text (canvas, share captions, page
+// titles, emails). An uploaded icon has no text form, so it becomes the
+// neutral glyph rather than a URL painted across the output.
+function emojiAsText(val) {
+  var v = (typeof val === 'string' && val) ? val : '';
+  if (!v || v.length > EMOJI_MAX_TEXT_LEN || /^(data:|https?:)/i.test(v)) return '📋';
+  return v;
+}
+
 function renderCatEmoji(val, sizePx) {
   var s = sizePx || 22;
   var v = (typeof val === 'string' && val) ? val : '📋';
+  // Hosted icon (the preferred form — see the category-icon migration). An
+  // inline data: URL is still accepted for anything not yet migrated.
+  if (/^https:\/\/[^\s"'<>]+$/i.test(v) && v.length <= 512) {
+    return '<img src="' + escapeHtml(v) + '" alt=""'
+      + ' style="width:' + s + 'px;height:' + s + 'px;object-fit:contain;vertical-align:middle"'
+      + ' onerror="this.outerHTML=\'<span style=&quot;font-size:' + s + 'px;line-height:1;vertical-align:middle&quot;>📋</span>\'">';
+  }
   if (/^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,/i.test(v)) {
     // onerror: a broken or truncated image would otherwise leave an empty box
     // or alt text; swap in the neutral fallback glyph instead.
@@ -11437,6 +11454,11 @@ function renderAdminHub(el) {
     +   '<div style="flex:1"><div style="font-size:14px;font-weight:800;color:#2C2C2A">Migrate photos to Storage</div><div id="admin-migrate-photos-meta" style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A;margin-top:4px">Move base64 profile + group photos to the photos bucket. One-shot. Idempotent.</div></div>'
     +   '<div style="font-size:16px;color:#5F5E5A;opacity:0.6">›</div>'
     + '</div>'
+    + '<div id="admin-migrate-icons-tile" onclick="runCategoryIconMigration()" style="grid-column:1/-1;background:#F5F1EA;border:1px solid #EAE3DC;border-left:7px solid #2C2C2A;border-radius:3px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:12px">'
+    +   '<div style="font-size:22px;line-height:1">🖼️</div>'
+    +   '<div style="flex:1"><div style="font-size:14px;font-weight:800;color:#2C2C2A">Migrate category icons to Storage</div><div id="admin-migrate-icons-meta" style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A;margin-top:4px">Move uploaded category images out of the emoji column. One-shot. Idempotent.</div></div>'
+    +   '<div style="font-size:16px;color:#5F5E5A;opacity:0.6">›</div>'
+    + '</div>'
     + tiles.map(function(t) {
         var countBadge = t.key === 'users'
           ? '<div id="admin-tile-count-users" style="position:absolute;top:14px;right:14px;font-size:22px;font-weight:800;letter-spacing:-0.02em;color:' + t.ac + ';line-height:1;opacity:0.4">…</div>'
@@ -11476,6 +11498,50 @@ async function runPhotoBackfill() {
     showToast('Backfill failed. Check console.');
   }
 }
+// Moves uploaded category images out of the emoji column and into Storage.
+// Runs a dry run first so the admin sees the scale before anything changes.
+async function runCategoryIconMigration() {
+  var meta = document.getElementById('admin-migrate-icons-meta');
+  if (meta) meta.textContent = 'Checking…';
+  try {
+    var dry = await sbClient.functions.invoke('migrate-category-icons', { body: { dry_run: true } });
+    if (dry.error) throw dry.error;
+    if (!dry.data || !dry.data.ok) throw new Error((dry.data && dry.data.error) || 'unknown');
+    var ds = dry.data.stats || {};
+    var found = (ds.categories_found || 0) + (ds.lists_found || 0);
+    if (found === 0) {
+      if (meta) meta.textContent = 'Nothing to migrate — no inline images left.';
+      showToast('Already migrated.');
+      return;
+    }
+    var kb = Math.round((ds.bytes_removed || 0) / 1024);
+    if (!confirm('Migrate ' + found + ' inline icon' + (found === 1 ? '' : 's') + ' to Storage?\n\n'
+      + (ds.categories_found || 0) + ' categor' + ((ds.categories_found === 1) ? 'y' : 'ies') + ' and '
+      + (ds.lists_found || 0) + ' list' + ((ds.lists_found === 1) ? '' : 's') + '.\n'
+      + 'Removes about ' + kb + 'KB from every load that carries them.\n\nSafe to re-run.')) {
+      if (meta) meta.textContent = 'Cancelled.';
+      return;
+    }
+    if (meta) meta.textContent = 'Migrating…';
+    var res = await sbClient.functions.invoke('migrate-category-icons', { body: {} });
+    if (res.error) throw res.error;
+    if (!res.data || !res.data.ok) throw new Error((res.data && res.data.error) || 'unknown');
+    var s = res.data.stats || {};
+    if (meta) {
+      meta.textContent = (s.categories_migrated || 0) + ' categories · ' + (s.lists_migrated || 0) + ' lists · '
+        + (s.uploaded || 0) + ' uploaded, ' + (s.reused || 0) + ' shared · '
+        + Math.round((s.bytes_removed || 0) / 1024) + 'KB saved'
+        + ((s.errors && s.errors.length) ? ' · ' + s.errors.length + ' error(s)' : '');
+    }
+    if (s.errors && s.errors.length) console.warn('Icon migration errors:', s.errors);
+    showToast('Icons migrated.');
+    await loadCategoriesFromDb();
+  } catch (e) {
+    if (meta) meta.textContent = 'Failed: ' + (e.message || e);
+    showToast('Icon migration failed. Check console.');
+  }
+}
+
 function _adminBackToHubBtn() {
   return '<div style="padding:10px 12px 0"><button class="back-btn" onclick="switchAdminTab(\'hub\')" style="font-size:11px">← Admin home</button></div>';
 }
@@ -15109,7 +15175,10 @@ function shareListAsImage(listObj) {
     ctx.fillStyle = '#2C2C2A';
     ctx.font = 'bold 24px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText((listObj.emoji || '📋') + '  Top 10 ' + cat, 24, 128);
+    // Canvas can only draw text, so an uploaded icon (a data: URL today, a
+    // hosted URL after the migration) must not be passed through — it would
+    // paint the whole URL across the image.
+    ctx.fillText(emojiAsText(listObj.emoji) + '  Top 10 ' + cat, 24, 128);
 
     // ── Items ──────────────────────────────────────────────────────────
     var listItems = (listObj.items || []).slice(0, 10);
