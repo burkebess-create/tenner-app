@@ -2238,6 +2238,24 @@ async function loadGiftNudgeAcks() {
     (r.data || []).forEach(function(a){ m[a.friend_id + '__' + a.bday_year] = a.tier; });
     MY_GIFT_NUDGE_ACKS = m;
   } catch (e) { console.warn('loadGiftNudgeAcks failed', e); }
+  try { refreshGiftsBadge(); } catch (e) {}
+}
+
+// The badge used to be set only while rendering the Gifts screen, so it was
+// blank until you opened that tab — exactly when you no longer needed telling.
+// This computes it from already-loaded friends, with no extra query, and runs
+// on startup as soon as friends and acks are in. Both loads call it because
+// either can finish first; whichever lands last produces the final count.
+function refreshGiftsBadge() {
+  if (!Array.isArray(myFriends)) return;
+  var entries = [];
+  myFriends.forEach(function(f) {
+    if (f.status !== 'accepted' || !f.profile || !f.profile.birthday) return;
+    var d = daysUntilBirthday(f.profile.birthday);
+    if (d === null || d === undefined || d < 0) return;
+    entries.push({ profile: f.profile, daysUntil: d });
+  });
+  updateGiftsBadge(entries);
 }
 
 function ackGiftNudge(friendId, daysUntil) {
@@ -7183,6 +7201,7 @@ async function loadFriends() {
   try { renderCircleFriends(); } catch(e) {}
   // Bell badge includes pending friend requests — refresh once myFriends is loaded.
   try { updateNotificationBadge(); } catch(e) {}
+  try { refreshGiftsBadge(); } catch(e) {}
 }
 
 var _handleCheckTimer = null;
