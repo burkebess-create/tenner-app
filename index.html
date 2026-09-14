@@ -486,9 +486,7 @@
         location.reload();
       } else {
         _swReloading = false;   // the reload is now the user's to trigger
-        if (typeof showToast === 'function') {
-          showToast('New version ready — reopen the app to update.', 6000);
-        }
+        if (typeof showUpdateBanner === 'function') showUpdateBanner();
       }
     });
 
@@ -2569,6 +2567,33 @@ function showListCompleteModal(cat) {
     +   '<button class="btn-secondary" onclick="document.getElementById(\'list-complete-modal\').remove()" style="margin-bottom:0">Maybe later</button>'
     + '</div>';
   frame.appendChild(overlay);
+}
+
+// A new build is waiting. The normal toast is pointer-events:none, so it
+// could only ever say "go and reopen the app" — this one does it for you.
+// Reloading picks up the new version and does NOT sign anyone out: the
+// session lives in storage, not in the page.
+function showUpdateBanner() {
+  var frame = document.querySelector('.frame') || document.body;
+  if (document.getElementById('update-banner')) return;
+  var bar = document.createElement('div');
+  bar.id = 'update-banner';
+  bar.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#2C2C2A;color:#FFFFFF;z-index:9998;'
+    + 'padding:10px 14px;border-radius:0 0 20px 20px;display:flex;align-items:center;gap:10px;box-shadow:0 6px 18px rgba(0,0,0,0.18)';
+  bar.innerHTML = '<div style="flex:1;min-width:0">'
+    +   '<div style="font-size:12px;font-weight:700;line-height:1.2">New version ready</div>'
+    +   '<div style="font-size:10.5px;opacity:0.7;margin-top:2px">Updates in a second — you stay signed in.</div>'
+    + '</div>'
+    + '<button id="update-banner-go" style="flex-shrink:0;background:#D85A30;border:none;color:#FFFFFF;border-radius:99px;padding:8px 14px;font-family:inherit;font-size:10.5px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer">Update</button>'
+    + '<button id="update-banner-x" aria-label="Dismiss" style="flex-shrink:0;background:none;border:none;color:#FFFFFF;opacity:0.55;font-size:17px;line-height:1;padding:4px;cursor:pointer">×</button>';
+  frame.appendChild(bar);
+  document.getElementById('update-banner-go').onclick = function() {
+    this.textContent = 'Updating…';
+    this.disabled = true;
+    // Same effect as force-quitting and reopening, without leaving the app.
+    location.reload();
+  };
+  document.getElementById('update-banner-x').onclick = function() { bar.remove(); };
 }
 
 function showToast(msg, duration) {
