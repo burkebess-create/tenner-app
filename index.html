@@ -296,6 +296,15 @@
   @media (prefers-reduced-motion: reduce) {
     .drag-list .drag-row, .drag-list .drag-row.dragging, .drag-list .drag-row.landed, .drag-list .drag-row.sliding { transition: none; animation: none; }
   }
+  /* Brief highlight on the section the Activity tab auto-scrolled to. */
+  .sec-label.notif-jumped { animation: notif-jump-flash 1.6s ease-out; border-radius: 3px; }
+  @keyframes notif-jump-flash {
+    0%, 55% { background: #FAECE7; box-shadow: 0 0 0 5px #FAECE7; }
+    100%    { background: transparent; box-shadow: 0 0 0 5px transparent; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sec-label.notif-jumped { animation: none; }
+  }
   .rank-badge { width: 22px; height: 22px; border-radius: 50%; background: #FAECE7; color: #993C1D; font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .rank-dot { width: 8px; height: 8px; border-radius: 50%; background: #D85A30; flex-shrink: 0; margin: 0 7px; }
   .sugs { background: #fff; border: 1px solid #D3D1C7; border-radius: 8px; overflow: hidden; margin-top: -6px; margin-bottom: 8px; display: none; }
@@ -2032,6 +2041,11 @@ function go(id) {
       // pending invites, else Activity so the tab isn't empty on open.
       var forced = window.__forceNotifTab;
       window.__forceNotifTab = null;
+      // Snapshot "last seen" BEFORE markNotificationsRead() moves it to now().
+      // Rendering is async, so without this the unread marks (and the
+      // scroll-to-new-activity that depends on them) race that update and can
+      // come back empty.
+      _alertsSeenSnapshot = _lastAlertsSeenAt;
       var hasInvites = pendingInvitesCount() > 0;
       switchNotifTab(forced || (hasInvites ? 'invites' : 'activity'));
       markNotificationsRead().then(updateNotificationBadge);
@@ -8006,6 +8020,10 @@ var MY_LIST_SHARE_INVITES = []; // incoming "fill out this list" invites from fr
 var MY_COMMENTS_ON_ME = [];     // comments others left on my list items (last 30 days)
 var MY_THREAD_REPLIES = [];     // comments others left on OTHER people's items where I also commented
 var _lastAlertsSeenAt = null;   // profile.last_alerts_seen_at, used to gauge unread
+// Value of _lastAlertsSeenAt captured when the Alerts screen opens, before
+// markNotificationsRead() advances it to now(). Rendering is async, so the
+// unread marks must compare against this frozen value or they race that write.
+var _alertsSeenSnapshot = null;
 var pendingMatchFriendId = null;
 
 function unreadCommentsCount() {
@@ -8269,10 +8287,17 @@ async function renderNotifActivity(el) {
   // ── SECTION 1: Comments on YOUR items (last 30 days) ──
   // Reads from MY_COMMENTS_ON_ME which is loaded via refreshNotifications() /
   // loadCommentsOnMe(). Tapping opens the item's comment thread so you can reply.
-  var sinceMs = _lastAlertsSeenAt ? new Date(_lastAlertsSeenAt).getTime() : 0;
+  // Uses the snapshot taken when the screen opened, not the live value —
+  // markNotificationsRead() moves _lastAlertsSeenAt to now() while this is
+  // still rendering, which would erase every unread mark.
+  var seenAt = (typeof _alertsSeenSnapshot !== 'undefined' && _alertsSeenSnapshot !== null)
+    ? _alertsSeenSnapshot : _lastAlertsSeenAt;
+  var sinceMs = seenAt ? new Date(seenAt).getTime() : 0;
+  var unreadSections = {};   // section key -> has something new since last visit
   var comments = (MY_COMMENTS_ON_ME || []).slice(0, 20);
   if (comments.length > 0) {
-    html += '<div class="sec-label" style="margin-top:0">Comments on your lists</div>';
+    unreadSections.comments = comments.some(function(c){ return new Date(c.created_at).getTime() > sinceMs; });
+    html += '<div class="sec-label" data-notif-section="comments"' + (unreadSections.comments ? ' data-unread="1"' : '') + ' style="margin-top:0">Comments on your lists</div>';
     html += comments.map(function(c) {
       var p = c.profile || {};
       var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
@@ -8307,7 +8332,8 @@ async function renderNotifActivity(el) {
     return true;
   }).slice(0, 20);
   if (replies.length > 0) {
-    html += '<div class="sec-label" style="margin-top:18px">Replies to your comments</div>';
+    unreadSections.replies = replies.some(function(c){ return new Date(c.created_at).getTime() > sinceMs; });
+    html += '<div class="sec-label" data-notif-section="replies"' + (unreadSections.replies ? ' data-unread="1"' : '') + ' style="margin-top:18px">Replies to your comments</div>';
     html += replies.map(function(c) {
       var p = c.profile || {};
       var op = c.ownerProfile || {};
@@ -8333,7 +8359,7 @@ async function renderNotifActivity(el) {
   // ── SECTION 2: Friends' recent list updates ──
   if (accepted.length === 0) {
     if (!html) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">👋</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No friends yet</div><div style="font-size:12px;line-height:1.5">Add friends to see their list updates here.</div></div>'; return; }
-    el.innerHTML = html; return;
+    el.innerHTML = html; scrollToNewActivity(el); return;
   }
   try {
     // Public-only, matching Circle's Recent activity feed for consistency.
@@ -8359,19 +8385,59 @@ async function renderNotifActivity(el) {
         var sentence = topItem
           ? escapeHtml(name) + ' shared that <em>' + escapeHtml(topItem) + '</em> is their favorite ' + escapeHtml(singularize(cat))
           : escapeHtml(name) + ' updated their ' + escapeHtml(singularize(cat)) + ' list';
+        // This section had no unread marking at all, so a friend's new list
+        // looked identical to a week-old one — part of why landing here was
+        // confusing.
+        var isNew = l.updated_at && new Date(l.updated_at).getTime() > sinceMs;
+        var dotStyle = isNew ? 'width:8px;height:8px;border-radius:50%;background:#D85A30;flex-shrink:0;margin-right:6px;margin-top:8px' : 'width:8px;flex-shrink:0';
         return '<div class="share-pick" style="cursor:pointer;align-items:flex-start" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
+          + '<span style="' + dotStyle + '"></span>'
           + '<span style="font-size:18px;flex-shrink:0;margin-top:2px">' + emoji + '</span>'
           + '<div style="flex:1;font-size:13.5px;color:#2C2C2A;line-height:1.5">' + sentence + '</div>'
           + '</div>';
       }).join('');
-      html += '<div class="sec-label" style="margin-top:18px">Recent from your circle</div>' + rows;
+      unreadSections.circle = recentLists.some(function(l){
+        return l.updated_at && new Date(l.updated_at).getTime() > sinceMs;
+      });
+      html += '<div class="sec-label" data-notif-section="circle"' + (unreadSections.circle ? ' data-unread="1"' : '') + ' style="margin-top:18px">Recent from your circle</div>' + rows;
     }
     if (!html) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists or comment on yours, it\'ll show up here.</div></div>'; return; }
-    el.innerHTML = html;
+    el.innerHTML = html; scrollToNewActivity(el);
   } catch(e) {
     if (!html) { el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#888780"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No activity yet</div><div style="font-size:12px;line-height:1.5">When friends update their lists or comment on yours, it\'ll show up here.</div></div>'; return; }
-    el.innerHTML = html;
+    el.innerHTML = html; scrollToNewActivity(el);
   }
+}
+
+// Activity has three sections in a fixed order, with comments-on-your-lists
+// pinned at the top. So a notification about anything else (a reply, a
+// friend's new list) left you looking at old comments with no clue where the
+// new thing was. Scroll to the first section that actually has something new.
+//
+// Skipped when the first unread section is already the top one (nothing to
+// scroll to) and when nothing is unread at all — a plain "show me what's
+// here" visit shouldn't jump.
+function scrollToNewActivity(el) {
+  if (!el) return;
+  var labels = el.querySelectorAll('.sec-label[data-notif-section]');
+  if (!labels.length) return;
+  var firstUnread = null;
+  for (var i = 0; i < labels.length; i++) {
+    if (labels[i].hasAttribute('data-unread')) { firstUnread = { node: labels[i], index: i }; break; }
+  }
+  if (!firstUnread || firstUnread.index === 0) return;   // nothing new, or it's already at the top
+
+  var scroller = el.closest ? el.closest('.content') : null;
+  if (!scroller) return;
+  // rAF so the browser has laid the new HTML out before we measure it.
+  requestAnimationFrame(function() {
+    var top = firstUnread.node.offsetTop - scroller.offsetTop - 8;   // 8px breathing room above the heading
+    try { scroller.scrollTo({ top: Math.max(0, top), behavior: 'smooth' }); }
+    catch (e) { scroller.scrollTop = Math.max(0, top); }             // older browsers
+    // Brief highlight so it's obvious why the screen moved.
+    firstUnread.node.classList.add('notif-jumped');
+    setTimeout(function(){ firstUnread.node.classList.remove('notif-jumped'); }, 1600);
+  });
 }
 
 // Helper: from the Alerts activity feed, open the item's comment modal on YOUR list
