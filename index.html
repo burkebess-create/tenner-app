@@ -61,6 +61,14 @@
     // Resolves later to a system profile so the channel shows up in the
     // invite leaderboard next to real recruiters. First-touch: never
     // overwritten, and never clobbers a real person's ?from= invite.
+    // A group invite must survive the marketing redirect: this gate runs
+    // before any other script, so capture it here or a signed-out invitee
+    // loses it on the way to welcome.html.
+    var jg = qs.get('joingroup');
+    if (jg) {
+      try { localStorage.setItem('tenner_pending_group', JSON.stringify({ gid: jg, ts: Date.now() })); } catch(e) {}
+    }
+
     var ch = qs.get('ch');
     if (ch && !localStorage.getItem('tenner_pending_channel') && !localStorage.getItem('tenner_pending_from')) {
       localStorage.setItem('tenner_pending_channel', JSON.stringify({
@@ -75,6 +83,7 @@
     // link, or a click-through from welcome) goes straight to the app.
     if (location.hash) return;                            // in-app deep links / auth callbacks
     if (qs.get('from') || qs.get('fill')) return;         // friend + list invites
+    if (qs.get('joingroup')) return;                      // group invite — straight to sign-up
     if (qs.get('skipIntro')) return;                      // automated QA + "take me straight in" links
     if (sessionStorage.getItem('tennerLaunch')) return;   // clicked the welcome CTA
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
@@ -439,6 +448,12 @@
       var _from = _q.get('from');
       if (_from) {
         try { localStorage.setItem('tenner_pending_from', JSON.stringify({ from: decodeURIComponent(_from), ts: Date.now() })); } catch(e) {}
+      }
+      // Group invite link. Held until they're signed in — they may need to
+      // create an account first — then applied once, like ?from=.
+      var _jg = _q.get('joingroup');
+      if (_jg) {
+        try { localStorage.setItem('tenner_pending_group', JSON.stringify({ gid: decodeURIComponent(_jg), ts: Date.now() })); } catch(e) {}
       }
       // NOTE: the old "redirect first-time visitors to about.html" block that
       // used to live here has been removed. The first-touch gate at the top of
@@ -970,6 +985,49 @@
       </div>
 
       <!-- ═══ GROUP SETTINGS ═══ -->
+      <div class="screen" id="s-gadd">
+        <div class="topbar">
+          <button class="back-btn" onclick="go('s-gdetail')">← Back</button>
+          <span style="font-size:13px;font-weight:600;color:#2C2C2A">Add group members</span>
+          <span style="width:52px"></span>
+        </div>
+        <div class="content">
+          <div id="gadd-groupname" style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;margin-bottom:12px"></div>
+
+          <div style="display:flex;align-items:center;gap:12px;margin:0 0 10px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Your friends</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
+          <div id="gadd-friends"></div>
+
+          <div style="display:flex;align-items:center;gap:12px;margin:22px 0 10px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Search anyone</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
+          <div style="display:flex;gap:6px;margin-bottom:8px">
+            <input type="text" id="gadd-search" placeholder="@handle or phone number" style="margin-bottom:0;flex:1;font-size:13px;padding:8px 10px" onkeydown="if(event.key==='Enter')searchGroupAddUser()">
+            <button class="add-btn" style="padding:8px 14px;font-size:12px;flex-shrink:0" onclick="searchGroupAddUser()">Search</button>
+          </div>
+          <div id="gadd-search-result"></div>
+
+          <div style="display:flex;align-items:center;gap:12px;margin:22px 0 10px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Invite someone new</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
+          <div style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px;margin-bottom:24px">
+            <div style="font-size:12px;color:#5F5E5A;line-height:1.45;margin-bottom:10px">Share a link that adds them to this group as soon as they join Tenner.</div>
+            <div style="display:flex;gap:6px;margin-bottom:8px">
+              <input type="text" id="gadd-link" readonly style="margin-bottom:0;flex:1;font-size:11px;padding:8px 10px;background:#F5F1EA;color:#5F5E5A">
+              <button class="add-btn" style="padding:8px 14px;font-size:12px;flex-shrink:0" onclick="copyGroupInviteLink()">Copy</button>
+            </div>
+            <button class="btn-secondary" style="margin-bottom:6px" onclick="shareGroupInviteLink()">Share link…</button>
+            <button class="btn-secondary" style="margin-bottom:0" onclick="openInviteModalForGroup()">✉️💬 Invite by email or text</button>
+          </div>
+        </div>
+      </div>
       <div class="screen" id="s-gsettings">
         <div class="topbar">
           <button class="back-btn" onclick="go('s-gdetail')">← Back</button>
@@ -5540,10 +5598,7 @@ async function renderGroupDetail() {
           + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + (isPending ? ' <span class="pill pill-amber" style="font-size:9px">Pending</span>' : '') + '</div><div style="font-size:13.5px;color:#5F5E5A">' + handle + '</div></div>'
           + '<button class="back-btn" style="font-size:10px;padding:3px 7px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();showConfirm(\'Remove ' + name.replace(/'/g,"\\'") + '?\',\'They will lose access to this group.\',\'Remove\',\'danger\',function(){removeMemberFromGroup(\'' + fid + '\')})">Remove</button></div>';
       }).join('')
-    + '<div style="display:flex;gap:6px;margin-top:10px">'
-    + '<button class="btn-secondary" style="flex:1;margin-bottom:0;font-size:11px;padding:8px" onclick="event.stopPropagation();openInviteModalForGroup()">✉ Invite by email</button>'
-    + '<button class="btn-secondary" style="flex:1;margin-bottom:0;font-size:11px;padding:8px" onclick="event.stopPropagation();go(\'s-gsettings\')">+ Add friend</button>'
-    + '</div>'
+    + '<button class="btn-primary" style="margin-top:10px;margin-bottom:0;font-size:11px;padding:10px" onclick="event.stopPropagation();openAddGroupMembers()">＋ Add group members</button>'
     + '</div></div>';
 
   // Shared lists — topics shared with this group (from group_lists table).
@@ -5623,10 +5678,13 @@ async function renderGroupDetail() {
   if (editBtn) editBtn.style.display = isAdmin ? '' : 'none';
 
   var _danger = 'background:transparent;border:1.5px solid #F09595;color:#A32D2D;border-radius:3px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;font-size:11px;padding:12px;cursor:pointer;width:100%';
-  var deleteHtml = isAdmin
+  // The creator can always delete, even without an admin membership row — that
+  // combination is what made the orphaned groups unmanageable.
+  var canDelete = isAdmin || (g.createdBy && g.createdBy === userId);
+  var deleteHtml = (isAdmin
     ? '<button style="margin-top:12px;' + _danger + '" onclick="confirmAdminLeaveGroup(' + selGroupIdx + ')">Leave group</button>'
-      + '<button style="margin-top:6px;' + _danger + '" onclick="confirmDeleteGroup()">Delete group for everyone</button>'
-    : '<button style="margin-top:12px;' + _danger + '" onclick="confirmLeaveGroup(' + selGroupIdx + ')">Leave group</button>';
+    : '<button style="margin-top:12px;' + _danger + '" onclick="confirmLeaveGroup(' + selGroupIdx + ')">Leave group</button>')
+    + (canDelete ? '<button style="margin-top:6px;' + _danger + '" onclick="confirmDeleteGroup()">Delete group for everyone</button>' : '');
 
   // Large avatar header
   var headerHtml = '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:16px">'
@@ -5652,7 +5710,19 @@ async function removeMemberFromGroup(friendId) {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
   if (sbClient && g.id) {
-    try { await sbClient.from('group_members').delete().eq('group_id', g.id).eq('user_id', friendId); } catch(e) { console.warn('Remove member failed', e); }
+    // supabase-js returns errors in the result rather than throwing, so a
+    // try/catch alone reported success for a write the database had refused —
+    // the member vanished from the screen and came back on reload.
+    var res = await sbClient.from('group_members').delete().eq('group_id', g.id).eq('user_id', friendId).select();
+    if (res.error) {
+      console.warn('Remove member failed', res.error);
+      showToast('Could not remove them — ' + (res.error.message || 'please try again.'));
+      return;
+    }
+    if (!res.data || res.data.length === 0) {
+      showToast('Could not remove them. You may no longer be an admin of this group.');
+      return;
+    }
   }
   g.memberIds = (g.memberIds || []).filter(function(id) { return id !== friendId; });
   var cnt = g.memberIds.length + 1;
@@ -5768,7 +5838,13 @@ async function finishGroup(skip) {
           memberIds.map(function(mid) { return { group_id: gid, user_id: mid, status: 'pending', role: 'member' }; })
         );
         var mRes = await sbClient.from('group_members').insert(memberRows);
-        if (mRes.error) throw mRes.error;
+        if (mRes.error) {
+          // The group row already exists. Leaving it behind creates a group
+          // with no members — visible to its creator but impossible to manage
+          // or delete. 8 of those accumulated before this was added.
+          await sbClient.from('groups').delete().eq('id', gid);
+          throw mRes.error;
+        }
         // If a list was picked on the "Send a list" step, share it with the new group.
         if (!skip && selList >= 0 && MY_LISTS[selList]) {
           var pickedCat = MY_LISTS[selList].category || MY_LISTS[selList].n.replace('Top 10 ', '');
@@ -5922,6 +5998,142 @@ function openListInviteModal() {
   var shareBtn = document.getElementById('invite-share-btn');
   if (shareBtn) shareBtn.style.display = navigator.share ? 'block' : 'none';
   document.getElementById('invite-modal').style.display = 'flex';
+}
+
+// ── Add group members ────────────────────────────────────────────────────
+// Brings groups in line with the friend flow: add people you already know,
+// search anyone by handle, or share a link that drops them straight into the
+// group. Previously the only route was "invite by email", and the "+ Add
+// friend" button went to the settings screen instead of adding anyone.
+function groupInviteUrl(groupId) {
+  var u = 'https://mytenner.com/?joingroup=' + encodeURIComponent(groupId || '');
+  if (userId) u += '&from=' + encodeURIComponent(userId);
+  return u;
+}
+
+function openAddGroupMembers() {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g) return;
+  go('s-gadd');
+  var nameEl = document.getElementById('gadd-groupname');
+  if (nameEl) nameEl.textContent = 'Adding to ' + (g.n || 'this group');
+  var linkEl = document.getElementById('gadd-link');
+  if (linkEl) linkEl.value = g.id ? groupInviteUrl(g.id) : 'Save the group first';
+  var sInp = document.getElementById('gadd-search');
+  if (sInp) sInp.value = '';
+  var sRes = document.getElementById('gadd-search-result');
+  if (sRes) sRes.innerHTML = '';
+  renderGroupAddFriends();
+}
+
+function renderGroupAddFriends() {
+  var host = document.getElementById('gadd-friends');
+  var g = MY_GROUPS[selGroupIdx];
+  if (!host || !g) return;
+  var already = {};
+  (g.memberIds || []).forEach(function(id){ already[id] = true; });
+  already[userId] = true;
+  var candidates = (myFriends || []).filter(function(f) {
+    return f.status === 'accepted' && f.profile && !already[f.friendId];
+  });
+  if (!candidates.length) {
+    host.innerHTML = '<div style="font-size:12px;color:#888780;background:#FFF;border:1px solid #E8E6DF;border-radius:3px;padding:12px 14px;line-height:1.45">'
+      + ((myFriends || []).filter(function(f){ return f.status === 'accepted'; }).length
+          ? 'Everyone in your circle is already in this group.'
+          : 'No friends yet — search below, or share the invite link.')
+      + '</div>';
+    return;
+  }
+  host.innerHTML = candidates.map(function(f) {
+    var p = f.profile;
+    var nm = p.display_name || (p.handle ? '@' + p.handle : 'Friend');
+    return '<div class="member-row" style="margin-bottom:6px">'
+      + '<div style="margin-right:8px">' + friendAvatarHtml(p, 32) + '</div>'
+      + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(nm) + '</div>'
+      + '<div style="font-size:11px;color:#888780">' + (p.handle ? '@' + escapeHtml(p.handle) : '') + '</div></div>'
+      + '<button class="add-btn" style="font-size:11px" onclick="addMemberToGroup(\'' + f.friendId + '\', this)">+ Add</button>'
+      + '</div>';
+  }).join('');
+}
+
+// Adds someone as a pending member — they still confirm from their Alerts,
+// same as a friend request.
+async function addMemberToGroup(friendId, btn) {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g || !g.id || !friendId) return;
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  var res = await sbClient.from('group_members')
+    .insert({ group_id: g.id, user_id: friendId, status: 'pending', role: 'member' }).select();
+  if (res.error) {
+    console.warn('Add member failed', res.error);
+    if (btn) { btn.disabled = false; btn.textContent = '+ Add'; }
+    showToast(/duplicate|unique/i.test(res.error.message || '')
+      ? 'They are already in this group.'
+      : 'Could not add them — ' + (res.error.message || 'please try again.'));
+    return;
+  }
+  g.memberIds = (g.memberIds || []).concat([friendId]);
+  if (btn) { btn.textContent = 'Invited ✓'; btn.style.opacity = '0.6'; }
+  showToast('Invite sent.');
+  updateGroupMetaCounts();
+}
+
+async function searchGroupAddUser() {
+  var inp = document.getElementById('gadd-search');
+  var out = document.getElementById('gadd-search-result');
+  var g = MY_GROUPS[selGroupIdx];
+  if (!inp || !out || !g) return;
+  var q = inp.value.trim().replace(/^@/, '');
+  if (!q) return;
+  out.innerHTML = '<div style="font-size:11px;color:#888780;padding:4px 0">Searching…</div>';
+  try {
+    var p = null;
+    var isPhone = /^\+/.test(q) || /^[\d\s\-().]{7,}$/.test(q);
+    if (isPhone) {
+      var r = await sbClient.from('profiles').select('id, display_name, handle, photo')
+        .eq('phone', q.replace(/\s/g, '')).neq('id', userId).eq('is_system', false).maybeSingle();
+      p = r.data;
+    } else {
+      p = await findProfileByHandle(q.toLowerCase());
+    }
+    if (!p) { out.innerHTML = '<div style="font-size:11px;color:#888780;padding:4px 0">No one found.</div>'; return; }
+    if (p.id === userId) { out.innerHTML = '<div style="font-size:11px;color:#888780;padding:4px 0">That\'s you.</div>'; return; }
+    if ((g.memberIds || []).indexOf(p.id) >= 0) {
+      out.innerHTML = '<div style="font-size:11px;color:#27500A;background:#EAF3DE;padding:8px;border-radius:8px">' + escapeHtml(p.display_name || ('@' + p.handle)) + ' is already in this group.</div>';
+      return;
+    }
+    var nm = p.display_name || ('@' + p.handle);
+    out.innerHTML = '<div class="member-row" style="background:#fff;border:1px solid #E8E6DF;border-radius:3px;padding:8px 10px">'
+      + '<div style="margin-right:8px">' + friendAvatarHtml(p, 32) + '</div>'
+      + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(nm) + '</div>'
+      + '<div style="font-size:11px;color:#888780">@' + escapeHtml(p.handle || '') + '</div></div>'
+      + '<button class="add-btn" style="font-size:11px" onclick="addMemberToGroup(\'' + p.id + '\', this)">+ Add</button>'
+      + '</div>';
+  } catch (e) {
+    out.innerHTML = '<div style="font-size:11px;color:#A32D2D;padding:4px 0">Search failed. Try again.</div>';
+  }
+}
+
+function copyGroupInviteLink() {
+  var el = document.getElementById('gadd-link');
+  if (!el || !el.value || el.value.indexOf('http') !== 0) return;
+  try {
+    navigator.clipboard.writeText(el.value).then(function(){ showToast('Invite link copied.'); },
+      function(){ el.select(); document.execCommand('copy'); showToast('Invite link copied.'); });
+  } catch (e) { el.select(); document.execCommand('copy'); showToast('Invite link copied.'); }
+}
+
+function shareGroupInviteLink() {
+  var g = MY_GROUPS[selGroupIdx];
+  if (!g || !g.id) return;
+  var url = groupInviteUrl(g.id);
+  var who = (myProfile && myProfile.display_name) || 'A friend';
+  var text = who + ' invited you to join "' + g.n + '" on Tenner.';
+  if (navigator.share) {
+    navigator.share({ title: 'Join ' + g.n + ' on Tenner', text: text, url: url }).catch(function(){});
+  } else {
+    copyGroupInviteLink();
+  }
 }
 
 function openInviteModalForGroup() {
@@ -6739,9 +6951,35 @@ function onSignedIn(session) {
   // email in the 2s before the ban check signs them out.
   if (_welcomeEmailTimer) clearTimeout(_welcomeEmailTimer);
   _welcomeEmailTimer = setTimeout(function() { sendWelcomeEmailIfNeeded(); }, 2000);
+  applyPendingGroupJoin();
 }
 var _welcomeEmailTimer = null;
 var _signedInWithGoogle = false;
+
+// Completes a ?joingroup= invite once the user has an account. Joins as
+// 'accepted' — they followed an explicit invite link, the same reasoning that
+// makes ?from= auto-connect a friendship rather than queue a request.
+// Clears the token whatever happens, so a failure can't retry forever.
+async function applyPendingGroupJoin() {
+  var raw = null;
+  try { raw = localStorage.getItem('tenner_pending_group'); } catch (e) { return; }
+  if (!raw || !sbClient || !userId) return;
+  var gid = null;
+  try { gid = (JSON.parse(raw) || {}).gid; } catch (e) {}
+  try { localStorage.removeItem('tenner_pending_group'); } catch (e) {}
+  if (!gid) return;
+  try {
+    var existing = await sbClient.from('group_members').select('user_id')
+      .eq('group_id', gid).eq('user_id', userId).maybeSingle();
+    if (existing.data) return;   // already in it
+    var ins = await sbClient.from('group_members')
+      .insert({ group_id: gid, user_id: userId, status: 'accepted', role: 'member' }).select();
+    if (ins.error) { console.warn('Group join failed', ins.error); return; }
+    var g = await sbClient.from('groups').select('name').eq('id', gid).maybeSingle();
+    showToast('You joined ' + ((g.data && g.data.name) ? g.data.name : 'the group') + '.');
+    if (typeof loadState === 'function') loadState().then(function(){ renderCircleGroups(); }).catch(function(){});
+  } catch (e) { console.warn('Group join failed', e); }
+}
 
 // --- Transactional email helpers ---
 // Invokes the send-email Edge Function. Fire-and-forget — never blocks UI.
