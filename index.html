@@ -4684,7 +4684,24 @@ async function renderCircleStories() {
       + '<div style="font-size:11px;font-weight:600;color:#2C2C2A;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(firstName) + '</div>'
       + '</div>';
   }).join('');
-  var showScrollHint = scored.length > 4;
+  // "Add" tile at the end of the carousel — a second, in-context route to the
+  // add-friends screen for someone already looking at who they know. Same
+  // 82/68px geometry as the avatars so it sits on the shared baseline; dashed
+  // ring rather than the solid story ring so it doesn't read as a person.
+  pills += '<div onclick="go(\'s-add-friends\')" role="button" tabindex="0" aria-label="Add friends"'
+    + ' style="flex-shrink:0;width:82px;cursor:pointer;text-align:center">'
+    + '<div style="position:relative;display:inline-block">'
+    +   '<div style="padding:2.5px;border-radius:999px;background:#FFFFFF">'
+    +     '<div style="width:68px;height:68px;border-radius:999px;border:2px dashed #D85A30;background:#FDF6F3;'
+    +       'display:flex;align-items:center;justify-content:center;box-sizing:border-box;'
+    +       'color:#D85A30;font-size:30px;font-weight:400;line-height:1">+</div>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="font-size:11px;font-weight:700;color:#D85A30;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Add</div>'
+    + '</div>';
+  // +1 for the Add tile, so the "there is more to the right" hint still
+  // appears at the width where the row actually starts overflowing.
+  var showScrollHint = (scored.length + 1) > 4;
   var scrollHint = showScrollHint
     ? '<div id="circle-stories-scroll-hint" style="position:absolute;top:0;bottom:14px;right:0;width:56px;pointer-events:none;background:linear-gradient(to right, rgba(255,255,255,0) 0%, #FFFFFF 80%);display:flex;align-items:center;justify-content:flex-end;padding-right:8px;transition:opacity 0.2s"><div style="color:#B8B6AE;font-size:18px;font-weight:400;line-height:1">›</div></div>'
     : '';
