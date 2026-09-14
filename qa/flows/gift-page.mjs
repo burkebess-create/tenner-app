@@ -40,8 +40,11 @@ export default {
       }
     }
 
-    // Cross-link should live at the BOTTOM now (after bento). Verify it exists.
-    const bottomCross = await p2.locator('text=Browse Tenner\'s gift categories').count();
+    // Cross-link to the gift-category hub. Asserted on the href rather than the
+    // link text: the wording has already changed once with a redesign
+    // ("Browse Tenner's gift categories" -> "Browse categories"), which failed
+    // this check while the link itself was working fine.
+    const bottomCross = await p2.locator('a[href="/gifts/"]').count();
     await assert(bottomCross > 0, 'cross-link to /gifts/ is present on /g page');
 
     await p2.close();

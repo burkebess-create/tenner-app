@@ -75,6 +75,7 @@
     // link, or a click-through from welcome) goes straight to the app.
     if (location.hash) return;                            // in-app deep links / auth callbacks
     if (qs.get('from') || qs.get('fill')) return;         // friend + list invites
+    if (qs.get('skipIntro')) return;                      // automated QA + "take me straight in" links
     if (sessionStorage.getItem('tennerLaunch')) return;   // clicked the welcome CTA
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
     for (var i = 0; i < localStorage.length; i++) {
