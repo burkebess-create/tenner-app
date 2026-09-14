@@ -2032,8 +2032,7 @@ function go(id) {
       // pending invites, else Activity so the tab isn't empty on open.
       var forced = window.__forceNotifTab;
       window.__forceNotifTab = null;
-      var hasInvites = (MY_LIST_SHARE_INVITES || []).filter(function(i){ return !i.dismissed_at; }).length > 0
-        || (MY_PENDING_GROUP_INVITES || []).length > 0;
+      var hasInvites = pendingInvitesCount() > 0;
       switchNotifTab(forced || (hasInvites ? 'invites' : 'activity'));
       markNotificationsRead().then(updateNotificationBadge);
     });
@@ -8163,6 +8162,22 @@ async function markNotificationsRead() {
 
 var _notifTab = 'invites';
 
+// Everything the Invites tab actually renders. The tab-defaulting check used
+// to count only list-share and group invites, so an inbound friend request —
+// which renders as the FIRST section of that tab — didn't open it, and the
+// screen landed on Activity with the invite sitting unseen one tab over.
+// Both the default and the renderer read this now, so they can't drift apart.
+function pendingInboundFriendRequests() {
+  var list = (typeof myFriends !== 'undefined' && myFriends) ? myFriends : [];
+  return list.filter(function(f){ return f.status === 'pending' && !f.isRequester; });
+}
+
+function pendingInvitesCount() {
+  return pendingInboundFriendRequests().length
+    + (MY_LIST_SHARE_INVITES || []).filter(function(i){ return !i.dismissed_at; }).length
+    + (MY_PENDING_GROUP_INVITES || []).length;
+}
+
 function switchNotifTab(tab) {
   _notifTab = tab;
   var tabs = ['invites', 'activity'];
@@ -8192,7 +8207,7 @@ function renderNotifications() {
   }
 
   // Section 1: pending inbound friend requests (rendered above list invites)
-  var pendingFriends = ((typeof myFriends !== 'undefined') ? myFriends : []).filter(function(f){ return f.status === 'pending' && !f.isRequester; });
+  var pendingFriends = pendingInboundFriendRequests();
   var friendRequestsHtml = '';
   if (pendingFriends.length > 0) {
     friendRequestsHtml = '<div class="sec-label" style="margin-top:0">Friend requests (' + pendingFriends.length + ')</div>'
