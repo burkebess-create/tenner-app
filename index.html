@@ -2565,6 +2565,123 @@ function showListCompleteModal(cat) {
   frame.appendChild(overlay);
 }
 
+// ── Surviving an update reload ───────────────────────────────────────────
+// A reload is a fresh page, so both where you were and anything half-typed
+// would be gone. Capture both before reloading, restore after.
+
+var UPDATE_RESTORE_KEY = 'tenner_update_restore';
+var CREATE_DRAFT_KEY   = 'tenner_create_draft';
+
+function _activeScreenId() {
+  var el = document.querySelector('.screen.active');
+  return el ? el.id : null;
+}
+
+// Screens whose contents live only in form fields — nothing here can be
+// silently recreated, so these get a warning rather than a silent reload.
+function unsavedFormWork() {
+  var id = _activeScreenId();
+  if (id === 's-profile-edit')  return 'your profile changes';
+  if (id === 's-gsettings')     return 'your group settings changes';
+  if (id === 's-cg1' || id === 's-cg2' || id === 's-cg3') {
+    var nm = (document.getElementById('group-name') || {}).value;
+    return (nm && nm.trim()) ? 'the group you\'re creating' : null;
+  }
+  return null;
+}
+
+// The list editor CAN be recreated exactly, so it is saved rather than
+// warned about — losing a half-built Top 10 to an update would be the worst
+// version of this.
+function saveCreateDraftForUpdate() {
+  try {
+    var id = _activeScreenId();
+    if (id !== 's-create2' && id !== 's-create3') return false;
+    if (!selCat || !Array.isArray(items) || !items.length) return false;
+    localStorage.setItem(CREATE_DRAFT_KEY, JSON.stringify({
+      cat: selCat, emoji: selCatEmoji, items: items.slice(),
+      ranked: (typeof isRanked === 'boolean') ? isRanked : true,
+      editingIdx: (typeof editingListIdx === 'number') ? editingListIdx : -1,
+      provenance: (typeof _itemProvenance === 'object' && _itemProvenance) || {},
+      ts: Date.now()
+    }));
+    return true;
+  } catch (e) { return false; }
+}
+
+function captureUpdateState() {
+  try {
+    sessionStorage.setItem(UPDATE_RESTORE_KEY, JSON.stringify({
+      screen: _activeScreenId(),
+      friendId: (typeof selFriendId !== 'undefined') ? selFriendId : null,
+      groupIdx: (typeof selGroupIdx !== 'undefined') ? selGroupIdx : null,
+      listCat: (typeof _currentListCategory !== 'undefined') ? _currentListCategory : null,
+      matchFriend: (typeof matchFriendCtx !== 'undefined') ? matchFriendCtx : null,
+      matchGroup: (typeof matchGroupCtx !== 'undefined') ? matchGroupCtx : -1,
+      draft: saveCreateDraftForUpdate(),
+      ts: Date.now()
+    }));
+  } catch (e) { /* best effort — worst case you land on the default screen */ }
+}
+
+// Runs once after data has loaded. Deliberately conservative: anything it
+// can't restore exactly falls back to the nearest sensible screen rather than
+// guessing, and it never overrides a deep link the user just followed.
+function restoreAfterUpdate() {
+  var raw = null;
+  try { raw = sessionStorage.getItem(UPDATE_RESTORE_KEY); } catch (e) { return; }
+  if (!raw) return;
+  try { sessionStorage.removeItem(UPDATE_RESTORE_KEY); } catch (e) {}
+  var st = null;
+  try { st = JSON.parse(raw); } catch (e) { return; }
+  if (!st || !st.screen) return;
+  // Stale restore points are worse than none — this is for a reload seconds ago.
+  if (st.ts && Date.now() - st.ts > 5 * 60 * 1000) return;
+  if (location.hash || /[?&](from|fill|joingroup)=/.test(location.search)) return;
+
+  try {
+    if (typeof selFriendId !== 'undefined' && st.friendId) selFriendId = st.friendId;
+    if (typeof selGroupIdx !== 'undefined' && typeof st.groupIdx === 'number') selGroupIdx = st.groupIdx;
+    if (typeof matchFriendCtx !== 'undefined') matchFriendCtx = st.matchFriend || null;
+    if (typeof matchGroupCtx !== 'undefined') matchGroupCtx = (typeof st.matchGroup === 'number') ? st.matchGroup : -1;
+
+    var target = st.screen;
+
+    // Restore a half-built list exactly where it was.
+    if (st.draft) {
+      var d = null;
+      try { d = JSON.parse(localStorage.getItem(CREATE_DRAFT_KEY) || 'null'); } catch (e) {}
+      try { localStorage.removeItem(CREATE_DRAFT_KEY); } catch (e) {}
+      if (d && d.cat && Array.isArray(d.items)) {
+        selCat = d.cat; selCatEmoji = d.emoji || getCatEmoji(d.cat);
+        items = d.items.slice();
+        isRanked = d.ranked !== false;
+        editingListIdx = (typeof d.editingIdx === 'number') ? d.editingIdx : -1;
+        if (typeof _itemProvenance !== 'undefined') _itemProvenance = d.provenance || {};
+        go('s-create2');
+        if (typeof renderItems === 'function') renderItems();
+        if (typeof updateProg === 'function') updateProg();
+        showToast('Picked up where you left off.');
+        return;
+      }
+    }
+
+    // A friend's list needs list data we no longer hold — their profile is the
+    // closest honest landing spot.
+    if (target === 's-friend-list') target = st.friendId ? 's-fdetail' : 's-circle';
+
+    if (target === 's-list-detail' && st.listCat && typeof MY_LISTS !== 'undefined') {
+      var l = MY_LISTS.filter(function(x){ return (x.category || x.n.replace('Top 10 ', '')) === st.listCat; })[0];
+      if (l && typeof showListDetail === 'function') { showListDetail(l, 's-home'); return; }
+      target = 's-home';
+    }
+    if (target === 's-gdetail' && !(MY_GROUPS || [])[st.groupIdx]) target = 's-circle';
+    if (target === 's-fdetail' && !st.friendId) target = 's-circle';
+    if (!document.getElementById(target)) return;
+    go(target);
+  } catch (e) { console.warn('restoreAfterUpdate failed', e); }
+}
+
 // A new build is waiting. The normal toast is pointer-events:none, so it
 // could only ever say "go and reopen the app" — this one does it for you.
 // Reloading picks up the new version and does NOT sign anyone out: the
@@ -2584,10 +2701,22 @@ function showUpdateBanner() {
     + '<button id="update-banner-x" aria-label="Dismiss" style="flex-shrink:0;background:none;border:none;color:#FFFFFF;opacity:0.55;font-size:17px;line-height:1;padding:4px;cursor:pointer">×</button>';
   frame.appendChild(bar);
   document.getElementById('update-banner-go').onclick = function() {
-    this.textContent = 'Updating…';
-    this.disabled = true;
-    // Same effect as force-quitting and reopening, without leaving the app.
-    location.reload();
+    var btn = this;
+    var warn = unsavedFormWork();
+    function doUpdate() {
+      btn.textContent = 'Updating…';
+      btn.disabled = true;
+      captureUpdateState();   // where you are, and any list in progress
+      // Same effect as force-quitting and reopening, without leaving the app.
+      location.reload();
+    }
+    if (warn) {
+      // Form fields can't be recreated, so ask rather than discard silently.
+      showConfirm('Update now?', 'You haven\'t saved ' + warn + '. Updating will discard it — save first if you want to keep it.',
+        'Update anyway', 'danger', doUpdate);
+      return;
+    }
+    doUpdate();
   };
   document.getElementById('update-banner-x').onclick = function() { bar.remove(); };
 }
@@ -15860,6 +15989,10 @@ function setupRealtimeNotifications() {
     }).catch(console.warn);
     loadFriends().then(function() {
       if (isCircleActive()) { renderCircleStories(); renderHomeFeed(); renderCircleScreen(); renderTodayPill(); renderCircleListInvites(); }
+      // After an update reload, put the user back where they were. Runs here
+      // because friends/groups/lists must exist before we can reopen a friend,
+      // group or list screen.
+      if (typeof restoreAfterUpdate === 'function') restoreAfterUpdate();
     }).catch(console.warn);
     refreshNotifications().then(function() {
       if (isCircleActive()) renderCircleListInvites();
