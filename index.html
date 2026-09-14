@@ -4245,7 +4245,7 @@ async function renderActivityFeed() {
         ? escapeHtml(name) + ' shared that <em>' + escapeHtml(topItem) + '</em> is their favorite ' + escapeHtml(singularize(cat))
         : escapeHtml(name) + ' updated their ' + escapeHtml(singularize(cat)) + ' list';
       return '<div class="share-pick" style="cursor:pointer;align-items:flex-start" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
-        + '<span style="font-size:18px;flex-shrink:0;margin-top:2px">' + emoji + '</span>'
+        + '<span style="flex-shrink:0;margin-top:2px;display:inline-flex">' + renderCatEmoji(emoji, 18) + '</span>'
         + '<div style="flex:1;font-size:13.5px;color:#2C2C2A;line-height:1.5">' + sentence + '</div>'
         + '</div>';
     });
@@ -8383,7 +8383,7 @@ async function renderNotifActivity(el) {
         var dotStyle = isNew ? 'width:8px;height:8px;border-radius:50%;background:#D85A30;flex-shrink:0;margin-right:6px;margin-top:8px' : 'width:8px;flex-shrink:0';
         return '<div class="share-pick" style="cursor:pointer;align-items:flex-start" ' + dataAttr + ' onclick="openFriendList(JSON.parse(this.dataset.list))">'
           + '<span style="' + dotStyle + '"></span>'
-          + '<span style="font-size:18px;flex-shrink:0;margin-top:2px">' + emoji + '</span>'
+          + '<span style="flex-shrink:0;margin-top:2px;display:inline-flex">' + renderCatEmoji(emoji, 18) + '</span>'
           + '<div style="flex:1;font-size:13.5px;color:#2C2C2A;line-height:1.5">' + sentence + '</div>'
           + '</div>';
       }).join('');
@@ -10194,7 +10194,7 @@ function openGiftIdeas(friendId, friendListsJson) {
     var singularLabel = escapeHtml(name) + '\'s Favorite ' + escapeHtml(singularize(cat));
     return '<div class="card no-hover" style="margin-bottom:8px" data-cat="' + escapeHtml(cat) + '" data-name="' + escapeHtml(name) + '">'
       + '<div style="display:flex;align-items:center;gap:10px" onclick="toggleGiftList(' + idx + ')">'
-      + '<span style="font-size:20px">' + emoji + '</span>'
+      + '<span>' + renderCatEmoji(emoji, 20) + '</span>'
       + '<div style="flex:1"><div id="gift-title-' + idx + '" style="font-size:12px;font-weight:600;color:#2C2C2A">' + singularLabel + '</div>'
       + (items[0] ? '<div style="display:flex;align-items:center;gap:6px;margin-top:2px"><div class="rank-badge" style="font-size:10px;width:18px;height:18px;min-width:18px">1</div><span style="font-size:13.5px;color:#5F5E5A">' + escapeHtml(items[0]) + '</span></div>' : '')
       + '</div>'
@@ -10285,7 +10285,7 @@ async function renderGiftReminders() {
           var emoji = l.emoji || getCatEmoji(cat);
           var topPick = (l.items && l.items[0]) ? l.items[0] : null;
           return '<div style="display:flex;align-items:center;gap:8px;font-size:13.5px;color:#2C2C2A">'
-            + '<span style="font-size:14px">' + emoji + '</span>'
+            + '<span>' + renderCatEmoji(emoji, 14) + '</span>'
             + '<span style="flex:1"><strong>' + escapeHtml(name) + '\'s Favorite ' + escapeHtml(singularize(cat)) + '</strong>'
             + (topPick ? ' is <span style="font-style:italic">' + escapeHtml(topPick) + '</span>' : '') + '</span>'
             + '</div>';
@@ -10710,7 +10710,7 @@ function matchEmptyHero(emoji, title, subtitle, cta) {
     ? '<button onclick="' + cta.action + '" style="border:none;cursor:pointer;background:#D85A30;color:#FFFFFF;border-radius:3px;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;font-size:11px;padding:12px 22px;margin:16px 0 0">' + escapeHtml(cta.label) + '</button>'
     : '';
   return '<div style="background:linear-gradient(135deg,#FFF5EE 0%,#FDE6D9 100%);border:1px solid #F5B091;border-left:7px solid #D85A30;border-radius:3px;padding:32px 20px;text-align:center;margin-top:8px">'
-    + '<div style="font-size:44px;line-height:1;margin-bottom:12px">' + emoji + '</div>'
+    + '<div style="line-height:1;margin-bottom:12px">' + renderCatEmoji(emoji, 44) + '</div>'
     + '<div style="font-size:18px;font-weight:800;letter-spacing:-0.005em;line-height:1.1;color:#2C2C2A;margin-bottom:8px">' + escapeHtml(title) + '</div>'
     + '<div style="font-size:12.5px;color:#5F5E5A;line-height:1.5;max-width:280px;margin:0 auto">' + escapeHtml(subtitle) + '</div>'
     + ctaHtml
@@ -11319,12 +11319,30 @@ var _adminEditingCat = null;   // holds {id?, name, emoji, is_seasonal, active_f
 var _adminEmojiPreview = '📋'; // current emoji value in the editor (unicode or data URL)
 
 // Returns HTML that renders either a text emoji or an <img> if `val` is a data URL.
+// A category/list "emoji" is normally one or two characters, but it may also
+// be an uploaded image stored as a data: URL. Both are handled here — and
+// anything else is discarded rather than printed.
+//
+// A real 44,790-character data URL that failed the prefix check (truncated,
+// or rendered somewhere that interpolated it raw) was dumped on screen as an
+// enormous wall of base64, which broke the layout of every screen it touched.
+// So: only a well-formed data:image URL is treated as an image, and any other
+// value longer than a plausible emoji is dropped for the fallback instead of
+// being shown. This function can never emit more than a few characters of text.
+var EMOJI_MAX_TEXT_LEN = 24;   // generous: the longest ZWJ sequences are ~11
 function renderCatEmoji(val, sizePx) {
   var s = sizePx || 22;
-  var v = val || '📋';
-  if (typeof v === 'string' && v.indexOf('data:image') === 0) {
-    return '<img src="' + v + '" style="width:' + s + 'px;height:' + s + 'px;object-fit:contain;vertical-align:middle" alt="">';
+  var v = (typeof val === 'string' && val) ? val : '📋';
+  if (/^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,/i.test(v)) {
+    // onerror: a broken or truncated image would otherwise leave an empty box
+    // or alt text; swap in the neutral fallback glyph instead.
+    return '<img src="' + escapeHtml(v) + '" alt=""'
+      + ' style="width:' + s + 'px;height:' + s + 'px;object-fit:contain;vertical-align:middle"'
+      + ' onerror="this.outerHTML=\'<span style=&quot;font-size:' + s + 'px;line-height:1;vertical-align:middle&quot;>📋</span>\'">';
   }
+  // Not an image and too long to be an emoji — almost certainly a mangled data
+  // URL. Never render it as text.
+  if (v.length > EMOJI_MAX_TEXT_LEN) v = '📋';
   return '<span style="font-size:' + s + 'px;line-height:1;vertical-align:middle">' + escapeHtml(v) + '</span>';
 }
 
