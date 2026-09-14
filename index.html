@@ -3386,6 +3386,162 @@ function resizeImage(dataUrl, px) {
   });
 }
 
+// ── Photo cropper ────────────────────────────────────────────────────────
+// Square crop with pinch/drag/slider zoom, previewed through a circular mask
+// so what you see is what the avatar becomes. Resolves to a cropped data URL,
+// or null if cancelled.
+//
+// Geometry: the image is laid out at (baseScale * zoom), positioned by an
+// offset in viewport pixels. baseScale makes the shorter edge exactly fill the
+// square, so at zoom 1 the crop is the largest square the photo allows and can
+// never show empty space. Offsets are clamped on every change for the same
+// reason.
+function openPhotoCropper(dataUrl, opts) {
+  opts = opts || {};
+  var OUT = opts.out || 300;
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.onerror = function() { resolve(dataUrl); };   // unreadable: pass through untouched
+    img.onload = function() {
+      var frame = document.querySelector('.frame') || document.body;
+      var V = Math.min(280, Math.max(200, (frame.clientWidth || 320) - 60));  // viewport edge
+      var baseScale = V / Math.min(img.width, img.height);
+      var zoom = 1, maxZoom = 4;
+      var ox = 0, oy = 0;
+
+      var overlay = document.createElement('div');
+      overlay.id = 'photo-cropper';
+      overlay.style.cssText = 'position:absolute;inset:0;background:rgba(20,20,19,0.92);z-index:1200;display:flex;align-items:center;justify-content:center;padding:18px';
+      overlay.innerHTML =
+        '<div style="width:100%;max-width:340px;text-align:center">'
+        + '<div style="font-size:10.5px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#FFFFFF;opacity:0.75;margin-bottom:12px">Position your photo</div>'
+        + '<div id="crop-stage" style="position:relative;width:' + V + 'px;height:' + V + 'px;margin:0 auto;overflow:hidden;border-radius:999px;background:#000;touch-action:none;cursor:grab">'
+        // left/top pinned explicitly: without them an absolutely positioned
+        // image takes a *static* position from the surrounding (centred)
+        // layout, so the preview sat ~V/2 away from where the transform said
+        // it was — the crop was correct but showed the wrong thing.
+        +   '<img id="crop-img" src="' + escapeHtml(dataUrl) + '" alt="" draggable="false" style="position:absolute;left:0;top:0;transform-origin:0 0;user-select:none;-webkit-user-drag:none;pointer-events:none;max-width:none">'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:10px;margin:16px 4px 4px">'
+        +   '<span style="font-size:13px;color:#FFFFFF;opacity:0.7">–</span>'
+        +   '<input id="crop-zoom" type="range" min="1" max="' + maxZoom + '" step="0.01" value="1" style="flex:1;accent-color:#D85A30">'
+        +   '<span style="font-size:17px;color:#FFFFFF;opacity:0.7">+</span>'
+        + '</div>'
+        + '<div style="font-size:11px;color:#FFFFFF;opacity:0.55;margin-bottom:14px">Drag to move · pinch or slide to zoom</div>'
+        + '<button id="crop-use" class="btn-primary" style="margin-bottom:8px">Use photo</button>'
+        + '<button id="crop-cancel" style="width:100%;background:transparent;border:1px solid rgba(255,255,255,0.35);color:#FFFFFF;border-radius:3px;padding:11px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer">Cancel</button>'
+        + '</div>';
+      frame.appendChild(overlay);
+
+      var stage = overlay.querySelector('#crop-stage');
+      var el    = overlay.querySelector('#crop-img');
+      var slider= overlay.querySelector('#crop-zoom');
+
+      function clamp() {
+        var dw = img.width * baseScale * zoom, dh = img.height * baseScale * zoom;
+        ox = Math.min(0, Math.max(V - dw, ox));
+        oy = Math.min(0, Math.max(V - dh, oy));
+      }
+      function apply() {
+        clamp();
+        el.style.width  = (img.width  * baseScale * zoom) + 'px';
+        el.style.height = (img.height * baseScale * zoom) + 'px';
+        el.style.transform = 'translate(' + ox + 'px,' + oy + 'px)';
+      }
+      // Zoom about a fixed point so the face stays put instead of drifting.
+      function zoomTo(next, cx, cy) {
+        next = Math.min(maxZoom, Math.max(1, next));
+        if (next === zoom) return;
+        var k = next / zoom;
+        ox = cx - (cx - ox) * k;
+        oy = cy - (cy - oy) * k;
+        zoom = next;
+        slider.value = String(zoom);
+        apply();
+      }
+      // start centred
+      ox = (V - img.width  * baseScale) / 2;
+      oy = (V - img.height * baseScale) / 2;
+      apply();
+
+      var pointers = {}, lastPinch = null, dragFrom = null;
+      stage.addEventListener('pointerdown', function(e) {
+        stage.setPointerCapture(e.pointerId);
+        pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+        if (Object.keys(pointers).length === 1) dragFrom = { x: e.clientX - ox, y: e.clientY - oy };
+      });
+      stage.addEventListener('pointermove', function(e) {
+        if (!pointers[e.pointerId]) return;
+        pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+        var ids = Object.keys(pointers);
+        if (ids.length >= 2) {
+          var a = pointers[ids[0]], b = pointers[ids[1]];
+          var dist = Math.hypot(a.x - b.x, a.y - b.y);
+          var r = stage.getBoundingClientRect();
+          var cx = (a.x + b.x) / 2 - r.left, cy = (a.y + b.y) / 2 - r.top;
+          if (lastPinch) zoomTo(zoom * (dist / lastPinch), cx, cy);
+          lastPinch = dist;
+          dragFrom = null;   // don't also pan from a stale single-finger origin
+        } else if (dragFrom) {
+          ox = e.clientX - dragFrom.x;
+          oy = e.clientY - dragFrom.y;
+          apply();
+        }
+      });
+      function release(e) {
+        delete pointers[e.pointerId];
+        if (Object.keys(pointers).length < 2) lastPinch = null;
+        if (Object.keys(pointers).length === 1) {
+          var id = Object.keys(pointers)[0];
+          dragFrom = { x: pointers[id].x - ox, y: pointers[id].y - oy };
+        }
+        if (!Object.keys(pointers).length) dragFrom = null;
+      }
+      stage.addEventListener('pointerup', release);
+      stage.addEventListener('pointercancel', release);
+      slider.addEventListener('input', function() { zoomTo(parseFloat(slider.value), V / 2, V / 2); });
+
+      function done(value) { overlay.remove(); resolve(value); }
+      overlay.querySelector('#crop-cancel').onclick = function() { done(null); };
+      overlay.querySelector('#crop-use').onclick = function() {
+        clamp();
+        var s = baseScale * zoom;
+        var canvas = document.createElement('canvas');
+        canvas.width = canvas.height = OUT;
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, OUT, OUT);   // JPEG has no alpha; avoid black edges
+        // Viewport rect -> source pixels in the original image.
+        var sx = -ox / s, sy = -oy / s, sSize = V / s;
+        ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, OUT, OUT);
+        done(canvas.toDataURL('image/jpeg', 0.86));
+      };
+    };
+    img.src = dataUrl;
+  });
+}
+
+// ── Avatar lightbox ──────────────────────────────────────────────────────
+// Tap a photo to see it big — enough to tell whether it's the right person
+// before sending a friend request.
+function openAvatarLightbox(encodedSrc, encodedName) {
+  var src = decodeURIComponent(encodedSrc || '');
+  var name = decodeURIComponent(encodedName || '');
+  if (!src) return;
+  var frame = document.querySelector('.frame') || document.body;
+  var existing = document.getElementById('avatar-lightbox');
+  if (existing) existing.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'avatar-lightbox';
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(20,20,19,0.94);z-index:1200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;cursor:pointer';
+  overlay.innerHTML =
+      '<img src="' + escapeHtml(src) + '" alt="" style="max-width:100%;max-height:70%;border-radius:14px;object-fit:contain;box-shadow:0 18px 50px rgba(0,0,0,0.5)">'
+    + (name ? '<div style="margin-top:16px;font-size:15px;font-weight:800;color:#FFFFFF;letter-spacing:-0.005em;text-align:center">' + escapeHtml(name) + '</div>' : '')
+    + '<div style="margin-top:10px;font-size:10px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#FFFFFF;opacity:0.6">Tap anywhere to close</div>';
+  overlay.onclick = function() { overlay.remove(); };
+  frame.appendChild(overlay);
+}
+
 // Renders a circular person avatar — photo if available, else initials.
 function friendAvatarHtml(profile, size) {
   size = size || 32;
@@ -3394,8 +3550,16 @@ function friendAvatarHtml(profile, size) {
   var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || '?';
   var base = 'width:' + size + 'px;height:' + size + 'px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;';
   if (p.photo) {
-    return '<div style="' + base + '">'
-      + '<img src="' + rewriteToCdn(p.photo) + '" style="width:100%;height:100%;object-fit:cover"></div>';
+    // Tapping the photo enlarges it rather than following whatever the row
+    // does, so you can check it's the right person before adding them.
+    // stopPropagation keeps the surrounding card's own tap intact — the name
+    // and the rest of the row still navigate as before.
+    var full = rewriteToCdn(p.photo);
+    var tap = ' onclick="event.stopPropagation();openAvatarLightbox(\''
+      + encodeURIComponent(full) + '\',\'' + encodeURIComponent(name) + '\')"'
+      + ' title="Tap to enlarge"';
+    return '<div' + tap + ' style="' + base + 'cursor:pointer">'
+      + '<img src="' + full + '" style="width:100%;height:100%;object-fit:cover"></div>';
   }
   var fontSize = Math.round(size * 0.38);
   // Warm neutral fallback — doesn't clash with any category color in the app palette
@@ -6930,7 +7094,12 @@ function onProfilePhotoUpload(input) {
   if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    resizeImage(e.target.result, 300).then(async function(dataUrl) {
+    // Crop first, then resize — cropping the ORIGINAL keeps detail when
+    // someone zooms into a face that's small in the frame. Resizing first
+    // would throw that detail away before they ever zoomed.
+    openPhotoCropper(e.target.result).then(function(cropped) {
+      if (!cropped) { input.value = ''; return; }
+      return resizeImage(cropped, 300).then(async function(dataUrl) {
       if (!(await guardImageUpload(dataUrl, 'profile_photo'))) { input.value = ''; return; }
       myProfile = myProfile || { id: userId };
       // Optimistic preview using the local data URL — swap to the Storage
@@ -6942,6 +7111,7 @@ function onProfilePhotoUpload(input) {
       myProfile.photo = toSave;
       renderProfileHeader();
       if (sbClient && userId) saveProfilePhoto(toSave);
+      });
     });
   };
   reader.readAsDataURL(input.files[0]);
@@ -7846,14 +8016,17 @@ function onbPhotoChange(input) {
   if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    resizeImage(e.target.result, 300).then(async function(dataUrl) {
-      if (!(await guardImageUpload(dataUrl, 'profile_photo_onboarding'))) { input.value = ''; return; }
-      myProfile = myProfile || { id: userId };
-      myProfile.photo = dataUrl;
-      var prev = document.getElementById('onb-photo-preview');
-      if (prev) prev.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:cover">';
-      var url = await uploadPhotoToStorage(dataUrl, 'avatars', userId);
-      if (url) myProfile.photo = url; // saved to DB later in the onb flow
+    openPhotoCropper(e.target.result).then(function(cropped) {
+      if (!cropped) { input.value = ''; return; }
+      return resizeImage(cropped, 300).then(async function(dataUrl) {
+        if (!(await guardImageUpload(dataUrl, 'profile_photo_onboarding'))) { input.value = ''; return; }
+        myProfile = myProfile || { id: userId };
+        myProfile.photo = dataUrl;
+        var prev = document.getElementById('onb-photo-preview');
+        if (prev) prev.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:cover">';
+        var url = await uploadPhotoToStorage(dataUrl, 'avatars', userId);
+        if (url) myProfile.photo = url; // saved to DB later in the onb flow
+      });
     });
   };
   reader.readAsDataURL(input.files[0]);
