@@ -3409,13 +3409,17 @@ function openPhotoCropper(dataUrl, opts) {
       var zoom = 1, maxZoom = 4;
       var ox = 0, oy = 0;
 
+      // Group avatars are rounded squares, profile avatars are circles. Match
+      // the destination, or the preview crops to a shape the photo won't
+      // actually be shown in.
+      var maskRadius = opts.shape === 'rounded' ? '14px' : '999px';
       var overlay = document.createElement('div');
       overlay.id = 'photo-cropper';
       overlay.style.cssText = 'position:absolute;inset:0;background:rgba(20,20,19,0.92);z-index:1200;display:flex;align-items:center;justify-content:center;padding:18px';
       overlay.innerHTML =
         '<div style="width:100%;max-width:340px;text-align:center">'
         + '<div style="font-size:10.5px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#FFFFFF;opacity:0.75;margin-bottom:12px">Position your photo</div>'
-        + '<div id="crop-stage" style="position:relative;width:' + V + 'px;height:' + V + 'px;margin:0 auto;overflow:hidden;border-radius:999px;background:#000;touch-action:none;cursor:grab">'
+        + '<div id="crop-stage" style="position:relative;width:' + V + 'px;height:' + V + 'px;margin:0 auto;overflow:hidden;border-radius:' + maskRadius + ';background:#000;touch-action:none;cursor:grab">'
         // left/top pinned explicitly: without them an absolutely positioned
         // image takes a *static* position from the surrounding (centred)
         // layout, so the preview sat ~V/2 away from where the transform said
@@ -3583,13 +3587,18 @@ function onGroupPhotoUpload(input) {
   if (!input.files || !input.files[0] || !g) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    resizeImage(e.target.result, 300).then(async function(dataUrl) {
-      if (!(await guardImageUpload(dataUrl, 'group_photo'))) { input.value = ''; return; }
-      g.photo = dataUrl;
-      g.emoji = '';
-      updateSettingsAvatarPreview(g);
-      var url = await uploadPhotoToStorage(dataUrl, 'groups', g.id || (Date.now() + '-' + userId));
-      if (url) { g.photo = url; updateSettingsAvatarPreview(g); }
+    // Crop the original, then resize — same order as profile photos, so zoom
+    // keeps the detail a downscale-first pass would have thrown away.
+    openPhotoCropper(e.target.result, { shape: 'rounded' }).then(function(cropped) {
+      if (!cropped) { input.value = ''; return; }
+      return resizeImage(cropped, 300).then(async function(dataUrl) {
+        if (!(await guardImageUpload(dataUrl, 'group_photo'))) { input.value = ''; return; }
+        g.photo = dataUrl;
+        g.emoji = '';
+        updateSettingsAvatarPreview(g);
+        var url = await uploadPhotoToStorage(dataUrl, 'groups', g.id || (Date.now() + '-' + userId));
+        if (url) { g.photo = url; updateSettingsAvatarPreview(g); }
+      });
     });
   };
   reader.readAsDataURL(input.files[0]);
@@ -3599,16 +3608,19 @@ function onGroupPhotoUploadCreate(input) {
   if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    resizeImage(e.target.result, 300).then(async function(dataUrl) {
-      if (!(await guardImageUpload(dataUrl, 'group_photo_create'))) { input.value = ''; return; }
-      groupPhotoData = dataUrl;
-      selEmojiChar = '';
-      var preview = document.getElementById('cg1-avatar-preview');
-      if (preview) preview.innerHTML = '<img src="' + groupPhotoData + '" style="width:48px;height:48px;border-radius:12px;object-fit:cover">';
-      // No group id yet — bucket path uses a transient id so the URL still
-      // works. The create flow persists whatever's in groupPhotoData.
-      var url = await uploadPhotoToStorage(dataUrl, 'groups', 'new-' + Date.now() + '-' + (userId || 'anon'));
-      if (url) groupPhotoData = url;
+    openPhotoCropper(e.target.result, { shape: 'rounded' }).then(function(cropped) {
+      if (!cropped) { input.value = ''; return; }
+      return resizeImage(cropped, 300).then(async function(dataUrl) {
+        if (!(await guardImageUpload(dataUrl, 'group_photo_create'))) { input.value = ''; return; }
+        groupPhotoData = dataUrl;
+        selEmojiChar = '';
+        var preview = document.getElementById('cg1-avatar-preview');
+        if (preview) preview.innerHTML = '<img src="' + groupPhotoData + '" style="width:48px;height:48px;border-radius:12px;object-fit:cover">';
+        // No group id yet — bucket path uses a transient id so the URL still
+        // works. The create flow persists whatever's in groupPhotoData.
+        var url = await uploadPhotoToStorage(dataUrl, 'groups', 'new-' + Date.now() + '-' + (userId || 'anon'));
+        if (url) groupPhotoData = url;
+      });
     });
   };
   reader.readAsDataURL(input.files[0]);
