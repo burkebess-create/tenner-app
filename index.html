@@ -7292,43 +7292,21 @@ async function loadMutualFriendSuggestions() {
       + '</div></div>';
     return;
   }
-  var friendIds = accepted.map(function(f){ return f.friendId; });
-  // Everyone I have any relationship with (accepted OR pending, either direction) — to exclude.
-  var relatedIds = {};
-  relatedIds[userId] = true;
-  (myFriends || []).forEach(function(f){ relatedIds[f.friendId] = true; });
-  // Anyone I've said "not now" to. Stored server-side so it follows me across
-  // devices. A failed read just means we suggest them again — never block.
-  var dRes = await sbClient.from('friend_suggestion_dismissals').select('dismissed_id').eq('user_id', userId);
-  if (dRes.error) console.warn('dismissals load failed', dRes.error);
-  _dismissedSuggestions = {};
-  (dRes.data || []).forEach(function(d){ _dismissedSuggestions[d.dismissed_id] = true; relatedIds[d.dismissed_id] = true; });
   host.innerHTML = '<div style="font-size:11px;color:#888780;padding:6px">Loading…</div>';
   wrap.style.display = 'block';
   try {
-    var rows = [];
-    var r1 = await sbClient.from('friendships').select('requester_id,addressee_id,status').eq('status','accepted').in('requester_id', friendIds);
-    if (r1.data) rows = rows.concat(r1.data);
-    var r2 = await sbClient.from('friendships').select('requester_id,addressee_id,status').eq('status','accepted').in('addressee_id', friendIds);
-    if (r2.data) rows = rows.concat(r2.data);
-    // For each candidate (the non-friend side of each friendship), collect which of MY friends know them
-    var byCandidate = {}; // candidateId -> Set of my-friend-ids
-    var friendIdSet = {}; friendIds.forEach(function(id){ friendIdSet[id] = true; });
-    rows.forEach(function(row) {
-      var a = row.requester_id, b = row.addressee_id;
-      var myFriendSide = friendIdSet[a] ? a : (friendIdSet[b] ? b : null);
-      var candidate    = friendIdSet[a] ? b : (friendIdSet[b] ? a : null);
-      if (!myFriendSide || !candidate) return;
-      if (relatedIds[candidate]) return;
-      if (!byCandidate[candidate]) byCandidate[candidate] = {};
-      byCandidate[candidate][myFriendSide] = true;
+    // Server-side: the client used to walk friendships itself, but
+    // friendships_select only exposes rows where YOU are one of the two
+    // sides, so a non-admin could never read a friend's other friendships and
+    // this was permanently empty for every real user. The RPC does the
+    // traversal and applies all the exclusions (self, existing connections in
+    // any state, dismissals, system and banned accounts).
+    var sRes = await sbClient.rpc('get_friend_suggestions', { p_limit: 20 });
+    if (sRes.error) throw sRes.error;
+    var candidates = (sRes.data || []).map(function(r) {
+      return { id: r.candidate_id, mutualIds: r.mutual_ids || [], count: Number(r.mutual_count) || 0 };
     });
-    var candidates = Object.keys(byCandidate).map(function(id) {
-      var mutualIds = Object.keys(byCandidate[id]);
-      return { id: id, mutualIds: mutualIds, count: mutualIds.length };
-    }).sort(function(a,b){ return b.count - a.count; }).slice(0, 20);
     if (candidates.length === 0) { wrap.style.display = 'none'; return; }
-    // Fetch candidate profiles + names for mutual friends
     var candIds = candidates.map(function(c){ return c.id; });
     var pRes = await sbClient.from('profiles').select('id, display_name, handle, photo').in('id', candIds);
     var profileById = {}; (pRes.data || []).forEach(function(p){ profileById[p.id] = p; });
@@ -7371,8 +7349,6 @@ function renderMutualSuggestions(candidates, profileById, friendNameById) {
   }).join('');
 }
 
-var _dismissedSuggestions = {};
-
 // "Don't suggest again". Hides the card immediately and writes after a grace
 // period, so Undo costs nothing. Private to the user — the other person is
 // never notified and nothing about their account changes.
@@ -7390,14 +7366,12 @@ function dismissSuggestion(otherId, btn) {
   if (!anyLeft() && wrap) wrap.style.display = 'none';
 
   showUndoToast('We won\'t suggest them again', 'Undo', 5000, function commit() {
-    _dismissedSuggestions[otherId] = true;
     sbClient.from('friend_suggestion_dismissals')
       .upsert({ user_id: userId, dismissed_id: otherId }, { onConflict: 'user_id,dismissed_id' })
       .then(function(r) {
         if (r.error) {
           // Nothing was saved — put the card back rather than pretend it stuck.
           console.warn('dismiss failed', r.error);
-          delete _dismissedSuggestions[otherId];
           if (card) card.style.display = '';
           if (wrap) wrap.style.display = 'block';
           showToast('Could not save that — they may show up again.');
