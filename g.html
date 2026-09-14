@@ -304,6 +304,26 @@
     });
   }
 
+  // A category "emoji" may be a short glyph OR an uploaded image, stored
+  // either as a hosted URL or (pre-migration) as an inline data: URL. This
+  // page previously escaped and printed whatever it got, so an uploaded icon
+  // was rendered as its raw string — a 44,790-character data: URL splashed
+  // across the gift page. Mirrors renderCatEmoji() in index.html.
+  function renderEmoji(val, sizePx) {
+    var s = sizePx || 32;
+    var v = (typeof val === 'string' && val) ? val : '📋';
+    var imgCss = 'width:' + s + 'px;height:' + s + 'px;object-fit:contain;vertical-align:middle';
+    var fallback = '<span style="font-size:' + s + 'px;line-height:1">📋</span>';
+    if ((/^https:\/\/[^\s"'<>]+$/i.test(v) && v.length <= 512)
+        || /^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,/i.test(v)) {
+      return '<img src="' + escapeHtml(v) + '" alt="" style="' + imgCss + '"'
+        + ' onerror="this.outerHTML=' + escapeHtml(JSON.stringify(fallback)) + '">';
+    }
+    // Not an image and too long to be an emoji — never print it.
+    if (v.length > 24) v = '📋';
+    return '<span style="font-size:' + s + 'px;line-height:1">' + escapeHtml(v) + '</span>';
+  }
+
   function daysUntilBirthday(bdStr) {
     if (!bdStr) return null;
     var parts = bdStr.split('-');
@@ -395,7 +415,7 @@
         var closedHint = 'Top ' + count + ' pick' + (count !== 1 ? 's' : '') + ' · Tap to shop ↓';
         var openHint = 'Top ' + count + ' pick' + (count !== 1 ? 's' : '') + ' · Tap to close ↑';
         html += '<div class="tile t-' + pal + '" onclick="toggleTile(this)">'
-          + '<div class="tile-emoji">' + escapeHtml(emoji) + '</div>'
+          + '<div class="tile-emoji">' + renderEmoji(emoji, 32) + '</div>'
           + '<div class="tile-title">' + escapeHtml(l.category) + '</div>'
           + '<div class="tile-sub" data-closed-hint="' + escapeHtml(closedHint) + '" data-open-hint="' + escapeHtml(openHint) + '">' + escapeHtml(closedHint) + '</div>'
           + '<div class="picks" onclick="event.stopPropagation()">';
