@@ -11791,35 +11791,106 @@ async function renderMatch() {
         sideBodyHtml = pairHeader(singleFname) + oneBody.rows;
         agreePills = oneBody.pills;
       } else {
-        // Group average mode: You vs the group's average rank for each item.
-        var colHeaders = '<div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">You</div><div style="flex:1;font-size:10px;font-weight:600;color:#5F5E5A">Group avg rank</div>';
-        var rowsHtml = sortedItems.map(function(item) {
-          var totalPickers = (item.myRank !== null ? 1 : 0) + item.friendEntries.length;
-          var totalParticipants = 1 + comps.length; // me + all compared friends
-          var everyonePicked = totalPickers === totalParticipants;
-          var somePicked = totalPickers > 1;
-          var bg = everyonePicked ? pal.bg + 'CC' : somePicked ? pal.bg + '55' : pal.bg + '33';
-          var col = accent;
-          var barCol = everyonePicked ? accent : (somePicked ? accent : (item.myRank !== null || item.friendEntries.length ? accent : null));
-
-          var myCell = item.myRank !== null ? rankText(item.myRank, item.display) : '<span style="color:#C4C2BA">—</span>';
-          var rightCell;
-          if (item.friendEntries.length === 0) {
-            rightCell = '<span style="color:#C4C2BA">—</span>';
-          } else {
-            var avgRank = item.friendEntries.reduce(function(s,e){return s+e.rank;},0) / item.friendEntries.length;
-            rightCell = matchRankBadge('#' + avgRank.toFixed(1).replace(/\.0$/,''))
-              + ' <span style="font-size:10px;color:' + accent + ';opacity:0.75;margin-left:4px;font-weight:600">(' + item.friendEntries.length + '/' + comps.length + ')</span>';
+        // Group mode. This used to be a single "You vs Group avg" table whose
+        // right-hand cells printed only a rank badge — no item name — so half
+        // the rows read "#2 (1/2)" with nothing to say what they referred to.
+        //
+        // Now it uses the same swipeable side-by-side as friend matches: the
+        // first card is you vs the group average, and every member after it is
+        // a normal one-to-one comparison. Same layout, same interactions.
+        function groupAvgBody() {
+          var withAvg = sortedItems.map(function(item) {
+            var n = item.friendEntries.length;
+            var avg = n ? item.friendEntries.reduce(function(s,e){ return s+e.rank; }, 0) / n : null;
+            return {
+              display: item.display,
+              myRank: item.myRank,
+              avg: avg,
+              pickers: n,
+              avgText: avg === null ? null : '#' + avg.toFixed(1).replace(/\.0$/, '')
+            };
+          });
+          function rightText(it) {
+            return matchRankBadge(it.avgText) + ' <span style="margin-left:4px">' + escapeHtml(it.display) + '</span>'
+              + ' <span style="font-size:9.5px;opacity:0.7;font-weight:600">(' + it.pickers + '/' + comps.length + ')</span>';
           }
-          var myOnclick = (item.myRank !== null) ? commentOnCell(userId, item.display) : null;
-          return '<div style="display:flex;gap:5px;margin-bottom:4px">' + mkCell(myCell, bg, col, barCol, myOnclick) + mkCell(rightCell, bg, col, barCol) + '</div>';
+          var shared   = withAvg.filter(function(it){ return it.myRank !== null && it.avg !== null; })
+                                .sort(function(a,b){ return (a.myRank + a.avg) - (b.myRank + b.avg); });
+          var myOnly   = withAvg.filter(function(it){ return it.myRank !== null && it.avg === null; })
+                                .sort(function(a,b){ return a.myRank - b.myRank; });
+          var theirOnly= withAvg.filter(function(it){ return it.myRank === null && it.avg !== null; })
+                                .sort(function(a,b){ return a.avg - b.avg; });
+          var sharedRows = shared.map(function(it){
+            return '<div style="display:flex;gap:5px;margin-bottom:4px">'
+              + mkCell(rankText(it.myRank, it.display), pal.bg + 'CC', accent, accent, commentOnCell(userId, it.display))
+              + mkCell(rightText(it), pal.bg + 'CC', accent, accent) + '</div>';
+          }).join('');
+          var remCount = Math.max(myOnly.length, theirOnly.length);
+          var remRows = '';
+          for (var r = 0; r < remCount; r++) {
+            var lm = myOnly[r], rt = theirOnly[r];
+            remRows += '<div style="display:flex;gap:5px;margin-bottom:4px">'
+              + mkCell(lm ? rankText(lm.myRank, lm.display) : '', lm ? pal.bg + '33' : 'transparent', lm ? accent : '#2C2C2A', lm ? accent : null, lm ? commentOnCell(userId, lm.display) : null)
+              + mkCell(rt ? rightText(rt) : '', rt ? pal.bg + '33' : 'transparent', rt ? accent : '#2C2C2A', rt ? accent : null) + '</div>';
+          }
+          var divider = (sharedRows && remRows) ? '<div style="font-size:9px;color:#A8A6A0;text-align:center;margin:8px 0 6px">— unique picks —</div>' : '';
+          var pills = shared.map(function(it){ return '<span class="pill pill-green">' + escapeHtml(it.display) + '</span>'; }).join('');
+          return { rows: sharedRows + divider + remRows, pills: pills };
+        }
+
+        var gOrdered = comps.slice().sort(function(a,b){ return b.score - a.score; });
+        var gAvgScore = gOrdered.length
+          ? Math.round(gOrdered.reduce(function(s,c){ return s + c.score; }, 0) / gOrdered.length)
+          : 0;
+        var gBody = groupAvgBody();
+        var gName = (groupCtx >= 0 && MY_GROUPS[groupCtx]) ? MY_GROUPS[groupCtx].n : 'the group';
+
+        if (!window._matchSbsOrder) window._matchSbsOrder = {};
+        // Slide 0 is the average, so member slides start at 1 — the Match
+        // Scores rows jump by friendId and must land on the right card.
+        window._matchSbsOrder[i] = [null].concat(gOrdered.map(function(c){ return c.friend.friendId; }));
+
+        var avgSlide = '<div id="sbs-slide-' + i + '-0" style="display:block;width:100%">'
+          + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+            + groupAvatarHtml((groupCtx >= 0 ? MY_GROUPS[groupCtx] : null), 26)
+            + '<div style="font-size:11px;font-weight:600;color:#2C2C2A">You vs ' + escapeHtml(gName) + ' average</div>'
+            + '<div style="margin-left:auto;font-size:13px;font-weight:700;color:#D85A30">' + gAvgScore + '%</div></div>'
+          + pairHeader('Group average')
+          + gBody.rows + '</div>';
+
+        var memberSlides = gOrdered.map(function(c, si) {
+          var fn = (c.friend.profile && c.friend.profile.display_name)
+                || (c.friend.profile && c.friend.profile.handle ? '@' + c.friend.profile.handle : 'Friend');
+          var body = pairBody(c);
+          return '<div id="sbs-slide-' + i + '-' + (si + 1) + '" style="display:none;width:100%">'
+            + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+              + friendAvatarHtml(c.friend.profile, 26)
+              + '<div style="font-size:11px;font-weight:600;color:#2C2C2A">You vs ' + escapeHtml(fn) + '</div>'
+              + '<div style="margin-left:auto;font-size:13px;font-weight:700;color:#D85A30">' + c.score + '%</div></div>'
+            + pairHeader(fn)
+            + body.rows + '</div>';
         }).join('');
-        var sharedItems = sortedItems.filter(function(item) {
-          return item.myRank !== null && item.friendEntries.length > 0;
-        });
-        agreePills = sharedItems.map(function(item){ return '<span class="pill pill-green">' + escapeHtml(item.display) + '</span>'; }).join('');
-        sideLabel = 'Side-by-side: You vs Group';
-        sideBodyHtml = '<div style="display:flex;gap:5px;margin-bottom:6px">' + colHeaders + '</div>' + rowsHtml;
+
+        var gSlideCount = gOrdered.length + 1;
+        var gChev = function(dir, glyph) {
+          return '<button onclick="sbsNav(' + i + ',' + dir + ',' + gSlideCount + ')" style="background:#2C2C2A;color:#FFFFFF;border:none;border-radius:3px;width:28px;height:28px;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center">' + glyph + '</button>';
+        };
+        var gNav = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+          + gChev(-1, '\u2039')
+          + '<div id="sbs-dots-' + i + '" style="display:flex;gap:5px">'
+            + Array.apply(null, Array(gSlideCount)).map(function(_, di) {
+                return '<span style="width:8px;height:3px;border-radius:2px;background:' + (di === 0 ? accent : 'rgba(0,0,0,0.15)') + ';transition:background .15s;display:inline-block"></span>';
+              }).join('')
+          + '</div>'
+          + gChev(1, '\u203a')
+          + '</div>';
+
+        agreePills = gBody.pills;
+        sideLabel = 'Side-by-side';
+        sideBodyHtml = '<div style="font-size:10.5px;color:#5F5E5A;margin-bottom:8px">Swipe to compare with the group average, then each member.</div>'
+          + gNav
+          + '<div id="sbs-track-' + i + '" ontouchstart="sbsTouchStart(event,' + i + ')" ontouchend="sbsTouchEnd(event,' + i + ',' + gSlideCount + ')" style="width:100%;overflow:hidden">'
+          + avgSlide + memberSlides + '</div>';
       }
 
       var panelEmoji = renderCatEmoji(getCatEmoji(cat) || '📋', 22);
