@@ -1584,7 +1584,7 @@
         <div class="ni" id="nav-create" onclick="go('s-create1')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Create</div>
         <div class="ni" id="nav-circle" style="position:relative" onclick="go('s-circle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg><span id="circle-badge" style="display:none;position:absolute;top:2px;right:8px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center"></span>Circle</div>
         <div class="ni" id="nav-match" onclick="matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go('s-match')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Match</div>
-        <div class="ni" id="nav-gifts" onclick="go('s-gifts')" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>Gifts<span id="gifts-badge" style="display:none;position:absolute;top:2px;right:14px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center"></span></div>
+        <div class="ni" id="nav-gifts" onclick="go('s-gifts')" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>Gifts<span id="gifts-badge" style="display:none;align-items:center;justify-content:center;position:absolute;top:2px;right:14px;background:#D85A30;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:1;text-align:center;box-sizing:border-box"></span></div>
       </div>
 
       <!-- ITEM COMMENTS MODAL -->
@@ -2190,6 +2190,65 @@ async function loadFriendListSummaries(acceptedFriends) {
     });
     window.MY_FRIEND_LIST_SUMMARIES = byUser;
   } catch (e) { console.warn('loadFriendListSummaries failed', e); }
+}
+
+// ── Gift nudges ──────────────────────────────────────────────────────────
+// The Gifts badge counts friends whose birthday is inside a window the user
+// hasn't acknowledged yet. Opening their gift guide from the nudge tile
+// acknowledges the current window; the nudge then returns once at 7 days and
+// once at 3 days, and stops after that. Keyed by the year of the upcoming
+// birthday, so it resets naturally next year.
+var GIFT_NUDGE_TIERS = [14, 7, 3];
+var MY_GIFT_NUDGE_ACKS = {};   // "friendId__year" -> tier acknowledged
+
+function giftNudgeTier(daysUntil) {
+  if (daysUntil === null || daysUntil === undefined || daysUntil < 0) return null;
+  for (var i = GIFT_NUDGE_TIERS.length - 1; i >= 0; i--) {
+    if (daysUntil <= GIFT_NUDGE_TIERS[i]) return GIFT_NUDGE_TIERS[i];
+  }
+  return null;   // further out than the widest window
+}
+
+// The calendar year the upcoming birthday falls in — today + daysUntil.
+function giftNudgeYear(daysUntil) {
+  var d = new Date();
+  d.setDate(d.getDate() + (daysUntil || 0));
+  return d.getFullYear();
+}
+
+function giftNudgeKey(friendId, daysUntil) {
+  return friendId + '__' + giftNudgeYear(daysUntil);
+}
+
+// Unacknowledged if never seen, or if they've since dropped into a TIGHTER
+// window than the one acknowledged. Acking at 3 ends it for this birthday.
+function giftNudgeIsUnseen(friendId, daysUntil) {
+  var tier = giftNudgeTier(daysUntil);
+  if (tier === null) return false;
+  var acked = MY_GIFT_NUDGE_ACKS[giftNudgeKey(friendId, daysUntil)];
+  return acked == null || tier < acked;
+}
+
+async function loadGiftNudgeAcks() {
+  if (!sbClient || !userId) return;
+  try {
+    var r = await sbClient.from('gift_nudge_acks').select('friend_id, bday_year, tier').eq('viewer_id', userId);
+    if (r.error) { console.warn('loadGiftNudgeAcks failed', r.error); return; }
+    var m = {};
+    (r.data || []).forEach(function(a){ m[a.friend_id + '__' + a.bday_year] = a.tier; });
+    MY_GIFT_NUDGE_ACKS = m;
+  } catch (e) { console.warn('loadGiftNudgeAcks failed', e); }
+}
+
+function ackGiftNudge(friendId, daysUntil) {
+  var tier = giftNudgeTier(daysUntil);
+  if (!sbClient || !userId || !friendId || tier === null) return;
+  var year = giftNudgeYear(daysUntil);
+  MY_GIFT_NUDGE_ACKS[friendId + '__' + year] = tier;
+  sbClient.from('gift_nudge_acks')
+    .upsert({ viewer_id: userId, friend_id: friendId, bday_year: year, tier: tier },
+            { onConflict: 'viewer_id,friend_id,bday_year' })
+    .then(function(){}, function(e){ console.warn('ackGiftNudge failed', e); });
 }
 
 function markFriendViewed(friendId) {
@@ -10573,6 +10632,7 @@ async function loadState() {
       loadCategoriesFromDb();
       loadMatchReveals();
       loadFriendViews();
+      loadGiftNudgeAcks();
       loadWeeklyLists();
       // Retry any list saves that failed on a previous session (dirty queue)
       retryDirtyLists();
@@ -14394,6 +14454,33 @@ async function renderGifts() {
     return getCategoryColor(top.category).key;
   }
   var html = '';
+
+  // Nudge tiles: one per birthday inside a window the user hasn't
+  // acknowledged. Mirrors the banner on the friend detail page. Tapping opens
+  // that friend's gift guide AND acknowledges the nudge, so the tab badge
+  // clears — it returns once at 7 days and once at 3, then stops.
+  var nudges = upcoming.filter(function(e){
+    return giftNudgeIsUnseen(e.profile && e.profile.id, e.daysUntil);
+  });
+  if (nudges.length) {
+    html += nudges.map(function(e) {
+      var p = e.profile;
+      var nm = (p.display_name || (p.handle ? '@' + p.handle : 'Friend')).split(' ')[0];
+      var when = e.daysUntil === 0 ? 'is <strong>today</strong> 🎉'
+               : e.daysUntil === 1 ? 'is <strong>tomorrow</strong>'
+               : 'is in <strong>' + e.daysUntil + ' days</strong>';
+      return '<div onclick="openGiftNudge(\'' + p.id + '\',' + e.daysUntil + ')" '
+        + 'style="background:linear-gradient(135deg,#FFE9D9 0%,#FFC9A8 100%);border:1.5px solid #2C2C2A;border-radius:16px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer">'
+        + '<div style="font-size:28px;line-height:1;flex-shrink:0">🎂</div>'
+        + '<div style="flex:1;min-width:0">'
+        +   '<div style="font-size:12.5px;color:#2C2C2A;line-height:1.3">' + escapeHtml(nm) + '\'s birthday ' + when + '</div>'
+        +   '<div style="font-size:11px;color:#2C2C2A;opacity:0.7;margin-top:2px">Tap for gift ideas →</div>'
+        + '</div>'
+        + '<div style="font-size:18px;color:#2C2C2A;opacity:0.5;flex-shrink:0">›</div>'
+        + '</div>';
+    }).join('');
+  }
+
   if (upcoming.length) {
     html += coralRuleHeader('COMING UP · ' + upcoming.length);
     html += antiAdjacentByColor(upcoming, entryColorKey).map(friendGiftCard).join('');
@@ -14424,7 +14511,10 @@ async function renderGifts() {
 function updateGiftsBadge(upcoming) {
   var badge = document.getElementById('gifts-badge');
   if (!badge) return;
-  var soon = upcoming.filter(function(e){ return e.daysUntil <= 14; }).length;
+  // Only birthdays the user hasn't acknowledged at their current window.
+  var soon = (upcoming || []).filter(function(e){
+    return giftNudgeIsUnseen(e.profile && e.profile.id, e.daysUntil);
+  }).length;
   if (soon > 0) { badge.style.display = 'flex'; badge.textContent = soon; }
   else          { badge.style.display = 'none'; }
 }
@@ -14505,6 +14595,19 @@ function friendHasGiftPage(friendId) {
   var f = (myFriends || []).find(function(x){ return x.friendId === friendId; });
   return !!(f && f.profile && f.profile.gift_share_token);
 }
+// Tapping a nudge tile: acknowledge first so the badge updates even if the
+// guide is slow to open, then go.
+function openGiftNudge(friendUserId, daysUntil) {
+  ackGiftNudge(friendUserId, daysUntil);
+  var badge = document.getElementById('gifts-badge');
+  if (badge) {
+    var n = parseInt(badge.textContent, 10);
+    if (!isNaN(n) && n > 1) badge.textContent = n - 1;
+    else badge.style.display = 'none';
+  }
+  openGiftGuide(friendUserId, 'gifts_nudge_tile');
+}
+
 function openGiftGuide(friendUserId, source) {
   if (!sbClient) return;
   // Open the tab SYNCHRONOUSLY inside the click handler so mobile Safari
