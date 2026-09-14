@@ -2124,6 +2124,15 @@ function go(id) {
     if (typeof pushResubscribeSilently === 'function') pushResubscribeSilently();
     attachPullToRefresh(document.querySelector('#s-circle .content'), function() { return loadFriends().then(renderCircleScreen); });
   }
+  if (id === 's-pool') {
+    // Arriving back after adding items — most obviously via Save changes,
+    // but any route counts. go() only toggles visibility, so without this the
+    // old DOM stays: items still ticked, footer still offering to add picks
+    // that are now on your list. Re-rendering also re-reads MY_LISTS, so
+    // anything just added shows as "On your list".
+    _poolSelected = [];
+    if (typeof renderPool === 'function' && _poolCat) renderPool();
+  }
   if (id === 's-add-friends') {
     var sInp = document.getElementById('circle-friend-search'); if (sInp) sInp.value = '';
     var sRes = document.getElementById('circle-friend-search-result'); if (sRes) sRes.innerHTML = '';
