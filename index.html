@@ -994,13 +994,6 @@
 
           <div style="display:flex;align-items:center;gap:12px;margin:0 0 10px">
             <div style="flex:1;height:2px;background:#D85A30"></div>
-            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Your friends</div>
-            <div style="flex:1;height:2px;background:#D85A30"></div>
-          </div>
-          <div id="gadd-friends"></div>
-
-          <div style="display:flex;align-items:center;gap:12px;margin:22px 0 10px">
-            <div style="flex:1;height:2px;background:#D85A30"></div>
             <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Search anyone</div>
             <div style="flex:1;height:2px;background:#D85A30"></div>
           </div>
@@ -1008,15 +1001,11 @@
             <input type="text" id="gadd-search" placeholder="@handle or phone number" style="margin-bottom:0;flex:1;font-size:13px;padding:8px 10px" onkeydown="if(event.key==='Enter')searchGroupAddUser()">
             <button class="add-btn" style="padding:8px 14px;font-size:12px;flex-shrink:0" onclick="searchGroupAddUser()">Search</button>
           </div>
-          <div id="gadd-search-result"></div>
+          <div id="gadd-search-result" style="margin-bottom:12px"></div>
 
-          <div style="display:flex;align-items:center;gap:12px;margin:22px 0 10px">
-            <div style="flex:1;height:2px;background:#D85A30"></div>
-            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Invite someone new</div>
-            <div style="flex:1;height:2px;background:#D85A30"></div>
-          </div>
-          <div style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px;margin-bottom:24px">
-            <div style="font-size:12px;color:#5F5E5A;line-height:1.45;margin-bottom:10px">Share a link that adds them to this group as soon as they join Tenner.</div>
+          <div style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px;margin-bottom:8px">
+            <div style="font-size:13px;font-weight:800;color:#2C2C2A;margin-bottom:4px">Invite someone new</div>
+            <div style="font-size:11.5px;color:#5F5E5A;line-height:1.45;margin-bottom:10px">One link for everyone. Already on Tenner? It adds them straight to the group. New? It walks them through signing up and adds them when they land. Paste it into a group chat or Slack.</div>
             <div style="display:flex;gap:6px;margin-bottom:8px">
               <input type="text" id="gadd-link" readonly style="margin-bottom:0;flex:1;font-size:11px;padding:8px 10px;background:#F5F1EA;color:#5F5E5A">
               <button class="add-btn" style="padding:8px 14px;font-size:12px;flex-shrink:0" onclick="copyGroupInviteLink()">Copy</button>
@@ -1024,6 +1013,13 @@
             <button class="btn-secondary" style="margin-bottom:6px" onclick="shareGroupInviteLink()">Share link…</button>
             <button class="btn-secondary" style="margin-bottom:0" onclick="openInviteModalForGroup()">✉️💬 Invite by email or text</button>
           </div>
+
+          <div style="display:flex;align-items:center;gap:12px;margin:22px 0 10px">
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Your friends</div>
+            <div style="flex:1;height:2px;background:#D85A30"></div>
+          </div>
+          <div id="gadd-friends" style="margin-bottom:24px"></div>
         </div>
       </div>
       <div class="screen" id="s-gsettings">
@@ -5619,8 +5615,17 @@ async function renderGroupDetail() {
         var handle = f.profile.handle ? '@' + f.profile.handle : '';
         var fid = f.friendId;
         var isPending = memberStatuses[fid] === 'pending';
+        // A group is often how people first meet on Tenner. Offer the friend
+        // request right here so the connection outlives the group comparison.
+        var rel = (myFriends || []).filter(function(x){ return x.friendId === fid; })[0];
+        var addFriendBtn = (!rel && fid !== userId)
+          ? '<button class="add-btn" style="font-size:10px;padding:3px 7px;margin-right:4px" onclick="event.stopPropagation();sendMutualFriendRequest(\'' + fid + '\', this)">+ Friend</button>'
+          : (rel && rel.status === 'pending'
+              ? '<span class="pill pill-amber" style="font-size:9px;margin-right:4px">Requested</span>'
+              : '');
         return '<div class="member-row" style="margin-bottom:6px"><div style="margin-right:8px">' + friendAvatarHtml(f.profile, 32) + '</div>'
           + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + (isPending ? ' <span class="pill pill-amber" style="font-size:9px">Pending</span>' : '') + '</div><div style="font-size:13.5px;color:#5F5E5A">' + handle + '</div></div>'
+          + addFriendBtn
           + '<button class="back-btn" style="font-size:10px;padding:3px 7px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();showConfirm(\'Remove ' + name.replace(/'/g,"\\'") + '?\',\'They will lose access to this group.\',\'Remove\',\'danger\',function(){removeMemberFromGroup(\'' + fid + '\')})">Remove</button></div>';
       }).join('')
     + '<button class="btn-primary" style="margin-top:10px;margin-bottom:0;font-size:11px;padding:10px" onclick="event.stopPropagation();openAddGroupMembers()">＋ Add group members</button>'
@@ -5718,8 +5723,12 @@ async function renderGroupDetail() {
     + '<div style="font-size:10.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;opacity:0.85;margin-top:6px">' + memberCount + ' MEMBER' + (memberCount !== 1 ? 'S' : '') + '</div>'
     + '</div>';
 
+  // Adding people is the main thing you do on a group page, so it gets its
+  // own button here as well as inside the members panel.
+  var addMembersHtml = '<button class="btn-primary" style="margin-bottom:8px" onclick="openAddGroupMembers()">＋ Add group members</button>';
+
   var el = document.getElementById('gdetail-content');
-  if (el) el.innerHTML = headerHtml + matchHtml + membersCardHtml + sharedListsHtml + deleteHtml;
+  if (el) el.innerHTML = headerHtml + matchHtml + addMembersHtml + membersCardHtml + sharedListsHtml + deleteHtml;
 }
 
 function toggleGroupMembers() {
@@ -7886,7 +7895,13 @@ async function loadMutualFriendSuggestions() {
     var sRes = await sbClient.rpc('get_friend_suggestions', { p_limit: 20 });
     if (sRes.error) throw sRes.error;
     var candidates = (sRes.data || []).map(function(r) {
-      return { id: r.candidate_id, mutualIds: r.mutual_ids || [], count: Number(r.mutual_count) || 0 };
+      return {
+        id: r.candidate_id,
+        mutualIds: r.mutual_ids || [],
+        count: Number(r.mutual_count) || 0,
+        source: r.source || 'mutual',
+        groupNames: r.group_names || []
+      };
     });
     if (candidates.length === 0) { wrap.style.display = 'none'; return; }
     var candIds = candidates.map(function(c){ return c.id; });
@@ -7905,19 +7920,43 @@ async function loadMutualFriendSuggestions() {
   }
 }
 
+var SUGGESTIONS_COLLAPSED = 5;
+var _suggestionsExpanded = false;
+var _suggestionsCache = null;
+
+function toggleSuggestionsExpanded() {
+  _suggestionsExpanded = !_suggestionsExpanded;
+  if (_suggestionsCache) {
+    renderMutualSuggestions(_suggestionsCache.c, _suggestionsCache.p, _suggestionsCache.f);
+  }
+}
+
 function renderMutualSuggestions(candidates, profileById, friendNameById) {
   var host = document.getElementById('mutuals-list');
   if (!host) return;
-  host.innerHTML = candidates.map(function(c) {
+  _suggestionsCache = { c: candidates, p: profileById, f: friendNameById };
+  var total = candidates.length;
+  var shown = _suggestionsExpanded ? candidates : candidates.slice(0, SUGGESTIONS_COLLAPSED);
+  host.innerHTML = shown.map(function(c) {
     var p = profileById[c.id] || {};
     var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
     var initials = (name.charAt(0) || '?').toUpperCase();
     var avatar = p.photo
       ? '<img src="' + escapeHtml(p.photo) + '"' + avatarZoomAttrs(p.photo, name) + ' style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0">'
       : '<div style="width:40px;height:40px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + escapeHtml(initials) + '</div>';
-    var mutualNames = c.mutualIds.slice(0, 2).map(function(id){ return friendNameById[id] || 'friend'; });
-    var extra = c.mutualIds.length - mutualNames.length;
-    var mutualText = c.count + ' mutual · ' + mutualNames.join(', ') + (extra > 0 ? ' +' + extra + ' more' : '');
+    // Say WHY they're suggested — a bare name reads as the app guessing.
+    var mutualText;
+    if (c.source === 'group') {
+      var gs = (c.groupNames || []).slice(0, 2);
+      var gExtra = (c.groupNames || []).length - gs.length;
+      mutualText = gs.length
+        ? 'In ' + gs.join(', ') + (gExtra > 0 ? ' +' + gExtra + ' more' : '') + ' with you'
+        : 'In a group with you';
+    } else {
+      var mutualNames = (c.mutualIds || []).slice(0, 2).map(function(id){ return friendNameById[id] || 'friend'; });
+      var extra = (c.mutualIds || []).length - mutualNames.length;
+      mutualText = c.count + ' mutual · ' + mutualNames.join(', ') + (extra > 0 ? ' +' + extra + ' more' : '');
+    }
     return '<div class="card no-hover" style="padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
       + avatar
       + '<div style="flex:1;min-width:0">'
@@ -7929,6 +7968,11 @@ function renderMutualSuggestions(candidates, profileById, friendNameById) {
       + '<button onclick="dismissSuggestion(\'' + c.id + '\', this)" aria-label="Not interested in ' + escapeHtml(name) + '" title="Don\'t suggest again" style="background:none;border:none;color:#A8A6A0;font-size:17px;line-height:1;padding:6px 4px;margin-left:2px;cursor:pointer;flex-shrink:0">×</button>'
       + '</div>';
   }).join('');
+  if (total > SUGGESTIONS_COLLAPSED) {
+    host.innerHTML += '<button class="btn-secondary" style="margin-top:4px;margin-bottom:0" onclick="toggleSuggestionsExpanded()">'
+      + (_suggestionsExpanded ? '▲ Show fewer' : '▼ Show ' + (total - SUGGESTIONS_COLLAPSED) + ' more')
+      + '</button>';
+  }
 }
 
 // "Don't suggest again". Hides the card immediately and writes after a grace
