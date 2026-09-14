@@ -798,6 +798,7 @@
             <div class="chip-row-label" id="item-chips-label">Popular on Tenner — tap to add</div>
             <div class="chip-row" id="item-chips"></div>
           </div>
+          <div id="inspo-nudge" style="display:none;margin-bottom:10px"></div>
           <div id="add-area">
             <div style="display:flex;gap:7px;margin-bottom:5px">
               <input type="text" id="item-inp" placeholder="Type to search or add an item..." oninput="onItemType(this.value)" onkeydown="if(event.key==='Enter')doAddItem()" style="margin-bottom:0;flex:1;touch-action:manipulation" autocomplete="off" autocorrect="off">
@@ -983,6 +984,19 @@
       </div>
 
       <!-- ═══ GROUP SETTINGS ═══ -->
+      <div class="screen" id="s-pool">
+        <div class="topbar">
+          <button class="back-btn" id="pool-back" onclick="go('s-match')">← Back</button>
+          <span style="font-size:13px;font-weight:600;color:#2C2C2A">Friends' picks</span>
+          <span style="width:52px"></span>
+        </div>
+        <div class="content" style="padding-bottom:96px">
+          <div id="pool-header" style="margin-bottom:14px"></div>
+          <div id="pool-who"></div>
+          <div id="pool-items"></div>
+        </div>
+        <div id="pool-footer" style="display:none;position:absolute;left:0;right:0;bottom:0;background:#FFFFFF;border-top:1px solid #E8E6DF;padding:10px 14px 14px;z-index:50"></div>
+      </div>
       <div class="screen" id="s-gadd">
         <div class="topbar">
           <button class="back-btn" onclick="go('s-gdetail')">← Back</button>
@@ -3571,6 +3585,43 @@ function updateProg() {
   // limit — the overflow warning above the save button owns that state.
   if (db) db.style.display = (n >= 10 && over <= 0) ? 'block' : 'none';
   if (aa) aa.style.display = n >= 10 ? 'none' : 'block';
+  renderInspoNudge(n);
+}
+
+// "Stuck?" prompt in the list editor. Appears only when it can actually help:
+// you're short of ten, and friends have this same list to draw on. Counting
+// friends comes from data already loaded, so this costs nothing to check on
+// every keystroke.
+var _inspoFriendCount = {};   // category -> how many friends have it
+
+function friendsWithCategory(cat) {
+  if (!cat) return 0;
+  if (_inspoFriendCount[cat] !== undefined) return _inspoFriendCount[cat];
+  var n = 0;
+  var summaries = window.MY_FRIEND_LIST_SUMMARIES || {};
+  Object.keys(summaries).forEach(function(uid) {
+    if ((summaries[uid] || []).some(function(l){ return l.category === cat; })) n++;
+  });
+  _inspoFriendCount[cat] = n;
+  return n;
+}
+
+function renderInspoNudge(count) {
+  var host = document.getElementById('inspo-nudge');
+  if (!host) return;
+  var n = friendsWithCategory(selCat);
+  // Nothing to offer, or they're already done — stay out of the way.
+  if (!selCat || n === 0 || count >= MAX_SAVED_ITEMS) { host.style.display = 'none'; host.innerHTML = ''; return; }
+  var pal = getCategoryColor(selCat);
+  var accent = pal.accent || pal.fg || '#D85A30';
+  host.style.display = 'block';
+  host.innerHTML = '<div onclick="openFriendPicksPool(selCat, \'s-create2\')" style="background:#FFF;border:1px solid #EAE3DC;border-left:7px solid ' + accent + ';border-radius:3px;padding:11px 13px;cursor:pointer;display:flex;align-items:center;gap:10px">'
+    + '<div style="font-size:20px;line-height:1;flex-shrink:0">💡</div>'
+    + '<div style="flex:1;min-width:0">'
+    +   '<div style="font-size:12.5px;font-weight:700;color:#2C2C2A;line-height:1.3">Stuck for ideas?</div>'
+    +   '<div style="font-size:11.5px;color:#5F5E5A;margin-top:2px;line-height:1.35">' + n + ' friend' + (n === 1 ? ' has' : 's have') + ' a Top 10 ' + escapeHtml(selCat) + ' — see their picks and add any you like.</div>'
+    + '</div>'
+    + '<div style="font-size:16px;color:' + accent + ';flex-shrink:0">›</div></div>';
 }
 
 var selEmojiChar = '🎉'; // store the actual emoji char instead of index
@@ -9728,6 +9779,174 @@ function renderPickFooter() {
 }
 
 // Copy the ticked items into my list for this category and open the editor.
+// ── Friends' picks pool ──────────────────────────────────────────────────
+// One place to see everyone who has a given list: who filled it out (tap to
+// open theirs) and every pick they made, pooled — so an item several friends
+// chose shows all their faces. Selecting items adds them to your own list
+// through the same path as borrowing from a single friend's list.
+var _poolCat = null;
+var _poolRows = [];        // [{ friend, profile, items }]
+var _poolItems = [];       // [{ display, pickers:[{id,name,profile,rank}], best }]
+var _poolSelected = [];
+var _poolOrigin = 's-match';
+
+async function openFriendPicksPool(cat, origin) {
+  if (!cat) return;
+  _poolCat = cat;
+  _poolOrigin = origin || 's-match';
+  _poolSelected = [];
+  go('s-pool');
+  var backBtn = document.getElementById('pool-back');
+  if (backBtn) backBtn.setAttribute('onclick', "go('" + _poolOrigin + "')");
+  var head = document.getElementById('pool-header');
+  var who  = document.getElementById('pool-who');
+  var itemsEl = document.getElementById('pool-items');
+  if (head) head.innerHTML = '';
+  if (who) who.innerHTML = '<div style="font-size:12px;color:#888780;padding:14px 0">Loading…</div>';
+  if (itemsEl) itemsEl.innerHTML = '';
+  renderPoolFooter();
+
+  var accepted = (myFriends || []).filter(function(f){ return f.status === 'accepted' && f.profile; });
+  var ids = accepted.map(function(f){ return f.friendId; });
+  _poolRows = [];
+  if (ids.length && sbClient) {
+    try {
+      var res = await sbClient.from('lists')
+        .select('user_id, category, items, updated_at, blind_fill, is_public')
+        .in('user_id', ids).eq('category', cat).eq('is_public', true);
+      if (res.error) throw res.error;
+      // Blind-fill lists stay hidden until you've made your own — same rule as
+      // the friend list page, or this screen would be a way around it.
+      var iHaveIt = _myItemsForCat(cat).length > 0;
+      (res.data || []).forEach(function(l) {
+        if (l.blind_fill && !iHaveIt) return;
+        if (!Array.isArray(l.items) || !l.items.length) return;
+        var f = accepted.filter(function(x){ return x.friendId === l.user_id; })[0];
+        if (!f) return;
+        _poolRows.push({ friend: f, profile: f.profile, items: l.items, updated_at: l.updated_at });
+      });
+    } catch (e) { console.warn('pool load failed', e); }
+  }
+
+  // Pool every pick, remembering who chose it and how highly.
+  var map = {};
+  _poolRows.forEach(function(row) {
+    var nm = row.profile.display_name || (row.profile.handle ? '@' + row.profile.handle : 'Friend');
+    row.items.forEach(function(item, idx) {
+      var key = String(item).trim().toLowerCase();
+      if (!key) return;
+      if (!map[key]) map[key] = { display: item, pickers: [], best: 99 };
+      map[key].pickers.push({ id: row.friend.friendId, name: nm, profile: row.profile, rank: idx + 1 });
+      if (idx + 1 < map[key].best) map[key].best = idx + 1;
+    });
+  });
+  _poolItems = Object.keys(map).map(function(k){ return map[k]; })
+    .sort(function(a, b) {
+      if (b.pickers.length !== a.pickers.length) return b.pickers.length - a.pickers.length;
+      return a.best - b.best;   // tie-break on who ranked it highest
+    });
+
+  renderPool();
+}
+
+function renderPool() {
+  var cat = _poolCat;
+  var pal = getCategoryColor(cat);
+  var accent = pal.accent || pal.fg || '#2C2C2A';
+  var head = document.getElementById('pool-header');
+  var who  = document.getElementById('pool-who');
+  var itemsEl = document.getElementById('pool-items');
+  if (!head || !who || !itemsEl) return;
+
+  head.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:' + pal.bg + '33;border:1px solid ' + accent + '33;border-left:7px solid ' + accent + ';border-radius:3px">'
+    + '<span style="font-size:22px;line-height:1">' + renderCatEmoji(getCatEmoji(cat), 22) + '</span>'
+    + '<div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:800;color:#2C2C2A;line-height:1.1">Top 10 ' + escapeHtml(cat) + '</div>'
+    + '<div style="font-size:9.5px;color:' + accent + ';opacity:0.85;margin-top:3px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">'
+    + _poolRows.length + ' friend' + (_poolRows.length === 1 ? '' : 's') + ' · ' + _poolItems.length + ' pick' + (_poolItems.length === 1 ? '' : 's') + '</div></div></div>';
+
+  if (!_poolRows.length) {
+    who.innerHTML = '<div style="background:#FFF;border:1px solid #EAE3DC;border-left:5px solid #D85A30;border-radius:3px;padding:14px 16px;margin-top:12px">'
+      + '<div style="font-size:13px;font-weight:800;color:#2C2C2A;margin-bottom:4px">No friends have this list yet</div>'
+      + '<div style="font-size:12.5px;color:#5F5E5A;line-height:1.45">Share it with them and this fills up with their picks.</div></div>';
+    itemsEl.innerHTML = '';
+    renderPoolFooter();
+    return;
+  }
+
+  who.innerHTML = coralRuleHeader('WHO HAS THIS LIST · ' + _poolRows.length)
+    + _poolRows.map(function(row) {
+        var nm = row.profile.display_name || (row.profile.handle ? '@' + row.profile.handle : 'Friend');
+        return '<div class="member-row" style="margin-bottom:6px;cursor:pointer" onclick="openFriendListByCat(\'' + row.friend.friendId + '\',\'' + String(cat).replace(/'/g, "\\'") + '\',\'s-pool\')">'
+          + '<div style="margin-right:8px">' + friendAvatarHtml(row.profile, 32) + '</div>'
+          + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(nm) + '</div>'
+          + '<div style="font-size:11px;color:#888780">' + row.items.length + ' item' + (row.items.length === 1 ? '' : 's') + '</div></div>'
+          + '<span style="font-size:16px;color:' + accent + '">›</span></div>';
+      }).join('');
+
+  var mine = _myItemsForCat(cat);
+  itemsEl.innerHTML = coralRuleHeader('EVERY PICK · TAP TO ADD')
+    + _poolItems.map(function(it) {
+        var already = mine.indexOf(String(it.display).toLowerCase()) >= 0;
+        var on = _poolSelected.indexOf(it.display) >= 0;
+        var faces = it.pickers.slice(0, 4).map(function(pk) {
+          return '<span style="margin-left:-6px;display:inline-block;border-radius:50%;border:2px solid #FFFFFF">' + friendAvatarHtml(pk.profile, 22) + '</span>';
+        }).join('');
+        var extra = it.pickers.length - Math.min(4, it.pickers.length);
+        var box = already
+          ? '<div style="width:20px;height:20px;border-radius:3px;border:1.5px solid #D3D1C7;background:#F1EFE8;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:#888780">✓</div>'
+          : '<div style="width:20px;height:20px;border-radius:3px;border:1.5px solid ' + (on ? accent : '#D3D1C7') + ';background:' + (on ? accent : '#FFFFFF') + ';color:#FFF;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:800">' + (on ? '✓' : '') + '</div>';
+        var itemEsc = String(it.display).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return '<div class="rank-item" style="margin-bottom:6px;' + (already ? 'opacity:0.55;cursor:default' : 'cursor:pointer') + '"'
+          + (already ? '' : ' onclick="togglePoolItem(\'' + itemEsc + '\')"') + '>'
+          + box
+          + '<span style="flex:1;font-size:13.5px;color:#2C2C2A;min-width:0;overflow-wrap:break-word;margin-left:10px">' + escapeHtml(it.display) + '</span>'
+          + (already
+              ? '<span style="font-size:9px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#888780;flex-shrink:0">On your list</span>'
+              : '<span style="display:flex;align-items:center;padding-left:6px;flex-shrink:0">' + faces
+                + (extra > 0 ? '<span style="font-size:10px;color:#888780;margin-left:4px;font-weight:700">+' + extra + '</span>' : '') + '</span>')
+          + '</div>';
+      }).join('');
+  renderPoolFooter();
+}
+
+function togglePoolItem(name) {
+  var i = _poolSelected.indexOf(name);
+  if (i >= 0) _poolSelected.splice(i, 1); else _poolSelected.push(name);
+  renderPool();
+}
+
+function renderPoolFooter() {
+  var f = document.getElementById('pool-footer');
+  if (!f) return;
+  if (!_poolSelected.length) { f.style.display = 'none'; f.innerHTML = ''; return; }
+  f.style.display = 'block';
+  f.innerHTML = '<button class="btn-primary" style="margin-bottom:0" onclick="commitPoolPicks()">Add ' + _poolSelected.length + ' item' + (_poolSelected.length === 1 ? '' : 's') + ' to my list</button>';
+}
+
+// Hands off to the existing borrow-picks commit so there is one code path for
+// adding someone else's picks to your list — including the overflow tray and
+// the "from Kara" credit, which here names whoever ranked the item highest.
+function commitPoolPicks() {
+  if (!_poolSelected.length) return;
+  var byItem = {};
+  _poolItems.forEach(function(it) {
+    if (_poolSelected.indexOf(it.display) < 0) return;
+    var top = it.pickers.slice().sort(function(a, b){ return a.rank - b.rank; })[0];
+    if (top) byItem[it.display] = top.name;
+  });
+  _pickCtx = {
+    cat: _poolCat,
+    emoji: getCatEmoji(_poolCat),
+    ranked: true,
+    friendName: 'friends',
+    provenanceByItem: byItem,
+    listData: null
+  };
+  _pickSelected = _poolSelected.slice();
+  _poolSelected = [];
+  commitPickedItems();
+}
+
 function commitPickedItems() {
   if (!_pickCtx || !_pickSelected.length) return;
   var cat   = _pickCtx.cat;
@@ -9748,12 +9967,15 @@ function commitPickedItems() {
   isRanked = idx >= 0 ? (MY_LISTS[idx].ranked !== false) : (_pickCtx.ranked !== false);
   items = base.concat(added);
 
-  added.forEach(function(name) { _itemProvenance[name] = friendName; });
+  // From the pool each item can come from a different person, so credit them
+  // individually when we know; otherwise everything is from the one friend.
+  var byItem = (_pickCtx && _pickCtx.provenanceByItem) || null;
+  added.forEach(function(name) { _itemProvenance[name] = (byItem && byItem[name]) || friendName; });
   saveOverflowDraft(cat, items, _itemProvenance);
 
   _pickMode = false;
   _pickSelected = [];
-  listOrigin = 's-friend-list';
+  listOrigin = (_pickCtx && _pickCtx.listData) ? 's-friend-list' : 's-pool';
 
   trackEvent('borrow_picks_added', {
     category: cat, count: added.length,
@@ -12030,6 +12252,7 @@ async function renderMatch() {
         +   '<div style="font-size:9.5px;color:' + accent + ';opacity:0.85;margin-top:3px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">' + comps.length + ' FRIEND' + (comps.length>1?'S':'') + '</div></div>'
         + '</div>'
         + coralRuleHeader('MATCH SCORES · ' + comps.length) + scoresHtml
+        + '<button class="btn-secondary" style="margin-top:8px;margin-bottom:4px" onclick="openFriendPicksPool(\'' + String(cat).replace(/'/g, "\\'") + '\',\'s-match\')">👀 See everyone\'s ' + escapeHtml(cat) + ' picks</button>'
         + coralRuleHeader(sideLabel.toUpperCase())
         + sideBodyHtml
         + (agreePills ? coralRuleHeader('EVERYONE AGREES ON') + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + agreePills + '</div>' : '')
