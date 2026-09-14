@@ -3546,6 +3546,17 @@ function openAvatarLightbox(encodedSrc, encodedName) {
   frame.appendChild(overlay);
 }
 
+// Attributes that make a photo tappable-to-enlarge. Shared so every avatar
+// renderer behaves the same — there are several bespoke ones besides
+// friendAvatarHtml, and hand-writing this each time is how they drift.
+// stopPropagation preserves whatever the surrounding row already does.
+function avatarZoomAttrs(photoUrl, name) {
+  if (!photoUrl) return '';
+  return ' onclick="event.stopPropagation();openAvatarLightbox(\''
+    + encodeURIComponent(photoUrl) + '\',\'' + encodeURIComponent(name || '') + '\')"'
+    + ' title="Tap to enlarge" style="cursor:pointer"';
+}
+
 // Renders a circular person avatar — photo if available, else initials.
 function friendAvatarHtml(profile, size) {
   size = size || 32;
@@ -3574,7 +3585,15 @@ function groupAvatarHtml(g, size) {
   size = size || 42;
   var radius = Math.round(size * 0.28);
   if (g && g.photo) {
-    return '<img src="' + g.photo + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + 'px;object-fit:cover;flex-shrink:0">';
+    // Same tap-to-enlarge as person avatars. Also routes through the CDN,
+    // which this renderer was skipping while friendAvatarHtml did not — a
+    // group photo still on a supabase.co URL bypassed Cloudflare entirely.
+    var gFull = (typeof rewriteToCdn === 'function') ? rewriteToCdn(g.photo) : g.photo;
+    var gName = g.n || g.name || 'Group';
+    var gTap = ' onclick="event.stopPropagation();openAvatarLightbox(\''
+      + encodeURIComponent(gFull) + '\',\'' + encodeURIComponent(gName) + '\')"'
+      + ' title="Tap to enlarge"';
+    return '<img src="' + gFull + '"' + gTap + ' style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + 'px;object-fit:cover;flex-shrink:0;cursor:pointer">';
   }
   // photoPending: a photo exists in the DB but hasn't loaded yet — show a blank
   // box rather than briefly flashing the emoji placeholder.
@@ -7631,7 +7650,7 @@ function renderMutualSuggestions(candidates, profileById, friendNameById) {
     var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
     var initials = (name.charAt(0) || '?').toUpperCase();
     var avatar = p.photo
-      ? '<img src="' + escapeHtml(p.photo) + '" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0">'
+      ? '<img src="' + escapeHtml(p.photo) + '"' + avatarZoomAttrs(p.photo, name) + ' style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0">'
       : '<div style="width:40px;height:40px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + escapeHtml(initials) + '</div>';
     var mutualNames = c.mutualIds.slice(0, 2).map(function(id){ return friendNameById[id] || 'friend'; });
     var extra = c.mutualIds.length - mutualNames.length;
@@ -8131,7 +8150,7 @@ function renderOnbStep6(body) {
     var handle = p.handle ? '@' + p.handle : '';
     var initials = (name.charAt(0) || '?').toUpperCase();
     var avatar = p.photo
-      ? '<img src="' + escapeHtml(p.photo) + '" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0">'
+      ? '<img src="' + escapeHtml(p.photo) + '"' + avatarZoomAttrs(p.photo, name) + ' style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0">'
       : '<div style="width:40px;height:40px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + escapeHtml(initials) + '</div>';
     return '<div class="card no-hover" style="padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
       + avatar
@@ -9563,7 +9582,7 @@ function openMutualFriendsModal(theirName, mutuals) {
   var rows = mutuals.map(function(m) {
     var initials = String(m.name).split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
     var avatar = m.photo
-      ? '<img src="' + m.photo + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0">'
+      ? '<img src="' + m.photo + '"' + avatarZoomAttrs(m.photo, m.name) + ' style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0">'
       : '<div style="width:36px;height:36px;border-radius:50%;background:#EAE3DC;color:#5F5E5A;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + escapeHtml(initials) + '</div>';
     var handleLine = m.handle ? '<div style="font-size:11px;color:#888780;margin-top:1px">@' + escapeHtml(m.handle) + '</div>' : '';
     return '<div onclick="document.getElementById(\'mutual-friends-modal\').remove();selFriendId=\'' + m.id + '\';go(\'s-fdetail\')" '
@@ -10227,7 +10246,7 @@ function renderCircleGroups() {
       var name = prof.display_name || prof.handle || '?';
       var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
       var inner = prof.photo
-        ? '<img src="' + prof.photo + '" style="width:100%;height:100%;object-fit:cover">'
+        ? '<img src="' + prof.photo + '"' + avatarZoomAttrs(prof.photo, name) + ' style="width:100%;height:100%;object-fit:cover">'
         : '<div style="width:100%;height:100%;background:#EAE3DC;color:#5F5E5A;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">' + escapeHtml(initials) + '</div>';
       stackHtml += '<div style="width:26px;height:26px;border-radius:50%;overflow:hidden;border:2px solid #FFFFFF;margin-left:' + (stackCount === 0 ? '0' : '-9px') + ';flex-shrink:0">' + inner + '</div>';
       stackCount++;
