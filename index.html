@@ -453,8 +453,38 @@
   // Registers the offline shell + push handler. Fires once per page load;
   // browser dedupes if the same version is already installed.
   if ('serviceWorker' in navigator) {
+    // An installed app resumed from the home screen does NOT reload the page —
+    // iOS restores it from memory — so a running copy could keep serving old
+    // JS indefinitely even after a new version deployed. Nothing here used to
+    // notice an update, which is why "close and reopen" often didn't help.
+    var _swHadController = !!navigator.serviceWorker.controller;
+    var _swReloading = false;
+
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      // No previous controller = first install on a fresh browser. Nothing to
+      // refresh, and reloading there would be a pointless flash.
+      if (!_swHadController || _swReloading) return;
+      _swReloading = true;
+      // Never yank the page out from under someone mid-task. If they're not
+      // looking, swap silently; if they are, offer it.
+      if (document.hidden) {
+        location.reload();
+      } else {
+        _swReloading = false;   // the reload is now the user's to trigger
+        if (typeof showToast === 'function') {
+          showToast('New version ready — reopen the app to update.', 6000);
+        }
+      }
+    });
+
     window.addEventListener('load', function() {
-      navigator.serviceWorker.register('/service-worker.js').catch(function(err) {
+      navigator.serviceWorker.register('/service-worker.js').then(function(reg) {
+        // Resuming doesn't reload, so check for a new version each time the
+        // app comes back to the foreground.
+        document.addEventListener('visibilitychange', function() {
+          if (!document.hidden && reg && reg.update) reg.update().catch(function(){});
+        });
+      }).catch(function(err) {
         console.warn('SW registration failed:', err);
       });
     });
