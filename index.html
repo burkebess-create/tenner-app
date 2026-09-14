@@ -1193,7 +1193,7 @@
             <div onclick="go('s-profile-gift')" style="background:#EFCB6833;border:1px solid #B08A2233;border-left:7px solid #B08A22;border-radius:3px;padding:14px;cursor:pointer">
               <div style="font-size:26px;line-height:1;margin-bottom:8px">🎁</div>
               <div style="font-size:15px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Your gift page</div>
-              <div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#B08A22;opacity:0.85;margin-top:6px">Share link · Wishlist</div>
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#B08A22;opacity:0.85;margin-top:6px">Share link · Gift ideas</div>
             </div>
             <div onclick="go('s-email-prefs')" style="background:#A8C8E833;border:1px solid #3E6FA033;border-left:7px solid #3E6FA0;border-radius:3px;padding:14px;cursor:pointer">
               <div style="font-size:26px;line-height:1;margin-bottom:8px">✉️</div>
@@ -1388,11 +1388,11 @@
 
           <div style="display:flex;align-items:center;gap:12px;margin:20px 0 14px">
             <div style="flex:1;height:2px;background:#D85A30"></div>
-            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Wishlist Visibility</div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Lists used for gift ideas</div>
             <div style="flex:1;height:2px;background:#D85A30"></div>
           </div>
           <div style="background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px;margin-bottom:12px">
-            <div style="font-size:11px;color:#5F5E5A;margin-bottom:8px">Which lists show up as gift ideas on your gift page (and to friends on your birthday)?</div>
+            <div style="font-size:11px;color:#5F5E5A;margin-bottom:8px">Tick the lists you're happy for friends to use as gift ideas. These appear on your gift page and in the gift guide friends see around your birthday.</div>
             <div id="wishlist-categories" style="display:flex;flex-wrap:wrap;gap:6px">
               <div style="font-size:11px;color:#888780">Create a list first, then come back to pick which ones can show up.</div>
             </div>
@@ -6902,7 +6902,7 @@ async function saveProfile() {
 
   var bio = (document.getElementById('profile-bio-input') || {}).value || '';
   var existingPhoto = myProfile && myProfile.photo;
-  // Collect wishlist visibility (which of my list categories can show up in friends' gift guides)
+  // Collect which of my lists may be used for gift ideas (gift page + birthday gift guide)
   var visibleCats = [];
   document.querySelectorAll('input[name="wishlist-cat"]:checked').forEach(function(cb) { visibleCats.push(cb.value); });
   // Comment preferences
@@ -7027,7 +7027,7 @@ function renderProfileHeader() {
   })();
   var sl = document.getElementById('profile-stat-lists'); if (sl) sl.textContent = MY_LISTS.length;
   var bioInput = document.getElementById('profile-bio-input'); if (bioInput && !bioInput.value) bioInput.value = (myProfile && myProfile.bio) || '';
-  // Render wishlist visibility toggles from user's list categories
+  // Render the gift-ideas list picker from the user's own list categories
   (function() {
     var wc = document.getElementById('wishlist-categories');
     if (!wc) return;
@@ -7036,8 +7036,18 @@ function renderProfileHeader() {
       return;
     }
     var savedVis = (myProfile && myProfile.gift_visible_categories) || [];
-    // If user has never set preferences, default all to checked
-    var initialCats = savedVis.length ? savedVis : MY_LISTS.map(function(l){ return l.category || l.n.replace('Top 10 ',''); });
+    // Once the user has saved their own selection, theirs wins outright — and
+    // a list they make later stays unticked until they say otherwise.
+    // Before that, fall back to the per-category admin default, so categories
+    // that aren't gift ideas ("Pet peeves") never start ticked.
+    var giftDefaultByCat = {};
+    (CATS_FULL || []).forEach(function(c){ giftDefaultByCat[c.name] = c.gift_default !== false; });
+    var initialCats = savedVis.length
+      ? savedVis
+      : MY_LISTS.map(function(l){ return l.category || l.n.replace('Top 10 ',''); })
+                // A custom category the admin has never seen has no default;
+                // treat it as gift-relevant, matching the old behaviour.
+                .filter(function(cat){ return giftDefaultByCat[cat] !== false; });
     wc.innerHTML = MY_LISTS.map(function(l) {
       var cat = l.category || l.n.replace('Top 10 ','');
       var checked = initialCats.indexOf(cat) >= 0 ? 'checked' : '';
@@ -13047,7 +13057,10 @@ function restoreAdminCat(id) {
 
 function editAdminCat(id) {
   var existing = id ? (CATS_FULL || []).find(function(c){ return c.id === id; }) : null;
-  _adminEditingCat = existing ? Object.assign({}, existing) : { name:'', emoji:'📋', is_seasonal:false, active_from:'', active_to:'' };
+  // A new category starts OUT of gift guides — most new categories aren't
+  // gift-relevant, and opting in deliberately is safer than opting out by
+  // accident. Existing categories keep whatever they already have.
+  _adminEditingCat = existing ? Object.assign({}, existing) : { name:'', emoji:'📋', is_seasonal:false, active_from:'', active_to:'', gift_default:false };
   _adminEmojiPreview = _adminEditingCat.emoji || '📋';
   var frame = document.querySelector('.frame') || document.body;
   var existingModal = document.getElementById('admin-cat-modal');
@@ -13069,6 +13082,10 @@ function editAdminCat(id) {
     +     '</div>'
     +   '</div>'
     +   '<div style="font-size:10px;color:#888780;margin-bottom:12px">Emoji shows crisply at any size. Uploaded images are best as square PNGs with transparent backgrounds.</div>'
+    +   '<label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;font-size:13.5px;color:#2C2C2A">'
+    +     '<input type="checkbox" id="ac-gift-default" ' + (_adminEditingCat.gift_default ? 'checked' : '') + ' style="margin-top:3px">'
+    +     '<span>Suggest for gift guides<br><span style="font-size:11px;color:#5F5E5A">Pre-ticked in each user\'s gift-guide picker. Leave off for categories that aren\'t gift ideas. Users can always change their own.</span></span>'
+    +   '</label>'
     +   '<label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13.5px;color:#2C2C2A">'
     +     '<input type="checkbox" id="ac-seasonal" ' + (_adminEditingCat.is_seasonal ? 'checked' : '') + ' onchange="document.getElementById(\'ac-season-range\').style.display=this.checked?\'block\':\'none\'"> Seasonal (only shows during a date range)'
     +   '</label>'
@@ -13143,6 +13160,7 @@ function saveAdminCat() {
   var payload = {
     name: name,
     emoji: _adminEmojiPreview || '📋',
+    gift_default: !!(document.getElementById('ac-gift-default') || {}).checked,
     is_seasonal: seasonal,
     active_from: active_from,
     active_to: active_to
