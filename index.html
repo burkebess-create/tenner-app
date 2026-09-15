@@ -12561,15 +12561,13 @@ function renderAdminHub(el) {
     +   '<div style="flex:1;height:2px;background:#D85A30"></div>'
     + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-    + '<div id="admin-migrate-photos-tile" onclick="runPhotoBackfill()" style="grid-column:1/-1;background:#F5F1EA;border:1px solid #EAE3DC;border-left:7px solid #2C2C2A;border-radius:3px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:12px">'
-    +   '<div style="font-size:22px;line-height:1">🗃️</div>'
-    +   '<div style="flex:1"><div style="font-size:14px;font-weight:800;color:#2C2C2A">Migrate photos to Storage</div><div id="admin-migrate-photos-meta" style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A;margin-top:4px">Move base64 profile + group photos to the photos bucket. One-shot. Idempotent.</div></div>'
-    +   '<div style="font-size:16px;color:#5F5E5A;opacity:0.6">›</div>'
-    + '</div>'
-    + '<div id="admin-migrate-icons-tile" onclick="runCategoryIconMigration()" style="grid-column:1/-1;background:#F5F1EA;border:1px solid #EAE3DC;border-left:7px solid #2C2C2A;border-radius:3px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:12px">'
-    +   '<div style="font-size:22px;line-height:1">🖼️</div>'
-    +   '<div style="flex:1"><div style="font-size:14px;font-weight:800;color:#2C2C2A">Migrate category icons to Storage</div><div id="admin-migrate-icons-meta" style="font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A;margin-top:4px">Move uploaded category images out of the emoji column. One-shot. Idempotent.</div></div>'
-    +   '<div style="font-size:16px;color:#5F5E5A;opacity:0.6">›</div>'
+    + '<div style="grid-column:1/-1;margin-top:4px">'
+    +   '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#888780;margin-bottom:6px">Storage check</div>'
+    +   '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    +     '<button class="back-btn" style="font-size:10px;padding:7px 10px" onclick="runPhotoBackfill()">🗃️ Photos <span id="admin-migrate-photos-meta" style="color:#888780"></span></button>'
+    +     '<button class="back-btn" style="font-size:10px;padding:7px 10px" onclick="runCategoryIconMigration()">🖼️ Category icons <span id="admin-migrate-icons-meta" style="color:#888780"></span></button>'
+    +   '</div>'
+    +   '<div style="font-size:10px;color:#888780;margin-top:6px;line-height:1.4">New uploads go straight to Storage. These only find anything if an upload had to fall back to storing the image inline.</div>'
     + '</div>'
     + tiles.map(function(t) {
         var countBadge = t.key === 'users'
@@ -14313,11 +14311,26 @@ function onAdminEmojiUpload(input) {
       var canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      _adminEmojiPreview = canvas.toDataURL('image/png');
+      var dataUrl = canvas.toDataURL('image/png');
       var p = document.getElementById('ac-emoji-preview');
-      if (p) p.innerHTML = renderCatEmoji(_adminEmojiPreview, 30);
       var tx = document.getElementById('ac-emoji-text');
+      // Show it immediately, then swap to the hosted URL once uploaded. Icons
+      // used to be stored inline as base64 — a 44KB string in the emoji column
+      // that rode along in every payload and printed as raw text anywhere the
+      // value reached a text-only context. Upload first, store a link.
+      _adminEmojiPreview = dataUrl;
+      if (p) p.innerHTML = renderCatEmoji(dataUrl, 30);
       if (tx) tx.value = '';
+      uploadPhotoToStorage(dataUrl, 'category-icons', 'cat-' + Date.now()).then(function(url) {
+        if (url) {
+          _adminEmojiPreview = url;
+          if (p) p.innerHTML = renderCatEmoji(url, 30);
+        } else {
+          // Storage refused — keep the inline copy so the admin isn't blocked,
+          // and say so, since the Storage check will flag it later.
+          showToast('Icon saved inline — upload to Storage failed.');
+        }
+      });
     };
     img.src = e.target.result;
   };
