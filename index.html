@@ -11893,7 +11893,7 @@ async function renderMatch() {
       var fn = (accepted[0].profile && accepted[0].profile.display_name) || (accepted[0].profile && accepted[0].profile.handle ? '@' + accepted[0].profile.handle : 'Friend');
       groupLabel = 'You vs ' + fn + ' · ';
     } else if (groupCtx >= 0 && MY_GROUPS[groupCtx]) {
-      groupLabel = MY_GROUPS[groupCtx].emoji + ' ' + MY_GROUPS[groupCtx].n + ' · ';
+      groupLabel = emojiAsText(MY_GROUPS[groupCtx].emoji) + ' ' + MY_GROUPS[groupCtx].n + ' · ';
     }
     var overallSuffix = sharedGroupCats ? sharedGroupCats.length + ' SHARED LIST' + (sharedGroupCats.length !== 1 ? 'S' : '') : 'ACROSS ALL LISTS';
     var overallLabelPrefix = groupLabel ? groupLabel.toUpperCase() : '';
@@ -12439,6 +12439,12 @@ var EMOJI_MAX_TEXT_LEN = 24;   // generous: the longest ZWJ sequences are ~11
 // For contexts that can only take literal text (canvas, share captions, page
 // titles, emails). An uploaded icon has no text form, so it becomes the
 // neutral glyph rather than a URL painted across the output.
+// True when the value is an uploaded image rather than a literal glyph —
+// either an inline data: URL or a hosted one.
+function emojiIsImage(val) {
+  return typeof val === 'string' && /^(data:image\/|https?:\/\/)/i.test(val);
+}
+
 function emojiAsText(val) {
   var v = (typeof val === 'string' && val) ? val : '';
   if (!v || v.length > EMOJI_MAX_TEXT_LEN || /^(data:|https?:)/i.test(v)) return '📋';
@@ -14288,7 +14294,10 @@ async function renderAdminItems(el) {
   CATS_FULL = cats;
   if (!_adminSelectedCatId && cats.length) _adminSelectedCatId = cats[0].id;
   var opts = cats.map(function(c) {
-    var label = (typeof c.emoji === 'string' && c.emoji.indexOf('data:') === 0) ? ('🖼️ ' + c.name) : ((c.emoji || '📋') + ' ' + c.name);
+    // <option> can only hold text. The icon may be an uploaded image — a
+    // data: URL before the migration, a hosted URL after — so anything that
+    // isn't a literal glyph is shown as a picture marker instead.
+    var label = emojiIsImage(c.emoji) ? ('🖼️ ' + c.name) : (emojiAsText(c.emoji) + ' ' + c.name);
     return '<option value="' + c.id + '"' + (c.id === _adminSelectedCatId ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
   }).join('');
   var itemsRes = await fetchAllCategoryItems(_adminSelectedCatId);
@@ -14800,7 +14809,7 @@ async function openAllOfTenner(weeklyId) {
   go('s-all-tenner');
   var el = document.getElementById('all-tenner-content');
   var titleEl = document.getElementById('all-tenner-title');
-  if (titleEl) titleEl.textContent = (wk.emoji || '📋') + ' Top 10 ' + wk.category;
+  if (titleEl) titleEl.textContent = emojiAsText(wk.emoji) + ' Top 10 ' + wk.category;
   if (el) el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading the wisdom of the crowd…</div>';
   try {
     // Pull every list for this category — for beta scale this is fine; add pagination if it grows
