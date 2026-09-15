@@ -2082,7 +2082,7 @@ function go(id) {
   if (id === 's-fdetail' && selFriendId) { renderFriendDetail(); markFriendViewed(selFriendId); }
   if (id === 's-circle') maybeShowTabTip('circle');
   if (id === 's-match') maybeShowTabTip('match');
-  if (id === 's-create1') { maybeShowTabTip('create'); editingListIdx = -1; selCat = ''; var _vc = visibleCategoriesForUser()[0]; selCat = _vc ? _vc.n : ''; selCatEmoji = _vc ? _vc.e : '📋'; items = []; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
+  if (id === 's-create1') { maybeShowTabTip('create'); editingListIdx = -1; selCat = ''; var _vc = visibleCategoriesForUser()[0]; selCat = _vc ? _vc.n : ''; selCatEmoji = _vc ? _vc.e : '📋'; items = []; _itemProvenance = {}; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
   if (id === 's-create2') { maybeRestoreOverflowDraft(); renderItems(); updateProg(); renderItemChips(); }
   if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); addedNonFriends = {}; clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
@@ -3315,10 +3315,24 @@ function useItemWarn() {
   if (fuzzyItemSug) pickItem(fuzzyItemSug);
 }
 
+// "from Kara" credits, keyed by item text. Only a genuinely borrowed pick
+// should carry one — see clearItemCredit callers.
+function clearItemCredit(name) {
+  if (!name || typeof _itemProvenance !== 'object' || !_itemProvenance) return;
+  var lower = String(name).trim().toLowerCase();
+  Object.keys(_itemProvenance).forEach(function(k) {
+    if (String(k).trim().toLowerCase() === lower) delete _itemProvenance[k];
+  });
+}
+
 function doAddItem() {
   var inp = document.getElementById('item-inp');
   var val = inp.value.trim();
   if (!val || items.length >= 10 || items.map(function(x){return x.toLowerCase();}).includes(val.toLowerCase())) return;
+  // You typed it, so it's yours. The credit map is keyed by item text and
+  // survives the session, so without this a name you'd once borrowed came
+  // back labelled "from Riley" even when you'd just thought of it yourself.
+  clearItemCredit(val);
   items.push(val);
   inp.value = '';
   document.getElementById('item-sugs').style.display = 'none';
@@ -3330,6 +3344,7 @@ function doAddItem() {
 }
 
 function removeItem(idx) {
+  clearItemCredit(items[idx]);
   items.splice(idx, 1);
   renderItems();
   updateProg();
