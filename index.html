@@ -1351,6 +1351,7 @@
               <input type="file" accept="image/*" onchange="onProfilePhotoUpload(this)" style="display:none">
             </label>
             <div style="font-size:10.5px;color:#888780;margin-top:6px">Tap photo to change</div>
+            <button type="button" id="profile-adjust-btn" onclick="adjustProfilePhoto()" style="display:none;margin-top:8px;background:transparent;border:1px solid #D3D1C7;color:#5F5E5A;border-radius:3px;padding:7px 14px;font-family:inherit;font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer">Reposition photo</button>
           </div>
 
           <div class="card no-hover">
@@ -3666,10 +3667,20 @@ function resizeImage(dataUrl, px) {
 // reason.
 function openPhotoCropper(dataUrl, opts) {
   opts = opts || {};
-  var OUT = opts.out || 300;
+  var OUT = opts.out || 600;   // master size: leaves headroom to re-crop later
   return new Promise(function(resolve) {
     var img = new Image();
-    img.onerror = function() { resolve(dataUrl); };   // unreadable: pass through untouched
+    // Re-cropping an already-saved photo means loading it from the CDN. A
+    // canvas drawn from another origin is "tainted" and refuses to export
+    // unless the image was requested with CORS, so ask for it explicitly.
+    if (/^https?:/i.test(dataUrl)) img.crossOrigin = 'anonymous';
+    // Resolve null, not the original: if we couldn't read it we couldn't crop
+    // or resize it either, and silently saving the raw file would upload
+    // something enormous and uncropped.
+    img.onerror = function() {
+      if (typeof showToast === 'function') showToast('Could not open that image. Try uploading it again.');
+      resolve(null);
+    };
     img.onload = function() {
       var frame = document.querySelector('.frame') || document.body;
       var V = Math.min(280, Math.max(200, (frame.clientWidth || 320) - 60));  // viewport edge
@@ -3786,7 +3797,17 @@ function openPhotoCropper(dataUrl, opts) {
         // Viewport rect -> source pixels in the original image.
         var sx = -ox / s, sy = -oy / s, sSize = V / s;
         ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, OUT, OUT);
-        done(canvas.toDataURL('image/jpeg', 0.86));
+        var out;
+        try {
+          out = canvas.toDataURL('image/jpeg', 0.86);
+        } catch (e) {
+          // Tainted canvas — the host didn't allow cross-origin reads.
+          console.warn('crop export blocked', e);
+          if (typeof showToast === 'function') showToast('Could not edit the saved photo. Upload it again to re-crop.');
+          done(null);
+          return;
+        }
+        done(out);
       };
     };
     img.src = dataUrl;
@@ -3878,7 +3899,7 @@ function onGroupPhotoUpload(input) {
     // keeps the detail a downscale-first pass would have thrown away.
     openPhotoCropper(e.target.result, { shape: 'rounded' }).then(function(cropped) {
       if (!cropped) { input.value = ''; return; }
-      return resizeImage(cropped, 300).then(async function(dataUrl) {
+      return resizeImage(cropped, 600).then(async function(dataUrl) {
         if (!(await guardImageUpload(dataUrl, 'group_photo'))) { input.value = ''; return; }
         g.photo = dataUrl;
         g.emoji = '';
@@ -3897,7 +3918,7 @@ function onGroupPhotoUploadCreate(input) {
   reader.onload = function(e) {
     openPhotoCropper(e.target.result, { shape: 'rounded' }).then(function(cropped) {
       if (!cropped) { input.value = ''; return; }
-      return resizeImage(cropped, 300).then(async function(dataUrl) {
+      return resizeImage(cropped, 600).then(async function(dataUrl) {
         if (!(await guardImageUpload(dataUrl, 'group_photo_create'))) { input.value = ''; return; }
         groupPhotoData = dataUrl;
         selEmojiChar = '';
@@ -7582,6 +7603,25 @@ async function loadProfile() {
   try { renderProfileHeader(); } catch(e) { console.warn(e); }
 }
 
+// Re-frame the photo you already have, without hunting for the original file
+// again. Crops the stored image rather than asking for a new upload.
+async function adjustProfilePhoto() {
+  var current = myProfile && myProfile.photo;
+  if (!current) { showToast('Add a photo first.'); return; }
+  var cropped = await openPhotoCropper(rewriteToCdn(current));
+  if (!cropped) return;   // cancelled, or the image couldn't be read
+  var dataUrl = await resizeImage(cropped, 600);
+  if (!(await guardImageUpload(dataUrl, 'profile_photo_adjust'))) return;
+  myProfile.photo = dataUrl;
+  renderProfileHeader();
+  var url = await uploadPhotoToStorage(dataUrl, 'avatars', userId);
+  var toSave = url || dataUrl;
+  myProfile.photo = toSave;
+  renderProfileHeader();
+  if (sbClient && userId) saveProfilePhoto(toSave);
+  showToast('Photo repositioned.');
+}
+
 function onProfilePhotoUpload(input) {
   if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
@@ -7591,7 +7631,7 @@ function onProfilePhotoUpload(input) {
     // would throw that detail away before they ever zoomed.
     openPhotoCropper(e.target.result).then(function(cropped) {
       if (!cropped) { input.value = ''; return; }
-      return resizeImage(cropped, 300).then(async function(dataUrl) {
+      return resizeImage(cropped, 600).then(async function(dataUrl) {
       if (!(await guardImageUpload(dataUrl, 'profile_photo'))) { input.value = ''; return; }
       myProfile = myProfile || { id: userId };
       // Optimistic preview using the local data URL — swap to the Storage
@@ -7740,6 +7780,9 @@ function renderProfileHeader() {
       av.textContent = initials;
     }
   });
+  // Only offer repositioning when there's a photo to reposition.
+  var adj = document.getElementById('profile-adjust-btn');
+  if (adj) adj.style.display = p.photo ? 'inline-block' : 'none';
   var dn = document.getElementById('profile-display-name'); if (dn) dn.textContent = name;
   var hd = document.getElementById('profile-handle-display'); if (hd) hd.textContent = handle;
   // Editorial folio masthead
@@ -8545,7 +8588,7 @@ function onbPhotoChange(input) {
   reader.onload = function(e) {
     openPhotoCropper(e.target.result).then(function(cropped) {
       if (!cropped) { input.value = ''; return; }
-      return resizeImage(cropped, 300).then(async function(dataUrl) {
+      return resizeImage(cropped, 600).then(async function(dataUrl) {
         if (!(await guardImageUpload(dataUrl, 'profile_photo_onboarding'))) { input.value = ''; return; }
         myProfile = myProfile || { id: userId };
         myProfile.photo = dataUrl;
