@@ -10043,7 +10043,12 @@ function commitPickedItems() {
 
   _pickMode = false;
   _pickSelected = [];
-  listOrigin = (_pickCtx && _pickCtx.listData) ? 's-friend-list' : 's-pool';
+  // Borrowing from a friend's LIST is a detour from that list, so saving
+  // returns there. Borrowing from the picks POOL is just a way to add items —
+  // it should not change where saving takes you, or finishing a list drops you
+  // back on the inspiration screen instead of your list. Leaving listOrigin
+  // alone means the save lands wherever a normal create or edit would.
+  if (_pickCtx && _pickCtx.listData) listOrigin = 's-friend-list';
 
   trackEvent('borrow_picks_added', {
     category: cat, count: added.length,
