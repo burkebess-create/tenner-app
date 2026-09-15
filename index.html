@@ -12539,6 +12539,7 @@ function renderAdminHub(el) {
   var tiles = [
     { key: 'cats',     label: 'Categories',    emoji: '📂', desc: 'Built-in catalog',         bg: '#F5D0C8', ac: '#D85A30' },
     { key: 'items',    label: 'Category items',emoji: '📝', desc: 'Suggested items',          bg: '#B8D0A8', ac: '#6B8E4E' },
+    { key: 'custom',   label: 'Custom categories', emoji: '🌱', desc: 'Promote what users invent', bg: '#A8D8C8', ac: '#2F6B52' },
     { key: 'weekly',   label: 'Weekly lists',  emoji: '🎊', desc: 'Prompts · backlog',        bg: '#EFCB68', ac: '#B08A22' },
     { key: 'insights', label: 'Insights',      emoji: '📊', desc: 'Trending categories',      bg: '#A8C8E8', ac: '#3E6FA0' },
     { key: 'users',    label: 'Users',         emoji: '👥', desc: 'Search · moderate',        bg: '#D9BEEC', ac: '#6B4E8E' },
@@ -12670,6 +12671,7 @@ async function renderAdmin() {
   el.appendChild(content);
   if (_adminTab === 'cats')     return renderAdminCats(content);
   if (_adminTab === 'items')    return renderAdminItems(content);
+  if (_adminTab === 'custom')   return renderAdminCustomCats(content);
   if (_adminTab === 'weekly')   return renderAdminWeekly(content);
   if (_adminTab === 'insights') return renderAdminInsights(content);
   if (_adminTab === 'users')    return renderAdminUsers(content);
@@ -14136,6 +14138,83 @@ async function commitAdminCatDrag(from, to) {
   }
   await loadCategoriesFromDb();
   renderAdmin();
+}
+
+// Custom categories users invented, ranked by how many people made one.
+// This is how a category earns promotion — Ice Cream was found by running
+// this query by hand.
+var _customCatsCache = [];
+
+async function renderAdminCustomCats(el) {
+  el.innerHTML = '<div style="padding:12px"><div style="color:#888;font-size:12px;padding:20px;text-align:center">Loading…</div></div>';
+  var res = await sbClient.rpc('admin_custom_categories');
+  if (res.error) {
+    el.innerHTML = '<div style="padding:20px;color:#A32D2D;font-size:12px">Error: ' + escapeHtml(res.error.message) + '</div>';
+    return;
+  }
+  _customCatsCache = res.data || [];
+  if (!_customCatsCache.length) {
+    el.innerHTML = '<div style="padding:12px"><div style="background:#E8F0E4;border:1px solid #6B8E4E33;border-left:7px solid #6B8E4E;border-radius:3px;padding:16px 18px;text-align:center">'
+      + '<div style="font-size:28px;margin-bottom:8px">🌱</div>'
+      + '<div style="font-size:14px;font-weight:800;color:#2C2C2A">No custom categories yet</div>'
+      + '<div style="font-size:12px;color:#5F5E5A;margin-top:4px">When people invent their own, they show up here.</div></div></div>';
+    return;
+  }
+  var rows = _customCatsCache.map(function(c, i) {
+    var strong = Number(c.people) >= 3;
+    var accent = strong ? '#2F6B52' : (Number(c.people) === 2 ? '#B08A22' : '#888780');
+    var sample = (c.sample_items || []).slice(0, 4).map(function(x){ return escapeHtml(x); }).join(' · ');
+    return '<div class="card no-hover" style="margin-bottom:6px;border-left:5px solid ' + accent + '">'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+      +   '<div style="flex:1;min-width:0">'
+      +     '<div style="font-size:13px;font-weight:800;color:#2C2C2A">' + escapeHtml(c.category) + '</div>'
+      +     '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:' + accent + ';margin-top:3px">'
+      +       Number(c.people) + ' ' + (Number(c.people) === 1 ? 'person' : 'people') + ' · ' + Number(c.total_items) + ' picks'
+      +       (strong ? ' · worth promoting' : '') + '</div>'
+      +     (sample ? '<div style="font-size:10.5px;color:#888780;margin-top:4px;overflow-wrap:break-word">' + sample + '</div>' : '')
+      +   '</div>'
+      +   '<button class="btn-primary" style="width:auto;padding:7px 12px;margin-bottom:0;font-size:10px;white-space:nowrap;flex-shrink:0" onclick="promoteCustomCat(' + i + ')">Promote</button>'
+      + '</div></div>';
+  }).join('');
+  el.innerHTML = '<div style="padding:12px">'
+    + '<div style="font-size:10.5px;color:#5F5E5A;line-height:1.45;background:#FAF8F2;border:1px solid #E8E6DF;border-left:5px solid #2F6B52;border-radius:3px;padding:8px 10px;margin-bottom:10px">'
+    +   '<strong style="color:#2C2C2A">Categories your users invented.</strong> Promoting one makes it standard, renames everyone\'s existing list to match, and seeds autofill from what they already picked. Green = made by 3+ people.</div>'
+    + rows + '</div>';
+}
+
+function promoteCustomCat(i) {
+  var c = _customCatsCache[i];
+  if (!c) return;
+  var newName = prompt('Promote "' + c.category + '" to a standard category.\n\nName (edit to rename everyone\'s list):', c.category);
+  if (newName === null) return;
+  newName = newName.trim();
+  if (!newName) { showToast('Name is required.'); return; }
+  var emoji = prompt('Emoji for "' + newName + '":', '📋');
+  if (emoji === null) return;
+  showConfirm(
+    'Promote "' + newName + '"?',
+    Number(c.people) + ' existing list' + (Number(c.people) === 1 ? '' : 's') + ' will move to it'
+      + (newName.toLowerCase() !== c.category.toLowerCase() ? ' and be renamed to "Top 10 ' + newName + '"' : '')
+      + '. Comments, match scores and shares move with them. Autofill is seeded from picks people already made.',
+    'Promote', 'primary',
+    function() {
+      sbClient.rpc('admin_promote_category', {
+        p_old: c.category, p_new: newName,
+        p_emoji: (emoji || '').trim() || '📋',
+        p_gift_default: true, p_seed_items: true
+      }).then(function(r) {
+        if (r.error) {
+          showToast(/target_name_taken/.test(r.error.message || '')
+            ? 'A category called "' + newName + '" already exists.'
+            : 'Failed: ' + (r.error.message || 'unknown'));
+          return;
+        }
+        var d = r.data || {};
+        showToast('Promoted · ' + (d.lists_moved || 0) + ' lists, ' + (d.items_seeded || 0) + ' autofill items');
+        loadCategoriesFromDb().then(renderAdmin);
+      });
+    }
+  );
 }
 
 function retireAdminCat(id, name) {
