@@ -5219,7 +5219,9 @@ async function tryTodaySlot(kind) {
       if (!best || best.score < 50) return null;
       var friend = acc.find(function(x){ return x.friendId === best.friendId; });
       var fname = (friend && friend.profile && (friend.profile.display_name || (friend.profile.handle ? '@' + friend.profile.handle : null))) || 'A friend';
-      return todayCard('🎯', 'Your closest match', 'You and ' + escapeHtml(fname) + ' agree ' + best.score + '% on Top 10 ' + escapeHtml(best.category), "openMatchWithFriend('" + best.friendId + "','s-circle')");
+      // Pass the category too — the card names a specific list, so landing on
+      // a different one reads as the tap having gone wrong.
+      return todayCard('🎯', 'Your closest match', 'You and ' + escapeHtml(fname) + ' agree ' + best.score + '% on Top 10 ' + escapeHtml(best.category), "openMatchWithFriend('" + best.friendId + "','s-circle','" + String(best.category).replace(/'/g, "\\'") + "')");
     } catch(e) { return null; }
   }
   if (kind === 'stat') {
@@ -5471,7 +5473,7 @@ async function renderMatchJumps() {
         var color = j.delta > 0 ? '#27500A' : '#A32D2D';
         var bg = j.delta > 0 ? '#EAF3DE' : '#FBE5E0';
         var safeCat = j.category.replace(/'/g, "\\'");
-        return '<div onclick="openMatchWithFriend(\'' + j.friendId + '\',\'s-circle\')" '
+        return '<div onclick="openMatchWithFriend(\'' + j.friendId + '\',\'s-circle\',\'' + safeCat + '\')" '
           + 'style="background:' + bg + ';border:1.5px solid ' + color + '55;border-radius:16px;padding:12px 14px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:10px">'
           +   friendAvatarHtml(p, 40)
           +   '<div style="flex:1;min-width:0">'
