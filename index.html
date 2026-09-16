@@ -10622,10 +10622,13 @@ async function renderFriendDetail() {
   var nudgeHtml = isAccepted ? '<div id="fdetail-nudge" style="display:none;margin-bottom:14px"></div>' : '';
 
   // ── 3. BENTO LIST TILES (placeholder) ───────────────────────────────
-  var listsHtml = '<div class="sec-label" style="margin-top:0">' + (isAccepted ? "Their lists" : 'Public lists') + '</div><div id="fdetail-lists"><div style="font-size:11px;color:#888780;padding:8px 0">Loading…</div></div>';
+  var listsHtml = '<div class="sec-label">' + (isAccepted ? "Their lists" : 'Public lists') + '</div><div id="fdetail-lists"><div style="font-size:11px;color:#888780;padding:8px 0">Loading…</div></div>';
+  // Recent activity is the reason you opened someone's page — what they've
+  // changed lately — so it sits above the full grid of their lists rather
+  // than below it, where the tiles pushed it off-screen.
 
   // ── 6. RECENT ACTIVITY (placeholder) ────────────────────────────────
-  var activityHtml = isAccepted ? '<div id="fdetail-activity" style="display:none;margin-top:16px"></div>' : '';
+  var activityHtml = isAccepted ? '<div id="fdetail-activity" style="display:none;margin-bottom:16px"></div>' : '';
 
   // ── 7. RECENT COMMENTS/REACTIONS (placeholder) ──────────────────────
   var commentsHtml = isAccepted ? '<div id="fdetail-comments" style="display:none;margin-top:16px"></div>' : '';
@@ -10646,7 +10649,7 @@ async function renderFriendDetail() {
     actionHtml = '<button class="btn-secondary" style="margin-top:16px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmUnfriend(\'' + f.id + '\',\'' + name.replace(/'/g,"\\'") + '\')">Remove friend</button>';
   }
 
-  el.innerHTML = actionBannerHtml + hero + noteHtml + matchCardHtml + statsBarHtml + alikeDiffHtml + nudgeHtml + listsHtml + activityHtml + commentsHtml + timelineHtml + actionHtml;
+  el.innerHTML = actionBannerHtml + hero + noteHtml + matchCardHtml + statsBarHtml + alikeDiffHtml + nudgeHtml + activityHtml + listsHtml + commentsHtml + timelineHtml + actionHtml;
 
   // Render the action banner immediately for birthday (data already on hand);
   // new-list banner populates later, after `theirLists` is fetched below.
@@ -10857,7 +10860,7 @@ async function renderFriendDetail() {
         var aEl = document.getElementById('fdetail-activity');
         if (aEl) {
           aEl.style.display = 'block';
-          aEl.innerHTML = '<div class="sec-label">Recent activity</div>'
+          aEl.innerHTML = '<div class="sec-label" style="margin-top:0">Recent activity</div>'
             + recent.map(function(l) {
                 var cat = l.category || (l.name || '').replace('Top 10 ', '');
                 var safeCat = cat.replace(/\'/g,"\\'");
