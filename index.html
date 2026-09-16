@@ -14109,6 +14109,14 @@ async function renderAdminCats(el) {
   var res = await sbClient.from('categories').select('*').order('sort_order');
   if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">Error: ' + escapeHtml(res.error.message) + '</div>'; return; }
   var analytics = await getListAnalytics();
+  // Autofill counts, grouped server-side — a plain select would cap at 1000
+  // rows and undercount the big categories.
+  var itemCounts = {};
+  try {
+    var icRes = await sbClient.rpc('category_item_counts');
+    if (icRes.error) console.warn('item counts failed', icRes.error);
+    (icRes.data || []).forEach(function(r){ itemCounts[r.category_id] = Number(r.item_count) || 0; });
+  } catch (e) { console.warn('item counts failed', e); }
   var allCats = res.data || [];
   var active = allCats.filter(function(c){ return !c.retired_at; });
   var retired = allCats.filter(function(c){ return !!c.retired_at; });
@@ -14118,6 +14126,14 @@ async function renderAdminCats(el) {
 
   var activeRows = active.map(function(c, i) {
     var seasonBadge = c.is_seasonal ? '<span style="font-size:9px;background:#FAECE7;color:#993C1D;padding:2px 6px;border-radius:99px;margin-left:6px">Seasonal ' + escapeHtml(c.active_from || '?') + ' → ' + escapeHtml(c.active_to || '?') + '</span>' : '';
+    // Whether this category has autofill suggestions. Amber when it has none,
+    // since an empty one gives people a blank field while they're typing.
+    var n = itemCounts[c.id];
+    var itemsBadge = (n === undefined)
+      ? ''
+      : (n > 0
+          ? '<span style="font-size:9px;background:#EAF3EE;color:#2F6B52;padding:2px 6px;border-radius:99px;margin-left:6px" title="' + n + ' autofill suggestion' + (n === 1 ? '' : 's') + '">✓ ' + n + ' item' + (n === 1 ? '' : 's') + '</span>'
+          : '<span style="font-size:9px;background:#FBF0D8;color:#B57F0F;padding:2px 6px;border-radius:99px;margin-left:6px" title="No autofill suggestions — people get a blank field">No autofill</span>');
     var slotBadge = i < CAT_GRID_SLOTS
       ? '<span style="font-size:9px;background:#EAF3EE;color:#2F6B52;padding:2px 6px;border-radius:99px;margin-left:6px">Slot ' + (i + 1) + '</span>'
       : '<span style="font-size:9px;background:#F1EFE8;color:#5F5E5A;padding:2px 6px;border-radius:99px;margin-left:6px">In waiting #' + (i - CAT_GRID_SLOTS + 1) + '</span>';
@@ -14129,7 +14145,7 @@ async function renderAdminCats(el) {
     return '<div class="card no-hover drag-row" data-idx="' + i + '" data-cat-id="' + c.id + '" style="margin-bottom:6px;' + cutMark + '">'
       + '<div style="display:flex;justify-content:space-between;align-items:center">'
       +   handle
-      +   '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0"><span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' + renderCatEmoji(c.emoji, 22) + '</span><div style="min-width:0"><strong style="font-size:13px">' + escapeHtml(c.name) + '</strong>' + slotBadge + seasonBadge + '<div style="font-size:10px;color:#888780">Created ' + fmtDate(c.created_at) + '</div></div></div>'
+      +   '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0"><span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' + renderCatEmoji(c.emoji, 22) + '</span><div style="min-width:0"><strong style="font-size:13px">' + escapeHtml(c.name) + '</strong>' + slotBadge + itemsBadge + seasonBadge + '<div style="font-size:10px;color:#888780">Created ' + fmtDate(c.created_at) + '</div></div></div>'
       +   '<div style="flex-shrink:0"><button class="back-btn" onclick="editAdminCat(\'' + c.id + '\')" style="margin-right:4px">Edit</button>'
       +   '<button class="back-btn" onclick="retireAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')" style="margin-right:4px">Retire</button>'
       +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')">Delete</button></div>'
