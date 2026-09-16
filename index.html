@@ -5090,7 +5090,7 @@ function renderTopbarAvatars() {
 function renderTodayPill() {
   var host = document.getElementById('today-pill-host');
   if (!host) return;
-  var msg = null, cta = null;
+  var msg = null, cta = null, tapAction = null;
   var wk = (typeof getCurrentWeeklyList === 'function') ? getCurrentWeeklyList() : null;
   if (wk) {
     var reveal = new Date(wk.reveal_at);
@@ -5108,19 +5108,29 @@ function renderTodayPill() {
     accepted.forEach(function(f) {
       var d = f.profile && daysUntilBirthday(f.profile.birthday);
       if (d !== null && d !== undefined && d >= 0 && d <= 30) {
-        if (!upcomingBday || d < upcomingBday.d) upcomingBday = { d: d, name: f.profile.display_name || f.profile.handle || 'A friend' };
+        if (!upcomingBday || d < upcomingBday.d) upcomingBday = { d: d, id: f.friendId, name: f.profile.display_name || f.profile.handle || 'A friend' };
       }
     });
     if (upcomingBday) {
       var dayStr = upcomingBday.d === 0 ? "today" : upcomingBday.d === 1 ? "tomorrow" : "in " + upcomingBday.d + " days";
       msg = '🎂 ' + upcomingBday.name + '\'s birthday ' + dayStr;
+      // A banner naming a person should go somewhere. Gift ideas for them is
+      // the reason you'd care that their birthday is coming.
+      if (upcomingBday.id) tapAction = "openGiftGuide('" + upcomingBday.id + "','circle_today_pill')";
     }
   }
   if (!msg) {
     var hi = (myProfile && myProfile.display_name) ? myProfile.display_name.split(' ')[0] : 'there';
     msg = '👋 Welcome back, ' + hi;
   }
-  host.innerHTML = '<div style="background:#2C2C2A;color:#FFFFFF;font-size:11px;font-weight:700;padding:9px 14px;border-radius:3px;margin-bottom:14px;text-align:center;letter-spacing:0.08em;text-transform:uppercase">' + escapeHtml(msg) + '</div>';
+  // Only the birthday message has a destination; the weekly and welcome
+  // messages stay inert and deliberately show no affordance.
+  host.innerHTML = '<div' + (tapAction ? ' onclick="' + tapAction + '"' : '')
+    + ' style="background:#2C2C2A;color:#FFFFFF;font-size:11px;font-weight:700;padding:9px 14px;border-radius:3px;margin-bottom:14px;text-align:center;letter-spacing:0.08em;text-transform:uppercase'
+    + (tapAction ? ';cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px' : '') + '">'
+    + escapeHtml(msg)
+    + (tapAction ? '<span style="opacity:0.55;font-size:13px">›</span>' : '')
+    + '</div>';
 }
 
 // "Today on Tenner" card — a variable-content daily hook. Deterministic per
