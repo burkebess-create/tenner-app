@@ -2037,7 +2037,107 @@ function syncDesktopSidebarBadges() {
   set('ds-badge-gifts', isNaN(giftsN) ? 0 : giftsN);
 }
 
+// ── Browser/gesture back ─────────────────────────────────────────────────
+// Screens are swapped by toggling .active, and nothing ever touched the
+// History API — so the back gesture found only the entry the page was loaded
+// with and left the site entirely. On a phone that is most of the ways people
+// navigate: the edge swipe on iOS, the system back gesture on Android, and
+// the browser's own back button. Users reported being "kicked out of the app"
+// constantly, which is exactly right.
+//
+// Each forward navigation now pushes a history entry, so back walks the
+// screens the user actually visited. Backing out of the first screen still
+// leaves the site, which is what people expect at the root.
+var _navHistoryReady = false;   // false until the root entry has been laid down
+var _navPopping = false;        // true while replaying a popstate, so it does not re-push
+
+function _pushScreenHistory(id) {
+  try {
+    var cur = history.state;
+    // go() is called again for the screen you are already on during plenty of
+    // re-renders; those are not navigations and must not stack up entries.
+    if (cur && cur.tennerScreen === id) return;
+    var st = { tennerScreen: id };
+    if (!_navHistoryReady) { history.replaceState(st, ''); _navHistoryReady = true; }
+    else { history.pushState(st, ''); }
+  } catch (e) { /* history unavailable — navigation still works, back just won't */ }
+}
+
+// Overlays are not screens, but back should dismiss them first — otherwise a
+// swipe with a sheet open jumps the screen behind it, which feels broken.
+// Mapped to their real close functions where one exists, because several do
+// cleanup beyond hiding the element.
+var _OVERLAY_CLOSERS = [
+  { id: 'confirm-modal',            fn: 'closeConfirm' },
+  { id: 'item-comments-modal',      fn: 'closeItemComments' },
+  { id: 'share-list-modal',         fn: 'closeShareListModal' },
+  { id: 'invite-modal',             fn: 'closeInviteModal' },
+  { id: 'admin-cat-modal',          fn: 'closeAdminCatModal' },
+  { id: 'bulk-add-modal',           fn: 'closeBulkAddModal' },
+  { id: 'match-reveal-modal',       fn: 'closeMatchReveal' },
+  { id: 'report-modal',             fn: 'closeReportModal' },
+  { id: 'avatar-lightbox',          fn: null },
+  { id: 'photo-cropper',            fn: null },
+  { id: 'list-complete-modal',      fn: null },
+  { id: 'mutual-friends-modal',     fn: null },
+  { id: 'share-to-group-modal',     fn: null },
+  { id: 'share-image-modal',        fn: null },
+  { id: 'list-emoji-picker-overlay',fn: null },
+  { id: 'weekly-reveal-modal',      fn: null },
+  { id: 'admin-weekly-modal',       fn: null },
+  { id: 'admin-weekly-items-modal', fn: null },
+  { id: 'email-change-overlay',     fn: null },
+  { id: 'pw-change-overlay',        fn: null }
+  // reset-password-modal and onboarding-overlay are deliberately absent:
+  // both are mid-flow states that must not be dismissible by a back swipe.
+];
+
+function _visibleOverlay() {
+  var found = null;
+  _OVERLAY_CLOSERS.forEach(function(o) {
+    var el = document.getElementById(o.id);
+    if (!el) return;
+    var st = window.getComputedStyle(el);
+    if (st.display === 'none' || st.visibility === 'hidden') return;
+    // Later in the DOM wins: overlays are appended as they open, so the last
+    // one is the topmost.
+    found = o;
+  });
+  return found;
+}
+
+function _closeTopOverlay(o) {
+  var el = document.getElementById(o.id);
+  if (!el) return false;
+  if (o.fn && typeof window[o.fn] === 'function') { try { window[o.fn](); return true; } catch (e) {} }
+  // Statically declared modals are hidden; dynamically appended ones are removed.
+  if (el.parentNode === document.body || el.closest('.frame')) {
+    if (el.hasAttribute('data-static-modal') || ['confirm-modal','invite-modal','item-comments-modal','share-list-modal'].indexOf(o.id) >= 0) el.style.display = 'none';
+    else el.remove();
+  } else { el.style.display = 'none'; }
+  return true;
+}
+
+window.addEventListener('popstate', function(e) {
+  var ov = _visibleOverlay();
+  if (ov) {
+    // Consume the gesture on the overlay and put the entry back, so the next
+    // back still has somewhere to go.
+    _closeTopOverlay(ov);
+    try { history.pushState(history.state || {}, ''); } catch (err) {}
+    return;
+  }
+  var st = e.state;
+  if (st && st.tennerScreen && document.getElementById(st.tennerScreen)) {
+    _navPopping = true;
+    try { go(st.tennerScreen); } finally { _navPopping = false; }
+  }
+  // No tenner state means we are back at the entry the page loaded with;
+  // letting the next back leave the site is the expected root behaviour.
+});
+
 function go(id) {
+  if (!_navPopping) _pushScreenHistory(id);
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(function(b) {
@@ -3581,7 +3681,7 @@ function _stripDeepLinkParams() {
   try {
     var u = new URL(window.location.href);
     ['create', 'invite', 'profile', 'share', 'openPrefs'].forEach(function(k) { u.searchParams.delete(k); });
-    history.replaceState(null, '', u.pathname + (u.search || '') + (u.hash || ''));
+    history.replaceState(history.state, '', u.pathname + (u.search || '') + (u.hash || ''));
   } catch (e) {}
 }
 
@@ -16671,7 +16771,7 @@ function setupRealtimeNotifications() {
     if (fromVal) window.pendingFrom = fromVal;
     // Persist so it survives signup + email confirmation reload
     savePendingInvite(fillVal, fromVal);
-    history.replaceState(null, '', window.location.pathname);
+    history.replaceState(history.state, '', window.location.pathname);
   }
   // Also capture ?from=<userId> even without a fill= — general invite links.
   // We store this alone so it survives signup and can attribute the new user.
@@ -16679,7 +16779,7 @@ function setupRealtimeNotifications() {
     var fromValStandalone = decodeURIComponent(fromParam);
     window.pendingFrom = fromValStandalone;
     try { localStorage.setItem('tenner_pending_from', JSON.stringify({ from: fromValStandalone, ts: Date.now() })); } catch(e) {}
-    history.replaceState(null, '', window.location.pathname);
+    history.replaceState(history.state, '', window.location.pathname);
   }
   // ?openPrefs=1 → email footer deep link to the preference center
   if (_qs.get('openPrefs') === '1') savePendingDeepLink('prefs');
