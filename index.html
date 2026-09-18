@@ -3461,6 +3461,21 @@ var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
   h.textContent = 'Drag items to reorder your ranking.';
 })();
 
+// Categories arrive on their own async call, separate from loadState(). CATS
+// starts life as a hardcoded 8-item seed (Movies, Candy Bars, Travel, ...) and
+// is only replaced once the DB responds. Acting on a pending link before then
+// paints the Create screen from that seed, minus the categories the user
+// already owns — which is how a ?create=1 link produced a two-tile grid
+// containing "Travel", a category that no longer exists.
+var _catsReady = null;
+function afterCatsReady() {
+  Promise.resolve(_catsReady)
+    .catch(function() { /* fall through on failure: the seed is a poor catalogue but a working one */ })
+    .then(function() {
+      if (!applyPendingFill()) applyPendingDeepLink();
+    });
+}
+
 // ── Email deep links (?create / ?invite / ?profile / ?share / ?openPrefs) ─
 // Persisted, not held in memory. The click often arrives signed-out, and the
 // sign-in that follows can be a full page load — an email-confirmation link,
@@ -11837,6 +11852,23 @@ async function loadCategoriesFromDb() {
       }
     } catch(e) { /* weekly_list_items table may not exist yet — silent */ }
     DB_CATS_LOADED = true;
+    // If the user is already sitting on the Create screen, it is currently
+    // showing the hardcoded seed catalogue (8 placeholder categories, minus
+    // whatever they already own — which can leave as few as one or two tiles).
+    // Nothing else repaints it, so it would stay wrong until they navigated
+    // away and back. Reachable from any early navigation, not just deep links.
+    try {
+      var _cs = document.getElementById('s-create1');
+      if (_cs && _cs.classList.contains('active')) {
+        if (selCat && !CATS.some(function(c){ return c.n === selCat; })) {
+          // Selected category came from the seed and no longer exists.
+          var _v = visibleCategoriesForUser()[0];
+          selCat = _v ? _v.n : '';
+          selCatEmoji = _v ? _v.e : '📋';
+        }
+        renderCatGrid();
+      }
+    } catch (e) { /* cosmetic refresh only */ }
   } catch (e) { console.warn('loadCategoriesFromDb failed', e); }
 }
 
@@ -11902,7 +11934,10 @@ async function loadState() {
       if (banned) return;
       // Kick off admin + categories + match-reveal + weekly-lists fetch in the background
       checkAdminStatus();
-      loadCategoriesFromDb();
+      // Held as a promise: the Create screen is meaningless until the real
+      // category catalogue has replaced the hardcoded seed, and the email
+      // deep links land on exactly that screen.
+      _catsReady = loadCategoriesFromDb();
       loadMatchReveals();
       loadFriendViews();
       loadGiftNudgeAcks();
@@ -16720,7 +16755,7 @@ function setupRealtimeNotifications() {
         _pendingFillFrom = fromId;
       }
     }
-    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderCircleAnchorChips(); renderGiftReminders(); updateGroupMetaCounts(); if (!applyPendingFill()) applyPendingDeepLink(); }).catch(function(e){ console.warn(e); if (!applyPendingFill()) applyPendingDeepLink(); });
+    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderCircleAnchorChips(); renderGiftReminders(); updateGroupMetaCounts(); afterCatsReady(); }).catch(function(e){ console.warn(e); afterCatsReady(); });
     // Circle is the initial landing surface; its render calls fire before profile/friends
     // finish loading, leaving avatars and activity blank until the user navigates away and
     // back. When each load completes, if Circle is currently active, refresh the parts
