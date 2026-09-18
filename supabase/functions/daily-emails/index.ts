@@ -549,7 +549,7 @@ function lifecycleContent(stage: string, ctx: any) {
         <p>${hi}you signed up for Tenner but haven't made a list yet. It's genuinely quick — pick something you have opinions about and rank ten of them.</p>
         <p>Popular right now:</p>
         <p>${pills}</p>
-        <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Make my first list →</a></p>`,
+        <p style="text-align:center;margin-top:24px"><a href="${APP_URL}?create=1" class="cta">Make my first list →</a></p>`,
     };
   }
   if (stage === "first_friend") {

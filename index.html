@@ -85,7 +85,7 @@
     if (qs.get('from') || qs.get('fill')) return;         // friend + list invites
     if (qs.get('joingroup')) return;                      // group invite — straight to sign-up
     if (qs.get('skipIntro')) return;                      // automated QA + "take me straight in" links
-    if (qs.get('invite') || qs.get('share') || qs.get('profile') || qs.get('openPrefs')) return; // email CTAs — these go to existing users, never the marketing page
+    if (qs.get('create') || qs.get('invite') || qs.get('share') || qs.get('profile') || qs.get('openPrefs')) return; // email CTAs — these go to existing users, never the marketing page
     if (sessionStorage.getItem('tennerLaunch')) return;   // clicked the welcome CTA
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
     for (var i = 0; i < localStorage.length; i++) {
@@ -2723,6 +2723,7 @@ function restoreAfterUpdate() {
   // Stale restore points are worse than none — this is for a reload seconds ago.
   if (st.ts && Date.now() - st.ts > 5 * 60 * 1000) return;
   if (location.hash || /[?&](from|fill|joingroup)=/.test(location.search)) return;
+  if (hasPendingDeepLink()) return;   // an email link outranks restoring the last screen
 
   try {
     if (typeof selFriendId !== 'undefined' && st.friendId) selFriendId = st.friendId;
@@ -3460,6 +3461,49 @@ var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
   h.textContent = 'Drag items to reorder your ranking.';
 })();
 
+// ── Email deep links (?create / ?invite / ?profile / ?share / ?openPrefs) ─
+// Persisted, not held in memory. The click often arrives signed-out, and the
+// sign-in that follows can be a full page load — an email-confirmation link,
+// or an OAuth round trip through Google. Anything kept only on `window` is
+// gone by then, and the query string has already been stripped from the URL,
+// so the app landed on Circle having forgotten where it was headed.
+// localStorage survives all of those, exactly as ?fill= already does.
+var PENDING_DEEPLINK_KEY = 'tenner_pending_deeplink';
+var PENDING_DEEPLINK_TTL = 60 * 60 * 1000; // an hour: long enough to sign up, short enough not to ambush a later visit
+
+function savePendingDeepLink(kind, arg) {
+  try { localStorage.setItem(PENDING_DEEPLINK_KEY, JSON.stringify({ kind: kind, arg: arg || null, ts: Date.now() })); } catch (e) {}
+}
+function getPendingDeepLink() {
+  try {
+    var raw = localStorage.getItem(PENDING_DEEPLINK_KEY);
+    if (!raw) return null;
+    var obj = JSON.parse(raw);
+    if (!obj || !obj.kind || (Date.now() - (obj.ts || 0)) > PENDING_DEEPLINK_TTL) { clearPendingDeepLink(); return null; }
+    return obj;
+  } catch (e) { return null; }
+}
+function clearPendingDeepLink() {
+  try { localStorage.removeItem(PENDING_DEEPLINK_KEY); } catch (e) {}
+}
+// True while a deep link is waiting — used to stop other post-load routines
+// (restore-after-update) from navigating somewhere else first.
+function hasPendingDeepLink() { return !!(getPendingDeepLink() || _pendingFillCat || getPendingInvite()); }
+
+function applyPendingDeepLink() {
+  var dl = getPendingDeepLink();
+  if (!dl) return false;
+  clearPendingDeepLink();
+  // go() already runs each screen's render hook, so nothing else is needed.
+  if (dl.kind === 'create')       go('s-create1');
+  else if (dl.kind === 'invite')  go('s-profile');
+  else if (dl.kind === 'profile') go('s-profile-edit');
+  else if (dl.kind === 'prefs')   go('s-email-prefs');
+  else if (dl.kind === 'share')   { if (dl.arg) openShareListModal(dl.arg); else return false; }
+  else return false;
+  return true;
+}
+
 // ── ?fill=<category> deep links ──────────────────────────────────────────
 // Used by friend invite links AND by the lifecycle "make your first list"
 // email, so it has to cope with a category the user already has a list for.
@@ -3469,7 +3513,7 @@ var _pendingFillFrom = null;
 
 function applyPendingFill() {
   var cat = _pendingFillCat;
-  if (!cat) return;
+  if (!cat) return false;
   var fromId = _pendingFillFrom;
   _pendingFillCat = null;
   _pendingFillFrom = null;
@@ -3527,6 +3571,7 @@ function applyPendingFill() {
   showConfirm(title, body, cta, 'primary', function() {
     renderCatGrid(); renderItems(); updateProg(); go('s-create2');
   });
+  return true;
 }
 
 // ── Per-item gift notes ──────────────────────────────────────────────────
@@ -16519,7 +16564,7 @@ function setupRealtimeNotifications() {
   }
   // ?openPrefs=1 → email footer deep link to the preference center
   if (_qs.get('openPrefs') === '1') {
-    window.__pendingOpenPrefs = true;
+    savePendingDeepLink('prefs');
     history.replaceState(null, '', window.location.pathname);
   }
   // Lifecycle-email CTAs. Each email's button has to land on the exact screen
@@ -16528,9 +16573,10 @@ function setupRealtimeNotifications() {
   //   ?invite=1        -> Profile (invite panel)      "Invite someone"
   //   ?share=<cat>     -> share sheet for that list   "Ask a friend"
   //   ?profile=1       -> profile edit                "Add my birthday"
-  if (_qs.get('invite') === '1')  { window.__pendingDeepLink = { kind: 'invite' }; history.replaceState(null, '', window.location.pathname); }
-  if (_qs.get('profile') === '1') { window.__pendingDeepLink = { kind: 'profile' }; history.replaceState(null, '', window.location.pathname); }
-  if (_qs.get('share'))           { window.__pendingDeepLink = { kind: 'share', cat: decodeURIComponent(_qs.get('share')) }; history.replaceState(null, '', window.location.pathname); }
+  if (_qs.get('create') === '1')  { savePendingDeepLink('create');  history.replaceState(null, '', window.location.pathname); }
+  if (_qs.get('invite') === '1')  { savePendingDeepLink('invite');  history.replaceState(null, '', window.location.pathname); }
+  if (_qs.get('profile') === '1') { savePendingDeepLink('profile'); history.replaceState(null, '', window.location.pathname); }
+  if (_qs.get('share'))           { savePendingDeepLink('share', decodeURIComponent(_qs.get('share'))); history.replaceState(null, '', window.location.pathname); }
 
   initSupabase();
   initPasswordRecoveryFlow();
@@ -16557,22 +16603,6 @@ function setupRealtimeNotifications() {
         try { await loadProfile(); } catch(e) {}
         startOnboardingIfNeeded();
       })();
-      // Deep link from email footer → open preference center after sign-in
-      if (window.__pendingOpenPrefs) {
-        window.__pendingOpenPrefs = false;
-        setTimeout(function() { go('s-email-prefs'); }, 300);
-      }
-      // Lifecycle-email CTAs (see the ?invite / ?profile / ?share capture above).
-      if (window.__pendingDeepLink) {
-        (function(dl) {
-          window.__pendingDeepLink = null;
-          setTimeout(function() {
-            if (dl.kind === 'invite') { go('s-profile'); try { renderInvitePanel(); } catch(e) {} }
-            else if (dl.kind === 'profile') { go('s-profile-edit'); }
-            else if (dl.kind === 'share' && dl.cat) { openShareListModal(dl.cat); }
-          }, 400);
-        })(window.__pendingDeepLink);
-      }
       // Attribute this new signup to whoever's invite link they came from.
       // Runs once per user — only writes when profiles.invited_by is currently
       // NULL, so it never overwrites a real value if this fires on a return
@@ -16690,7 +16720,7 @@ function setupRealtimeNotifications() {
         _pendingFillFrom = fromId;
       }
     }
-    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderCircleAnchorChips(); renderGiftReminders(); updateGroupMetaCounts(); applyPendingFill(); }).catch(function(e){ console.warn(e); applyPendingFill(); });
+    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderCircleAnchorChips(); renderGiftReminders(); updateGroupMetaCounts(); if (!applyPendingFill()) applyPendingDeepLink(); }).catch(function(e){ console.warn(e); if (!applyPendingFill()) applyPendingDeepLink(); });
     // Circle is the initial landing surface; its render calls fire before profile/friends
     // finish loading, leaving avatars and activity blank until the user navigates away and
     // back. When each load completes, if Circle is currently active, refresh the parts
