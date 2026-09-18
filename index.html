@@ -2564,29 +2564,88 @@ function celebrateConfetti(pieces) {
   setTimeout(function() { if (host.parentNode) host.remove(); }, 2500);
 }
 
-// Post-completion modal that offers a match reveal if any friends share this list
+// Post-completion modal.
+//
+// Two different moments, and they used to be treated as one. If friends
+// already have this list there's a match waiting, so send them to it. If
+// NOBODY does, "Reveal my matches" is a dead end — the whole point of the
+// list can't happen yet. That case gets the ask instead: nudge the friends
+// who don't have it, and offer to bring someone new in. (The old version
+// computed the friend count in a loop that did nothing and always showed
+// the match CTA.)
+function _acceptedFriendsMissingCategory(cat) {
+  var summaries = window.MY_FRIEND_LIST_SUMMARIES || {};
+  return (myFriends || []).filter(function(f) {
+    if (f.status !== 'accepted' || !f.friendId) return false;
+    var mine = summaries[f.friendId] || [];
+    return !mine.some(function(l){ return l.category === cat; });
+  });
+}
+
+// Wrapper around the existing share-invite send so the nudge from this modal
+// is the same real thing as the one from the share sheet (in-app invite +
+// push + queued email), just tracked separately.
+function nudgeFriendFromComplete(friendId, cat, btn) {
+  trackEvent('list_complete_nudge_sent', { category: cat });
+  return shareListWithFriend(friendId, cat, btn);
+}
+
+function inviteNewFromComplete(cat) {
+  var m = document.getElementById('list-complete-modal');
+  if (m) m.remove();
+  trackEvent('list_complete_invite_new', { category: cat });
+  openListInviteModal();
+}
+
 function showListCompleteModal(cat) {
   var frame = document.querySelector('.frame') || document.body;
-  var friendsWithList = 0;
-  try {
-    (myFriends || []).filter(function(f){ return f.status === 'accepted'; }).forEach(function(f) {
-      // We don't have their lists inline here without a fetch; leave 0 and let the modal
-      // gracefully phrase it without a specific count if unknown.
-    });
-  } catch(e) {}
   var existing = document.getElementById('list-complete-modal');
   if (existing) existing.remove();
+  var haveIt = friendsWithCategory(cat);
+  var catAttr = String(cat).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  var body;
+
+  if (haveIt > 0) {
+    body = ''
+      + '<div style="font-size:56px;margin-bottom:8px">🎉</div>'
+      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;letter-spacing:-0.02em;color:#2C2C2A;margin-bottom:6px;line-height:1.15">Your Top 10 ' + escapeHtml(cat) + ' is live!</div>'
+      + '<div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">' + haveIt + ' friend' + (haveIt === 1 ? ' has' : 's have') + ' this list too — see how you compare.</div>'
+      + '<button class="btn-primary" onclick="document.getElementById(\'list-complete-modal\').remove();matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go(\'s-match\')" style="margin-bottom:8px">Reveal my matches →</button>'
+      + '<button class="btn-secondary" onclick="document.getElementById(\'list-complete-modal\').remove()" style="margin-bottom:0">Maybe later</button>';
+  } else {
+    var missing = _acceptedFriendsMissingCategory(cat);
+    var MAX_ROWS = 3;
+    var rows = missing.slice(0, MAX_ROWS).map(function(f) {
+      var p = f.profile || {};
+      var name = p.display_name || (p.handle ? '@' + p.handle : 'Friend');
+      return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;text-align:left">'
+        + friendAvatarHtml(p, 32)
+        + '<div style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#2C2C2A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(name) + '</div>'
+        + '<button class="add-btn" onclick="nudgeFriendFromComplete(\'' + f.friendId + '\',\'' + catAttr + '\',this)">Ask</button>'
+        + '</div>';
+    }).join('');
+    var more = missing.length > MAX_ROWS
+      ? '<button class="btn-secondary" style="margin:6px 0 0;font-size:11px;padding:7px" onclick="document.getElementById(\'list-complete-modal\').remove();openShareListModal(\'' + catAttr + '\')">Ask ' + (missing.length - MAX_ROWS) + ' more →</button>'
+      : '';
+    var nudgeBlock = rows
+      ? '<div style="border-top:1px solid #EAE3DC;border-bottom:1px solid #EAE3DC;margin:4px 0 16px;padding:4px 0">'
+        + '<div style="font-size:10px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#D85A30;text-align:left;padding:6px 0 2px">Ask a friend to fill theirs out</div>'
+        + rows + more
+        + '</div>'
+      : '<div style="height:4px"></div>';
+    body = ''
+      + '<div style="font-size:56px;margin-bottom:8px">🥇</div>'
+      + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;letter-spacing:-0.02em;color:#2C2C2A;margin-bottom:6px;line-height:1.15">You\'re first!</div>'
+      + '<div style="font-size:13px;color:#5F5E5A;margin-bottom:14px">Nobody you know has a Top 10 ' + escapeHtml(cat) + ' yet. Get one of them to make one and you\'ll have a match to open.</div>'
+      + nudgeBlock
+      + '<button class="btn-primary" onclick="inviteNewFromComplete(\'' + catAttr + '\')" style="margin-bottom:8px">Invite someone new →</button>'
+      + '<button class="btn-secondary" onclick="document.getElementById(\'list-complete-modal\').remove()" style="margin-bottom:0">Maybe later</button>';
+  }
+
   var overlay = document.createElement('div');
   overlay.id = 'list-complete-modal';
   overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px';
-  overlay.innerHTML = ''
-    + '<div class="pop-in" style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:320px;text-align:center">'
-    +   '<div style="font-size:56px;margin-bottom:8px">🎉</div>'
-    +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:24px;letter-spacing:-0.02em;color:#2C2C2A;margin-bottom:6px;line-height:1.15">Your Top 10 ' + escapeHtml(cat) + ' is live!</div>'
-    +   '<div style="font-size:13px;color:#5F5E5A;margin-bottom:18px">See who matches your taste — head to the Match tab to compare.</div>'
-    +   '<button class="btn-primary" onclick="document.getElementById(\'list-complete-modal\').remove();matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go(\'s-match\')" style="margin-bottom:8px">Reveal my matches →</button>'
-    +   '<button class="btn-secondary" onclick="document.getElementById(\'list-complete-modal\').remove()" style="margin-bottom:0">Maybe later</button>'
-    + '</div>';
+  overlay.innerHTML = '<div class="pop-in" style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:320px;text-align:center;max-height:88%;overflow-y:auto">' + body + '</div>';
   frame.appendChild(overlay);
 }
 
