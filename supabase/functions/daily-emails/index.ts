@@ -584,14 +584,34 @@ function lifecycleContent(stage: string, ctx: any) {
   };
 }
 
+// Test mode lives in app_settings, not in this file, so switching from a test
+// send to the real one is one UPDATE instead of a redeploy. While the list is
+// non-empty we send ONLY to those addresses, send all four stages to each (an
+// admin account usually qualifies for none of them, so stage-based selection
+// would send nothing to review), and write no email_log rows — a test must
+// never burn a real user's once-ever send.
+async function lifecycleTestEmails(supabase: any): Promise<string[]> {
+  try {
+    const { data } = await supabase.from("app_settings").select("value").eq("key", "lifecycle_test_emails").maybeSingle();
+    const v = data?.value;
+    if (!Array.isArray(v)) return [];
+    return v.map((s: any) => String(s).trim().toLowerCase()).filter(Boolean);
+  } catch (e) { console.error("lifecycle test-mode lookup failed:", e); return []; }
+}
+
 async function runLifecycleEmails(supabase: any) {
   console.log("Running lifecycle emails...");
+  const testEmails = await lifecycleTestEmails(supabase);
+  const testMode = testEmails.length > 0;
+  if (testMode) console.log("LIFECYCLE TEST MODE — only:", testEmails.join(", "));
   const profiles = await fetchAll(() =>
     supabase.from("profiles").select("id, email, display_name, birthday, created_at, is_system, is_banned"));
   if (!profiles.length) return 0;
-  const candidates = profiles.filter((p: any) =>
-    p.email && !p.is_system && !p.is_banned && daysSince(p.created_at) >= 2
-  );
+  const candidates = testMode
+    ? profiles.filter((p: any) => p.email && testEmails.includes(String(p.email).toLowerCase()))
+    : profiles.filter((p: any) =>
+        p.email && !p.is_system && !p.is_banned && daysSince(p.created_at) >= 2
+      );
   if (!candidates.length) return 0;
 
   const [allLists, allFriends, allPrefs, allLog] = await Promise.all([
@@ -623,9 +643,11 @@ async function runLifecycleEmails(supabase: any) {
   let sentCount = 0;
   for (const p of candidates) {
     const already = sentByUser[p.id] || new Set();
-    if (already.size >= LIFECYCLE_MAX) continue;
     const pref = prefByUser[p.id];
-    if (pref?.prefs && pref.prefs.getting_started === false) continue;
+    if (!testMode) {
+      if (already.size >= LIFECYCLE_MAX) continue;
+      if (pref?.prefs && pref.prefs.getting_started === false) continue;
+    }
 
     const age = daysSince(p.created_at);
     const myLists = listsByUser[p.id] || [];
@@ -636,29 +658,38 @@ async function runLifecycleEmails(supabase: any) {
     const hasMatch = myFriends.some((fid: string) =>
       (listsByUser[fid] || []).some((l: any) => mine.has(l.category))
     );
-    // First eligible stage wins; each is sendable once, ever.
-    const stage = pickLifecycleStage(age, myLists.length, myFriends.length, hasMatch, !!p.birthday);
-    if (!stage) continue;
+    // Normally: first eligible stage wins, sendable once ever. In test mode:
+    // every stage, so all four templates can be reviewed at once.
+    const stages = testMode
+      ? ["first_list", "first_friend", "no_match", "profile_birthday"]
+      : (() => {
+          const s = pickLifecycleStage(age, myLists.length, myFriends.length, hasMatch, !!p.birthday);
+          return s && !already.has("lifecycle_" + s) ? [s] : [];
+        })();
 
-    const emailType = "lifecycle_" + stage;
-    if (already.has(emailType)) continue;
-
-    const tpl = lifecycleContent(stage, {
-      name: p.display_name,
-      sampleCategory: newest?.category,
-      topCategories,
-    });
-    const token = pref?.unsubscribe_token || "";
-    try {
-      await sendResend(
-        p.email,
-        tpl.subject,
-        baseTemplate(tpl.preheader, tpl.body, token),
-        token ? { "List-Unsubscribe": `<${APP_URL}unsubscribe.html?t=${token}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : undefined
-      );
-      await supabase.from("email_log").insert({ user_id: p.id, email_type: emailType, ref_key: stage });
-      sentCount++;
-    } catch (e) { console.error(`${emailType} failed for ${p.email}:`, e); }
+    for (const stage of stages) {
+      const emailType = "lifecycle_" + stage;
+      const tpl = lifecycleContent(stage, {
+        name: p.display_name,
+        sampleCategory: newest?.category,
+        topCategories,
+      });
+      const token = pref?.unsubscribe_token || "";
+      try {
+        await sendResend(
+          p.email,
+          (testMode ? "[TEST] " : "") + tpl.subject,
+          baseTemplate(tpl.preheader, tpl.body, token),
+          token ? { "List-Unsubscribe": `<${APP_URL}unsubscribe.html?t=${token}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : undefined
+        );
+        // Deliberately not logged in test mode: an email_log row here would
+        // permanently suppress this stage for a real user later.
+        if (!testMode) {
+          await supabase.from("email_log").insert({ user_id: p.id, email_type: emailType, ref_key: stage });
+        }
+        sentCount++;
+      } catch (e) { console.error(`${emailType} failed for ${p.email}:`, e); }
+    }
   }
   return sentCount;
 }
