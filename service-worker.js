@@ -6,7 +6,7 @@
 //   - Everything else (API, dynamic assets) → network-first, no cache
 // Bump CACHE_VERSION whenever the shell files change so old caches get cleared.
 
-const CACHE_VERSION = 'tenner-v150';
+const CACHE_VERSION = 'tenner-v151';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
@@ -100,4 +100,13 @@ self.addEventListener('notificationclick', (event) => {
       return self.clients.openWindow(targetUrl);
     })
   );
+});
+
+// Lets the page ask which build is actually running. Answering "am I on the
+// new version?" was otherwise guesswork: the page has no way to see the
+// cache version, and a stale shell looks identical to a fresh one.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'GET_VERSION') {
+    if (event.ports && event.ports[0]) event.ports[0].postMessage({ version: CACHE_VERSION });
+  }
 });

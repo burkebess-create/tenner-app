@@ -1539,6 +1539,7 @@
               <button class="back-btn" onclick="openChangeEmail()">Change</button>
             </div>
           </div>
+          <div id="build-version" style="text-align:center;font-size:10.5px;color:#888780;margin-top:16px;letter-spacing:0.04em"></div>
         </div>
       </div>
 
@@ -2166,6 +2167,7 @@ function go(id) {
     loadProfile();
   }
   if (id === 's-email-prefs') { renderEmailPrefs(); }
+  if (id === 's-profile-account') { renderBuildVersion(); }
   if (id === 's-admin') { renderAdmin(); }
   if (id === 's-admin-user') { /* driven by openAdminUserDetail */ }
   if (id === 's-admin-list') { /* driven by openAdminListDetail */ }
@@ -2648,6 +2650,61 @@ function showListCompleteModal(cat) {
   overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px';
   overlay.innerHTML = '<div class="pop-in" style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:320px;text-align:center;max-height:88%;overflow-y:auto">' + body + '</div>';
   frame.appendChild(overlay);
+}
+
+// Which build is actually running. The page cannot see the service worker's
+// cache version on its own, and a stale shell is indistinguishable from a
+// fresh one by eye — so "is this fixed yet?" was guesswork. Asks the active
+// worker, then compares against the version currently on the server.
+async function renderBuildVersion() {
+  var host = document.getElementById('build-version');
+  if (!host) return;
+  host.textContent = 'Version …';
+  var running = null;
+  try {
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      running = await new Promise(function(resolve) {
+        var ch = new MessageChannel();
+        var done = false;
+        ch.port1.onmessage = function(e) { done = true; resolve((e.data || {}).version || null); };
+        navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
+        setTimeout(function(){ if (!done) resolve(null); }, 1500);
+      });
+    }
+  } catch (e) {}
+  var latest = null;
+  try {
+    var r = await fetch('/service-worker.js', { cache: 'no-store' });
+    var t = await r.text();
+    var m = t.match(/CACHE_VERSION\s*=\s*['\"]([^'\"]+)['\"]/);
+    if (m) latest = m[1];
+  } catch (e) {}
+
+  if (!running && !latest) { host.textContent = 'Version unavailable'; return; }
+  if (!running) { host.textContent = 'Latest build: ' + latest; return; }
+  if (latest && latest !== running) {
+    host.innerHTML = 'Running <strong>' + escapeHtml(running) + '</strong> · <strong>' + escapeHtml(latest) + '</strong> available'
+      + ' <button onclick="hardRefreshApp()" style="background:none;border:none;color:#D85A30;font-weight:800;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;font-family:inherit;padding:2px 4px">Update now</button>';
+  } else {
+    host.textContent = 'Running ' + running + ' · up to date';
+  }
+}
+
+// Clears the caches and reloads, so "Update now" actually gets the new shell
+// rather than re-serving the same cached one.
+async function hardRefreshApp() {
+  try {
+    if (typeof captureUpdateState === 'function') captureUpdateState();
+    if (window.caches && caches.keys) {
+      var keys = await caches.keys();
+      await Promise.all(keys.map(function(k){ return caches.delete(k); }));
+    }
+    if (navigator.serviceWorker) {
+      var regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(function(r){ return r.update().catch(function(){}); }));
+    }
+  } catch (e) {}
+  location.reload();
 }
 
 // ── Surviving an update reload ───────────────────────────────────────────
@@ -3468,12 +3525,26 @@ var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // already owns — which is how a ?create=1 link produced a two-tile grid
 // containing "Travel", a category that no longer exists.
 var _catsReady = null;
+var _onbDecided = null;
 function afterCatsReady() {
   Promise.resolve(_catsReady)
     .catch(function() { /* fall through on failure: the seed is a poor catalogue but a working one */ })
-    .then(function() {
+    .then(function() { return Promise.resolve(_onbDecided).catch(function(){ return false; }); })
+    .then(function(onboardingStarted) {
+      // A user who still has to pick a handle cannot usefully be dropped on
+      // Create. Onboarding keeps the screen; the link stays in localStorage
+      // and finalizeOnboarding() calls back here when they're done. Without
+      // this the two raced: the link fired, onboarding immediately replaced
+      // it, and because applying it CLEARS it, the destination was lost for
+      // good — the user finished onboarding on Circle and never saw Create.
+      if (onboardingStarted || _onboardingActive()) return;
       if (!applyPendingFill()) applyPendingDeepLink();
     });
+}
+
+function _onboardingActive() {
+  var el = document.getElementById('s-onboarding');
+  return !!(el && el.classList.contains('active'));
 }
 
 // ── Email deep links (?create / ?invite / ?profile / ?share / ?openPrefs) ─
@@ -9051,6 +9122,9 @@ function finalizeOnboarding() {
   window._onbMutualCandidates = null;
   go('s-circle');
   setTimeout(function() { celebrateConfetti(70); showToast('✓ You\'re all set — welcome to Tenner!'); }, 250);
+  // Onboarding deferred any email deep link rather than letting it be lost.
+  _onbDecided = false;
+  setTimeout(function() { afterCatsReady(); }, 400);
 }
 
 function onbBack() {
@@ -16634,9 +16708,11 @@ function setupRealtimeNotifications() {
       renderCircleScreen();
       go('s-circle');
       // Fetch profile so we know whether to onboard; run once on first sign-in
-      (async function() {
+      // Held as a promise so a pending email deep link can wait for the
+      // onboarding decision instead of racing it.
+      _onbDecided = (async function() {
         try { await loadProfile(); } catch(e) {}
-        startOnboardingIfNeeded();
+        return await startOnboardingIfNeeded();
       })();
       // Attribute this new signup to whoever's invite link they came from.
       // Runs once per user — only writes when profiles.invited_by is currently
