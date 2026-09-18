@@ -3460,6 +3460,75 @@ var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
   h.textContent = 'Drag items to reorder your ranking.';
 })();
 
+// ── ?fill=<category> deep links ──────────────────────────────────────────
+// Used by friend invite links AND by the lifecycle "make your first list"
+// email, so it has to cope with a category the user already has a list for.
+// Runs only once MY_LISTS is loaded — see the deferral at the call site.
+var _pendingFillCat = null;
+var _pendingFillFrom = null;
+
+function applyPendingFill() {
+  var cat = _pendingFillCat;
+  if (!cat) return;
+  var fromId = _pendingFillFrom;
+  _pendingFillCat = null;
+  _pendingFillFrom = null;
+
+  // Match case-insensitively and snap to the catalogue's spelling. getCatEmoji
+  // matches exactly while the category picker matches loosely, so a link
+  // carrying "candy bars" would otherwise miss the existing list, miss the
+  // emoji, and save a second category differing only in case.
+  var lower = String(cat).toLowerCase();
+  var canon = CATS.find(function(c) { return c.n.toLowerCase() === lower; });
+  if (canon) cat = canon.n;
+  var idx = MY_LISTS.findIndex(function(l) {
+    return String(l.category || l.n.replace('Top 10 ', '')).toLowerCase() === cat.toLowerCase();
+  });
+  var existing = idx >= 0 ? MY_LISTS[idx] : null;
+  // A custom list the user already owns keeps its own spelling.
+  if (existing) cat = existing.category || existing.n.replace('Top 10 ', '');
+
+  selCat = cat;
+  // Always take the emoji from the list or the category catalogue. Leaving it
+  // unset meant the editor showed whichever emoji happened to be selected
+  // last, and saving wrote that wrong emoji onto the list.
+  selCatEmoji = (existing && existing.emoji) || getCatEmoji(cat) || '📋';
+  editingListIdx = idx;
+  _openNoteIdx = -1;
+  if (existing) {
+    items = (existing.items || []).slice();
+    itemNotes = Object.assign({}, existing.item_notes || {});
+    isRanked = existing.ranked !== false;
+  } else {
+    items = [];
+    itemNotes = {};
+    isRanked = true;
+  }
+  _itemProvenance = {};
+  listOrigin = 's-home';
+
+  // Only claim a friend shared it when one actually did — the lifecycle
+  // emails use the same link with no `from`.
+  var title, body, cta;
+  if (existing) {
+    var n = items.filter(function(i){ return String(i).trim(); }).length;
+    title = 'You already have this list';
+    body = fromId
+      ? 'Your friend shared their Top 10 ' + cat + '. You\'ve got ' + n + ' pick' + (n === 1 ? '' : 's') + ' on yours — open it to compare or make changes.'
+      : 'You\'ve already got ' + n + ' pick' + (n === 1 ? '' : 's') + ' on your Top 10 ' + cat + '. Open it to make changes.';
+    cta = n >= MAX_SAVED_ITEMS ? 'Open my Top 10 ' + cat : 'Finish my Top 10 ' + cat;
+  } else {
+    title = 'Fill out your list!';
+    body = fromId
+      ? 'Your friend shared their Top 10 ' + cat + ' list. Fill yours out to see how you compare!'
+      : 'Make your Top 10 ' + cat + ' and see how your picks line up with everyone else\'s.';
+    cta = 'Create my Top 10 ' + cat;
+  }
+  showConfirm(title, body, cta, 'primary', function() {
+    renderCatGrid(); renderItems(); updateProg(); go('s-create2');
+  });
+}
+
 // ── Per-item gift notes ──────────────────────────────────────────────────
 // Keyed by item TEXT, matching how they're stored, so reordering (the core
 // interaction of this screen) can never reattach a note to the wrong pick.
@@ -16611,18 +16680,17 @@ function setupRealtimeNotifications() {
               }
             }).catch(console.warn);
         }
-        selCat = cat;
-        items = [];
-        showConfirm(
-          'Fill out your list!',
-          'Your friend shared their Top 10 ' + cat + ' list. Fill yours out to see how you compare!',
-          'Create my Top 10 ' + cat,
-          'primary',
-          function() { renderCatGrid(); renderItems(); updateProg(); go('s-create2'); }
-        );
+        // Opening the editor has to wait for loadState(), which is kicked off
+        // below: until MY_LISTS is populated we cannot tell whether this
+        // category is new or one the user already owns. It used to run here
+        // and always assumed new, which blanked `items`, left `selCatEmoji`
+        // on whatever the previous category set, and would have overwritten
+        // an existing list (with the wrong emoji) on save.
+        _pendingFillCat = cat;
+        _pendingFillFrom = fromId;
       }
     }
-    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderCircleAnchorChips(); renderGiftReminders(); updateGroupMetaCounts(); }).catch(console.warn);
+    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderCircleAnchorChips(); renderGiftReminders(); updateGroupMetaCounts(); applyPendingFill(); }).catch(function(e){ console.warn(e); applyPendingFill(); });
     // Circle is the initial landing surface; its render calls fire before profile/friends
     // finish loading, leaving avatars and activity blank until the user navigates away and
     // back. When each load completes, if Circle is currently active, refresh the parts
