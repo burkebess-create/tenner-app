@@ -16,7 +16,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const APP_URL = "https://mytenner.com/";
 
-function baseTemplate(preheader: string, contentHtml: string) {
+function baseTemplate(preheader: string, contentHtml: string, unsubToken?: string) {
+  const unsubBlock = unsubToken
+    ? `<a href="${APP_URL}unsubscribe.html?t=${unsubToken}" style="color:#888780">Unsubscribe or manage preferences</a><br>`
+    : "";
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#FAF8F5;margin:0;color:#2C2C2A}
   .wrap{max-width:560px;margin:0 auto;padding:32px 20px}
@@ -27,21 +30,23 @@ function baseTemplate(preheader: string, contentHtml: string) {
   .foot{color:#888780;font-size:12px;text-align:center;padding:20px 8px}
   .brand{text-align:center;margin-bottom:18px}.brand img{width:90px;height:auto;display:inline-block}
   .pre{display:none;visibility:hidden;height:0;width:0;overflow:hidden}
-</style></head><body><div class="pre">${preheader}</div><div class="wrap"><div class="brand"><img src="https://mytenner.com/logo-square.png" alt="Tenner" width="90"></div><div class="card">${contentHtml}</div><div class="foot">Tenner — Top 10 lists with friends<br><a href="${APP_URL}" style="color:#888780">${APP_URL}</a></div></div></body></html>`;
+</style></head><body><div class="pre">${preheader}</div><div class="wrap"><div class="brand"><img src="https://mytenner.com/logo-square.png" alt="Tenner" width="90"></div><div class="card">${contentHtml}</div><div class="foot">Tenner — Top 10 lists with friends<br>${unsubBlock}<a href="${APP_URL}" style="color:#888780">${APP_URL}</a></div></div></body></html>`;
 }
 
 function escapeHtml(str: string) {
   return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
 
-async function sendResend(to: string, subject: string, html: string) {
+async function sendResend(to: string, subject: string, html: string, headers?: Record<string, string>) {
   const apiKey = Deno.env.get("RESEND_API_KEY");
   const from = Deno.env.get("FROM_EMAIL") || "Tenner <hello@mytenner.com>";
   if (!apiKey) throw new Error("RESEND_API_KEY not configured");
+  const body: any = { from, to: [to], subject, html };
+  if (headers) body.headers = headers;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ from, to: [to], subject, html }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
   return await res.json();
@@ -469,6 +474,195 @@ async function runSundayRecap(supabase: any) {
   return sentCount;
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Lifecycle emails: the onboarding leak.
+//
+// Every other email in this file (and in process-notifications) is gated on
+// the user ALREADY being past the step it would nudge them toward: the
+// digests need an active friend, sunday_recap skips zero-activity users
+// outright, streak_in_danger needs streak >= 2. So a user who signs up and
+// stalls gets the welcome email and then total silence — permanently
+// unreachable if they never made a list or added a friend.
+//
+// These four fill that gap. They fire once each, in priority order, at most
+// one per user per run and at most LIFECYCLE_MAX across a user's lifetime.
+// Eligibility is recomputed from live state every run, so the moment someone
+// completes a step its email stops being sendable — there is no queue to
+// drain and no way to nag someone who already did the thing.
+//
+//   first_list       day 2+, no list at all
+//   first_friend     day 3+, has a list, no accepted friend
+//   no_match         day 5+, has a list and a friend, but no SHARED category
+//                    (the in-app "You're first!" moment, by email)
+//   profile_birthday day 7+, no birthday set — deliberately the only profile
+//                    field chased, because it's the one that powers the gift
+//                    reminders OTHER people get about them. Chasing a bio or
+//                    a photo would be nagging for our benefit, not theirs.
+// ─────────────────────────────────────────────────────────────────────
+const LIFECYCLE_MAX = 3;         // hard lifetime cap per user, across all stages
+const LIFECYCLE_TYPES = ["lifecycle_first_list", "lifecycle_first_friend", "lifecycle_no_match", "lifecycle_profile_birthday"];
+
+function daysSince(iso: string) {
+  if (!iso) return 0;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+
+// PostgREST caps a plain select at 1000 rows and returns them without error,
+// so an un-paged read silently goes wrong the moment a table crosses that
+// line. `lists` is the one here that will get there first, and a truncated
+// read would mean emailing people who DO have a list telling them they don't.
+async function fetchAll(query: () => any, pageSize = 1000) {
+  const out: any[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await query().range(from, from + pageSize - 1);
+    if (error) throw error;
+    out.push(...(data || []));
+    if (!data || data.length < pageSize) return out;
+  }
+}
+
+// Pure so the ordering can be tested without a database. Returns the single
+// highest-priority stage the user is eligible for, or null.
+export function pickLifecycleStage(
+  age: number, nLists: number, nFriends: number, hasMatch: boolean, hasBirthday: boolean
+): string | null {
+  if (age >= 2 && nLists === 0) return "first_list";
+  if (age >= 3 && nLists > 0 && nFriends === 0) return "first_friend";
+  if (age >= 5 && nLists > 0 && nFriends > 0 && !hasMatch) return "no_match";
+  if (age >= 7 && !hasBirthday) return "profile_birthday";
+  return null;
+}
+
+function lifecycleContent(stage: string, ctx: any) {
+  const name = (ctx.name || "").split(" ")[0];
+  const hi = name ? `${escapeHtml(name)}, ` : "";
+  if (stage === "first_list") {
+    // Suggest what's actually popular right now — those are the categories
+    // most likely to produce a match, which is the whole payoff.
+    const pills = (ctx.topCategories || []).slice(0, 3).map((c: string) =>
+      `<a href="${APP_URL}?fill=${encodeURIComponent(c)}" style="display:inline-block;border:1px solid #EAE3DC;border-radius:999px;padding:8px 16px;margin:4px 4px 4px 0;text-decoration:none;color:#2C2C2A;font-size:14px">Top 10 ${escapeHtml(c)}</a>`
+    ).join("");
+    return {
+      subject: "Your first Top 10 takes about 90 seconds",
+      preheader: "Pick a category, list ten things you love. That's it.",
+      body: `<h1>Ready when you are</h1>
+        <p>${hi}you signed up for Tenner but haven't made a list yet. It's genuinely quick — pick something you have opinions about and rank ten of them.</p>
+        <p>Popular right now:</p>
+        <p>${pills}</p>
+        <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Make my first list →</a></p>`,
+    };
+  }
+  if (stage === "first_friend") {
+    const cat = ctx.sampleCategory || "list";
+    return {
+      subject: `Your Top 10 ${cat} is waiting for someone to beat it`,
+      preheader: "Tenner works when you can compare. Add someone.",
+      body: `<h1>Nobody's seen your list yet</h1>
+        <p>${hi}you made a <strong>Top 10 ${escapeHtml(cat)}</strong> — nice. But Tenner's whole point is seeing how your picks stack up against people you know, and you haven't added anyone yet.</p>
+        <p>Anyone who signs up from your invite link becomes a friend automatically. No app to install.</p>
+        <p style="text-align:center;margin-top:24px"><a href="${APP_URL}?invite=1" class="cta">Invite someone →</a></p>`,
+    };
+  }
+  if (stage === "no_match") {
+    const cat = ctx.sampleCategory || "list";
+    return {
+      subject: `You're the only one with a Top 10 ${cat}`,
+      preheader: "Get one friend to fill theirs out and you've got a match.",
+      body: `<h1>You're first</h1>
+        <p>${hi}none of your friends on Tenner have a <strong>Top 10 ${escapeHtml(cat)}</strong> yet, so there's nothing to compare against.</p>
+        <p>Ask one of them to fill theirs out — the match opens up the moment they do.</p>
+        <p style="text-align:center;margin-top:24px"><a href="${APP_URL}?share=${encodeURIComponent(cat)}" class="cta">Ask a friend →</a></p>`,
+    };
+  }
+  return {
+    subject: "One field away from better gifts",
+    preheader: "Add your birthday so friends get a heads-up.",
+    body: `<h1>Add your birthday</h1>
+      <p>${hi}your profile is missing a birthday. That's the one field that works <em>for</em> you: friends get a reminder two weeks before, pointed at your lists, so they actually know what to get you.</p>
+      <p>Takes five seconds.</p>
+      <p style="text-align:center;margin-top:24px"><a href="${APP_URL}?profile=1" class="cta">Add my birthday →</a></p>`,
+  };
+}
+
+async function runLifecycleEmails(supabase: any) {
+  console.log("Running lifecycle emails...");
+  const profiles = await fetchAll(() =>
+    supabase.from("profiles").select("id, email, display_name, birthday, created_at, is_system, is_banned"));
+  if (!profiles.length) return 0;
+  const candidates = profiles.filter((p: any) =>
+    p.email && !p.is_system && !p.is_banned && daysSince(p.created_at) >= 2
+  );
+  if (!candidates.length) return 0;
+
+  const [allLists, allFriends, allPrefs, allLog] = await Promise.all([
+    fetchAll(() => supabase.from("lists").select("user_id, category, updated_at")),
+    fetchAll(() => supabase.from("friendships").select("requester_id, addressee_id").eq("status", "accepted")),
+    fetchAll(() => supabase.from("user_email_prefs").select("user_id, prefs, unsubscribe_token")),
+    fetchAll(() => supabase.from("email_log").select("user_id, email_type").in("email_type", LIFECYCLE_TYPES)),
+  ]);
+
+  // Newest list per user doubles as the category we name in the copy.
+  const listsByUser: Record<string, any[]> = {};
+  allLists.forEach((l: any) => { (listsByUser[l.user_id] = listsByUser[l.user_id] || []).push(l); });
+  const friendsByUser: Record<string, string[]> = {};
+  allFriends.forEach((f: any) => {
+    (friendsByUser[f.requester_id] = friendsByUser[f.requester_id] || []).push(f.addressee_id);
+    (friendsByUser[f.addressee_id] = friendsByUser[f.addressee_id] || []).push(f.requester_id);
+  });
+  const prefByUser: Record<string, any> = {};
+  allPrefs.forEach((r: any) => { prefByUser[r.user_id] = r; });
+  const sentByUser: Record<string, Set<string>> = {};
+  allLog.forEach((r: any) => {
+    (sentByUser[r.user_id] = sentByUser[r.user_id] || new Set()).add(r.email_type);
+  });
+
+  const catCounts: Record<string, number> = {};
+  allLists.forEach((l: any) => { if (l.category) catCounts[l.category] = (catCounts[l.category] || 0) + 1; });
+  const topCategories = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a]).slice(0, 3);
+
+  let sentCount = 0;
+  for (const p of candidates) {
+    const already = sentByUser[p.id] || new Set();
+    if (already.size >= LIFECYCLE_MAX) continue;
+    const pref = prefByUser[p.id];
+    if (pref?.prefs && pref.prefs.getting_started === false) continue;
+
+    const age = daysSince(p.created_at);
+    const myLists = listsByUser[p.id] || [];
+    const myFriends = friendsByUser[p.id] || [];
+    const newest = myLists.slice().sort((a: any, b: any) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")))[0];
+
+    const mine = new Set(myLists.map((l: any) => l.category));
+    const hasMatch = myFriends.some((fid: string) =>
+      (listsByUser[fid] || []).some((l: any) => mine.has(l.category))
+    );
+    // First eligible stage wins; each is sendable once, ever.
+    const stage = pickLifecycleStage(age, myLists.length, myFriends.length, hasMatch, !!p.birthday);
+    if (!stage) continue;
+
+    const emailType = "lifecycle_" + stage;
+    if (already.has(emailType)) continue;
+
+    const tpl = lifecycleContent(stage, {
+      name: p.display_name,
+      sampleCategory: newest?.category,
+      topCategories,
+    });
+    const token = pref?.unsubscribe_token || "";
+    try {
+      await sendResend(
+        p.email,
+        tpl.subject,
+        baseTemplate(tpl.preheader, tpl.body, token),
+        token ? { "List-Unsubscribe": `<${APP_URL}unsubscribe.html?t=${token}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : undefined
+      );
+      await supabase.from("email_log").insert({ user_id: p.id, email_type: emailType, ref_key: stage });
+      sentCount++;
+    } catch (e) { console.error(`${emailType} failed for ${p.email}:`, e); }
+  }
+  return sentCount;
+}
+
 Deno.serve(async (_req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -487,6 +681,7 @@ Deno.serve(async (_req) => {
     const nudgeSent = await runWeeklyNudge(supabase);
     const streakSent = await runStreakInDanger(supabase);
     const recapSent = dayOfWeek === 0 ? await runSundayRecap(supabase) : 0;
+    const lifecycleSent = await runLifecycleEmails(supabase);
 
     return new Response(JSON.stringify({
       ok: true,
@@ -496,6 +691,7 @@ Deno.serve(async (_req) => {
       weekly_nudge_sent: nudgeSent,
       streak_in_danger_sent: streakSent,
       sunday_recap_sent: recapSent,
+      lifecycle_sent: lifecycleSent,
     }), { headers: { "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);

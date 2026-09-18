@@ -85,6 +85,7 @@
     if (qs.get('from') || qs.get('fill')) return;         // friend + list invites
     if (qs.get('joingroup')) return;                      // group invite — straight to sign-up
     if (qs.get('skipIntro')) return;                      // automated QA + "take me straight in" links
+    if (qs.get('invite') || qs.get('share') || qs.get('profile') || qs.get('openPrefs')) return; // email CTAs — these go to existing users, never the marketing page
     if (sessionStorage.getItem('tennerLaunch')) return;   // clicked the welcome CTA
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
     for (var i = 0; i < localStorage.length; i++) {
@@ -7586,6 +7587,7 @@ var EMAIL_PREF_CATEGORIES = [
   { key: 'social',    label: 'Social alerts', desc: 'Comments on your lists, friend requests, list shares, friend updates' },
   { key: 'weekly',    label: 'Weekly rhythm', desc: 'Weekly-list reveal, streak-in-danger, weekly nudges' },
   { key: 'reminders', label: 'Reminders',      desc: 'Birthday reminders 14 days out' },
+  { key: 'getting_started', label: 'Getting started', desc: 'A few one-off tips while you set up — stops on its own once you\'re going' },
   { key: 'product',   label: 'Product & tips', desc: 'Occasional feature announcements and tips' }
 ];
 var _emailPrefsCache = null;
@@ -16348,6 +16350,15 @@ function setupRealtimeNotifications() {
     window.__pendingOpenPrefs = true;
     history.replaceState(null, '', window.location.pathname);
   }
+  // Lifecycle-email CTAs. Each email's button has to land on the exact screen
+  // that completes the step it's chasing — dropping someone on Circle and
+  // hoping they find it is how these emails stop working.
+  //   ?invite=1        -> Profile (invite panel)      "Invite someone"
+  //   ?share=<cat>     -> share sheet for that list   "Ask a friend"
+  //   ?profile=1       -> profile edit                "Add my birthday"
+  if (_qs.get('invite') === '1')  { window.__pendingDeepLink = { kind: 'invite' }; history.replaceState(null, '', window.location.pathname); }
+  if (_qs.get('profile') === '1') { window.__pendingDeepLink = { kind: 'profile' }; history.replaceState(null, '', window.location.pathname); }
+  if (_qs.get('share'))           { window.__pendingDeepLink = { kind: 'share', cat: decodeURIComponent(_qs.get('share')) }; history.replaceState(null, '', window.location.pathname); }
 
   initSupabase();
   initPasswordRecoveryFlow();
@@ -16378,6 +16389,17 @@ function setupRealtimeNotifications() {
       if (window.__pendingOpenPrefs) {
         window.__pendingOpenPrefs = false;
         setTimeout(function() { go('s-email-prefs'); }, 300);
+      }
+      // Lifecycle-email CTAs (see the ?invite / ?profile / ?share capture above).
+      if (window.__pendingDeepLink) {
+        (function(dl) {
+          window.__pendingDeepLink = null;
+          setTimeout(function() {
+            if (dl.kind === 'invite') { go('s-profile'); try { renderInvitePanel(); } catch(e) {} }
+            else if (dl.kind === 'profile') { go('s-profile-edit'); }
+            else if (dl.kind === 'share' && dl.cat) { openShareListModal(dl.cat); }
+          }, 400);
+        })(window.__pendingDeepLink);
       }
       // Attribute this new signup to whoever's invite link they came from.
       // Runs once per user — only writes when profiles.invited_by is currently
