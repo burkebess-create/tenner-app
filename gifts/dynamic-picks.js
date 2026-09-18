@@ -143,14 +143,46 @@
     return 'https://www.amazon.com/s?k=' + encodeURIComponent(q.trim()).replace(/%20/g, '+') + '&tag=tenner09-20';
   }
 
+  // The static HTML on each category page carries a hand-written line per
+  // pick ("Bat-inspired merch, Joker posters, Nolan trilogy box sets").
+  // Harvest those BEFORE replacing anything, keyed by title, so a pick that
+  // survives into the live ranking keeps its copy.
+  //
+  // This previously replaced every description with one identical sentence
+  // that differed only by a number, so the moment a category crossed the
+  // 30-list threshold the page silently lost all of its curation and became
+  // twelve interchangeable rows. The aggregation is a better *ranking*; it
+  // was never better *writing*.
+  function harvestDescriptions(container) {
+    var map = {};
+    container.querySelectorAll('.pick').forEach(function(p) {
+      var t = p.querySelector('.title');
+      var d = p.querySelector('.desc');
+      if (!t || !d) return;
+      var key = t.textContent.trim().toLowerCase();
+      var text = d.textContent.trim();
+      if (key && text) map[key] = text;
+    });
+    return map;
+  }
+
   function renderPicks(container, items, suffix) {
+    var written = harvestDescriptions(container);
     container.innerHTML = items.map(function(entry, i) {
       var name = entry.item;
       var count = entry.count;
+      var desc = written[String(name).trim().toLowerCase()];
+      // No hand-written line for a pick the community surfaced on its own:
+      // say only what is true — how many people ranked it, and where it
+      // placed. No invented product claims.
+      if (!desc) {
+        desc = (i === 0 ? 'The most-picked ' : 'Ranked #' + (i + 1) + ' ')
+          + 'in this category, chosen by ' + count + ' Tenner list' + (count === 1 ? '' : 's') + '.';
+      }
       return '<div class="pick"><div class="rank">' + (i + 1) + '</div>'
         + '<div class="body">'
         +   '<div class="title">' + escapeHtml(name) + '</div>'
-        +   '<div class="desc">Chosen by ' + count + ' Tenner user' + (count === 1 ? '' : 's') + '. Tap Shop to see gift ideas built around this pick.</div>'
+        +   '<div class="desc">' + escapeHtml(desc) + '</div>'
         + '</div>'
         + '<a class="shop" href="' + amazonUrl(name, suffix) + '" target="_blank" rel="noopener sponsored nofollow">Shop →</a>'
         + '</div>';

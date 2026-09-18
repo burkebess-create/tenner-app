@@ -48,10 +48,20 @@
   .tile-sub { font-size: 9.5px; font-weight: 700; color: var(--accent); opacity: 0.85; letter-spacing: 0.12em; text-transform: uppercase; }
   .picks { margin-top: 12px; background: #FFFFFF; border: 1px solid #E8E6DF; border-radius: 3px; padding: 4px 6px; display: none; }
   .tile.open .picks { display: block; }
-  .pick { display: flex; align-items: center; gap: 10px; padding: 10px 6px; }
+  .pick { display: flex; align-items: flex-start; gap: 10px; padding: 11px 6px; }
   .pick + .pick { border-top: 1px solid #F1EFE8; }
-  .pick .rank { min-width: 22px; padding: 2px 7px; border-radius: 2px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #FFFFFF; background: #2C2C2A; }
-  .pick .name { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: #2C2C2A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pick .rank { min-width: 22px; padding: 2px 7px; border-radius: 2px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #FFFFFF; background: #2C2C2A; margin-top: 1px; }
+  .pick .body { flex: 1; min-width: 0; }
+  .pick .name { font-size: 13px; font-weight: 700; color: #2C2C2A; overflow-wrap: break-word; line-height: 1.3; }
+  /* The owner's own sentence about a pick. Quoted and attributed because it
+     is theirs, not ours — the one piece of a gift guide nobody else can write. */
+  .pick .note { margin-top: 5px; font-size: 12px; line-height: 1.45; color: #4A4945; border-left: 2px solid var(--accent, #D85A30); padding-left: 8px; font-style: italic; }
+  .pick .note cite { display: block; font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #888780; margin-top: 3px; }
+  /* Shown only when there is no note: strictly facts already on the page. */
+  .pick .meta { margin-top: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #888780; }
+  /* Hand-written, category-specific buying guidance. */
+  .guide { font-size: 12.5px; line-height: 1.5; color: #4A4945; background: #FFFFFF; border: 1px solid #E8E6DF; border-left: 4px solid var(--accent, #D85A30); border-radius: 3px; padding: 10px 12px; margin-top: 12px; }
+  .guide b { font-weight: 800; color: #2C2C2A; }
   .pick .shop { background: #D85A30; color: #fff; text-decoration: none; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; padding: 6px 10px; border-radius: 3px; flex-shrink: 0; }
 
   /* Category tints — same palette hex, expressed via --tint/--accent so the
@@ -223,6 +233,63 @@
     return cat;
   }
 
+  // ── Editorial layer ──────────────────────────────────────────────────
+  // A gift page that is only names + Shop buttons says nothing about why a
+  // pick is a good gift or who it suits. Three sources of context, in
+  // descending order of value, none of them invented:
+  //   1. CATEGORY_GUIDE — written by hand, per category, about how to shop
+  //      THIS kind of list. Original, and different on every category.
+  //   2. The owner's own note on a pick (item_notes), quoted and attributed.
+  //   3. Failing both, plain facts already visible on the page (their rank).
+  // What is deliberately absent: generated praise for a product. We have no
+  // basis for claiming a thing is well made or worth the money, so we never
+  // say it — the person's own sentence is the endorsement, or nothing is.
+  var CATEGORY_GUIDE = {
+    'Movies': 'A favorite film is a <b>theme</b>, not a product — the gift is usually the poster, the art book, the score on vinyl, or the LEGO set, rather than the disc. Look for something they can display.',
+    'TV Shows': 'Long-running shows have the deepest merch shelves of anything on this page. For a show they have rewatched, the joke gift lands better than the box set they already own.',
+    'Books': 'The one category where duplicates are the real risk. Safer routes than the book itself: a nicer edition of something they already love, the author\'s backlist, or an audiobook credit.',
+    'Candy Bars': 'Cheap to buy and easy to get right, which makes these best as <b>stocking fillers and add-ons</b>. Variety packs and international versions of a bar they love do more work than a single bar.',
+    'Sodas': 'Think format, not flavor — a case of the hard-to-find version, a glass-bottle import, or the syrup for a soda maker beats a single can.',
+    'Favorite bands': 'Tour merch is the obvious move, but vinyl, a concert poster print, or a biography of the band tend to feel more considered.',
+    'Ice Cream Flavors': 'The flavor itself does not ship well. The gift is usually the equipment or the topping — a scoop, a maker, a sundae kit built around the flavor they picked.',
+    'Cold Cereals': 'Firmly a novelty gift, and better for it. Box variety packs, retro packaging, and cereal-branded bowls all play the joke well.',
+    'Fast Food Items': 'You cannot wrap a burger. Gift cards are the honest answer, and branded sauces or merch make it feel deliberate rather than lazy.',
+    'Hobbies': 'The highest-value list on this page for gifting. Buy the <b>upgrade or the consumable</b>, not the starter kit — someone with a hobby already owns the basics.',
+    'Travel Destinations': 'Aspiration, not itinerary. Guidebooks, a good map print, language basics, or gear for the kind of trip that place implies.',
+    'Board, Card, & Dice Games': 'Check what they own before buying a base game. Expansions, better components, and a decent storage insert are safer and often more welcome.',
+    'Bucket-List Experiences': 'These are the hardest to buy and the most memorable to receive — look for the thing that moves it one step closer, whether that is gear, a lesson, or a booking.',
+    'Restaurants': 'A gift card to a place on this list is genuinely thoughtful — it says you knew. For chains, check the card works at their local branch.',
+    'Things I Want But Haven\'t Bought': 'The most literal list on the page. They have already told you what they want; the only job left is picking the version.',
+    'Video Games': 'Confirm the platform before anything else. Controllers, art books, and soundtrack vinyl work when you cannot tell what they already own digitally.',
+    'Songs': 'A single song is not a gift, but the album on vinyl, sheet music, or a framed lyric print is.',
+    'Best Purchases I\'ve Ever Made': 'Things they already rate highly — useful as a read on their taste and budget more than as a shopping list. Buy the accessory, not the duplicate.',
+    'Favorite Stores': 'Gift cards, with none of the usual guilt: they picked the shop themselves.',
+    'Favorite travel gear': 'They know this category better than you do. Buy the consumable or the small upgrade rather than replacing something they chose deliberately.',
+    'Things Everyone Should Own': 'Their argument for what matters. Anything here they do not already own is close to a guaranteed hit.',
+    'Things you can’t live without': 'Daily-use items, which means quality shows. The premium version of something on this list will get noticed every day.',
+    'Things you’d buy if you won the lottery': 'Mostly out of range, and that is the fun of it — look for the affordable, miniature, or novelty version of the dream.',
+    'Sports Teams': 'Deep, well-stocked merch, so the trick is avoiding what they own. Retro kits, framed prints, and match-day extras beat the current-season shirt.',
+    'Meals': 'Cook it, or buy toward it: the ingredient they cannot source locally, the right pan, or the cookbook it comes from.',
+    'Favorite podcasts': 'Show merch is hit and miss. A membership or back-catalogue subscription is usually the better gift.',
+    'Dream places to live': 'Treat it like a travel list — prints, books, and objects from the place, rather than anything practical.'
+  };
+  var CATEGORY_GUIDE_FALLBACK = 'These are their own top picks, in their own order. The safest buy is something that builds on a pick rather than duplicating it — an accessory, an upgrade, or the version they would not buy themselves.';
+
+  function guideFor(category) {
+    return CATEGORY_GUIDE[category] || CATEGORY_GUIDE_FALLBACK;
+  }
+
+  // Notes are user-written and public. They are length-capped on write, but
+  // re-clamped here so anything stored before that cap existed cannot blow
+  // out the layout, and escaped like any other untrusted string.
+  function noteHtml(note, ownerFirstName) {
+    var t = String(note == null ? '' : note).trim();
+    if (!t) return '';
+    if (t.length > 280) t = t.slice(0, 277) + '…';
+    return '<div class="note">“' + escapeHtml(t) + '”'
+      + '<cite>— ' + escapeHtml(ownerFirstName) + '</cite></div>';
+  }
+
   function amazonSearchUrl(item, category) {
     var suffix = GIFT_CATEGORY_SUFFIX[category];
     if (!suffix) {
@@ -359,6 +426,7 @@
       return;
     }
     var name = data.display_name || (data.handle ? '@' + data.handle : 'Your friend');
+    var firstName = String(name).replace(/^@/, '').split(' ')[0] || 'They';
     var initials = (data.display_name || data.handle || '?').split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
     document.title = 'Gifts for ' + name + ' — Tenner';
 
@@ -394,7 +462,15 @@
       + countdown
       + '</div>';
 
-    html += '<div class="disclosure">Shop links are Amazon affiliate links. As an Amazon Associate, Tenner earns from qualifying purchases at no extra cost to you.</div>';
+    // Says plainly what the Shop button does. The picks and any notes are
+    // theirs; the button runs an Amazon search for that pick rather than
+    // recommending a specific product, and pretending otherwise would be
+    // the dishonest version of this page.
+    html += '<div class="disclosure">'
+      + '<b>' + escapeHtml(firstName) + ' chose these picks</b> — the notes are theirs too. '
+      + 'Each <b>Shop</b> button opens an Amazon search for that pick, so you choose the actual product.'
+      + '<br><span style="opacity:0.85">Shop links are Amazon affiliate links. As an Amazon Associate, Tenner earns from qualifying purchases at no extra cost to you.</span>'
+      + '</div>';
 
     if (lists.length) {
       html += '<div style="margin:8px 0 16px">'
@@ -418,10 +494,24 @@
           + '<div class="tile-emoji">' + renderEmoji(emoji, 32) + '</div>'
           + '<div class="tile-title">' + escapeHtml(l.category) + '</div>'
           + '<div class="tile-sub" data-closed-hint="' + escapeHtml(closedHint) + '" data-open-hint="' + escapeHtml(openHint) + '">' + escapeHtml(closedHint) + '</div>'
-          + '<div class="picks" onclick="event.stopPropagation()">';
+          + '<div class="picks" onclick="event.stopPropagation()">'
+          + '<div class="guide">' + guideFor(l.category) + '</div>';
+        var notes = (l.item_notes && typeof l.item_notes === 'object') ? l.item_notes : {};
+        var totalInList = (l.items || []).length;
         items.forEach(function(it, i) {
           var url = amazonSearchUrl(it, l.category);
-          html += '<div class="pick"><div class="rank">' + (i+1) + '</div><div class="name">' + escapeHtml(it) + '</div>'
+          // Their sentence if they wrote one; otherwise state only what is
+          // already true and on the page. Never a generated opinion.
+          var context = noteHtml(notes[it], firstName);
+          if (!context) {
+            context = '<div class="meta">'
+              + (l.is_ranked ? ('Their #' + (i + 1) + ' of ' + totalInList) : ('One of their ' + totalInList))
+              + '</div>';
+          }
+          // An unranked list has no #1, so numbering it would assert an order
+          // its owner never chose. The app itself uses a dot for these.
+          html += '<div class="pick"><div class="rank">' + (l.is_ranked ? (i+1) : '•') + '</div>'
+            + '<div class="body"><div class="name">' + escapeHtml(it) + '</div>' + context + '</div>'
             + '<a class="shop" href="' + url + '" target="_blank" rel="noopener sponsored nofollow">Shop →</a></div>';
         });
         html += '</div></div>';

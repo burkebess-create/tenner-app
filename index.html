@@ -2083,7 +2083,7 @@ function go(id) {
   if (id === 's-fdetail' && selFriendId) { renderFriendDetail(); markFriendViewed(selFriendId); }
   if (id === 's-circle') maybeShowTabTip('circle');
   if (id === 's-match') maybeShowTabTip('match');
-  if (id === 's-create1') { maybeShowTabTip('create'); editingListIdx = -1; selCat = ''; var _vc = visibleCategoriesForUser()[0]; selCat = _vc ? _vc.n : ''; selCatEmoji = _vc ? _vc.e : '📋'; items = []; _itemProvenance = {}; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
+  if (id === 's-create1') { maybeShowTabTip('create'); editingListIdx = -1; selCat = ''; var _vc = visibleCategoriesForUser()[0]; selCat = _vc ? _vc.n : ''; selCatEmoji = _vc ? _vc.e : '📋'; items = []; _itemProvenance = {}; itemNotes = {}; _openNoteIdx = -1; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
   if (id === 's-create2') { maybeRestoreOverflowDraft(); renderItems(); updateProg(); renderItemChips(); }
   if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); addedNonFriends = {}; clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
@@ -3460,6 +3460,49 @@ var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
   h.textContent = 'Drag items to reorder your ranking.';
 })();
 
+// ── Per-item gift notes ──────────────────────────────────────────────────
+// Keyed by item TEXT, matching how they're stored, so reordering (the core
+// interaction of this screen) can never reattach a note to the wrong pick.
+// Renaming an item drops its note rather than mis-crediting it.
+var itemNotes = {};
+var _openNoteIdx = -1;
+
+function toggleItemNote(i) {
+  if (_openNoteIdx === i) { commitItemNote(i); _openNoteIdx = -1; }
+  else { if (_openNoteIdx >= 0) commitItemNote(_openNoteIdx); _openNoteIdx = i; }
+  renderItems();
+  if (_openNoteIdx === i) {
+    var el = document.getElementById('item-note-inp-' + i);
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  }
+}
+
+// Live into the in-memory map so the note survives a re-render (reorder,
+// add, delete) without needing a commit first.
+function onItemNoteType(i, val) {
+  var item = items[i];
+  if (item == null) return;
+  var t = String(val).slice(0, 280);
+  if (t.trim()) itemNotes[item] = t; else delete itemNotes[item];
+  var c = document.getElementById('item-note-count-' + i);
+  if (c) c.textContent = t.length + '/280';
+}
+
+function commitItemNote(i) {
+  var el = document.getElementById('item-note-inp-' + i);
+  if (el) onItemNoteType(i, el.value);
+}
+
+// Drop notes whose item no longer exists, so a renamed or deleted pick
+// doesn't leave an orphan that could later reattach to an unrelated item
+// of the same name.
+function pruneItemNotes() {
+  var live = {};
+  items.forEach(function(it) { if (itemNotes[it]) live[it] = itemNotes[it]; });
+  itemNotes = live;
+  return itemNotes;
+}
+
 function renderItems() {
   isRanked = document.getElementById('ranked-tog') ? document.getElementById('ranked-tog').checked : true;
   var list = document.getElementById('items-list');
@@ -3495,6 +3538,26 @@ function renderItems() {
     var fromTag = fromWho
       ? '<span style="font-size:8.5px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#B57F0F;background:#FBF0D8;padding:2px 6px;border-radius:3px;flex-shrink:0;margin-left:4px">from ' + escapeHtml(String(fromWho).split(' ')[0]) + '</span>'
       : '';
+    // "Why?" note — the owner's own sentence about a pick, shown on their
+    // public gift guide. Collapsed to a single glyph until used, so the
+    // editor stays a list editor; the row only grows once there's a note.
+    var noteVal = itemNotes[item] || '';
+    var noteOpen = _openNoteIdx === i;
+    var noteBtn = '<button type="button" onmousedown="event.preventDefault()" onclick="toggleItemNote(' + i + ')" title="Why do you love this? (shows on your gift guide)"'
+      + ' style="background:none;border:none;cursor:pointer;font-size:13px;line-height:1;padding:0 3px;flex-shrink:0;color:' + (noteVal ? '#D85A30' : '#C8C6BE') + '">' + (noteVal ? '✎' : '＋') + '</button>';
+    var noteRow = '';
+    if (noteOpen) {
+      noteRow = '<div style="width:100%;margin-top:6px;padding-left:2px">'
+        + '<textarea id="item-note-inp-' + i + '" rows="2" maxlength="280" placeholder="Why do you love this? Shows on your gift guide."'
+        + ' oninput="onItemNoteType(' + i + ',this.value)" onblur="commitItemNote(' + i + ')"'
+        + ' style="width:100%;font-size:12.5px;color:#2C2C2A;border:1px solid #E5E3DA;border-left:3px solid #D85A30;background:#FFFDF9;border-radius:3px;padding:7px 8px;font-family:inherit;line-height:1.4;resize:none">' + escapeHtml(noteVal) + '</textarea>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px">'
+        +   '<span style="font-size:10px;color:#888780">Optional · public on your gift guide</span>'
+        +   '<span id="item-note-count-' + i + '" style="font-size:10px;color:#888780">' + noteVal.length + '/280</span>'
+        + '</div></div>';
+    } else if (noteVal) {
+      noteRow = '<div onclick="toggleItemNote(' + i + ')" style="width:100%;margin-top:4px;padding-left:2px;font-size:11.5px;color:#5F5E5A;font-style:italic;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">“' + escapeHtml(noteVal) + '”</div>';
+    }
     // Cutoff divider sits immediately before the first overflow row.
     if (i === MAX_SAVED_ITEMS) {
       var cut = document.createElement('div');
@@ -3509,8 +3572,10 @@ function renderItems() {
       + fromTag
       + moveBtns
       + dragHandle
+      + noteBtn
       + '<button onmousedown="removeItem(' + i + ')" style="background:none;border:none;color:#888780;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0">×</button>'
-      + '<div class="sugs" id="' + sugsId + '" style="width:100%;margin-top:2px"></div>';
+      + '<div class="sugs" id="' + sugsId + '" style="width:100%;margin-top:2px"></div>'
+      + noteRow;
     // Live-drag physics via pointer events (unified mouse + touch)
     attachLiveDrag(div);
     list.appendChild(div);
@@ -4849,6 +4914,8 @@ function editCurrentList() {
   selCat = l.category || l.n.replace('Top 10 ', '');
   selCatEmoji = l.emoji || getCatEmoji(selCat);
   items = l.items.slice();
+  itemNotes = Object.assign({}, l.item_notes || {});
+  _openNoteIdx = -1;
   isRanked = l.ranked !== false;
   listOrigin = 's-list-detail';
   renderCatGrid();
@@ -10136,6 +10203,8 @@ function commitPickedItems() {
   selCatEmoji = emoji || getCatEmoji(cat);
   isRanked = idx >= 0 ? (MY_LISTS[idx].ranked !== false) : (_pickCtx.ranked !== false);
   items = base.concat(added);
+  itemNotes = Object.assign({}, (idx >= 0 && MY_LISTS[idx].item_notes) || {});
+  _openNoteIdx = -1;
 
   // From the pool each item can come from a different person, so credit them
   // individually when we know; otherwise everything is from the one friend.
@@ -11510,6 +11579,7 @@ async function saveListToDb(listObj) {
       emoji: listObj.emoji || '📋',
       is_public: !!listObj.is_public,
       blind_fill: !!listObj.blind_fill,
+      item_notes: listObj.item_notes || {},
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id,category' });
     if (res && res.error) throw res.error;
@@ -11740,7 +11810,7 @@ async function loadState() {
 
       if (listsRes.data && listsRes.data.length > 0) {
         MY_LISTS = listsRes.data.map(function(l) {
-          return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category, emoji: l.emoji || getCatEmoji(l.category), is_public: !!l.is_public, blind_fill: !!l.blind_fill, updated_at: l.updated_at, created_at: l.created_at };
+          return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category, emoji: l.emoji || getCatEmoji(l.category), is_public: !!l.is_public, blind_fill: !!l.blind_fill, item_notes: (l.item_notes && typeof l.item_notes === 'object') ? l.item_notes : {}, updated_at: l.updated_at, created_at: l.created_at };
         });
         _usingCachedLists = false;
       } else if (listsRes.error) {
@@ -16021,6 +16091,8 @@ function editListByIdx(idx) {
   selCat = l.category || l.n.replace('Top 10 ', '');
   selCatEmoji = l.emoji || getCatEmoji(selCat);
   items = l.items.slice();
+  itemNotes = Object.assign({}, l.item_notes || {});
+  _openNoteIdx = -1;
   isRanked = l.ranked !== false;
   listOrigin = 's-list-detail';
   renderCatGrid();
@@ -16066,7 +16138,7 @@ async function saveListDataOnly() {
   var prevPublic = createToggle ? !!createToggle.checked : (existing >= 0 ? !!(MY_LISTS[existing] && MY_LISTS[existing].is_public) : true);
   var blindToggle = document.getElementById('create-blind-fill-toggle');
   var prevBlind = blindToggle ? !!blindToggle.checked : (existing >= 0 ? !!(MY_LISTS[existing] && MY_LISTS[existing].blind_fill) : false);
-  var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic, blind_fill: prevBlind };
+  var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic, blind_fill: prevBlind, item_notes: pruneItemNotes() };
   try {
     await saveListToDb(listObj);
   } catch(e) {
@@ -16076,11 +16148,42 @@ async function saveListDataOnly() {
   if (existing >= 0) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
 }
 
+// Gift notes are public on the share page, so they go through the same
+// pre-write moderation as comments. Only notes that CHANGED are checked —
+// re-moderating untouched notes on every save would burn quota and could
+// start blocking a save over text that was already accepted. Falls open on
+// an outage, matching submitItemComment, so moderation being down never
+// costs someone their list.
+async function moderateChangedNotes(prevNotes) {
+  var prev = prevNotes || {};
+  var changed = Object.keys(itemNotes).filter(function(k) { return itemNotes[k] !== prev[k]; });
+  for (var i = 0; i < changed.length; i++) {
+    var text = String(itemNotes[changed[i]]).trim();
+    if (!text) continue;
+    try {
+      var mod = await moderateTextRemote(text);
+      if (mod && mod.flagged) {
+        trackEvent('moderation_blocked', { surface: 'gift_note', category: mod.primary || 'unknown' });
+        return { blocked: true, item: changed[i], label: mod.primary_label || 'content that violates our guidelines' };
+      }
+    } catch (e) { /* fall open */ }
+  }
+  return { blocked: false };
+}
+
 async function saveList() {
   // Flush any half-typed text in the "add item" input first
   var pending = document.getElementById('item-inp');
   if (pending && pending.value && pending.value.trim()) {
     doAddItem();
+  }
+  // Commit a note that's still focused, or it would be lost on save.
+  if (_openNoteIdx >= 0) { commitItemNote(_openNoteIdx); _openNoteIdx = -1; }
+  var _existingIdx = MY_LISTS.findIndex(function(l) { return (l.category || l.n.replace('Top 10 ', '')) === selCat; });
+  var _modRes = await moderateChangedNotes(_existingIdx >= 0 ? MY_LISTS[_existingIdx].item_notes : {});
+  if (_modRes.blocked) {
+    showConfirm('Check your note', 'Your note on “' + _modRes.item + '” looks like it contains ' + _modRes.label + '. Please rephrase it before saving.', 'OK', 'primary', function(){});
+    return;
   }
   // Overflow gate: only the top 10 can be saved. Confirm before discarding,
   // and name what's being dropped so it isn't a surprise.
@@ -16113,7 +16216,7 @@ async function saveList() {
   var prevPublic = createToggle ? !!createToggle.checked : (isUpdate ? !!(MY_LISTS[existing] && MY_LISTS[existing].is_public) : true);
   var blindToggle = document.getElementById('create-blind-fill-toggle');
   var prevBlind = blindToggle ? !!blindToggle.checked : (isUpdate ? !!(MY_LISTS[existing] && MY_LISTS[existing].blind_fill) : false);
-  var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic, blind_fill: prevBlind };
+  var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic, blind_fill: prevBlind, item_notes: pruneItemNotes() };
   // Try DB write first. On failure, queue for retry — user can keep working
   // and we'll sync next time loadState() runs (or when they hit "Retry now").
   var syncedOk = true;
