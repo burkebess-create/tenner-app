@@ -3576,10 +3576,20 @@ function clearPendingDeepLink() {
 // (restore-after-update) from navigating somewhere else first.
 function hasPendingDeepLink() { return !!(getPendingDeepLink() || _pendingFillCat || getPendingInvite()); }
 
+// Drops only the deep-link parameters, leaving anything else on the URL alone.
+function _stripDeepLinkParams() {
+  try {
+    var u = new URL(window.location.href);
+    ['create', 'invite', 'profile', 'share', 'openPrefs'].forEach(function(k) { u.searchParams.delete(k); });
+    history.replaceState(null, '', u.pathname + (u.search || '') + (u.hash || ''));
+  } catch (e) {}
+}
+
 function applyPendingDeepLink() {
   var dl = getPendingDeepLink();
   if (!dl) return false;
   clearPendingDeepLink();
+  _stripDeepLinkParams();
   // go() already runs each screen's render hook, so nothing else is needed.
   if (dl.kind === 'create')       go('s-create1');
   else if (dl.kind === 'invite')  go('s-profile');
@@ -16672,20 +16682,22 @@ function setupRealtimeNotifications() {
     history.replaceState(null, '', window.location.pathname);
   }
   // ?openPrefs=1 → email footer deep link to the preference center
-  if (_qs.get('openPrefs') === '1') {
-    savePendingDeepLink('prefs');
-    history.replaceState(null, '', window.location.pathname);
-  }
+  if (_qs.get('openPrefs') === '1') savePendingDeepLink('prefs');
   // Lifecycle-email CTAs. Each email's button has to land on the exact screen
   // that completes the step it's chasing — dropping someone on Circle and
   // hoping they find it is how these emails stop working.
   //   ?invite=1        -> Profile (invite panel)      "Invite someone"
   //   ?share=<cat>     -> share sheet for that list   "Ask a friend"
   //   ?profile=1       -> profile edit                "Add my birthday"
-  if (_qs.get('create') === '1')  { savePendingDeepLink('create');  history.replaceState(null, '', window.location.pathname); }
-  if (_qs.get('invite') === '1')  { savePendingDeepLink('invite');  history.replaceState(null, '', window.location.pathname); }
-  if (_qs.get('profile') === '1') { savePendingDeepLink('profile'); history.replaceState(null, '', window.location.pathname); }
-  if (_qs.get('share'))           { savePendingDeepLink('share', decodeURIComponent(_qs.get('share'))); history.replaceState(null, '', window.location.pathname); }
+  // The URL keeps the parameter until the link is actually USED. Stripping it
+  // at capture meant the intent existed only in localStorage, so anything that
+  // reloaded the page into a context without that storage — and on iOS an
+  // in-app browser, Safari and an installed PWA each have their own — lost it
+  // with no way to recover. Held in the URL, a reload re-captures it.
+  if (_qs.get('create') === '1')  savePendingDeepLink('create');
+  if (_qs.get('invite') === '1')  savePendingDeepLink('invite');
+  if (_qs.get('profile') === '1') savePendingDeepLink('profile');
+  if (_qs.get('share'))           savePendingDeepLink('share', decodeURIComponent(_qs.get('share')));
 
   initSupabase();
   initPasswordRecoveryFlow();
@@ -16831,23 +16843,39 @@ function setupRealtimeNotifications() {
         _pendingFillFrom = fromId;
       }
     }
-    loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderCircleAnchorChips(); renderGiftReminders(); updateGroupMetaCounts(); afterCatsReady(); }).catch(function(e){ console.warn(e); afterCatsReady(); });
+    var _pLists = loadState().then(function() { renderHome(); renderListPicker(); renderCircleGroups(); renderCircleAnchorChips(); renderGiftReminders(); updateGroupMetaCounts(); }).catch(console.warn);
     // Circle is the initial landing surface; its render calls fire before profile/friends
     // finish loading, leaving avatars and activity blank until the user navigates away and
     // back. When each load completes, if Circle is currently active, refresh the parts
     // that depend on that data.
     var isCircleActive = function() { var el = document.getElementById('s-circle'); return el && el.classList.contains('active'); };
-    loadProfile().then(function() {
+    var _pProfile = loadProfile().then(function() {
       renderTopbarAvatars(); // populate wherever it's mounted (all tabs)
       if (isCircleActive()) { renderTodayPill(); renderProfileNudges(); }
     }).catch(console.warn);
-    loadFriends().then(function() {
+    var _pFriends = loadFriends().then(function() {
       if (isCircleActive()) { renderCircleStories(); renderHomeFeed(); renderCircleScreen(); renderTodayPill(); renderCircleListInvites(); }
       // After an update reload, put the user back where they were. Runs here
       // because friends/groups/lists must exist before we can reopen a friend,
       // group or list screen.
       if (typeof restoreAfterUpdate === 'function') restoreAfterUpdate();
     }).catch(console.warn);
+
+    // An email deep link is the user's most recent explicit intent, so it is
+    // applied LAST — after every piece of startup work has settled, not just
+    // the one it happens to depend on.
+    //
+    // Chasing these races one at a time was not converging: lists, then the
+    // category catalogue, then onboarding, and restoreAfterUpdate() still
+    // sitting inside the loadFriends() callback able to navigate afterwards.
+    // Each fix only reordered the loser. Waiting for all of them removes the
+    // whole class, including whichever call gets added to this block next.
+    // allSettled, not all: one failed startup query must not strand the user
+    // on Circle with their destination silently dropped.
+    Promise.allSettled([
+      _pLists, _pProfile, _pFriends,
+      Promise.resolve(_catsReady), Promise.resolve(_onbDecided)
+    ]).then(function() { afterCatsReady(); });
     refreshNotifications().then(function() {
       if (isCircleActive()) renderCircleListInvites();
     }).catch(console.warn);
