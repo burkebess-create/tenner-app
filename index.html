@@ -1883,7 +1883,7 @@ var ITEMS = {
   'Songs':['Bohemian Rhapsody','Hotel California','Stairway to Heaven','Imagine','Smells Like Teen Spirit','Johnny B. Goode','What\'s Going On'],
   'Books':['To Kill a Mockingbird','1984','The Great Gatsby','Harry Potter','Lord of the Rings','Fahrenheit 451','Brave New World']
 };
-var FUZZY_CATS = {'moveis':'Movies','movie':'Movies','films':'Movies','film':'Movies','tv show':'TV Shows','television':'TV Shows','shows':'TV Shows','candy bar':'Candy Bars','chocolate':'Candy Bars','vacation':'Travel','travel spot':'Travel','soda':'Sodas','pop':'Sodas','book':'Books'};
+var FUZZY_CATS = {'moveis':'Movies','movie':'Movies','films':'Movies','film':'Movies','tv show':'TV Shows','television':'TV Shows','shows':'TV Shows','candy bar':'Candy Bars','chocolate':'Candy Bars','vacation':'Travel Destinations','travel spot':'Travel Destinations','travel':'Travel Destinations','soda':'Sodas','pop':'Sodas','book':'Books'};
 var FUZZY_ITEMS = {'mars':'Mars Bar','snicker':'Snickers','reeses':'Reese\'s Peanut Butter Cups','reese':'Reese\'s Peanut Butter Cups','kitkat':'Kit Kat','kit-kat':'Kit Kat','godfather':'The Godfather','dark knight':'The Dark Knight','matrix':'The Matrix'};
 var FRIENDS = [];
 /*
@@ -3561,8 +3561,26 @@ function addItemFromChip(name) {
   renderItemChips();
 }
 
+// Autofill suggestions for the category being filled in.
+//
+// This used to match on the FIRST WORD of any ITEMS key appearing anywhere in
+// the category name, and took whichever key happened to come first. So every
+// category sharing a first word collapsed onto one pool: "Favorite podcasts"
+// matched the key "Favorite bands" and offered band names. On live data that
+// was 13 categories in 3 groups — all 7 "Things ..." categories, all 4
+// "Favorite ..." ones, and both "Best ..." ones — plus any custom category
+// containing one of those words.
+//
+// ITEMS is keyed by the exact category name (loadCategoriesFromDb builds it
+// straight from categories.name, which is also what selCat holds), so an
+// exact match is both correct and sufficient. Case-insensitive because
+// custom categories are free text and a user-typed "favorite bands" should
+// still find the real one.
 function getItemPool() {
-  var key = Object.keys(ITEMS).find(function(k) { return selCat.toLowerCase().includes(k.toLowerCase().split(' ')[0]); });
+  if (!selCat) return [];
+  if (ITEMS[selCat]) return ITEMS[selCat] || [];
+  var want = String(selCat).trim().toLowerCase();
+  var key = Object.keys(ITEMS).find(function(k) { return String(k).trim().toLowerCase() === want; });
   return key ? (ITEMS[key] || []) : [];
 }
 
