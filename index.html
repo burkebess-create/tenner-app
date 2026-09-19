@@ -7371,6 +7371,59 @@ async function nudgeFriend(friendName, category) {
   } catch(e) {}
   showToast('Copy this: ' + msg, 6000);
 }
+// ── Leaked-password check (HaveIBeenPwned range API) ─────────────────────
+// Supabase's built-in HIBP check is Pro-only, so this is the same control
+// implemented directly. It uses the k-anonymity range endpoint: we SHA-1 the
+// password, send only the first FIVE hex characters, and match the remaining
+// 35 against the returned suffix list locally. The password — and its full
+// hash — never leave the device, and the API needs no key.
+//
+// Honest limit: being client-side, a determined person could bypass it by
+// calling the API directly. That is fine for what this defends against. The
+// point is to stop someone unknowingly reusing a password that is already in
+// a breach dump — i.e. credential stuffing — not to stop an attacker from
+// deliberately weakening their own account.
+async function sha1Hex(str) {
+  var buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2, '0'); }).join('').toUpperCase();
+}
+
+// Returns the number of times the password appears in known breaches, or 0.
+// Returns 0 on ANY failure: an outage at HIBP must never block a signup.
+async function pwnedCount(password) {
+  try {
+    if (!password || !window.crypto || !crypto.subtle) return 0;
+    var hash = await sha1Hex(password);
+    var prefix = hash.slice(0, 5), suffix = hash.slice(5);
+    var ctrl = new AbortController();
+    var timer = setTimeout(function(){ ctrl.abort(); }, 4000);
+    var res = await fetch('https://api.pwnedpasswords.com/range/' + prefix, {
+      signal: ctrl.signal,
+      headers: { 'Add-Padding': 'true' }   // pads the response so its size leaks nothing
+    });
+    clearTimeout(timer);
+    if (!res.ok) return 0;
+    var text = await res.text();
+    var lines = text.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var parts = lines[i].trim().split(':');
+      if (parts[0] === suffix) return parseInt(parts[1], 10) || 0;
+    }
+    return 0;
+  } catch (e) { return 0; }
+}
+
+// Shared gate for signup and password change. Returns an error string, or null.
+async function passwordRejectionReason(password) {
+  if (!password || password.length < 8) return 'Use at least 8 characters.';
+  var n = await pwnedCount(password);
+  if (n > 0) {
+    return 'This password has appeared in ' + n.toLocaleString() + ' known data breach'
+      + (n === 1 ? '' : 'es') + '. Please choose a different one.';
+  }
+  return null;
+}
+
 var currentAuthTab = 'login';
 
 // Cloudflare Turnstile config. Paste the site key from Cloudflare Dashboard →
@@ -7570,7 +7623,7 @@ function showSetNewPasswordModal() {
     +   '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:22px;color:#2C2C2A;text-align:center;margin-bottom:8px">Set a new password</div>'
     +   '<div style="font-size:12px;color:#5F5E5A;text-align:center;margin-bottom:14px">Choose a new password for your Tenner account.</div>'
     +   '<div style="position:relative;margin-bottom:8px">'
-    +     '<input type="password" id="reset-new-password" placeholder="New password (at least 6 characters)" style="margin-bottom:0;padding-right:60px">'
+    +     '<input type="password" id="reset-new-password" placeholder="New password (at least 8 characters)" style="margin-bottom:0;padding-right:60px">'
     +     '<span onclick="togglePw(\'reset-new-password\',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#888780;font-size:11px;font-weight:600;cursor:pointer;padding:4px 6px;user-select:none">Show</span>'
     +   '</div>'
     +   '<div id="reset-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #F0997B"></div>'
@@ -7582,7 +7635,8 @@ function showSetNewPasswordModal() {
 async function submitNewPassword() {
   var pw = (document.getElementById('reset-new-password') || {}).value || '';
   var errEl = document.getElementById('reset-error');
-  if (pw.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
+  var pwReason = await passwordRejectionReason(pw);
+  if (pwReason) { errEl.textContent = pwReason; errEl.style.display = 'block'; return; }
   try {
     var res = await sbClient.auth.updateUser({ password: pw });
     if (res.error) { errEl.textContent = authErrorText(res.error); errEl.style.display = 'block'; return; }
@@ -7691,6 +7745,14 @@ async function submitAuth() {
           resetTurnstileWidget();
           return;
         }
+      }
+      var pwReason = await passwordRejectionReason(password);
+      if (pwReason) {
+        errEl.textContent = pwReason;
+        errEl.style.display = 'block';
+        btn.textContent = 'Create account'; btn.disabled = false;
+        resetTurnstileWidget();
+        return;
       }
       res = await sbClient.auth.signUp({
         email: email,
@@ -7804,7 +7866,8 @@ async function submitChangePassword() {
   var errEl = document.getElementById('pw-error');
   function showErr(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
   errEl.style.display = 'none';
-  if (newPw.length < 6) { showErr('Password must be at least 6 characters.'); return; }
+  var pwReason2 = await passwordRejectionReason(newPw);
+  if (pwReason2) { showErr(pwReason2); return; }
   if (newPw !== confirm) { showErr('Passwords do not match.'); return; }
   if (hasPassword) {
     var currentPw = (document.getElementById('pw-current') || {}).value || '';
