@@ -744,6 +744,7 @@
           </div>
           <div id="current-weekly-section" style="margin-bottom:14px"></div>
           <div id="past-weekly-section" style="margin-bottom:12px"></div>
+          <div id="cat-grid-prev"></div>
           <div class="cat-grid" id="cat-grid"></div>
           <div id="cat-grid-more"></div>
           <div style="display:flex;align-items:center;gap:12px;margin:22px 0 10px">
@@ -2187,7 +2188,7 @@ function go(id) {
   if (id === 's-fdetail' && selFriendId) { renderFriendDetail(); markFriendViewed(selFriendId); }
   if (id === 's-circle') maybeShowTabTip('circle');
   if (id === 's-match') maybeShowTabTip('match');
-  if (id === 's-create1') { maybeShowTabTip('create'); _catGridShown = CAT_GRID_SLOTS; editingListIdx = -1; selCat = ''; var _vc = visibleCategoriesForUser()[0]; selCat = _vc ? _vc.n : ''; selCatEmoji = _vc ? _vc.e : '📋'; items = []; _itemProvenance = {}; itemNotes = {}; _openNoteIdx = -1; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
+  if (id === 's-create1') { maybeShowTabTip('create'); _catGridPage = 0; editingListIdx = -1; selCat = ''; var _vc = visibleCategoriesForUser()[0]; selCat = _vc ? _vc.n : ''; selCatEmoji = _vc ? _vc.e : '📋'; items = []; _itemProvenance = {}; itemNotes = {}; _openNoteIdx = -1; renderCatGrid(); renderItems(); updateProg(); renderCreateCurrentWeekly(); renderCreatePastWeekly(); renderTopbarAvatars(); var ce = document.getElementById('cat-emoji-row'); if (ce) ce.style.display = 'none'; var ci = document.getElementById('cat-inp'); if (ci) ci.value = ''; var cw = document.getElementById('cat-warn'); if (cw) cw.style.display = 'none'; var cs = document.getElementById('cat-sugs'); if (cs) cs.style.display = 'none'; var backBtn = document.getElementById('create1-back-btn'); if (backBtn) backBtn.style.display = _createFromHome ? 'block' : 'none'; _createFromHome = false; }
   if (id === 's-create2') { maybeRestoreOverflowDraft(); renderItems(); updateProg(); renderItemChips(); }
   if (id === 's-cg1') { creatingNewGroup = true; selList = -1; selEmoji = 0; selEmojiChar = EMOJIS[0]; groupPhotoData = null; addedFriends = new Set(); addedNonFriends = {}; clearEmojiSearch(); renderEmojiGrid(); var prev = document.getElementById('cg1-avatar-preview'); if (prev) { prev.innerHTML = ''; prev.style.fontSize = '24px'; prev.textContent = EMOJIS[0]; } }
   if (id === 's-cg2') { renderFriendsList(); renderAddedChips(); }
@@ -3104,12 +3105,13 @@ function nudgeCreate1Continue() {
 // How many category tiles the Create screen shows at once. Categories the user
 // already has a list for drop out and the next unowned one (by the admin's
 // sort_order) takes the empty slot.
-var CAT_GRID_SLOTS = 8;
+var CAT_GRID_SLOTS = 6;   // tiles per page on the Create screen
 
-// How many tiles the Create grid is currently showing. Starts at one page and
-// grows by a page each time "Show more" is tapped. Reset on entering the
-// screen so it always opens at a page, never wherever it was left last time.
-var _catGridShown = CAT_GRID_SLOTS;
+// Which page of categories the Create grid is showing. Real pagination rather
+// than an ever-growing list: appending pushed "Or make your own" and Continue
+// further down the screen with every tap, which is the opposite of what that
+// step needs.
+var _catGridPage = 0;
 
 // Every category the user does NOT already have a list for, in admin order.
 // The page is applied separately so callers can ask "how many are there in
@@ -3126,45 +3128,87 @@ function unfilledCategoriesForUser() {
   });
 }
 
+function catGridPageCount() {
+  return Math.max(1, Math.ceil(unfilledCategoriesForUser().length / CAT_GRID_SLOTS));
+}
+
 function visibleCategoriesForUser() {
   var all = unfilledCategoriesForUser();
-  var out = all.slice(0, _catGridShown);
-  // Keep whatever is currently selected on screen, even if it fell outside the
-  // page (e.g. arriving here from "fill out this list" on a friend's list, or
-  // having picked something on a later page). Dropping the last tile rather
-  // than growing the page keeps the grid a clean multiple of the row width.
-  if (selCat && !out.some(function(c){ return c.n === selCat; })) {
-    var sel = (CATS || []).filter(function(c){ return c.n === selCat; })[0];
-    if (sel) out = [sel].concat(out.slice(0, Math.max(0, _catGridShown - 1)));
+  // Clamp: MY_LISTS changes under this screen (saving a list removes a
+  // category), so the current page can fall off the end between renders.
+  var pages = Math.max(1, Math.ceil(all.length / CAT_GRID_SLOTS));
+  if (_catGridPage > pages - 1) _catGridPage = pages - 1;
+  if (_catGridPage < 0) _catGridPage = 0;
+  var from = _catGridPage * CAT_GRID_SLOTS;
+  return all.slice(from, from + CAT_GRID_SLOTS);
+}
+
+// Deep links (?fill=) and "fill out this list" can select a category sitting
+// on any page. Open on the page that actually contains it rather than page 1
+// with an invisible selection.
+function syncCatGridPageToSelection() {
+  if (!selCat) return;
+  var all = unfilledCategoriesForUser();
+  for (var i = 0; i < all.length; i++) {
+    if (all[i].n === selCat) { _catGridPage = Math.floor(i / CAT_GRID_SLOTS); return; }
   }
-  return out;
 }
 
-function showMoreCategories() {
-  _catGridShown += CAT_GRID_SLOTS;
+function catGridGoToPage(n) {
+  var pages = catGridPageCount();
+  _catGridPage = Math.max(0, Math.min(pages - 1, n));
   renderCatGrid();
-  // Put the first newly revealed tile just into view rather than leaving the
-  // user staring at the same eight and wondering whether the tap worked.
+  // Bring the grid back under the thumb; paging from the bottom button would
+  // otherwise leave the new tiles scrolled off the top.
   var grid = document.getElementById('cat-grid');
-  var firstNew = grid && grid.children[_catGridShown - CAT_GRID_SLOTS];
-  if (firstNew && firstNew.scrollIntoView) firstNew.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (grid && grid.scrollIntoView) grid.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// The "Show 8 more" control, plus the count still hidden behind it.
+function _catPagerBtn(label, targetPage, align) {
+  return '<button type="button" onclick="catGridGoToPage(' + targetPage + ')" '
+    + 'style="background:#FFFFFF;border:1px solid #E5E3DA;border-radius:3px;padding:8px 12px;font-family:inherit;'
+    + 'font-size:10.5px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#D85A30;cursor:pointer;'
+    + 'margin-' + align + ':auto">' + label + '</button>';
+}
+
+// Above the grid: back a page. Below: forward a page, plus where you are.
 function renderCatGridMore() {
+  var prevHost = document.getElementById('cat-grid-prev');
   var host = document.getElementById('cat-grid-more');
-  if (!host) return;
-  var total = unfilledCategoriesForUser().length;
-  var remaining = total - Math.min(_catGridShown, total);
-  if (remaining <= 0) { host.innerHTML = ''; return; }
-  var next = Math.min(CAT_GRID_SLOTS, remaining);
-  host.innerHTML = '<button type="button" onclick="showMoreCategories()" '
-    + 'style="width:100%;margin-top:10px;background:#FFFFFF;border:1px solid #E5E3DA;border-left:5px solid #D85A30;border-radius:3px;'
-    + 'padding:11px 14px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;'
-    + 'color:#D85A30;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">'
-    + 'Show ' + next + ' more'
-    + '<span style="font-size:10px;color:#888780;font-weight:700;letter-spacing:0.06em;text-transform:none">(' + remaining + ' left)</span>'
-    + '</button>';
+  if (!host || !prevHost) return;
+  var all = unfilledCategoriesForUser();
+  var pages = Math.max(1, Math.ceil(all.length / CAT_GRID_SLOTS));
+
+  if (pages <= 1) { prevHost.innerHTML = ''; host.innerHTML = ''; return; }
+
+  var backCount = Math.min(CAT_GRID_SLOTS, _catGridPage * CAT_GRID_SLOTS);
+  prevHost.innerHTML = _catGridPage > 0
+    ? '<div style="display:flex;margin-bottom:8px">' + _catPagerBtn('\u2191 Previous ' + backCount, _catGridPage - 1, 'right') + '</div>'
+    : '';
+
+  var shownSoFar = (_catGridPage + 1) * CAT_GRID_SLOTS;
+  var nextCount = Math.max(0, Math.min(CAT_GRID_SLOTS, all.length - shownSoFar));
+  host.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">'
+    + '<div style="font-size:10px;color:#888780;font-weight:700;letter-spacing:0.08em;text-transform:uppercase">'
+    +   'Page ' + (_catGridPage + 1) + ' of ' + pages
+    + '</div>'
+    + (nextCount > 0 ? _catPagerBtn('Next ' + nextCount + ' \u2193', _catGridPage + 1, 'left') : '')
+    + '</div>'
+    // A selection on another page would otherwise be invisible while Continue
+    // still acts on it. Say so, and offer a way back to it.
+    + _catSelectionNote(all);
+}
+
+function _catSelectionNote(all) {
+  if (!selCat) return '';
+  var visible = visibleCategoriesForUser().some(function(c){ return c.n === selCat; });
+  if (visible) return '';
+  var onAnyPage = all.some(function(c){ return c.n === selCat; });
+  if (!onAnyPage) return '';
+  return '<div onclick="syncCatGridPageToSelection();renderCatGrid()" '
+    + 'style="margin-top:8px;font-size:11px;color:#5F5E5A;background:#FFFDF9;border:1px solid #E5E3DA;border-left:4px solid #D85A30;'
+    + 'border-radius:3px;padding:8px 10px;cursor:pointer">Still selected: <strong style="color:#2C2C2A">Top 10 '
+    + escapeHtml(selCat) + '</strong> <span style="color:#D85A30;font-weight:800">\u2014 show it</span></div>';
 }
 
 function renderCatGrid() {
@@ -3217,11 +3261,6 @@ function fitCatGridToViewport() {
   var scroller = grid.parentElement;
   while (scroller && !scroller.classList.contains('content')) scroller = scroller.parentElement;
   if (!scroller) return;
-
-  // Expanding past the first page means the user has opted into scrolling, so
-  // stop trying to squeeze everything above the fold — that fight is
-  // unwinnable past a couple of pages and only shrinks the labels to nothing.
-  if (_catGridShown > CAT_GRID_SLOTS) { grid.style.setProperty('--cs', '1'); return; }
 
   var scale = 1;
   grid.style.setProperty('--cs', '1');
@@ -14717,8 +14756,8 @@ async function renderAdminCats(el) {
           ? '<span style="font-size:9px;background:#EAF3EE;color:#2F6B52;padding:2px 6px;border-radius:99px;white-space:nowrap;display:inline-block" title="' + n + ' autofill suggestion' + (n === 1 ? '' : 's') + '">✓ ' + n + ' item' + (n === 1 ? '' : 's') + '</span>'
           : '<span style="font-size:9px;background:#FBF0D8;color:#B57F0F;padding:2px 6px;border-radius:99px;white-space:nowrap;display:inline-block" title="No autofill suggestions — people get a blank field">No autofill</span>');
     var slotBadge = i < CAT_GRID_SLOTS
-      ? '<span style="font-size:9px;background:#EAF3EE;color:#2F6B52;padding:2px 6px;border-radius:99px;white-space:nowrap;display:inline-block">Slot ' + (i + 1) + '</span>'
-      : '<span style="font-size:9px;background:#F1EFE8;color:#5F5E5A;padding:2px 6px;border-radius:99px;white-space:nowrap;display:inline-block">In waiting #' + (i - CAT_GRID_SLOTS + 1) + '</span>';
+      ? '<span style="font-size:9px;background:#EAF3EE;color:#2F6B52;padding:2px 6px;border-radius:99px;white-space:nowrap;display:inline-block">Page 1 · slot ' + (i + 1) + '</span>'
+      : '<span style="font-size:9px;background:#F1EFE8;color:#5F5E5A;padding:2px 6px;border-radius:99px;white-space:nowrap;display:inline-block">Page ' + (Math.floor(i / CAT_GRID_SLOTS) + 1) + ' · slot ' + ((i % CAT_GRID_SLOTS) + 1) + '</span>';
     // Inset shadow (not a border) marks where the visible 8 end, so every row
     // keeps the same height — the drag maths assume a constant row stride.
     var cutMark = (i === CAT_GRID_SLOTS && active.length > CAT_GRID_SLOTS)
@@ -14762,7 +14801,7 @@ async function renderAdminCats(el) {
     + '<button class="btn-primary" onclick="editAdminCat(null)" style="margin-bottom:12px">+ New category</button>'
     + (active.length
         ? '<div style="font-size:10.5px;color:#5F5E5A;line-height:1.45;background:#FAF8F2;border:1px solid #E8E6DF;border-left:5px solid #D85A30;border-radius:3px;padding:8px 10px;margin-bottom:10px">'
-          + '<strong style="color:#2C2C2A">Press and drag to reorder.</strong> The top ' + CAT_GRID_SLOTS + ' fill the Create screen. The rest wait in line and move up as users fill out the ones above them.</div>'
+          + '<strong style="color:#2C2C2A">Press and drag to reorder.</strong> The top ' + CAT_GRID_SLOTS + ' are the first page of the Create screen. The rest follow on later pages, and everything moves up as users fill out the ones above.</div>'
         : '')
     + (activeRows
         ? '<div class="drag-list" id="admin-cat-list">' + activeRows + '</div>'
