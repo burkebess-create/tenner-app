@@ -29,6 +29,19 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Content-Security-Policy. Finding 3 of the security audit: with no CSP, the
+     stored-XSS in profiles.photo went straight from "executes script" to
+     "exfiltrates the session token", because nothing constrained where a
+     script could send data. img-src and connect-src are the lines that matter.
+     NOTE: 'unsafe-inline' is required — this app is ~18k lines of inline
+     script with no build step — so CSP is a second line of defence here, not
+     the first. Output escaping remains the real control.
+     NOTE: frame-ancestors and X-Frame-Options are IGNORED in a meta tag; they
+     only work as real headers, so clickjacking protection needs a CDN rule. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://img.mytenner.com https://bbjpvlmkhvggtwyvpzrq.supabase.co; connect-src 'self' https://bbjpvlmkhvggtwyvpzrq.supabase.co wss://bbjpvlmkhvggtwyvpzrq.supabase.co https://api.pwnedpasswords.com https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; form-action 'self'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <script>
 // First-touch gate: signed-out visitors landing on / (with no session and no
@@ -127,7 +140,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="/icon-app.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2015,7 +2028,7 @@ function syncDesktopSidebarProfile() {
   var p = myProfile || {};
   var name = p.display_name || (p.handle ? '@' + p.handle : (currentUserEmail || 'Profile'));
   var initials = String(name).split(' ').map(function(w){ return w[0]; }).join('').toUpperCase().slice(0, 2) || '?';
-  if (p.photo) av.innerHTML = '<img src="' + p.photo + '">';
+  if (p.photo) av.innerHTML = '<img src="' + escapeHtml(p.photo) + '">';
   else av.textContent = initials;
   nm.textContent = name;
 }
@@ -4518,7 +4531,7 @@ function friendAvatarHtml(profile, size) {
       + encodeURIComponent(full) + '\',\'' + encodeURIComponent(name) + '\')"'
       + ' title="Tap to enlarge"';
     return '<div' + tap + ' style="' + base + 'cursor:pointer">'
-      + '<img src="' + full + '" style="width:100%;height:100%;object-fit:cover"></div>';
+      + '<img src="' + escapeHtml(full) + '" style="width:100%;height:100%;object-fit:cover"></div>';
   }
   var fontSize = Math.round(size * 0.38);
   // Warm neutral fallback — doesn't clash with any category color in the app palette
@@ -4537,7 +4550,7 @@ function groupAvatarHtml(g, size) {
     var gTap = ' onclick="event.stopPropagation();openAvatarLightbox(\''
       + encodeURIComponent(gFull) + '\',\'' + encodeURIComponent(gName) + '\')"'
       + ' title="Tap to enlarge"';
-    return '<img src="' + gFull + '"' + gTap + ' style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + 'px;object-fit:cover;flex-shrink:0;cursor:pointer">';
+    return '<img src="' + escapeHtml(gFull) + '"' + gTap + ' style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + 'px;object-fit:cover;flex-shrink:0;cursor:pointer">';
   }
   // photoPending: a photo exists in the DB but hasn't loaded yet — show a blank
   // box rather than briefly flashing the emoji placeholder.
@@ -4578,7 +4591,7 @@ function onGroupPhotoUploadCreate(input) {
         groupPhotoData = dataUrl;
         selEmojiChar = '';
         var preview = document.getElementById('cg1-avatar-preview');
-        if (preview) preview.innerHTML = '<img src="' + groupPhotoData + '" style="width:48px;height:48px;border-radius:12px;object-fit:cover">';
+        if (preview) preview.innerHTML = '<img src="' + escapeHtml(groupPhotoData) + '" style="width:48px;height:48px;border-radius:12px;object-fit:cover">';
         // No group id yet — bucket path uses a transient id so the URL still
         // works. The create flow persists whatever's in groupPhotoData.
         var url = await uploadPhotoToStorage(dataUrl, 'groups', 'new-' + Date.now() + '-' + (userId || 'anon'));
@@ -4630,7 +4643,7 @@ function updateSettingsAvatarPreview(g) {
   var preview = document.getElementById('gsettings-avatar-preview');
   if (!preview) return;
   if (g.photo) {
-    preview.innerHTML = '<img src="' + g.photo + '" style="width:56px;height:56px;border-radius:14px;object-fit:cover">';
+    preview.innerHTML = '<img src="' + escapeHtml(g.photo) + '" style="width:56px;height:56px;border-radius:14px;object-fit:cover">';
   } else {
     preview.innerHTML = '';
     preview.style.fontSize = '28px';
@@ -5923,7 +5936,7 @@ async function renderCircleStories() {
     var ringStyle = 'padding:2.5px;background:#D85A30;border-radius:999px';
     var avatar = '<div style="width:68px;height:68px;border-radius:999px;overflow:hidden;background:#FFFFFF;display:flex;align-items:center;justify-content:center;border:2.5px solid #FFFFFF;box-sizing:border-box">'
       + (p.photo
-          ? '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover">'
+          ? '<img src="' + escapeHtml(p.photo) + '" style="width:100%;height:100%;object-fit:cover">'
           : '<div style="width:100%;height:100%;background:#EAE3DC;color:#5F5E5A;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center">' + initials + '</div>'
         )
       + '</div>';
@@ -6465,7 +6478,7 @@ async function renderGroupDetail() {
 
   // Member avatars row
   var myAvatarHtml = myProfile && myProfile.photo
-    ? '<img src="' + myProfile.photo + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover">'
+    ? '<img src="' + escapeHtml(myProfile.photo) + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover">'
     : '<div class="avatar" style="background:#FAECE7;color:#993C1D">' + myInitials + '</div>';
   var avatarsHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
     + '<div style="text-align:center">' + myAvatarHtml + '<div style="font-size:9px;color:#5F5E5A;margin-top:3px">You</div></div>';
@@ -6483,7 +6496,7 @@ async function renderGroupDetail() {
     + '<span id="members-chevron" style="font-size:16px;color:#888780">›</span>'
     + '</div>'
     + '<div id="group-members-panel" style="display:none;margin-top:12px">'
-    + '<div class="member-row" style="margin-bottom:6px"><div style="margin-right:8px">' + (myProfile && myProfile.photo ? '<img src="' + myProfile.photo + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">' : '<div class="avatar" style="background:#FAECE7;color:#993C1D;flex-shrink:0">' + myInitials + '</div>') + '</div>'
+    + '<div class="member-row" style="margin-bottom:6px"><div style="margin-right:8px">' + (myProfile && myProfile.photo ? '<img src="' + escapeHtml(myProfile.photo) + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">' : '<div class="avatar" style="background:#FAECE7;color:#993C1D;flex-shrink:0">' + myInitials + '</div>') + '</div>'
     + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + myName + '</div><div style="font-size:13.5px;color:#5F5E5A">Admin</div></div>'
     + '<span class="pill pill-coral">You</span></div>'
     + members.map(function(f) {
@@ -8534,7 +8547,7 @@ function renderProfileHeader() {
     var av = document.getElementById(id);
     if (!av) return;
     if (p.photo) {
-      av.innerHTML = '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover">';
+      av.innerHTML = '<img src="' + escapeHtml(p.photo) + '" style="width:100%;height:100%;object-fit:cover">';
     } else {
       av.textContent = initials;
     }
@@ -11798,7 +11811,7 @@ function renderCircleGroups() {
       var name = prof.display_name || prof.handle || '?';
       var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
       var inner = prof.photo
-        ? '<img src="' + prof.photo + '"' + avatarZoomAttrs(prof.photo, name) + ' style="width:100%;height:100%;object-fit:cover">'
+        ? '<img src="' + escapeHtml(prof.photo) + '"' + avatarZoomAttrs(prof.photo, name) + ' style="width:100%;height:100%;object-fit:cover">'
         : '<div style="width:100%;height:100%;background:#EAE3DC;color:#5F5E5A;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">' + escapeHtml(initials) + '</div>';
       stackHtml += '<div style="width:26px;height:26px;border-radius:50%;overflow:hidden;border:2px solid #FFFFFF;margin-left:' + (stackCount === 0 ? '0' : '-9px') + ';flex-shrink:0">' + inner + '</div>';
       stackCount++;
@@ -16359,6 +16372,13 @@ function dataUrlToBlob(dataUrl) {
 var PHOTO_CDN_HOST = 'img.mytenner.com';
 function rewriteToCdn(url) {
   if (!url || typeof url !== 'string') return url;
+  // A photo value is attacker-controlled: profiles_update lets a user PATCH
+  // their own profiles.photo to ANY string, and several render paths put it
+  // straight into src="...". A value containing a quote could break out of the
+  // attribute and execute script in every viewer's browser. Anything that is
+  // not a plain https URL or an image data: URL is dropped here, before it can
+  // reach the DOM at all.
+  if (!/^(https:\/\/[^\s"'<>\\]+|data:image\/[a-z+]+;base64,[A-Za-z0-9+/=]+)$/i.test(url)) return '';
   // Only rewrite the Supabase Storage public path. Leaves base64, non-Supabase
   // URLs, and already-rewritten URLs alone.
   return url.replace(/^https:\/\/bbjpvlmkhvggtwyvpzrq\.supabase\.co\/storage\/v1\/object\/public\//,

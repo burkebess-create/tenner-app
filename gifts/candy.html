@@ -2,6 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Content-Security-Policy. Finding 3 of the security audit: with no CSP, the
+     stored-XSS in profiles.photo went straight from "executes script" to
+     "exfiltrates the session token", because nothing constrained where a
+     script could send data. img-src and connect-src are the lines that matter.
+     NOTE: 'unsafe-inline' is required — this app is ~18k lines of inline
+     script with no build step — so CSP is a second line of defence here, not
+     the first. Output escaping remains the real control.
+     NOTE: frame-ancestors and X-Frame-Options are IGNORED in a meta tag; they
+     only work as real headers, so clickjacking protection needs a CDN rule. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://img.mytenner.com https://bbjpvlmkhvggtwyvpzrq.supabase.co; connect-src 'self' https://bbjpvlmkhvggtwyvpzrq.supabase.co wss://bbjpvlmkhvggtwyvpzrq.supabase.co https://api.pwnedpasswords.com https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; form-action 'self'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Best Candy Gift Ideas — Tenner</title>
 <meta name="description" content="Gift ideas built around favorite candy bars — Snickers, Reese's, Kit Kat, and more. Curated Amazon picks and bulk packs.">
@@ -74,7 +87,7 @@
   <a href="/">Home</a> · <a href="/gifts/">Gift categories</a> · <a href="/about.html">About</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a>
   <div style="margin-top:12px;font-size:11px">As an Amazon Associate, Tenner earns from qualifying purchases.</div>
 </footer>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
 <script src="/gifts/dynamic-picks.js"></script>
 </body>
 </html>

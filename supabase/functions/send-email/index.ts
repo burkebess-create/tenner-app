@@ -7,8 +7,11 @@
 //   FROM_EMAIL       verified sender, e.g. "Tenner <hello@mytenner.com>"
 
 // deno-lint-ignore-file no-explicit-any
+// Finding 7: a wildcard let any website invoke this from a visitor's
+// browser. Impact was limited (no cookie credentials, and each type is
+// authorized server-side) but there is no reason to accept any origin.
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://mytenner.com",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
