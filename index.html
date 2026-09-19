@@ -3164,11 +3164,17 @@ function catGridGoToPage(n) {
   if (grid && grid.scrollIntoView) grid.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function _catPagerBtn(label, targetPage, align) {
+// Full width and clearly a button. The first version was a small outlined
+// chip floated to one side, which read as a caption next to the tiles rather
+// than the primary way to see more categories. Tinted coral so it is
+// obviously tappable, but not solid — Continue is the solid coral on this
+// screen and the pager must not compete with it.
+function _catPagerBtn(label, targetPage) {
   return '<button type="button" onclick="catGridGoToPage(' + targetPage + ')" '
-    + 'style="background:#FFFFFF;border:1px solid #E5E3DA;border-radius:3px;padding:8px 12px;font-family:inherit;'
-    + 'font-size:10.5px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#D85A30;cursor:pointer;'
-    + 'margin-' + align + ':auto">' + label + '</button>';
+    + 'style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;'
+    + 'background:#FDF0EA;border:1.5px solid #D85A30;border-radius:3px;padding:12px 14px;font-family:inherit;'
+    + 'font-size:12px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;cursor:pointer;'
+    + '-webkit-tap-highlight-color:rgba(216,90,48,0.25)">' + label + '</button>';
 }
 
 // Above the grid: back a page. Below: forward a page, plus where you are.
@@ -3183,16 +3189,21 @@ function renderCatGridMore() {
 
   var backCount = Math.min(CAT_GRID_SLOTS, _catGridPage * CAT_GRID_SLOTS);
   prevHost.innerHTML = _catGridPage > 0
-    ? '<div style="display:flex;margin-bottom:8px">' + _catPagerBtn('\u2191 Previous ' + backCount, _catGridPage - 1, 'right') + '</div>'
+    ? '<div style="margin-bottom:10px">' + _catPagerBtn('\u2191 Previous ' + backCount, _catGridPage - 1) + '</div>'
     : '';
 
   var shownSoFar = (_catGridPage + 1) * CAT_GRID_SLOTS;
   var nextCount = Math.max(0, Math.min(CAT_GRID_SLOTS, all.length - shownSoFar));
-  host.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">'
-    + '<div style="font-size:10px;color:#888780;font-weight:700;letter-spacing:0.08em;text-transform:uppercase">'
-    +   'Page ' + (_catGridPage + 1) + ' of ' + pages
-    + '</div>'
-    + (nextCount > 0 ? _catPagerBtn('Next ' + nextCount + ' \u2193', _catGridPage + 1, 'left') : '')
+  // Position rides inside the button rather than on its own row. A separate
+  // centred line cost ~18px, which was enough to push the step past the fold
+  // once the buttons went full width — and the fit had already bottomed out
+  // at CAT_SCALE_MIN, so there was nothing left to shrink.
+  var posTag = '<span style="font-size:10px;font-weight:700;letter-spacing:0.08em;color:#B07A62">'
+    + (_catGridPage + 1) + '/' + pages + '</span>';
+  host.innerHTML = '<div style="margin-top:10px">'
+    + (nextCount > 0
+        ? _catPagerBtn('Next ' + nextCount + ' \u2193 ' + posTag, _catGridPage + 1)
+        : '<div style="text-align:center;font-size:10px;color:#888780;font-weight:700;letter-spacing:0.12em;text-transform:uppercase">Page ' + pages + ' of ' + pages + ' \u2014 that\'s all of them</div>')
     + '</div>'
     // A selection on another page would otherwise be invisible while Continue
     // still acts on it. Say so, and offer a way back to it.
@@ -3264,16 +3275,22 @@ function fitCatGridToViewport() {
 
   var scale = 1;
   grid.style.setProperty('--cs', '1');
-  // A couple of passes: the grid isn't purely linear in --cs (borders and the
-  // text below it don't scale), so one correction converges on the right value.
-  for (var pass = 0; pass < 3; pass++) {
+  // The grid isn't purely linear in --cs (borders, and the pager and form
+  // below it, don't scale), so each pass corrects the remainder. Six passes
+  // rather than three: at three it was still leaving a ~10px overflow once
+  // the full-width pager buttons were added, which is a small but real
+  // scroll on a screen whose whole point is fitting.
+  for (var pass = 0; pass < 6; pass++) {
     var overflow = scroller.scrollHeight - scroller.clientHeight;
     if (overflow <= 1) break;
     var gridH = grid.getBoundingClientRect().height;
     if (gridH <= 0) break;
     var next = scale * Math.max(0, (gridH - overflow) / gridH);
     next = Math.max(CAT_SCALE_MIN, Math.min(1, next));
-    if (Math.abs(next - scale) < 0.01) break;
+    // Stop only when no further shrink is available (already at the floor),
+    // not merely because this step was small — a small step still closes a
+    // small overflow, and bailing on it is what left the gap before.
+    if (next >= scale - 0.0005) break;
     scale = next;
     grid.style.setProperty('--cs', String(scale));
   }
