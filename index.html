@@ -10832,6 +10832,31 @@ function openMutualFriendsModal(theirName, mutuals) {
   frame.appendChild(overlay);
 }
 
+// Jump to the friend's lists further down the same page. Uses the section
+// label rather than the list container so the heading stays in view.
+function scrollToFriendLists() {
+  var host = document.querySelector('#s-fdetail .content');
+  var target = document.getElementById('fdetail-lists');
+  if (!host || !target) return;
+  var label = target.previousElementSibling && target.previousElementSibling.classList.contains('sec-label')
+    ? target.previousElementSibling : target;
+  // offsetTop is relative to the offset parent, which may not be the scroller,
+  // so measure the gap between the two rects instead.
+  var delta = label.getBoundingClientRect().top - host.getBoundingClientRect().top;
+  host.scrollTo({ top: host.scrollTop + delta - 8, behavior: 'smooth' });
+  // A brief highlight, because a smooth scroll that lands mid-page leaves no
+  // clue about what it was pointing at.
+  label.style.transition = 'background-color 0.4s ease';
+  label.style.backgroundColor = 'rgba(216,90,48,0.18)';
+  setTimeout(function() { label.style.backgroundColor = ''; }, 900);
+}
+
+// Open the Match tab already narrowed to this friend.
+function openMatchForCurrentFriend() {
+  if (!selFriendId) return;
+  openMatchWithFriend(selFriendId, 's-fdetail');
+}
+
 // Opening a mutual from the modal. Kept as a function rather than inline
 // statements so the id is passed as a value, not spliced into source.
 function openMutualFriend(friendId) {
@@ -11085,10 +11110,22 @@ async function renderFriendDetail() {
   var matchCardHtml = isAccepted ? '<div id="fdetail-match-card" style="margin-bottom:14px"></div>' : '';
 
   // ── 5. FRIENDSHIP STATS BAR (placeholder — populated async) ─────────
-  var statsBarHtml = isAccepted ? '<div id="fdetail-stats-bar" style="display:flex;justify-content:space-around;gap:8px;background:#F1EFE8;border-radius:14px;padding:12px 8px;margin-bottom:14px">'
-    + '<div style="text-align:center"><div id="fdetail-stat-lists" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Lists</div></div>'
-    + '<div style="text-align:center"><div id="fdetail-stat-shared" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Compared</div></div>'
-    + '<div id="fdetail-stat-mutual-wrap" style="text-align:center"><div id="fdetail-stat-mutual" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A">—</div><div id="fdetail-stat-mutual-label" style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:600;letter-spacing:0.05em">Mutual friends</div></div>'
+  // Each cell does something, so each one has to look like it does. cursor:pointer
+  // is invisible on a phone — the affordance here is a white card with a border
+  // and a chevron, matching every other tappable row in the app.
+  var _statCell = function(id, labelId, label, onclick, hint) {
+    return '<div id="' + id + '-wrap" onclick="' + onclick + '" role="button" tabindex="0"'
+      + ' title="' + escapeHtml(hint) + '"'
+      + ' style="flex:1;text-align:center;background:#FFFFFF;border:1px solid #E5E3DA;border-radius:10px;padding:10px 6px;cursor:pointer;-webkit-tap-highlight-color:rgba(216,90,48,0.15)">'
+      + '<div id="' + id + '" style="font-family:\'DM Serif Display\',Georgia,serif;font-size:20px;color:#2C2C2A;line-height:1.1">—</div>'
+      + '<div id="' + labelId + '" style="font-size:9px;color:#5F5E5A;text-transform:uppercase;font-weight:700;letter-spacing:0.05em;margin-top:2px">' + label + '</div>'
+      + '<div style="font-size:10px;color:#D85A30;font-weight:800;margin-top:3px;line-height:1">›</div>'
+      + '</div>';
+  };
+  var statsBarHtml = isAccepted ? '<div id="fdetail-stats-bar" style="display:flex;justify-content:space-around;gap:8px;background:#F1EFE8;border-radius:14px;padding:10px 8px;margin-bottom:14px">'
+    + _statCell('fdetail-stat-lists',  'fdetail-stat-lists-label',  'Lists',    'scrollToFriendLists()',        'Jump to their lists')
+    + _statCell('fdetail-stat-shared', 'fdetail-stat-shared-label', 'Compared', 'openMatchForCurrentFriend()',  'Open the full comparison')
+    + _statCell('fdetail-stat-mutual', 'fdetail-stat-mutual-label', 'Mutual friends', 'return false;',          'See mutual friends')
     + '</div>' : '';
 
   // ── 4. MOST-ALIKE / MOST-DIFFERENT (placeholder) ────────────────────
@@ -11426,13 +11463,22 @@ async function renderFriendDetail() {
     if (labelEl) labelEl.textContent = mutuals.length === 1 ? 'Mutual friend' : 'Mutual friends';
     var wrap = document.getElementById('fdetail-stat-mutual-wrap');
     if (wrap) {
+      var chev = wrap.lastElementChild;
       if (mutuals.length > 0) {
         wrap.style.cursor = 'pointer';
         wrap.title = 'See mutual friends';
         wrap.onclick = function() { openMutualFriendsModal(name, mutuals); };
+        if (chev) chev.style.visibility = 'visible';
       } else {
+        // Nothing to open: drop the affordance rather than leaving a card that
+        // looks tappable and does nothing.
         wrap.style.cursor = 'default';
+        wrap.style.background = 'transparent';
+        wrap.style.borderColor = 'transparent';
         wrap.onclick = null;
+        wrap.removeAttribute('role');
+        wrap.removeAttribute('tabindex');
+        if (chev) chev.style.visibility = 'hidden';
       }
     }
   }).catch(function(){});
