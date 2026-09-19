@@ -216,6 +216,7 @@
   .btn-secondary { width: 100%; padding: 11px; border-radius: 10px; border: 1px solid #D3D1C7; background: #fff; color: #2C2C2A; font-size: 13px; cursor: pointer; margin-bottom: 8px; font-family: inherit; }
   .btn-secondary:hover { background: #F1EFE8; }
   .card { background: #fff; border: 1px solid #E8E6DF; border-radius: 12px; padding: 12px; margin-bottom: 8px; cursor: pointer; }
+  .zoomable { cursor: pointer; }
   .card:hover { border-color: #D85A30; }
   .card.no-hover:hover { border-color: #E8E6DF; cursor: default; }
   .share-pick { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 9px; border: 1px solid #E8E6DF; background: #fff; margin-bottom: 6px; cursor: pointer; transition: background .12s, border-color .12s; }
@@ -4322,11 +4323,18 @@ function openAvatarLightbox(encodedSrc, encodedName) {
 // renderer behaves the same — there are several bespoke ones besides
 // friendAvatarHtml, and hand-writing this each time is how they drift.
 // stopPropagation preserves whatever the surrounding row already does.
+// NOTE: emits NO style attribute. Every call site interpolates this into an
+// <img> that already carries its own inline style, and an element with two
+// style attributes keeps the FIRST and silently discards the rest — so the
+// `cursor:pointer` this used to add was swallowing the sizing that followed
+// it. Avatars rendered at their natural size: a 36px circle came out as a
+// full-width photo. Four call sites were affected; the cursor now rides on a
+// class so nothing can collide.
 function avatarZoomAttrs(photoUrl, name) {
   if (!photoUrl) return '';
   return ' onclick="event.stopPropagation();openAvatarLightbox(\''
     + encodeURIComponent(photoUrl) + '\',\'' + encodeURIComponent(name || '') + '\')"'
-    + ' title="Tap to enlarge" style="cursor:pointer"';
+    + ' title="Tap to enlarge" class="zoomable"';
 }
 
 // Renders a circular person avatar — photo if available, else initials.
@@ -10798,19 +10806,20 @@ function openMutualFriendsModal(theirName, mutuals) {
   overlay.style.cssText = 'position:absolute;inset:0;background:rgba(20,10,4,0.75);display:flex;align-items:center;justify-content:center;z-index:9998;padding:16px';
   overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
   var rows = mutuals.map(function(m) {
-    var initials = String(m.name).split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
-    var avatar = m.photo
-      ? '<img src="' + m.photo + '"' + avatarZoomAttrs(m.photo, m.name) + ' style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0">'
-      : '<div style="width:36px;height:36px;border-radius:50%;background:#EAE3DC;color:#5F5E5A;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + escapeHtml(initials) + '</div>';
+    // friendAvatarHtml is the same circular avatar used on every other list in
+    // the app — photo cropped to a circle, initials when there is no photo —
+    // so this stops being a one-off that can drift from everything else.
+    // No tap-to-enlarge here: in a list of tappable rows a separate hit target
+    // on the avatar just competes with opening the person.
     var handleLine = m.handle ? '<div style="font-size:11px;color:#888780;margin-top:1px">@' + escapeHtml(m.handle) + '</div>' : '';
-    return '<div onclick="document.getElementById(\'mutual-friends-modal\').remove();selFriendId=\'' + m.id + '\';go(\'s-fdetail\')" '
-      + 'style="display:flex;align-items:center;gap:12px;padding:10px 8px;border-radius:12px;cursor:pointer">'
-      + avatar
+    return '<div class="card" onclick="openMutualFriend(\'' + String(m.id).replace(/'/g, "\\'") + '\')" '
+      + 'style="display:flex;align-items:center;gap:12px;margin-bottom:6px">'
+      + friendAvatarHtml({ display_name: m.name, handle: m.handle, photo: m.photo }, 40)
       + '<div style="flex:1;min-width:0">'
-      +   '<div style="font-size:13px;font-weight:600;color:#2C2C2A">' + escapeHtml(m.name) + '</div>'
+      +   '<div style="font-size:13px;font-weight:700;color:#2C2C2A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(m.name) + '</div>'
       +   handleLine
       + '</div>'
-      + '<span style="font-size:16px;color:#B8B5A8">›</span>'
+      + '<span style="font-size:16px;color:#B8B5A8;flex-shrink:0">›</span>'
       + '</div>';
   }).join('');
   overlay.innerHTML = '<div style="background:#FDFCF8;border:1.5px solid #2C2C2A;border-radius:22px;padding:18px;width:100%;max-width:340px;max-height:80vh;display:flex;flex-direction:column">'
@@ -10821,6 +10830,15 @@ function openMutualFriendsModal(theirName, mutuals) {
     + '<div style="flex:1;overflow-y:auto;margin:0 -4px">' + rows + '</div>'
     + '</div>';
   frame.appendChild(overlay);
+}
+
+// Opening a mutual from the modal. Kept as a function rather than inline
+// statements so the id is passed as a value, not spliced into source.
+function openMutualFriend(friendId) {
+  var m = document.getElementById('mutual-friends-modal');
+  if (m) m.remove();
+  selFriendId = friendId;
+  go('s-fdetail');
 }
 
 function mutualSummary(names) {
