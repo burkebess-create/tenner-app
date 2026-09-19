@@ -398,8 +398,14 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405, headers: CORS_HEADERS });
 
   try {
-    const { type, to, data } = await req.json();
-    if (!type || !to) throw new Error("type and to are required");
+    const body = await req.json();
+    const { type, data } = body;
+    // to_user_id is preferred: it means the CLIENT never has to read another
+    // user's email address, which is what forced profiles.email to be readable
+    // by every signed-in user. `to` stays supported for existing callers.
+    let to = body.to as string | undefined;
+    if (!to && body.to_user_id) to = (await emailOf(String(body.to_user_id))) || undefined;
+    if (!type || !to) throw new Error("type and a recipient (to or to_user_id) are required");
 
     const denied = await authorize(req, type, to);
     if (denied) {

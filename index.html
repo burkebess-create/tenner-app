@@ -5338,7 +5338,6 @@ async function shareListWithFriend(friendId, cat, btn) {
 async function notifyFriendOfListShare(friendId, cat) {
   if (!sbClient || !friendId || !cat) return;
   try {
-    var pr = await sbClient.from('profiles').select('email').eq('id', friendId).maybeSingle();
     var senderName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
     // Enqueue email + fire immediate push. Delivery cadence + delete-safety handled downstream.
     enqueueNotification(friendId, 'list_share', {
@@ -5346,9 +5345,7 @@ async function notifyFriendOfListShare(friendId, cat) {
       sender_handle: (myProfile && myProfile.handle) || '',
       category: cat
     });
-    if (pr.data && pr.data.email) {
-      sendAppPush(pr.data.email, 'Tenner', senderName + ' shared a Top 10 ' + cat + ' with you', '/#circle');
-    }
+    sendAppPush(friendId, 'Tenner', senderName + ' shared a Top 10 ' + cat + ' with you', '/#circle');
   } catch(e) { console.warn('notifyFriendOfListShare failed', e); }
 }
 
@@ -7898,6 +7895,17 @@ async function applyPendingGroupJoin() {
 // Invokes the send-email Edge Function. Fire-and-forget — never blocks UI.
 // Also fires a matching push notification (send-push) in parallel — the edge
 // function handles opt-outs and no-op if the user has no subscriptions.
+// Same idea for email: hand send-email a user id and let it resolve the
+// address with the service role.
+function sendAppEmailToUser(type, userId, data) {
+  if (!sbClient || !userId) return;
+  sbClient.functions.invoke('send-email', { body: { type: type, to_user_id: userId, data: data || {} } })
+    .then(function(r) { if (r && r.error) console.warn('send-email:', r.error); })
+    .catch(function(e) { console.warn('send-email invoke failed:', e); });
+  var pm = derivePushFromEmail(type, data || {});
+  if (pm) sendAppPush(userId, pm.title, pm.body, pm.url);
+}
+
 function sendAppEmail(type, to, data) {
   if (!sbClient || !to) return;
   sbClient.functions.invoke('send-email', { body: { type: type, to: to, data: data || {} } })
@@ -7922,9 +7930,14 @@ function enqueueNotification(recipientUserId, eventType, eventData) {
   }).then(function(r){ if (r && r.error) console.warn('enqueueNotification failed', r.error); });
 }
 
-function sendAppPush(toEmail, title, body, url) {
-  if (!sbClient || !toEmail || !title || !body) return;
-  sbClient.functions.invoke('send-push', { body: { to_email: toEmail, title: title, body: body, url: url || '/' } })
+// `to` may be a user id or an email address. Prefer the id: reading another
+// user's email just to notify them is what forced profiles.email to be
+// readable by everyone, and send-push resolves an id server-side anyway.
+var _UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function sendAppPush(to, title, body, url) {
+  if (!sbClient || !to || !title || !body) return;
+  var target = _UUID_RE.test(String(to)) ? { to_user_id: String(to) } : { to_email: String(to) };
+  sbClient.functions.invoke('send-push', { body: Object.assign(target, { title: title, body: body, url: url || '/' }) })
     .then(function(r) { if (r && r.error) console.warn('send-push:', r.error); })
     .catch(function(e) { console.warn('send-push invoke failed:', e); });
 }
@@ -8238,7 +8251,20 @@ async function loadProfile() {
   var adminTile = document.getElementById('profile-admin-tile');
   if (adminTile) adminTile.style.display = IS_ADMIN ? 'block' : 'none';
   try {
-    var res = await sbClient.from('profiles').select('*').eq('id', userId).maybeSingle();
+    // Not select('*'): email / phone / gift_share_token are no longer readable
+    // off the table by anyone (they were readable by EVERY user), so they come
+    // back through a function that only ever returns your own.
+    var res = await sbClient.from('profiles')
+      .select('id, display_name, handle, photo, bio, birthday, created_at, invited_by, is_internal, is_system, is_banned, banned_at, banned_reason, gift_visible_categories, allow_comments_on_my_lists, last_alerts_seen_at')
+      .eq('id', userId).maybeSingle();
+    try {
+      var mc = await sbClient.rpc('get_my_contact');
+      if (!mc.error && mc.data && mc.data[0] && res.data) {
+        res.data.email = mc.data[0].email;
+        res.data.phone = mc.data[0].phone;
+        res.data.gift_share_token = mc.data[0].gift_share_token;
+      }
+    } catch (ce) { console.warn('get_my_contact failed', ce); }
     if (res.data) {
       if (res.data.photo) res.data.photo = rewriteToCdn(res.data.photo);
       myProfile = res.data;
@@ -8586,7 +8612,18 @@ async function loadFriends() {
       var friendIds = rows.map(function(f) { return f.requester_id === userId ? f.addressee_id : f.requester_id; });
       var profileMap = {};
       try {
-        var pRes = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio, gift_share_token').in('id', friendIds);
+        var pRes = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').in('id', friendIds);
+        // gift_share_token is no longer readable straight off profiles — it is
+        // the secret behind /g?t=..., and a blanket read let anyone open any
+        // stranger's gift guide. This returns it for accepted friends only.
+        try {
+          var tokRes = await sbClient.rpc('my_friend_gift_tokens', { p_ids: friendIds });
+          if (tokRes && !tokRes.error && tokRes.data && pRes.data) {
+            var tokById = {};
+            tokRes.data.forEach(function(t){ tokById[t.friend_id] = t.gift_share_token; });
+            pRes.data.forEach(function(row){ row.gift_share_token = tokById[row.id] || null; });
+          }
+        } catch (te) { console.warn('friend gift tokens failed', te); }
         // Rewrite Supabase Storage URLs onto the img.mytenner.com CDN so
         // every rendered <img> flows through Cloudflare (cache + CSAM).
         if (pRes && pRes.data) pRes.data.forEach(function(row){ if (row.photo) row.photo = rewriteToCdn(row.photo); });
@@ -8699,7 +8736,11 @@ async function searchFriend() {
     var isPhone = /^\+/.test(query) || /^[\d\s\-().]{7,}$/.test(query);
     if (isPhone) {
       var normalized = query.replace(/\s/g, '');
-      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('phone', normalized).neq('id', userId).eq('is_system', false).maybeSingle();
+      // Via RPC: Postgres needs SELECT on any column used in a WHERE clause,
+      // and phone is no longer world-readable. The function returns identity
+      // columns only — it never hands back a phone number.
+      var phRes = await sbClient.rpc('find_user_by_phone', { p_phone: normalized });
+      res = { data: (phRes && !phRes.error && phRes.data && phRes.data[0]) || null, error: phRes && phRes.error };
     } else {
       var hProfile = await findProfileByHandle(query);
       res = { data: hProfile };
@@ -8951,14 +8992,13 @@ async function sendFriendRequest(addresseeId) {
 async function notifyAddresseeOfFriendRequest(addresseeId, message) {
   if (!sbClient || !addresseeId) return;
   try {
-    var pr = await sbClient.from('profiles').select('email').eq('id', addresseeId).maybeSingle();
-    if (!pr.data || !pr.data.email) return;
+
     // Rate-limit to one email per (addressee, requester) — no repeats if the
     // user withdraws + re-sends. `ref_key` = the requester's userId.
     var chk = await sbClient.from('email_log').select('id').eq('user_id', addresseeId).eq('email_type', 'friend_request').eq('ref_key', userId).maybeSingle();
     if (chk.data) return;
     var requesterName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'Someone');
-    sendAppEmail('friend_request', pr.data.email, {
+    sendAppEmailToUser('friend_request', addresseeId, {
       requester_name: requesterName,
       requester_handle: (myProfile && myProfile.handle) || '',
       message: message || ''
@@ -11881,7 +11921,11 @@ async function circleSearchFriend() {
     var isPhone = /^\+/.test(query) || /^[\d\s\-().]{7,}$/.test(query);
     if (isPhone) {
       var normalized = query.replace(/\s/g, '');
-      res = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('phone', normalized).neq('id', userId).eq('is_system', false).maybeSingle();
+      // Via RPC: Postgres needs SELECT on any column used in a WHERE clause,
+      // and phone is no longer world-readable. The function returns identity
+      // columns only — it never hands back a phone number.
+      var phRes = await sbClient.rpc('find_user_by_phone', { p_phone: normalized });
+      res = { data: (phRes && !phRes.error && phRes.data && phRes.data[0]) || null, error: phRes && phRes.error };
     } else {
       var hProfile2 = await findProfileByHandle(query);
       res = { data: hProfile2 };
@@ -13569,7 +13613,7 @@ async function _reportAction(reportId, payload) {
 }
 async function sendBanNotificationEmail(uid, reason) {
   try {
-    var res = await sbClient.from('profiles').select('email, display_name').eq('id', uid).maybeSingle();
+    var res = await sbClient.from('profiles').select('display_name').eq('id', uid).maybeSingle();
     if (!res.data || !res.data.email) return;
     sendAppEmail('account_suspended', res.data.email, { name: res.data.display_name || 'there', reason: reason || null });
   } catch(e) { console.warn('ban email skipped', e); }
@@ -13788,7 +13832,7 @@ async function openAdminGroupDetail(gid) {
     var uids = Array.from(new Set(members.map(function(m){ return m.user_id; }).filter(Boolean)));
     var creatorId = g.created_by;
     if (creatorId && uids.indexOf(creatorId) === -1) uids.push(creatorId);
-    var profRes = uids.length ? await sbClient.from('profiles').select('id, display_name, handle, email').in('id', uids) : { data: [] };
+    var profRes = uids.length ? await sbClient.from('profiles').select('id, display_name, handle').in('id', uids) : { data: [] };
     var byId = {}; (profRes.data || []).forEach(function(p){ byId[p.id] = p; });
     _adminGroupCache = { group: g, members: members, sharedLists: slists, byId: byId };
 
@@ -14304,7 +14348,7 @@ var _adminUserSearch = '';
 // Users tab filter: 'all' | 'real' | 'internal'
 var _adminUserFilter = 'real';
 async function renderAdminUsers(el) {
-  var q = sbClient.from('profiles').select('id, email, display_name, handle, phone, is_banned, banned_at, banned_reason, is_internal, is_system, created_at').order('created_at', {ascending:false}).limit(300);
+  var q = sbClient.from('profiles').select('id, display_name, handle, is_banned, banned_at, banned_reason, is_internal, is_system, created_at').order('created_at', {ascending:false}).limit(300);
   var res = await q;
   if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(res.error.message) + '</div>'; return; }
   var all = res.data || [];
@@ -14435,7 +14479,13 @@ async function openAdminUserDetail(uid) {
   var el = document.getElementById('admin-user-content');
   if (el) el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
   try {
-    var pr = await sbClient.from('profiles').select('*').eq('id', uid).maybeSingle();
+    var pr = await sbClient.from('profiles')
+      .select('id, display_name, handle, photo, bio, birthday, created_at, invited_by, is_internal, is_system, is_banned, banned_at, banned_reason')
+      .eq('id', uid).maybeSingle();
+    try {
+      var ac = await sbClient.rpc('admin_profile_contacts', { p_ids: [uid] });
+      if (!ac.error && ac.data && ac.data[0] && pr.data) { pr.data.email = ac.data[0].email; pr.data.phone = ac.data[0].phone; }
+    } catch (ce) { console.warn('admin_profile_contacts failed', ce); }
     if (!pr.data) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">User not found.</div>'; return; }
     var profile = pr.data;
     var [listsC, friendsC, friendsPendingC, groupsC, feedbackC, emailC, adminChk, inviteCountsRes, inviterRes] = await Promise.all([
@@ -14454,7 +14504,7 @@ async function openAdminUserDetail(uid) {
     // Resolve inviter profile if present
     var inviterProfile = null;
     if (inviterRes.data && inviterRes.data.invited_by) {
-      var ip = await sbClient.from('profiles').select('id, display_name, handle, email').eq('id', inviterRes.data.invited_by).maybeSingle();
+      var ip = await sbClient.from('profiles').select('id, display_name, handle').eq('id', inviterRes.data.invited_by).maybeSingle();
       if (ip.data) inviterProfile = ip.data;
     }
     var counts = {
@@ -14598,7 +14648,7 @@ async function toggleAdminUserSection(key, uid) {
         var rowsData = f.data || [];
         if (!rowsData.length) { bodyEl.innerHTML = '<div style="font-size:11px;color:#888;padding:6px">No friends or pending requests.</div>'; return; }
         var otherIds = rowsData.map(function(x){ return x.requester_id === uid ? x.addressee_id : x.requester_id; }).filter(Boolean);
-        var pr = await sbClient.from('profiles').select('id, display_name, handle, email').in('id', otherIds);
+        var pr = await sbClient.from('profiles').select('id, display_name, handle').in('id', otherIds);
         var byId = {}; (pr.data || []).forEach(function(p) { byId[p.id] = p; });
         // Sort accepted first, then pending; within each group, most recent first
         rowsData.sort(function(a, b) {
@@ -14682,7 +14732,7 @@ async function renderAdminLists(el) {
   var userIds = Array.from(new Set(lists.map(function(l){return l.user_id;}).filter(Boolean)));
   var profilesMap = {};
   if (userIds.length) {
-    var pr = await sbClient.from('profiles').select('id, display_name, email, handle').in('id', userIds);
+    var pr = await sbClient.from('profiles').select('id, display_name, handle').in('id', userIds);
     (pr.data || []).forEach(function(p) { profilesMap[p.id] = p; });
   }
   var term = (_adminListSearch || '').toLowerCase();
@@ -14744,7 +14794,7 @@ async function openAdminListDetail(listId, origin, originUid) {
     var owner = null;
     if (l.user_id) {
       try {
-        var pr = await sbClient.from('profiles').select('id, display_name, handle, email, photo').eq('id', l.user_id).maybeSingle();
+        var pr = await sbClient.from('profiles').select('id, display_name, handle, photo').eq('id', l.user_id).maybeSingle();
         owner = pr.data || null;
       } catch(e) {}
     }
@@ -16742,8 +16792,8 @@ function openGiftGuide(friendUserId, source) {
   }
   // Slow path: hit the DB, then either point the pre-opened tab at the URL
   // or (if popup was blocked) fall back to same-tab navigation.
-  sbClient.from('profiles').select('gift_share_token').eq('id', friendUserId).maybeSingle().then(function(r) {
-    var token = r && r.data && r.data.gift_share_token;
+  sbClient.rpc('my_friend_gift_tokens', { p_ids: [friendUserId] }).then(function(r) {
+    var token = r && r.data && r.data[0] && r.data[0].gift_share_token;
     if (token) {
       if (win) win.location = buildUrl(token);
       else window.location.href = buildUrl(token);
@@ -17062,7 +17112,7 @@ function notifyFriendsOfUpdate(name, category) {
       var sameCatRes = await sbClient.from('lists').select('user_id').in('user_id', acceptedFriendIds).eq('category', category);
       var interested = (sameCatRes.data || []).map(function(r){ return r.user_id; });
       if (!interested.length) return;
-      var profRes = await sbClient.from('profiles').select('id, email').in('id', interested);
+      var profRes = await sbClient.from('profiles').select('id').in('id', interested);
       var profiles = (profRes.data || []).filter(function(p){ return !!p.email; });
       // Batch-insert queue rows for all interested friends
       if (profiles.length) {
@@ -17070,7 +17120,7 @@ function notifyFriendsOfUpdate(name, category) {
           profiles.map(function(p){ return { recipient_user_id: p.id, from_user_id: userId, event_type: 'friend_update', event_data: { category: category, friend_name: name } }; })
         ).then(function(r){ if (r && r.error) console.warn('notification_queue insert failed', r.error); });
         // Fire immediate push in parallel (push is not batched — brief transient signal)
-        profiles.forEach(function(p) { sendAppPush(p.email, 'Tenner', name + ' updated their ' + (category || 'top 10'), '/#circle'); });
+        profiles.forEach(function(p) { sendAppPush(p.id, 'Tenner', name + ' updated their ' + (category || 'top 10'), '/#circle'); });
       }
     } catch(e) { console.warn('friend_update fanout failed', e); }
   })();
@@ -17289,7 +17339,7 @@ function setupRealtimeNotifications() {
           // Instagram) rather than a real person? Those get attribution
           // credit in the leaderboard but must never become a friend or
           // receive a "your invite converted" push.
-          var inviterProf = await sbClient.from('profiles').select('is_system, email').eq('id', fromId).maybeSingle();
+          var inviterProf = await sbClient.from('profiles').select('is_system').eq('id', fromId).maybeSingle();
           var inviterIsSystem = !!(inviterProf.data && inviterProf.data.is_system);
           // Check current invited_by — only write if unset
           var cur = await sbClient.from('profiles').select('invited_by').eq('id', userId).maybeSingle();
@@ -17322,10 +17372,10 @@ function setupRealtimeNotifications() {
               // Notify the inviter that their invite converted (transactional — always fires, not batched into digest)
               if (af.data === 'created') {
                 try {
-                  var invProf = await sbClient.from('profiles').select('email').eq('id', fromId).maybeSingle();
+
                   var myName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
-                  if (invProf.data && invProf.data.email && typeof sendAppPush === 'function') {
-                    sendAppPush(invProf.data.email, 'Tenner', myName + ' joined from your invite — you\'re now friends', '/#circle');
+                  if (typeof sendAppPush === 'function') {
+                    sendAppPush(fromId, 'Tenner', myName + ' joined from your invite — you\'re now friends', '/#circle');
                   }
                 } catch(e) { /* best-effort */ }
               }
@@ -18221,8 +18271,7 @@ async function submitItemComment() {
 async function notifyListOwnerOfComment(ownerId, category, itemName, commentText, commentId) {
   if (!sbClient || !ownerId) return;
   try {
-    var pr = await sbClient.from('profiles').select('email').eq('id', ownerId).maybeSingle();
-    if (!pr.data || !pr.data.email) return;
+
     var commenterName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'A friend');
     // Enqueue for batched digest email. If the comment is deleted before the
     // 1-hour safety window elapses, the processor drops it.
@@ -18235,7 +18284,7 @@ async function notifyListOwnerOfComment(ownerId, category, itemName, commentText
       comment_id: commentId || null
     });
     // Immediate push — transient, still valuable in-the-moment even for daily-cadence users
-    sendAppPush(pr.data.email, 'Tenner', commenterName + ' commented on your list', '/#circle');
+    sendAppPush(ownerId, 'Tenner', commenterName + ' commented on your list', '/#circle');
   } catch(e) { console.warn('notifyListOwnerOfComment failed', e); }
 }
 

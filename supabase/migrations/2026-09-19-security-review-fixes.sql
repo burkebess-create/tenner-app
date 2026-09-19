@@ -1,0 +1,43 @@
+-- 2026-09-19 — Security review remediation
+--
+-- FINDING 1 (high): profiles_select is USING (true) and profiles holds email,
+-- phone and gift_share_token, so ANY signed-in user could read all 43 email
+-- addresses and 30 phone numbers, and — since gift_share_token is the secret
+-- behind /g?t=... — read a NON-FRIEND's token and open their gift guide.
+-- Demonstrated end to end against live data before fixing.
+--
+-- RLS is row-level and cannot say "these columns only on your own row", so the
+-- fix is column privileges plus server-side routes for the legitimate readers:
+--   get_my_contact()          your own email / phone / token
+--   admin_profile_contacts()  admin screens (admin-gated)
+--   my_friend_gift_tokens()   a friend's gift token, accepted friends only
+--   find_user_by_phone()      add-by-phone; returns identity columns, never a
+--                             phone number. Needed because Postgres requires
+--                             SELECT on any column used in a WHERE clause, so
+--                             .eq('phone', x) stopped working — which also
+--                             closed a bulk phone-number oracle.
+-- send-email and send-push now accept to_user_id and resolve the address with
+-- the service role, so the client never handles someone else's email at all.
+--
+-- FINDING 2 (medium): are_friends(uuid, uuid) consulted no caller whatsoever,
+-- so anyone — signed out included — could ask whether any two users were
+-- friends and enumerate the social graph. It is a policy helper; EXECUTE is
+-- revoked from anon and authenticated.
+--
+-- FINDING 3 (medium): the storage policy allowed ANY authenticated user to
+-- write or delete anything under groups/, with no membership check. Now gated
+-- on is_group_member() using the group id already present in the path.
+--
+-- FINDING 5 (low): dropped category_items_dupe_backup_20260912, a 1,806-row
+-- cleanup artifact nothing read.
+--
+-- Verified as a signed-in non-admin after the change: harvesting emails,
+-- harvesting phones, reading a stranger's gift token and probing phone
+-- numbers via WHERE all BLOCKED; while profile search, own-contact lookup,
+-- opening a friend's gift guide, add-by-phone and the admin screens all still
+-- work, and a non-admin gets 0 rows from the admin function.
+
+-- (definitions applied as individual migrations; see:
+--  contact_access_helpers, group_photo_requires_membership,
+--  friend_gift_tokens_rpc, find_user_by_phone_rpc,
+--  lock_down_profile_contact_columns)
