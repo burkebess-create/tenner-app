@@ -85,7 +85,7 @@
     if (qs.get('from') || qs.get('fill')) return;         // friend + list invites
     if (qs.get('joingroup')) return;                      // group invite — straight to sign-up
     if (qs.get('skipIntro')) return;                      // automated QA + "take me straight in" links
-    if (qs.get('create') || qs.get('invite') || qs.get('share') || qs.get('profile') || qs.get('openPrefs')) return; // email CTAs — these go to existing users, never the marketing page
+    if (qs.get('create') || qs.get('invite') || qs.get('share') || qs.get('profile') || qs.get('openPrefs') || qs.get('feedback')) return; // email CTAs — these go to existing users, never the marketing page
     if (sessionStorage.getItem('tennerLaunch')) return;   // clicked the welcome CTA
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
     for (var i = 0; i < localStorage.length; i++) {
@@ -1569,6 +1569,7 @@
             <textarea id="feedback-message" placeholder="Tell us what's on your mind…" maxlength="1000" style="width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:3px;padding:7px 8px;font-size:12px;font-family:inherit;resize:none;height:100px;margin-bottom:6px"></textarea>
             <button onclick="submitFeedback()" style="margin-bottom:0;border-radius:3px;background:#D85A30;color:#FFFFFF;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;font-size:11px;padding:14px;border:none;cursor:pointer;width:100%">Submit feedback</button>
           </div>
+          <div id="my-feedback-threads"></div>
         </div>
       </div>
 
@@ -2268,6 +2269,7 @@ function go(id) {
   }
   if (id === 's-email-prefs') { renderEmailPrefs(); }
   if (id === 's-profile-account') { renderBuildVersion(); }
+  if (id === 's-profile-feedback') { renderMyFeedback(); }
   if (id === 's-admin') { renderAdmin(); }
   if (id === 's-admin-user') { /* driven by openAdminUserDetail */ }
   if (id === 's-admin-list') { /* driven by openAdminListDetail */ }
@@ -3680,7 +3682,7 @@ function hasPendingDeepLink() { return !!(getPendingDeepLink() || _pendingFillCa
 function _stripDeepLinkParams() {
   try {
     var u = new URL(window.location.href);
-    ['create', 'invite', 'profile', 'share', 'openPrefs'].forEach(function(k) { u.searchParams.delete(k); });
+    ['create', 'invite', 'profile', 'share', 'openPrefs', 'feedback'].forEach(function(k) { u.searchParams.delete(k); });
     history.replaceState(history.state, '', u.pathname + (u.search || '') + (u.hash || ''));
   } catch (e) {}
 }
@@ -3692,6 +3694,7 @@ function applyPendingDeepLink() {
   _stripDeepLinkParams();
   // go() already runs each screen's render hook, so nothing else is needed.
   if (dl.kind === 'create')       go('s-create1');
+  else if (dl.kind === 'feedback') go('s-profile-feedback');
   else if (dl.kind === 'invite')  go('s-profile');
   else if (dl.kind === 'profile') go('s-profile-edit');
   else if (dl.kind === 'prefs')   go('s-email-prefs');
@@ -13018,6 +13021,7 @@ async function submitFeedback() {
     if (res.error) throw res.error;
     document.getElementById('feedback-message').value = '';
     showToast('Thanks — feedback sent! 💌');
+    renderMyFeedback();   // it appears in their own list straight away
   } catch (e) {
     console.warn(e);
     showToast('Could not send feedback. Try again.');
@@ -15186,28 +15190,173 @@ function deleteAdminItem(id) {
   });
 }
 
+// Feedback is a conversation, not a status flag. Each card shows the whole
+// thread, with one box to write in and buttons that send that message along
+// with the status change — so "Resolve" can carry a thank-you in your own
+// words rather than only the canned line.
+var _FB_STATUS_META = {
+  'new':           { label: 'New',           color: '#5F5E5A' },
+  'in_progress':   { label: 'Working on it', color: '#993C1D' },
+  'awaiting_user': { label: 'Waiting on them', color: '#B57F0F' },
+  'resolved':      { label: 'Resolved',      color: '#27500A' }
+};
+
 async function renderAdminFeedback(el) {
   var res = await sbClient.from('feedback').select('*').order('created_at', {ascending:false}).limit(200);
   if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(res.error.message) + '</div>'; return; }
-  var rows = (res.data || []).map(function(f) {
+  var fb = res.data || [];
+  // One query for every thread rather than one per card.
+  var repliesByFb = {};
+  if (fb.length) {
+    var rr = await sbClient.from('feedback_replies').select('*')
+      .in('feedback_id', fb.map(function(f){ return f.id; }))
+      .order('created_at', { ascending: true });
+    if (rr.error) console.warn('feedback replies load failed', rr.error);
+    (rr.data || []).forEach(function(r) { (repliesByFb[r.feedback_id] = repliesByFb[r.feedback_id] || []).push(r); });
+  }
+
+  var rows = fb.map(function(f) {
     var when = f.created_at ? new Date(f.created_at).toLocaleString() : '';
-    var statusColor = f.status === 'resolved' ? '#27500A' : (f.status === 'in_progress' ? '#993C1D' : '#5F5E5A');
-    return '<div class="card no-hover" style="margin-bottom:8px">'
-      + '<div style="display:flex;justify-content:space-between;font-size:10px;color:#888780;margin-bottom:4px">'
-      + '<span>' + escapeHtml(f.user_email || 'anonymous') + ' · ' + escapeHtml(f.category || '') + '</span>'
-      + '<span style="color:' + statusColor + ';font-weight:600">' + escapeHtml(f.status || 'new') + '</span>'
+    var meta = _FB_STATUS_META[f.status || 'new'] || _FB_STATUS_META['new'];
+    var thread = repliesByFb[f.id] || [];
+    var unreadFromUser = thread.filter(function(r){ return !r.is_admin && !r.read_by_admin_at; }).length;
+
+    var threadHtml = thread.map(function(r) {
+      var mine = r.is_admin;
+      return '<div style="margin-top:6px;padding:8px 10px;border-radius:3px;background:' + (mine ? '#FFF6F1' : '#F1EFE8')
+        + ';border-left:3px solid ' + (mine ? '#D85A30' : '#B8B6AE') + '">'
+        + '<div style="font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#888780;margin-bottom:3px">'
+        +   (mine ? 'You' : 'Them') + ' · ' + escapeHtml(new Date(r.created_at).toLocaleString())
+        + '</div>'
+        + '<div style="font-size:12.5px;color:#2C2C2A;white-space:pre-wrap">' + escapeHtml(r.body) + '</div>'
+        + '</div>';
+    }).join('');
+
+    var esc = String(f.id);
+    return '<div class="card no-hover" style="margin-bottom:10px' + (unreadFromUser ? ';border-left:5px solid #D85A30' : '') + '">'
+      + '<div style="display:flex;justify-content:space-between;font-size:10px;color:#888780;margin-bottom:4px;gap:8px">'
+      +   '<span style="min-width:0;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(f.user_email || 'anonymous') + ' · ' + escapeHtml(f.category || '') + '</span>'
+      +   '<span style="color:' + meta.color + ';font-weight:800;white-space:nowrap">' + escapeHtml(meta.label)
+      +     (unreadFromUser ? ' · <span style="color:#D85A30">' + unreadFromUser + ' new</span>' : '') + '</span>'
       + '</div>'
       + '<div style="font-size:13.5px;color:#2C2C2A;white-space:pre-wrap">' + escapeHtml(f.message) + '</div>'
       + '<div style="font-size:9px;color:#888780;margin-top:4px">' + escapeHtml(when) + '</div>'
+      + threadHtml
+      + (f.user_email
+          ? '<textarea id="fb-note-' + esc + '" rows="2" placeholder="Write a message to them (optional)…" '
+            + 'style="width:100%;margin-top:8px;font-size:12.5px;font-family:inherit;border:1px solid #E5E3DA;border-radius:3px;padding:8px;resize:vertical;box-sizing:border-box"></textarea>'
+          : '<div style="font-size:11px;color:#B57F0F;margin-top:8px">No email on this submission — status changes will not notify anyone.</div>')
       + '<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">'
-      + '<button class="back-btn" onclick="setFeedbackStatus(\'' + f.id + '\',\'in_progress\')">Working on it</button>'
-      + '<button class="back-btn" onclick="setFeedbackStatus(\'' + f.id + '\',\'resolved\')">Resolve</button>'
-      + '<button class="back-btn" onclick="setFeedbackStatus(\'' + f.id + '\',\'new\')">Reopen</button>'
-      + '<button class="back-btn" style="color:#A32D2D;border-color:#F09595;margin-left:auto" onclick="confirmDeleteFeedback(\'' + f.id + '\')">Delete</button>'
+      +   '<button class="back-btn" onclick="setFeedbackStatus(\'' + esc + '\',\'in_progress\')">Working on it</button>'
+      +   '<button class="back-btn" onclick="setFeedbackStatus(\'' + esc + '\',\'resolved\')">Resolve</button>'
+      +   '<button class="back-btn" onclick="setFeedbackStatus(\'' + esc + '\',\'awaiting_user\')">Ask a question</button>'
+      +   '<button class="back-btn" onclick="setFeedbackStatus(\'' + esc + '\',null)">Send message</button>'
+      +   '<button class="back-btn" onclick="setFeedbackStatus(\'' + esc + '\',\'new\')">Reopen</button>'
+      +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595;margin-left:auto" onclick="confirmDeleteFeedback(\'' + esc + '\')">Delete</button>'
       + '</div>'
       + '</div>';
   }).join('');
+
   el.innerHTML = '<div style="padding:12px">' + (rows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No feedback yet.</div>') + '</div>';
+
+  // Everything on screen has now been read by an admin.
+  var unreadIds = [];
+  Object.keys(repliesByFb).forEach(function(k) {
+    repliesByFb[k].forEach(function(r) { if (!r.is_admin && !r.read_by_admin_at) unreadIds.push(r.id); });
+  });
+  if (unreadIds.length) {
+    sbClient.from('feedback_replies').update({ read_by_admin_at: new Date().toISOString() }).in('id', unreadIds)
+      .then(function(r){ if (r.error) console.warn('mark admin-read failed', r.error); });
+  }
+}
+
+// ── The submitter's side of the conversation ─────────────────────────────
+// Without this, an admin asking "which phone were you on?" reaches a dead end:
+// the question arrives by email with nowhere to answer it. Shown under the
+// feedback form on Profile -> Feedback.
+async function renderMyFeedback() {
+  var host = document.getElementById('my-feedback-threads');
+  if (!host || !sbClient || !userId) return;
+  var res = await sbClient.from('feedback').select('id, message, category, status, created_at')
+    .eq('user_id', userId).order('created_at', { ascending: false }).limit(20);
+  if (res.error) { console.warn('my feedback load failed', res.error); host.innerHTML = ''; return; }
+  var fb = res.data || [];
+  if (!fb.length) { host.innerHTML = ''; return; }
+
+  var repliesByFb = {};
+  var rr = await sbClient.from('feedback_replies').select('*')
+    .in('feedback_id', fb.map(function(f){ return f.id; }))
+    .order('created_at', { ascending: true });
+  if (rr.error) console.warn('my replies load failed', rr.error);
+  (rr.data || []).forEach(function(r) { (repliesByFb[r.feedback_id] = repliesByFb[r.feedback_id] || []).push(r); });
+
+  var cards = fb.map(function(f) {
+    var meta = _FB_STATUS_META[f.status || 'new'] || _FB_STATUS_META['new'];
+    var thread = repliesByFb[f.id] || [];
+    var unread = thread.filter(function(r){ return r.is_admin && !r.read_by_user_at; }).length;
+    var when = f.created_at ? new Date(f.created_at).toLocaleDateString(undefined, { month:'short', day:'numeric' }) : '';
+    var threadHtml = thread.map(function(r) {
+      return '<div style="margin-top:6px;padding:8px 10px;border-radius:3px;background:' + (r.is_admin ? '#FFF6F1' : '#F1EFE8')
+        + ';border-left:3px solid ' + (r.is_admin ? '#D85A30' : '#B8B6AE') + '">'
+        + '<div style="font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#888780;margin-bottom:3px">'
+        +   (r.is_admin ? 'Tenner' : 'You') + ' · ' + escapeHtml(new Date(r.created_at).toLocaleDateString(undefined, { month:'short', day:'numeric' }))
+        + '</div>'
+        + '<div style="font-size:12.5px;color:#2C2C2A;white-space:pre-wrap">' + escapeHtml(r.body) + '</div>'
+        + '</div>';
+    }).join('');
+    var asked = f.status === 'awaiting_user';
+    return '<div class="card no-hover" style="margin-bottom:10px;border-left:' + (asked || unread ? '7px solid #D85A30' : '1px solid #E8E6DF') + '">'
+      + '<div style="display:flex;justify-content:space-between;font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#888780;margin-bottom:5px;gap:8px">'
+      +   '<span>' + escapeHtml(f.category || 'feedback') + ' · ' + escapeHtml(when) + '</span>'
+      +   '<span style="color:' + meta.color + '">' + escapeHtml(meta.label) + (unread ? ' · NEW' : '') + '</span>'
+      + '</div>'
+      + '<div style="font-size:13px;color:#2C2C2A;white-space:pre-wrap">' + escapeHtml(f.message) + '</div>'
+      + threadHtml
+      + (asked
+          ? '<div style="font-size:11.5px;color:#D85A30;font-weight:700;margin-top:8px">They asked you something — reply below.</div>'
+          : '')
+      + '<textarea id="myfb-reply-' + f.id + '" rows="2" placeholder="Reply…" maxlength="4000" '
+      +   'style="width:100%;margin-top:8px;font-size:12.5px;font-family:inherit;border:1px solid #E5E3DA;border-radius:3px;padding:8px;resize:vertical;box-sizing:border-box"></textarea>'
+      + '<button class="back-btn" style="margin-top:6px" onclick="submitMyFeedbackReply(\'' + f.id + '\')">Send reply</button>'
+      + '</div>';
+  }).join('');
+
+  host.innerHTML = '<div style="display:flex;align-items:center;gap:12px;margin:22px 0 12px">'
+    + '<div style="flex:1;height:2px;background:#D85A30"></div>'
+    + '<div style="font-size:10.5px;font-weight:800;letter-spacing:0.18em;color:#D85A30;text-transform:uppercase">Your feedback</div>'
+    + '<div style="flex:1;height:2px;background:#D85A30"></div></div>' + cards;
+
+  // Mark admin messages as seen now they have been shown.
+  var ids = [];
+  Object.keys(repliesByFb).forEach(function(k) {
+    repliesByFb[k].forEach(function(r) { if (r.is_admin && !r.read_by_user_at) ids.push(r.id); });
+  });
+  if (ids.length) {
+    sbClient.from('feedback_replies').update({ read_by_user_at: new Date().toISOString() }).in('id', ids)
+      .then(function(r){ if (r.error) console.warn('mark user-read failed', r.error); });
+  }
+}
+
+async function submitMyFeedbackReply(feedbackId) {
+  var el = document.getElementById('myfb-reply-' + feedbackId);
+  if (!el) return;
+  var body = String(el.value || '').trim().slice(0, 4000);
+  if (!body) { showToast('Write something first.'); el.focus(); return; }
+  // Same moderation as comments — this text is read by a human on our side.
+  try {
+    var mod = await moderateTextRemote(body);
+    if (mod && mod.flagged) { showToast('That looks like it contains ' + (mod.primary_label || 'content we do not allow') + '. Please rephrase.'); return; }
+  } catch (e) { /* fall open */ }
+  var ins = await sbClient.from('feedback_replies')
+    .insert({ feedback_id: feedbackId, author_id: userId, is_admin: false, body: body });
+  if (ins.error) { showToast('Could not send: ' + ins.error.message); return; }
+  // Answering moves it out of "waiting on them" so it resurfaces for the admin.
+  var upd = await sbClient.from('feedback').update({ status: 'in_progress' })
+    .eq('id', feedbackId).eq('user_id', userId).eq('status', 'awaiting_user');
+  if (upd.error) console.warn('status bump failed', upd.error);
+  el.value = '';
+  showToast('✓ Reply sent — thank you.');
+  renderMyFeedback();
 }
 
 function confirmDeleteFeedback(id) {
@@ -15221,19 +15370,69 @@ function confirmDeleteFeedback(id) {
   });
 }
 
-function setFeedbackStatus(id, status) {
-  // Fetch the row first so we know the submitter's email + original message
-  sbClient.from('feedback').select('user_email, message').eq('id', id).maybeSingle().then(function(fetched) {
-    var fb = fetched.data;
-    sbClient.from('feedback').update({ status: status }).eq('id', id).then(function(r) {
-      if (r.error) { showToast('Error: ' + r.error.message); return; }
-      // Only email on meaningful transitions, and only if we have the submitter's email
-      if (fb && fb.user_email && (status === 'in_progress' || status === 'resolved')) {
-        sendAppEmail('feedback_update', fb.user_email, { status: status, message: fb.message });
-      }
-      renderAdmin();
-    });
-  });
+// status === null means "just send a message, leave the status alone".
+// The note, the status and the email are one action from the admin's point of
+// view, so a failure in any of them has to surface — the old version fired the
+// email into the void and only console.warn'd, so a silent failure and a
+// successful send looked exactly the same.
+async function setFeedbackStatus(id, status) {
+  var noteEl = document.getElementById('fb-note-' + id);
+  var note = noteEl ? String(noteEl.value || '').trim().slice(0, 4000) : '';
+
+  if (status === 'awaiting_user' && !note) {
+    showToast('Write the question first — this one needs a message.');
+    if (noteEl) noteEl.focus();
+    return;
+  }
+  if (status === null && !note) {
+    showToast('Nothing to send — write a message first.');
+    if (noteEl) noteEl.focus();
+    return;
+  }
+
+  var fetched = await sbClient.from('feedback').select('user_email, message, status').eq('id', id).maybeSingle();
+  if (fetched.error || !fetched.data) { showToast('Could not load that feedback.'); return; }
+  var fb = fetched.data;
+
+  if (status !== null && status !== fb.status) {
+    var upd = await sbClient.from('feedback').update({ status: status }).eq('id', id);
+    if (upd.error) { showToast('Status not saved: ' + upd.error.message); return; }
+  }
+
+  // Record the note in the thread so both sides keep the history, even if the
+  // email later bounces.
+  if (note) {
+    var ins = await sbClient.from('feedback_replies')
+      .insert({ feedback_id: id, author_id: userId, is_admin: true, body: note });
+    if (ins.error) { showToast('Message not saved: ' + ins.error.message); renderAdmin(); return; }
+    if (noteEl) noteEl.value = '';
+  }
+
+  // Reopen is a status change with nothing to say unless a note was written,
+  // so it only mails when there is one.
+  var shouldEmail = !!fb.user_email && (note || status === 'in_progress' || status === 'resolved');
+  if (!shouldEmail) {
+    showToast(status ? 'Marked ' + (_FB_STATUS_META[status] || {}).label + '.' : 'Saved.');
+    renderAdmin();
+    return;
+  }
+
+  var fromName = (myProfile && myProfile.display_name) || 'The Tenner team';
+  var emailType = (status === null) ? 'feedback_reply' : 'feedback_update';
+  try {
+    var r = await sbClient.functions.invoke('send-email', { body: {
+      type: emailType, to: fb.user_email,
+      data: { status: status || fb.status, message: fb.message, note: note, from_name: fromName, ref_key: id }
+    }});
+    // supabase-js reports errors in the result, and the function itself answers
+    // { ok:false } on a refusal — both have to be checked or a 403 reads as sent.
+    if (r.error) throw new Error(r.error.message || 'send failed');
+    if (r.data && r.data.ok === false) throw new Error(r.data.error || 'refused');
+    showToast('✓ Sent to ' + fb.user_email);
+  } catch (e) {
+    showToast('Saved, but the email failed: ' + (e.message || e), 6000);
+  }
+  renderAdmin();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -16794,6 +16993,7 @@ function setupRealtimeNotifications() {
   // reloaded the page into a context without that storage — and on iOS an
   // in-app browser, Safari and an installed PWA each have their own — lost it
   // with no way to recover. Held in the URL, a reload re-captures it.
+  if (_qs.get('feedback') === '1') savePendingDeepLink('feedback');
   if (_qs.get('create') === '1')  savePendingDeepLink('create');
   if (_qs.get('invite') === '1')  savePendingDeepLink('invite');
   if (_qs.get('profile') === '1') savePendingDeepLink('profile');

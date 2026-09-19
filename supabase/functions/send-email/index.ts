@@ -28,6 +28,7 @@ const EMAIL_TYPE_TO_CATEGORY: Record<string, string> = {
   birthday_reminder_14: "reminders",
   welcome:            "essential",
   feedback_update:    "essential",
+  feedback_reply:     "essential",
   account_suspended:  "essential",
 };
 
@@ -128,22 +129,62 @@ function templateAccountSuspended(data: any) {
     html: baseTemplate('Your Tenner account has been suspended.', body, data.__unsub_token, data.__category)
   };
 }
+// A personal note from whoever replied, shown above the canned line. This is
+// the part that actually reads like a human answered, so it leads.
+function noteBlock(note: string, fromName: string) {
+  const t = String(note || "").trim();
+  if (!t) return "";
+  return `<div style="border-left:3px solid #D85A30;padding:2px 0 2px 14px;margin:0 0 16px">
+      <p style="white-space:pre-wrap;margin:0 0 6px">${escapeHtml(t)}</p>
+      <p style="margin:0;font-size:12px;color:#888780">— ${escapeHtml(fromName || "The Tenner team")}</p>
+    </div>`;
+}
+
+function statusLabelFor(status: string) {
+  return status === "resolved"      ? "Resolved ✓"
+       : status === "in_progress"   ? "Working on it 🔧"
+       : status === "awaiting_user" ? "Question for you"
+       : "Reopened";
+}
+
 function templateFeedbackUpdate(data: any) {
   const status = data.status || "updated";
   const message = data.message || "";
-  const statusLabel = status === "resolved"
-    ? "Resolved ✓"
-    : status === "in_progress"
-    ? "Working on it 🔧"
-    : "Reopened";
-  const preheader = `We updated your feedback: ${statusLabel}`;
+  const statusLabel = statusLabelFor(status);
+  const note = noteBlock(data.note, data.from_name);
+  // With a personal note present the generic line is noise, so it is dropped —
+  // except on 'resolved', where the thanks still earns its place.
+  const canned = status === "awaiting_user"
+      ? "<p>Reply in the app and we'll pick it straight back up.</p>"
+    : status === "resolved"
+      ? "<p>Thanks for helping make Tenner better. Keep the ideas coming!</p>"
+    : data.note
+      ? ""
+      : "<p>We're on it — we'll let you know when it's resolved.</p>";
+  const cta = status === "awaiting_user" ? "Reply to this →" : "Open Tenner →";
+  const preheader = data.note ? String(data.note).trim().slice(0, 120) : `We updated your feedback: ${statusLabel}`;
   const body = `
-    <h1>Feedback update: ${statusLabel}</h1>
-    <p>You submitted this feedback:</p>
+    <h1>${status === "awaiting_user" ? "A quick question" : `Feedback update: ${statusLabel}`}</h1>
+    ${note}
+    <p style="font-size:12px;color:#888780;margin-bottom:6px">Your original feedback:</p>
     <p style="background:#F1EFE8;padding:12px 14px;border-radius:10px;font-style:italic;color:#5F5E5A">${escapeHtml(message)}</p>
-    ${status === "resolved" ? "<p>Thanks for helping make Tenner better. Keep the ideas coming!</p>" : "<p>We're on it — we'll let you know when it's resolved.</p>"}
-    <p style="text-align:center;margin-top:24px"><a href="${APP_URL}" class="cta">Open Tenner →</a></p>`;
+    ${canned}
+    <p style="text-align:center;margin-top:24px"><a href="${APP_URL}?feedback=1" class="cta">${cta}</a></p>`;
   return { subject: `Tenner feedback update: ${statusLabel}`, html: baseTemplate(preheader, body, data.__unsub_token, data.__category) };
+}
+
+// A message with no status change — following up, or checking a fix landed.
+function templateFeedbackReply(data: any) {
+  const message = data.message || "";
+  const note = noteBlock(data.note, data.from_name);
+  const preheader = data.note ? String(data.note).trim().slice(0, 120) : "A reply to your Tenner feedback";
+  const body = `
+    <h1>A reply to your feedback</h1>
+    ${note}
+    <p style="font-size:12px;color:#888780;margin-bottom:6px">Your original feedback:</p>
+    <p style="background:#F1EFE8;padding:12px 14px;border-radius:10px;font-style:italic;color:#5F5E5A">${escapeHtml(message)}</p>
+    <p style="text-align:center;margin-top:24px"><a href="${APP_URL}?feedback=1" class="cta">Reply in Tenner →</a></p>`;
+  return { subject: "Re: your Tenner feedback", html: baseTemplate(preheader, body, data.__unsub_token, data.__category) };
 }
 
 function templateFriendUpdate(data: any) {
@@ -262,6 +303,96 @@ async function fetchRecipientPrefs(toEmail: string): Promise<{ userId: string; t
   }
 }
 
+function sbHeaders() {
+  const srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  return { apikey: srk, Authorization: `Bearer ${srk}`, "Content-Type": "application/json" };
+}
+
+// The caller's user id, read from the JWT the gateway already validated.
+// Only the payload is inspected — the signature was checked upstream.
+function callerId(req: Request): string | null {
+  try {
+    const h = req.headers.get("Authorization") || "";
+    const tok = h.replace(/^Bearer\s+/i, "");
+    const part = tok.split(".")[1];
+    if (!part) return null;
+    const json = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+    return json.sub || null;   // anon/service keys carry no sub
+  } catch (e) { return null; }
+}
+
+async function isAdmin(userId: string) {
+  const url = Deno.env.get("SUPABASE_URL");
+  if (!url || !userId) return false;
+  try {
+    const r = await fetch(`${url}/rest/v1/admins?select=user_id&user_id=eq.${encodeURIComponent(userId)}&limit=1`, { headers: sbHeaders() });
+    const rows = await r.json();
+    return Array.isArray(rows) && rows.length > 0;
+  } catch (e) { return false; }
+}
+
+async function emailOf(userId: string): Promise<string | null> {
+  const url = Deno.env.get("SUPABASE_URL");
+  if (!url || !userId) return null;
+  try {
+    const r = await fetch(`${url}/rest/v1/profiles?select=email&id=eq.${encodeURIComponent(userId)}&limit=1`, { headers: sbHeaders() });
+    const rows = await r.json();
+    return rows?.[0]?.email || null;
+  } catch (e) { return null; }
+}
+
+// Does the caller have a friendship with the person at this address? Gates the
+// one type that is legitimately user-to-user.
+async function hasFriendshipWith(callerUserId: string, toEmail: string) {
+  const url = Deno.env.get("SUPABASE_URL");
+  if (!url) return false;
+  try {
+    const pRes = await fetch(`${url}/rest/v1/profiles?select=id&email=eq.${encodeURIComponent(toEmail)}&limit=1`, { headers: sbHeaders() });
+    const other = (await pRes.json())?.[0]?.id;
+    if (!other) return false;
+    const q = `or=(and(requester_id.eq.${callerUserId},addressee_id.eq.${other}),and(requester_id.eq.${other},addressee_id.eq.${callerUserId}))`;
+    const fRes = await fetch(`${url}/rest/v1/friendships?select=id&${q}&limit=1`, { headers: sbHeaders() });
+    const rows = await fRes.json();
+    return Array.isArray(rows) && rows.length > 0;
+  } catch (e) { return false; }
+}
+
+// This function could previously be invoked by ANY signed-in user with an
+// arbitrary `to` and `type` — i.e. send Tenner-branded mail from the verified
+// domain to any address on earth. The gateway's verify_jwt only proves the
+// caller is *someone*. Each type now states who may send it and to whom.
+async function authorize(req: Request, type: string, to: string): Promise<string | null> {
+  const uid = callerId(req);
+  if (!uid) return "sign-in required";
+  if (type === "welcome") {
+    const own = await emailOf(uid);
+    return (own && own.toLowerCase() === String(to).toLowerCase()) ? null : "welcome may only be sent to yourself";
+  }
+  if (type === "friend_request") {
+    return (await hasFriendshipWith(uid, to)) ? null : "no friendship with that recipient";
+  }
+  // feedback_update, feedback_reply, account_suspended, and anything added
+  // later: admin only. Default deny, so a new type cannot arrive unguarded.
+  return (await isAdmin(uid)) ? null : "admin only";
+}
+
+// Records the send so the admin UI can show what actually went out. Silent on
+// failure: a logging problem must never look like a delivery problem.
+async function logEmail(type: string, toEmail: string, refKey: string | null) {
+  const url = Deno.env.get("SUPABASE_URL");
+  if (!url) return;
+  try {
+    const pRes = await fetch(`${url}/rest/v1/profiles?select=id&email=eq.${encodeURIComponent(toEmail)}&limit=1`, { headers: sbHeaders() });
+    const uid = (await pRes.json())?.[0]?.id;
+    if (!uid) return;
+    await fetch(`${url}/rest/v1/email_log`, {
+      method: "POST",
+      headers: sbHeaders(),
+      body: JSON.stringify({ user_id: uid, email_type: type, ref_key: refKey || null }),
+    });
+  } catch (e) { console.warn("logEmail failed:", e); }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405, headers: CORS_HEADERS });
@@ -269,6 +400,13 @@ Deno.serve(async (req) => {
   try {
     const { type, to, data } = await req.json();
     if (!type || !to) throw new Error("type and to are required");
+
+    const denied = await authorize(req, type, to);
+    if (denied) {
+      return new Response(JSON.stringify({ ok: false, error: "Not allowed: " + denied }), {
+        status: 403, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
 
     // Preference check — skip if the recipient opted out of this category.
     // 'essential' emails always go through (welcome / feedback_update / security).
@@ -293,6 +431,7 @@ Deno.serve(async (req) => {
       case "birthday_reminder":  tpl = templateBirthdayReminder(enrichedData); break;
       case "weekly_reveal":      tpl = templateWeeklyReveal(enrichedData); break;
       case "feedback_update":    tpl = templateFeedbackUpdate(enrichedData); break;
+      case "feedback_reply":     tpl = templateFeedbackReply(enrichedData); break;
       case "friend_update":      tpl = templateFriendUpdate(enrichedData); break;
       case "new_comment":        tpl = templateNewComment(enrichedData); break;
       case "friend_request":     tpl = templateFriendRequest(enrichedData); break;
@@ -310,6 +449,7 @@ Deno.serve(async (req) => {
       extraHeaders["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
     }
     const result = await sendResend(to, tpl.subject, tpl.html, extraHeaders);
+    await logEmail(type, to, (data && data.ref_key) || null);
     return new Response(JSON.stringify({ ok: true, id: result.id }), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
