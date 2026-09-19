@@ -3128,19 +3128,39 @@ function unfilledCategoriesForUser() {
   });
 }
 
+// Tiles per page, sized to the screen. Everything below the grid — the
+// pager, "or make your own", the ranked toggle and Continue — costs a fixed
+// ~430px whatever the phone, so on a short screen three rows of tiles simply
+// cannot fit and the auto-shrink bottoms out trying.
+//
+// Measured against the live layout: a ~650px scroller (iPhone 14 and up)
+// fits three rows exactly; below that it does not. Two rows is the floor
+// rather than one, because a short screen ends up scrolling a little either
+// way and paging through a catalogue two tiles at a time is worse than a
+// small scroll.
+function catGridPageSize() {
+  var h = 0;
+  var scroller = document.querySelector('#s-create1 .content');
+  if (scroller && scroller.clientHeight) h = scroller.clientHeight;
+  if (!h) h = (window.innerHeight || 800) - 210;   // rough chrome allowance pre-layout
+  return h >= 620 ? CAT_GRID_SLOTS : 4;
+}
+
 function catGridPageCount() {
-  return Math.max(1, Math.ceil(unfilledCategoriesForUser().length / CAT_GRID_SLOTS));
+  return Math.max(1, Math.ceil(unfilledCategoriesForUser().length / catGridPageSize()));
 }
 
 function visibleCategoriesForUser() {
   var all = unfilledCategoriesForUser();
+  var size = catGridPageSize();
   // Clamp: MY_LISTS changes under this screen (saving a list removes a
-  // category), so the current page can fall off the end between renders.
-  var pages = Math.max(1, Math.ceil(all.length / CAT_GRID_SLOTS));
+  // category), and the page size itself changes on rotate, so the current
+  // page can fall off the end between renders.
+  var pages = Math.max(1, Math.ceil(all.length / size));
   if (_catGridPage > pages - 1) _catGridPage = pages - 1;
   if (_catGridPage < 0) _catGridPage = 0;
-  var from = _catGridPage * CAT_GRID_SLOTS;
-  return all.slice(from, from + CAT_GRID_SLOTS);
+  var from = _catGridPage * size;
+  return all.slice(from, from + size);
 }
 
 // Deep links (?fill=) and "fill out this list" can select a category sitting
@@ -3149,8 +3169,9 @@ function visibleCategoriesForUser() {
 function syncCatGridPageToSelection() {
   if (!selCat) return;
   var all = unfilledCategoriesForUser();
+  var size = catGridPageSize();
   for (var i = 0; i < all.length; i++) {
-    if (all[i].n === selCat) { _catGridPage = Math.floor(i / CAT_GRID_SLOTS); return; }
+    if (all[i].n === selCat) { _catGridPage = Math.floor(i / size); return; }
   }
 }
 
@@ -3183,17 +3204,18 @@ function renderCatGridMore() {
   var host = document.getElementById('cat-grid-more');
   if (!host || !prevHost) return;
   var all = unfilledCategoriesForUser();
-  var pages = Math.max(1, Math.ceil(all.length / CAT_GRID_SLOTS));
+  var size = catGridPageSize();
+  var pages = Math.max(1, Math.ceil(all.length / size));
 
   if (pages <= 1) { prevHost.innerHTML = ''; host.innerHTML = ''; return; }
 
-  var backCount = Math.min(CAT_GRID_SLOTS, _catGridPage * CAT_GRID_SLOTS);
+  var backCount = Math.min(size, _catGridPage * size);
   prevHost.innerHTML = _catGridPage > 0
     ? '<div style="margin-bottom:10px">' + _catPagerBtn('\u2191 Previous ' + backCount, _catGridPage - 1) + '</div>'
     : '';
 
-  var shownSoFar = (_catGridPage + 1) * CAT_GRID_SLOTS;
-  var nextCount = Math.max(0, Math.min(CAT_GRID_SLOTS, all.length - shownSoFar));
+  var shownSoFar = (_catGridPage + 1) * size;
+  var nextCount = Math.max(0, Math.min(size, all.length - shownSoFar));
   // Position rides inside the button rather than on its own row. A separate
   // centred line cost ~18px, which was enough to push the step past the fold
   // once the buttons went full width — and the fit had already bottomed out
@@ -3257,6 +3279,7 @@ function renderCatGrid() {
     grid.appendChild(div);
   });
   renderCatGridMore();
+  _lastCatPageSize = catGridPageSize();
   fitCatGridToViewport();
 }
 
@@ -3296,8 +3319,25 @@ function fitCatGridToViewport() {
   }
 }
 
-window.addEventListener('resize', fitCatGridToViewport);
-window.addEventListener('orientationchange', function() { setTimeout(fitCatGridToViewport, 150); });
+// Rotating or resizing can change how many tiles fit, which changes the page
+// size and therefore which categories belong on the current page. Re-render
+// rather than only re-fitting, or the grid keeps showing a page's worth of
+// tiles from the old size.
+var _lastCatPageSize = null;
+function onCatGridViewportChange() {
+  var screen = document.getElementById('s-create1');
+  if (!screen || !screen.classList.contains('active')) { fitCatGridToViewport(); return; }
+  var size = catGridPageSize();
+  if (size !== _lastCatPageSize) {
+    _lastCatPageSize = size;
+    renderCatGrid();      // re-slices, re-clamps the page, and re-fits
+  } else {
+    fitCatGridToViewport();
+  }
+}
+
+window.addEventListener('resize', onCatGridViewportChange);
+window.addEventListener('orientationchange', function() { setTimeout(onCatGridViewportChange, 150); });
 
 var CAT_EMOJI_DEFAULTS = ['📋','🎯','🏆','⭐','🔥','💡','🎮','🎵','📚','🎬','📺','🍕','🏀','✈️','🌟','💎','🎨','🌮','🎤','🐾','🍔','🍷','🐶','🚀','🎸','🌊','❤️','🎉'];
 
@@ -14818,7 +14858,7 @@ async function renderAdminCats(el) {
     + '<button class="btn-primary" onclick="editAdminCat(null)" style="margin-bottom:12px">+ New category</button>'
     + (active.length
         ? '<div style="font-size:10.5px;color:#5F5E5A;line-height:1.45;background:#FAF8F2;border:1px solid #E8E6DF;border-left:5px solid #D85A30;border-radius:3px;padding:8px 10px;margin-bottom:10px">'
-          + '<strong style="color:#2C2C2A">Press and drag to reorder.</strong> The top ' + CAT_GRID_SLOTS + ' are the first page of the Create screen. The rest follow on later pages, and everything moves up as users fill out the ones above.</div>'
+          + '<strong style="color:#2C2C2A">Press and drag to reorder.</strong> The top ' + CAT_GRID_SLOTS + ' are the first page of the Create screen on most phones (4 on short screens). The rest follow on later pages, and everything moves up as users fill out the ones above.</div>'
         : '')
     + (activeRows
         ? '<div class="drag-list" id="admin-cat-list">' + activeRows + '</div>'
