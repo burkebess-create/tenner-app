@@ -4415,6 +4415,12 @@ function openPhotoCropper(dataUrl, opts) {
         + '</div>'
         + '<div style="font-size:11px;color:#FFFFFF;opacity:0.55;margin-bottom:14px">Drag to move · pinch or slide to zoom</div>'
         + '<button id="crop-use" class="btn-primary" style="margin-bottom:8px">Use photo</button>'
+        // Offered only when the caller can actually swap the source image —
+        // repositioning an existing photo is the case where "actually, I want
+        // a different one" is the likely next thought.
+        + (opts.onChangePhoto
+            ? '<button id="crop-change" style="width:100%;background:transparent;border:1px solid #D85A30;color:#F0A184;border-radius:3px;padding:11px;margin-bottom:8px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer">Change photo</button>'
+            : '')
         + '<button id="crop-cancel" style="width:100%;background:transparent;border:1px solid rgba(255,255,255,0.35);color:#FFFFFF;border-radius:3px;padding:11px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer">Cancel</button>'
         + '</div>';
       frame.appendChild(overlay);
@@ -4489,6 +4495,14 @@ function openPhotoCropper(dataUrl, opts) {
 
       function done(value) { overlay.remove(); resolve(value); }
       overlay.querySelector('#crop-cancel').onclick = function() { done(null); };
+      var changeBtn = overlay.querySelector('#crop-change');
+      if (changeBtn) changeBtn.onclick = function() {
+        // Close first, then hand the gesture straight to the caller. The file
+        // picker only opens from a user-initiated click, so this has to run
+        // inside this handler rather than after an await or a timer.
+        done(null);
+        try { opts.onChangePhoto(); } catch (e) { console.warn('onChangePhoto failed', e); }
+      };
       overlay.querySelector('#crop-use').onclick = function() {
         clamp();
         var s = baseScale * zoom;
@@ -8519,7 +8533,16 @@ function profileAvatarTap() {
 async function adjustProfilePhoto() {
   var current = myProfile && myProfile.photo;
   if (!current) { showToast('Add a photo first.'); return; }
-  var cropped = await openPhotoCropper(rewriteToCdn(current));
+  var cropped = await openPhotoCropper(rewriteToCdn(current), {
+    // "Change photo" in the cropper opens the same picker the edit screen
+    // uses, so swapping the image doesn't mean backing out to find it.
+    // onProfilePhotoUpload() re-renders through renderProfileHeader(), which
+    // updates both avatars, so this works from the hub as well as the editor.
+    onChangePhoto: function() {
+      var input = document.querySelector('#s-profile-edit input[type="file"]');
+      if (input) input.click();
+    }
+  });
   if (!cropped) return;   // cancelled, or the image couldn't be read
   var dataUrl = await resizeImage(cropped, 600);
   if (!(await guardImageUpload(dataUrl, 'profile_photo_adjust'))) return;
