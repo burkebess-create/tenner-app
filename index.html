@@ -1896,6 +1896,28 @@ var ITEMS = {
   'Songs':['Bohemian Rhapsody','Hotel California','Stairway to Heaven','Imagine','Smells Like Teen Spirit','Johnny B. Goode','What\'s Going On'],
   'Books':['To Kill a Mockingbird','1984','The Great Gatsby','Harry Potter','Lord of the Rings','Fahrenheit 451','Brave New World']
 };
+// Categories are identified by their text name, and every comparison against
+// them — the catalogue lookup, the autofill pool, .eq('category', x) — is
+// case-sensitive. 'Movies' and 'movies' would therefore be two unrelated
+// categories that never match between friends. (user_id, lower(category)) is
+// uniquely indexed to make that impossible; this adopts whatever spelling is
+// already in use so the constraint never has to fire at the user.
+function canonicalCategoryName(cat) {
+  var raw = String(cat == null ? '' : cat).trim();
+  if (!raw) return raw;
+  var want = raw.toLowerCase();
+  var mine = (typeof MY_LISTS !== 'undefined' && MY_LISTS) ? MY_LISTS : [];
+  for (var i = 0; i < mine.length; i++) {
+    var c = mine[i] && mine[i].category;
+    if (c && String(c).trim().toLowerCase() === want) return String(c).trim();
+  }
+  var cats = (typeof CATS !== 'undefined' && CATS) ? CATS : [];
+  for (var j = 0; j < cats.length; j++) {
+    if (cats[j] && String(cats[j].n).trim().toLowerCase() === want) return String(cats[j].n).trim();
+  }
+  return raw;
+}
+
 var FUZZY_CATS = {'moveis':'Movies','movie':'Movies','films':'Movies','film':'Movies','tv show':'TV Shows','television':'TV Shows','shows':'TV Shows','candy bar':'Candy Bars','chocolate':'Candy Bars','vacation':'Travel Destinations','travel spot':'Travel Destinations','travel':'Travel Destinations','soda':'Sodas','pop':'Sodas','book':'Books'};
 var FUZZY_ITEMS = {'mars':'Mars Bar','snicker':'Snickers','reeses':'Reese\'s Peanut Butter Cups','reese':'Reese\'s Peanut Butter Cups','kitkat':'Kit Kat','kit-kat':'Kit Kat','godfather':'The Godfather','dark knight':'The Dark Knight','matrix':'The Matrix'};
 var FRIENDS = [];
@@ -3462,7 +3484,25 @@ function onCatType(val) {
   var fk = Object.keys(FUZZY_CATS).find(function(k) { return lv === k || lv.includes(k); });
   if (fk) { warn.style.display = 'block'; document.getElementById('cat-warn-name').textContent = FUZZY_CATS[fk]; }
   else warn.style.display = 'none';
-  var matches = CATS.filter(function(c) { return c.n.toLowerCase().includes(lv); }).slice(0,4);
+  // Two directions, because they catch different mistakes:
+  //   • catalogue name contains what you typed  → "movie" finds "Movies"
+  //   • what you typed contains a catalogue name → "favorite restaurants"
+  //     finds "Restaurants"
+  // Only the first direction existed, so any prefixed input ("favorite X",
+  // "best X") missed every one of the 37 categories unless it happened to be
+  // one of the 15 hand-written FUZZY_CATS keys.
+  //
+  // Deliberately a suggestion, never a redirect: the real data is full of
+  // categories that legitimately contain a standard name — Christmas Movies,
+  // Rom Coms, Date Night Movies — and those people meant what they typed.
+  var seenCat = {};
+  var matches = CATS.filter(function(c) {
+    var cn = c.n.toLowerCase();
+    if (seenCat[cn]) return false;
+    var hit = cn.includes(lv) || (lv.length >= 3 && lv.includes(cn));
+    if (hit) seenCat[cn] = true;
+    return hit;
+  }).slice(0, 4);
   if (matches.length) {
     sugs.innerHTML = '';
     matches.forEach(function(c) {
@@ -12359,10 +12399,18 @@ async function saveState() {
 async function saveListToDb(listObj) {
   if (!sbClient || !userId) return;
   try {
+    // Category identity is the text itself, and (user_id, lower(category)) is
+    // now uniquely indexed, so a list that differs from an existing one only
+    // by capitalisation would fail on the way in. Adopt the spelling already
+    // in use — the user's own list first, then the catalogue — so the two
+    // never diverge in the first place.
+    var cat = listObj.category || listObj.n.replace('Top 10 ', '');
+    cat = canonicalCategoryName(cat);
+
     var res = await sbClient.from('lists').upsert({
       user_id: userId,
       name: listObj.n,
-      category: listObj.category || listObj.n.replace('Top 10 ', ''),
+      category: cat,
       items: listObj.items,
       is_ranked: listObj.ranked !== false,
       emoji: listObj.emoji || '📋',
