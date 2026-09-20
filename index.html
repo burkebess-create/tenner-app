@@ -2407,6 +2407,7 @@ async function loadFriendListSummaries(acceptedFriends) {
   try {
     var friendIds = acceptedFriends.map(function(f){ return f.friendId; });
     var res = await sbClient.from('lists').select('user_id, category, emoji, updated_at').in('user_id', friendIds).eq('is_public', true);
+    sbCheck(res, 'loadFriendListSummaries');
     var byUser = {};
     (res.data || []).forEach(function(l) {
       if (!byUser[l.user_id]) byUser[l.user_id] = [];
@@ -4920,12 +4921,14 @@ async function renderShareGroups() {
   if (sbClient && userId && selCat) {
     try {
       var fr = await sbClient.from('list_share_invites').select('to_user_id, created_at').eq('from_user_id', userId).eq('category', selCat);
+      sbCheck(fr, 'renderShareGroups');
       (fr.data || []).forEach(function(r){ friendInvites[r.to_user_id] = r.created_at; });
     } catch(e) { console.warn('Invite lookup failed', e); }
     var gids = MY_GROUPS.map(function(g){ return g.id; }).filter(Boolean);
     if (gids.length) {
       try {
         var gr = await sbClient.from('group_lists').select('group_id, created_at').in('group_id', gids).eq('category', selCat);
+        sbCheck(gr, 'renderShareGroups');
         (gr.data || []).forEach(function(r){ groupShares[r.group_id] = r.created_at; });
       } catch(e) { console.warn('Group share lookup failed', e); }
     }
@@ -5371,18 +5374,24 @@ async function remindListInvite(friendId, cat, btn) {
     try {
       var res = await sbClient.from('list_share_invites').select('*')
         .eq('from_user_id', userId).eq('to_user_id', friendId).eq('category', cat).maybeSingle();
+      sbCheck(res, 'remindListInvite');
       var inv = res.data;
       if (!inv) {
         // Row vanished — treat as a brand-new send
-        await sbClient.from('list_share_invites').insert({ from_user_id: userId, to_user_id: friendId, category: cat });
+        await sbClient.from('list_share_invites').insert({ from_user_id: userId, to_user_id: friendId, category: cat }).throwOnError();
       } else {
         var suppress = inv.dismissed_at && (Date.now() - new Date(inv.dismissed_at).getTime() < NINETY_DAYS);
         if (!suppress) {
           // Re-surface as a live invite with a refreshed share date
-          await sbClient.from('list_share_invites').update({ dismissed_at: null, created_at: new Date().toISOString() }).eq('id', inv.id);
+          await sbClient.from('list_share_invites').update({ dismissed_at: null, created_at: new Date().toISOString() }).eq('id', inv.id).throwOnError();
         }
       }
-    } catch(e) { console.warn('Remind failed', e); }
+    } catch(e) {
+      // The button used to flip to "Reminded ✓" even when nothing was written.
+      console.warn('Remind failed', e);
+      showToast('Could not send that reminder — please try again.');
+      return;
+    }
   }
   btn.textContent = 'Reminded ✓';
   btn.style.color = '#3B6D11';
@@ -6542,6 +6551,7 @@ async function renderGroupDetail() {
       var allMemberIds = [userId].concat(memberIds);
       try {
         var flRes = await sbClient.from('lists').select('user_id, category').in('user_id', allMemberIds);
+        sbCheck(flRes, 'renderGroupDetail');
         (flRes.data || []).forEach(function(r) {
           if (!filledByCat[r.category]) filledByCat[r.category] = [];
           filledByCat[r.category].push(r.user_id);
@@ -7023,6 +7033,7 @@ async function searchGroupAddUser() {
     if (isPhone) {
       var r = await sbClient.from('profiles').select('id, display_name, handle, photo')
         .eq('phone', q.replace(/\s/g, '')).neq('id', userId).eq('is_system', false).maybeSingle();
+      sbCheck(r, 'searchGroupAddUser');
       p = r.data;
     } else {
       p = await findProfileByHandle(q.toLowerCase());
@@ -7160,7 +7171,15 @@ async function removeMemberById(friendId) {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
   if (sbClient && g.id) {
-    try { await sbClient.from('group_members').delete().eq('group_id', g.id).eq('user_id', friendId); } catch(e) { console.warn('Remove member failed', e); }
+    try {
+      await sbClient.from('group_members').delete().eq('group_id', g.id).eq('user_id', friendId).throwOnError();
+    } catch(e) {
+      // Don't drop them from the local roster if the DB still has them —
+      // the member would reappear on the next load with no explanation.
+      console.warn('Remove member failed', e);
+      showToast('Could not remove that member — please try again.');
+      return;
+    }
   }
   g.memberIds = (g.memberIds || []).filter(function(id) { return id !== friendId; });
   var memberCount = g.memberIds.length + 1;
@@ -7194,6 +7213,7 @@ async function renderGroupSettings() {
   if (!membersEl || !sbClient || !g.id) return;
   try {
     var mRes = await sbClient.from('group_members').select('user_id, role').eq('group_id', g.id).eq('status', 'accepted');
+    sbCheck(mRes, 'renderGroupSettings');
     var members = (mRes.data || []).filter(function(r){ return r.user_id !== userId; });
     if (members.length === 0) { membersEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No other members yet.</div>'; return; }
     var pids = members.map(function(r){ return r.user_id; });
@@ -7223,7 +7243,13 @@ function confirmRemoveGroupList(cat) {
     'Remove from group', 'secondary',
     async function() {
       if (sbClient && g.id) {
-        try { await sbClient.from('group_lists').delete().eq('group_id', g.id).eq('category', cat); } catch(e) { console.warn('Remove group list failed', e); }
+        try {
+          await sbClient.from('group_lists').delete().eq('group_id', g.id).eq('category', cat).throwOnError();
+        } catch(e) {
+          console.warn('Remove group list failed', e);
+          showToast('Could not remove that list from the group — please try again.');
+          return;
+        }
       }
       // Update local cache
       if (GROUP_SHARED_LISTS[g.id]) {
@@ -7239,10 +7265,11 @@ async function toggleMemberAdmin(memberId, makeAdmin, btn) {
   if (!g || !sbClient) return;
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
   try {
-    await sbClient.from('group_members').update({ role: makeAdmin ? 'admin' : 'member' }).eq('group_id', g.id).eq('user_id', memberId);
+    await sbClient.from('group_members').update({ role: makeAdmin ? 'admin' : 'member' }).eq('group_id', g.id).eq('user_id', memberId).throwOnError();
     renderGroupSettings();
   } catch(e) {
     console.warn('Toggle admin failed', e);
+    showToast('Could not change that member\'s role — please try again.');
     if (btn) { btn.disabled = false; btn.textContent = makeAdmin ? 'Make admin' : 'Remove admin'; }
   }
 }
@@ -7514,6 +7541,28 @@ function initSupabase() {
       buf.forEach(function(e) { try { trackEvent('js_error', e); } catch(_){} });
     }
   } catch(e) { console.warn('Supabase init failed', e); }
+}
+
+// ── Query-failure reporter ────────────────────────────────────────
+// Every supabase-js query RESOLVES with { data, error } rather than rejecting,
+// so an unchecked result makes a hard failure look exactly like "no rows" —
+// which is how the Circle feed silently rendered "No new activity" for days
+// after an RLS helper lost its EXECUTE grant. Pass read results through this
+// so the failure is logged and lands on the admin Errors screen instead of
+// disappearing into an empty state.
+function sbCheck(res, where) {
+  if (!res || !res.error) return true;
+  console.error('supabase query failed @ ' + where, res.error);
+  try {
+    if (typeof trackEvent === 'function') {
+      trackEvent('js_error', {
+        message: 'query failed @ ' + where + ': ' + (res.error.message || 'unknown'),
+        code: res.error.code || null,
+        pathname: (location && location.pathname) || null
+      });
+    }
+  } catch(_) {}
+  return false;
 }
 
 // ── Global JS error catcher ───────────────────────────────────────
@@ -8078,7 +8127,7 @@ async function pushSubscribeIfPossible() {
       p256dh: json.keys && json.keys.p256dh,
       auth: json.keys && json.keys.auth,
       user_agent: navigator.userAgent
-    }, { onConflict: 'endpoint' });
+    }, { onConflict: 'endpoint' }).throwOnError();
     return { ok: true };
   } catch (e) {
     console.warn('pushSubscribeIfPossible failed:', e);
@@ -8773,8 +8822,13 @@ async function isHandleTaken(candidate) {
   if (!sbClient) return false;
   try {
     var p = await sbClient.from('profiles').select('id').eq('handle', candidate).neq('id', userId).eq('is_system', false).maybeSingle();
+    // Fail closed: if the lookup errored we cannot say the handle is free.
+    // profiles.handle now also has a unique index, so a race or a direct API
+    // call can no longer slip a duplicate past this check either.
+    if (!sbCheck(p, 'isHandleTaken')) return true;
     if (p.data) return true;
     var a = await sbClient.from('handle_aliases').select('user_id').eq('handle', candidate).neq('user_id', userId).maybeSingle();
+    if (!sbCheck(a, 'isHandleTaken')) return true;
     return !!(a && a.data);
   } catch (e) { console.warn('isHandleTaken failed', e); return false; }
 }
@@ -9095,7 +9149,7 @@ async function withdrawFriendRequest(friendshipId, name) {
   showConfirm('Withdraw request?', 'Cancel the friend request you sent to ' + name + '?', 'Withdraw', 'secondary', async function() {
     if (!sbClient) return;
     try {
-      await sbClient.from('friendships').delete().eq('id', friendshipId);
+      await sbClient.from('friendships').delete().eq('id', friendshipId).throwOnError();
       await loadFriends();
       renderFriendsSection();
       showToast('Request withdrawn.');
@@ -9107,11 +9161,11 @@ async function respondToFriendRequest(friendshipId, accept) {
   if (!sbClient) return;
   try {
     if (accept) {
-      await sbClient.from('friendships').update({ status: 'accepted' }).eq('id', friendshipId);
+      await sbClient.from('friendships').update({ status: 'accepted' }).eq('id', friendshipId).throwOnError();
       trackOnce('first_friend_added', { via: 'accepted_request' });
       trackEvent('friend_accepted', {});
     } else {
-      await sbClient.from('friendships').delete().eq('id', friendshipId);
+      await sbClient.from('friendships').delete().eq('id', friendshipId).throwOnError();
       trackEvent('friend_declined', {});
     }
     await loadFriends();
@@ -9121,7 +9175,10 @@ async function respondToFriendRequest(friendshipId, accept) {
     }
     if (document.getElementById('s-fdetail').classList.contains('active')) { go('s-circle'); return; }
     if (accept) await renderMatch();
-  } catch(e) { console.warn('Friend request response failed', e); }
+  } catch(e) {
+    console.warn('Friend request response failed', e);
+    showToast(accept ? 'Could not accept that request — please try again.' : 'Could not decline that request — please try again.');
+  }
 }
 
 function renderFriendsSection() {
@@ -11882,9 +11939,9 @@ async function respondToGroupInvite(groupId, accept) {
   if (!sbClient) return;
   try {
     if (accept) {
-      await sbClient.from('group_members').update({ status: 'accepted' }).eq('group_id', groupId).eq('user_id', userId);
+      await sbClient.from('group_members').update({ status: 'accepted' }).eq('group_id', groupId).eq('user_id', userId).throwOnError();
     } else {
-      await sbClient.from('group_members').delete().eq('group_id', groupId).eq('user_id', userId);
+      await sbClient.from('group_members').delete().eq('group_id', groupId).eq('user_id', userId).throwOnError();
     }
     MY_PENDING_GROUP_INVITES = MY_PENDING_GROUP_INVITES.filter(function(g) { return g.id !== groupId; });
     if (accept) {
@@ -11892,7 +11949,10 @@ async function respondToGroupInvite(groupId, accept) {
       showToast('Joined group!');
     }
     renderCircleGroups();
-  } catch(e) { console.warn('Group invite response failed', e); }
+  } catch(e) {
+    console.warn('Group invite response failed', e);
+    showToast(accept ? 'Could not join that group — please try again.' : 'Could not decline that invite — please try again.');
+  }
 }
 
 function confirmUnfriend(friendshipId, name) {
@@ -12234,8 +12294,12 @@ async function saveState() {
       await sbClient.from('tenner_state').upsert({
         user_id: userId, lists: MY_LISTS,
         updated_at: new Date().toISOString()
-      });
-    } catch(e) { console.warn('Supabase save failed', e); }
+      }).throwOnError();
+    } catch(e) {
+      // Silent failure here means the local copy and the server diverge
+      // without anyone noticing — log loudly rather than swallowing.
+      console.error('saveState: tenner_state upsert failed', e);
+    }
   }
 }
 
@@ -12734,6 +12798,7 @@ async function renderMatch() {
     if (groupCtx >= 0 && MY_GROUPS[groupCtx] && MY_GROUPS[groupCtx].id && sbClient) {
       try {
         var sgRes = await sbClient.from('group_lists').select('category').eq('group_id', MY_GROUPS[groupCtx].id);
+        sbCheck(sgRes, 'renderMatch');
         sharedGroupCats = (sgRes.data || []).map(function(r){ return r.category; });
       } catch(e) { console.warn('Could not load group shared lists for match', e); }
     }
@@ -14758,9 +14823,11 @@ async function toggleAdminUserSection(key, uid) {
         bodyEl.innerHTML = rows2;
       } else if (key === 'groups') {
         var gm = await sbClient.from('group_members').select('group_id, role, joined_at').eq('user_id', uid).eq('status', 'accepted');
+        sbCheck(gm, 'toggleAdminUserSection');
         var gids = (gm.data || []).map(function(x){ return x.group_id; }).filter(Boolean);
         if (!gids.length) { bodyEl.innerHTML = '<div style="font-size:11px;color:#888;padding:6px">Not in any groups.</div>'; return; }
         var gr = await sbClient.from('groups').select('id, name, created_at').in('id', gids);
+        sbCheck(gr, 'toggleAdminUserSection');
         var byId = {}; (gr.data || []).forEach(function(g){ byId[g.id] = g; });
         var rows3 = (gm.data || []).map(function(m) {
           var g = byId[m.group_id]; if (!g) return '';
@@ -14770,6 +14837,7 @@ async function toggleAdminUserSection(key, uid) {
         bodyEl.innerHTML = rows3 || '<div style="font-size:11px;color:#888;padding:6px">No groups.</div>';
       } else if (key === 'feedback') {
         var fb = await sbClient.from('feedback').select('id, message, category, status, created_at').eq('user_id', uid).order('created_at', {ascending:false});
+        sbCheck(fb, 'toggleAdminUserSection');
         var rows4 = (fb.data || []).map(function(x) {
           return '<div class="card no-hover" style="margin-bottom:4px;padding:8px 10px">'
             + '<div style="font-size:10px;color:#888780;margin-bottom:2px">' + escapeHtml(x.category || '') + ' · ' + escapeHtml(x.status || 'new') + ' · ' + (x.created_at ? new Date(x.created_at).toLocaleDateString() : '') + '</div>'
@@ -14795,6 +14863,7 @@ async function toggleAdminUserSection(key, uid) {
         bodyEl.innerHTML = invRows;
       } else if (key === 'emails') {
         var eh = await sbClient.from('email_log').select('email_type, ref_key, sent_at').eq('user_id', uid).order('sent_at', {ascending:false}).limit(100);
+        sbCheck(eh, 'toggleAdminUserSection');
         var rows5 = (eh.data || []).map(function(x) {
           return '<div class="card no-hover" style="margin-bottom:4px;padding:8px 10px"><div style="display:flex;justify-content:space-between;gap:8px"><span style="font-size:12px;color:#2C2C2A">' + escapeHtml(x.email_type || '') + '</span><span style="font-size:10px;color:#888780">' + (x.sent_at ? new Date(x.sent_at).toLocaleString() : '') + '</span></div></div>';
         }).join('');
@@ -17439,7 +17508,7 @@ function setupRealtimeNotifications() {
             await sbClient.from('profiles').update({
               invited_by: fromId,
               invite_source: inviterIsSystem ? 'channel' : 'link'
-            }).eq('id', userId);
+            }).eq('id', userId).throwOnError();
           }
           if (inviterIsSystem) {
             trackEvent('channel_signup_attributed', { channel_id: fromId });
@@ -17497,8 +17566,12 @@ function setupRealtimeNotifications() {
               var alreadyLinked = existing.data && existing.data.length > 0;
               if (!alreadyLinked) {
                 sbClient.from('friendships').insert({ requester_id: userId, addressee_id: fromId, status: 'accepted' })
-                  .then(function() { loadFriends().catch(console.warn); })
-                  .catch(console.warn);
+                  .then(function(r) {
+                    // supabase-js resolves with {error} rather than rejecting,
+                    // so .catch alone never sees a failed auto-friend.
+                    if (r && r.error) { console.warn('auto-friend insert failed', r.error); return; }
+                    loadFriends().catch(console.warn);
+                  }, console.warn);
               }
             }).catch(console.warn);
         }
@@ -17742,6 +17815,7 @@ async function loadOwnListReactions(listOwnerId, category, containerEl) {
   if (!sbClient || !containerEl) return;
   try {
     var res = await sbClient.from('list_reactions').select('from_user_id, emoji').eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', '');
+    sbCheck(res, 'loadOwnListReactions');
     var reactions = res.data || [];
     if (reactions.length === 0) {
       var label = containerEl.querySelector('div');
@@ -17806,8 +17880,8 @@ async function toggleReaction(listOwnerId, category, emoji, btn, itemName) {
   }
   try {
     var existing = await sbClient.from('list_reactions').select('id').eq('from_user_id', userId).eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', item).eq('emoji', emoji).maybeSingle();
-    if (existing.data) { await sbClient.from('list_reactions').delete().eq('id', existing.data.id); }
-    else { await sbClient.from('list_reactions').insert({ from_user_id: userId, list_owner_id: listOwnerId, category: category, item_name: item, emoji: emoji }); }
+    if (existing.data) { await sbClient.from('list_reactions').delete().eq('id', existing.data.id).throwOnError(); }
+    else { await sbClient.from('list_reactions').insert({ from_user_id: userId, list_owner_id: listOwnerId, category: category, item_name: item, emoji: emoji }).throwOnError(); }
     if (item) loadItemReactions(listOwnerId, category, item, btn.parentElement);
     else loadAndRenderReactions(listOwnerId, category, btn.parentElement);
     // Also refresh the inline row-level pills so the change is visible behind
@@ -18238,7 +18312,7 @@ async function saveEditItemComment(commentId) {
   if (!text) { showToast('Comment cannot be empty. Use Delete instead.'); return; }
   try {
     var now = new Date().toISOString();
-    await sbClient.from('list_item_comments').update({ comment: text, edited_at: now }).eq('id', commentId).eq('from_user_id', userId);
+    await sbClient.from('list_item_comments').update({ comment: text, edited_at: now }).eq('id', commentId).eq('from_user_id', userId).throwOnError();
     loadItemComments(activeCommentListOwner, activeCommentCategory, activeCommentItem);
   } catch(e) { showToast('Could not save edit.'); }
 }

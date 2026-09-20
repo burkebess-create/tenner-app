@@ -1,0 +1,23 @@
+-- Sweep for silently-discarded query errors (2026-09-20)
+--
+-- Context: supabase-js RESOLVES every query with { data, error } rather than
+-- rejecting. An `await` inside try/catch therefore never sees a database
+-- error, and an unchecked result makes a hard failure indistinguishable from
+-- "no rows". That is exactly how the Circle feed rendered "No new activity"
+-- for days after are_friends() lost its EXECUTE grant.
+--
+-- Swept all 272 sbClient call sites in index.html. Client-side changes are in
+-- the same commit; the only schema change needed was this one:
+--
+-- FINDING: profiles.handle had NO unique constraint. Handle uniqueness was
+-- enforced solely by isHandleTaken() in the browser, so a failed lookup, a
+-- race between two concurrent signups, or a direct PostgREST call could all
+-- create duplicate handles. handle_aliases has a unique pkey; profiles did
+-- not. Verified zero case-insensitive duplicates, then added
+-- (migration unique_profile_handle_ci):
+--
+--   create unique index if not exists profiles_handle_lower_key
+--     on public.profiles (lower(handle))
+--     where handle is not null and btrim(handle) <> '';
+--
+-- isHandleTaken() now also fails closed when the lookup errors.
