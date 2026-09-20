@@ -2592,8 +2592,8 @@ function closeMatchReveal() {
     if (!cell) return;
     var mode = cell.getAttribute('data-match-mode') || 'row';
     var accent = cell.getAttribute('data-match-accent') || '#D85A30';
-    var encoded = encodeURIComponent(JSON.stringify(ctx.friendProfile || {}));
-    var catLabel = encodeURIComponent(ctx.categoryLabel || '');
+    var encoded = jsStrAttr(encodeURIComponent(JSON.stringify(ctx.friendProfile || {})));
+    var catLabel = jsStrAttr(encodeURIComponent(ctx.categoryLabel || ''));
     var replayBtn = '<button onclick="showMatchReveal(JSON.parse(decodeURIComponent(\'' + encoded + '\')),' + score + ',decodeURIComponent(\'' + catLabel + '\'),\'' + fid + '\')" style="background:none;border:none;color:' + accent + ';opacity:0.6;font-size:10px;cursor:pointer;padding:2px 0">↻ replay</button>';
     if (mode === 'hero') {
       cell.innerHTML = '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:44px;color:#D85A30;line-height:1;letter-spacing:-0.02em">' + score + '<span style="font-size:22px">%</span></div>';
@@ -2747,7 +2747,7 @@ function showListCompleteModal(cat) {
   var existing = document.getElementById('list-complete-modal');
   if (existing) existing.remove();
   var haveIt = friendsWithCategory(cat);
-  var catAttr = String(cat).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  var catAttr = jsStrAttr(cat);
   var body;
 
   if (haveIt > 0) {
@@ -5237,9 +5237,9 @@ function showListDetail(l, origin) {
     el.innerHTML = '<div style="font-size:12px;color:#888780;text-align:center;padding:20px">No items yet.</div>';
   } else {
     var listCat = l.category || l.n.replace('Top 10 ', '');
-    var listCatEsc = String(listCat).replace(/'/g, "\\'");
+    var listCatEsc = jsStrAttr(listCat);
     listItems.forEach(function(item, i) {
-      var itemEsc = String(item).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      var itemEsc = jsStrAttr(item);
       var row = document.createElement('div');
       row.className = 'rank-item';
       row.style.marginBottom = '6px';
@@ -5339,8 +5339,8 @@ async function openShareListModal(cat) {
         ? '<div style="font-size:13.5px;color:#5F5E5A">Shared ' + fmtShareDate(inv.created_at) + seenLabel + '</div>'
         : '<div style="font-size:13.5px;color:#5F5E5A">' + handle + '</div>';
       var fn = inv ? 'remindListInvite' : 'shareListWithFriend';
-      var btn = '<button class="add-btn" id="share-friend-btn-' + f.friendId + '" onclick="event.stopPropagation();' + fn + '(\'' + f.friendId + '\',\'' + cat.replace(/'/g,"\\'") + '\',this)">' + (inv ? 'Remind' : 'Send') + '</button>';
-      return '<div class="share-pick" onclick="' + fn + '(\'' + f.friendId + '\',\'' + cat.replace(/'/g,"\\'") + '\',this.querySelector(\'button\'))">'
+      var btn = '<button class="add-btn" id="share-friend-btn-' + f.friendId + '" onclick="event.stopPropagation();' + fn + '(\'' + f.friendId + '\',\'' + jsStrAttr(cat) + '\',this)">' + (inv ? 'Remind' : 'Send') + '</button>';
+      return '<div class="share-pick" onclick="' + fn + '(\'' + f.friendId + '\',\'' + jsStrAttr(cat) + '\',this.querySelector(\'button\'))">'
         + friendAvatarHtml(f.profile, 32)
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div>' + sub + '</div>'
         + btn
@@ -5356,9 +5356,9 @@ async function openShareListModal(cat) {
       var sub = sharedAt ? '<div style="font-size:10px;color:#3B6D11">Shared ' + fmtShareDate(sharedAt) + '</div>' : '';
       var btn = sharedAt
         ? '<button class="add-btn" disabled style="opacity:.6">Shared ✓</button>'
-        : '<button class="add-btn" id="share-group-btn-' + i + '" onclick="event.stopPropagation();shareListWithGroup(' + i + ',\'' + cat.replace(/'/g,"\\'") + '\',this)">Send</button>';
+        : '<button class="add-btn" id="share-group-btn-' + i + '" onclick="event.stopPropagation();shareListWithGroup(' + i + ',\'' + jsStrAttr(cat) + '\',this)">Send</button>';
       var cls = sharedAt ? 'share-pick disabled' : 'share-pick';
-      var onclick = sharedAt ? '' : ' onclick="shareListWithGroup(' + i + ',\'' + cat.replace(/'/g,"\\'") + '\',this.querySelector(\'button\'))"';
+      var onclick = sharedAt ? '' : ' onclick="shareListWithGroup(' + i + ',\'' + jsStrAttr(cat) + '\',this.querySelector(\'button\'))"';
       return '<div class="' + cls + '"' + onclick + '>'
         + groupAvatarHtml(g, 32)
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + g.n + '</div>' + sub + '</div>'
@@ -5720,7 +5720,7 @@ function renderCircleListInvites() {
   var cards = visible.map(function(inv) {
     var p = inv.profile || {};
     var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
-    var catEsc = String(inv.category).replace(/'/g,"\\'");
+    var catEsc = jsStrAttr(inv.category);
     var pal = getCategoryColor(inv.category);
     // Compact single-row layout. Whole tile tappable → fill out. Two small
     // icon buttons in the corner: snooze (💤) and dismiss (×).
@@ -5840,8 +5840,8 @@ async function tryTodaySlot(kind) {
     if (msLeft <= 0 || days > 6) return null;
     var when = days > 0 ? days + 'd ' + hours + 'h' : hours + 'h';
     var subtitle = 'Reveals in ' + when + ' · Have you filled yours?';
-    var wkCatEsc = wk.category.replace(/'/g,"\\'");
-    var wkEmojiEsc = (wk.emoji || '📋').replace(/'/g,"\\'");
+    var wkCatEsc = jsStrAttr(wk.category);
+    var wkEmojiEsc = jsStrAttr((wk.emoji || '📋'));
     return todayCard('⏰', 'Top 10 ' + escapeHtml(wk.category) + ' — this week', subtitle, "openWeeklyListFlow('" + wkCatEsc + "','" + wkEmojiEsc + "')");
   }
   if (kind === 'gift') {
@@ -5878,7 +5878,7 @@ async function tryTodaySlot(kind) {
       if (ageHours > 48) return null; // only if genuinely recent
       var f = accepted.find(function(x){ return x.friendId === row.user_id; });
       var name = (f && f.profile && (f.profile.display_name || (f.profile.handle ? '@' + f.profile.handle : null))) || 'A friend';
-      var safeCat = row.category.replace(/'/g, "\\'");
+      var safeCat = jsStrAttr(row.category);
       return todayCard(row.emoji || getCatEmoji(row.category) || '📋', 'Fresh from ' + escapeHtml(name), 'Top 10 ' + escapeHtml(row.category) + ' · Updated ' + timeAgo(row.updated_at), "openFriendListByCat('" + row.user_id + "','" + safeCat + "')");
     } catch(e) { return null; }
   }
@@ -5908,7 +5908,7 @@ async function tryTodaySlot(kind) {
       var fname = (friend && friend.profile && (friend.profile.display_name || (friend.profile.handle ? '@' + friend.profile.handle : null))) || 'A friend';
       // Pass the category too — the card names a specific list, so landing on
       // a different one reads as the tap having gone wrong.
-      return todayCard('🎯', 'Your closest match', 'You and ' + escapeHtml(fname) + ' agree ' + best.score + '% on Top 10 ' + escapeHtml(best.category), "openMatchWithFriend('" + best.friendId + "','s-circle','" + String(best.category).replace(/'/g, "\\'") + "')");
+      return todayCard('🎯', 'Your closest match', 'You and ' + escapeHtml(fname) + ' agree ' + best.score + '% on Top 10 ' + escapeHtml(best.category), "openMatchWithFriend('" + best.friendId + "','s-circle','" + jsStrAttr(best.category) + "')");
     } catch(e) { return null; }
   }
   if (kind === 'stat') {
@@ -6169,7 +6169,7 @@ async function renderMatchJumps() {
         var arrow = j.delta > 0 ? '↑' : '↓';
         var color = j.delta > 0 ? '#27500A' : '#A32D2D';
         var bg = j.delta > 0 ? '#EAF3DE' : '#FBE5E0';
-        var safeCat = j.category.replace(/'/g, "\\'");
+        var safeCat = jsStrAttr(j.category);
         return '<div onclick="openMatchWithFriend(\'' + j.friendId + '\',\'s-circle\',\'' + safeCat + '\')" '
           + 'style="background:' + bg + ';border:1.5px solid ' + color + '55;border-radius:16px;padding:12px 14px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:10px">'
           +   friendAvatarHtml(p, 40)
@@ -6280,7 +6280,7 @@ function openShareToGroupPicker() {
       return '<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(l.n) + '</div>'
         + '<div style="font-size:13.5px;color:#5F5E5A">' + escapeHtml(l.m || '') + '</div></div>'
-        + '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="shareExistingListToGroup(\'' + cat.replace(/'/g,"\\'") + '\')">Share</button>'
+        + '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="shareExistingListToGroup(\'' + jsStrAttr(cat) + '\')">Share</button>'
         + '</div>';
     }).join('');
   } else if (MY_LISTS.length > 0) {
@@ -6587,7 +6587,7 @@ async function renderGroupDetail() {
         return '<div class="member-row" style="margin-bottom:6px"><div style="margin-right:8px">' + friendAvatarHtml(f.profile, 32) + '</div>'
           + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + (isPending ? ' <span class="pill pill-amber" style="font-size:9px">Pending</span>' : '') + '</div><div style="font-size:13.5px;color:#5F5E5A">' + handle + '</div></div>'
           + addFriendBtn
-          + '<button class="back-btn" style="font-size:10px;padding:3px 7px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();showConfirm(\'Remove ' + name.replace(/'/g,"\\'") + '?\',\'They will lose access to this group.\',\'Remove\',\'danger\',function(){removeMemberFromGroup(\'' + fid + '\')})">Remove</button></div>';
+          + '<button class="back-btn" style="font-size:10px;padding:3px 7px;color:#A32D2D;border-color:#F09595" onclick="event.stopPropagation();showConfirm(\'Remove ' + jsStrAttr(name) + '?\',\'They will lose access to this group.\',\'Remove\',\'danger\',function(){removeMemberFromGroup(\'' + fid + '\')})">Remove</button></div>';
       }).join('')
     + '<button class="btn-primary" style="margin-top:10px;margin-bottom:0;font-size:11px;padding:10px" onclick="event.stopPropagation();openAddGroupMembers()">＋ Add group members</button>'
     + '</div></div>';
@@ -6638,12 +6638,12 @@ async function renderGroupDetail() {
       var filled = filledByCat[cat] || [];
       var iFilled = filled.indexOf(userId) >= 0;
       var btn = iFilled
-        ? '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="event.stopPropagation();openFillGroupList(\'' + cat.replace(/'/g,"\\'") + '\')">View / edit</button>'
-        : '<button class="add-btn" style="font-size:10px;padding:4px 8px;background:#D85A30;color:#fff;border-color:#D85A30" onclick="event.stopPropagation();openFillGroupList(\'' + cat.replace(/'/g,"\\'") + '\')">Fill out</button>';
+        ? '<button class="add-btn" style="font-size:10px;padding:4px 8px" onclick="event.stopPropagation();openFillGroupList(\'' + jsStrAttr(cat) + '\')">View / edit</button>'
+        : '<button class="add-btn" style="font-size:10px;padding:4px 8px;background:#D85A30;color:#fff;border-color:#D85A30" onclick="event.stopPropagation();openFillGroupList(\'' + jsStrAttr(cat) + '\')">Fill out</button>';
       var removeBtn = isAdmin
-        ? '<button class="back-btn" style="font-size:10px;padding:3px 8px;color:#A32D2D;border-color:#F09595;margin-left:4px" onclick="event.stopPropagation();confirmRemoveGroupList(\'' + cat.replace(/'/g,"\\'") + '\')">Remove</button>'
+        ? '<button class="back-btn" style="font-size:10px;padding:3px 8px;color:#A32D2D;border-color:#F09595;margin-left:4px" onclick="event.stopPropagation();confirmRemoveGroupList(\'' + jsStrAttr(cat) + '\')">Remove</button>'
         : '';
-      return '<div class="card share-pick" style="margin-bottom:6px;cursor:pointer" onclick="openGroupListDetail(\'' + cat.replace(/'/g,"\\'") + '\')">'
+      return '<div class="card share-pick" style="margin-bottom:6px;cursor:pointer" onclick="openGroupListDetail(\'' + jsStrAttr(cat) + '\')">'
         + '<div style="display:flex;align-items:center;gap:10px">'
         + '<div style="width:26px;display:flex;align-items:center;justify-content:center">' + renderCatEmoji(getCatEmoji(cat), 22) + '</div>'
         + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">Top 10 ' + escapeHtml(cat) + '</div>'
@@ -9288,7 +9288,7 @@ function renderFriendsSection() {
           var name = f.profile.display_name || f.profile.handle || 'Unknown';
           var handle = f.profile.handle ? '@' + f.profile.handle : '';
           return '<div class="member-row"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + name + '</div><div style="font-size:13.5px;color:#5F5E5A">' + handle + ' · Pending</div></div>'
-            + '<button class="back-btn" style="font-size:10px;padding:3px 7px;color:#A32D2D;border-color:#F09595" onclick="withdrawFriendRequest(\'' + f.id + '\',\'' + escapeHtml(name) + '\')">Withdraw</button></div>';
+            + '<button class="back-btn" style="font-size:10px;padding:3px 7px;color:#A32D2D;border-color:#F09595" onclick="withdrawFriendRequest(\'' + f.id + '\',\'' + jsStrAttr(name) + '\')">Withdraw</button></div>';
         }).join('');
     } else {
       html = '<div style="font-size:11px;color:#888780;padding:6px 0">Search by @handle or phone number in the Circle tab to add friends.</div>';
@@ -9752,7 +9752,7 @@ function renderProfileNudges() {
     var staleKey = 'stale_' + staleCat;
     if (!dismissed[staleKey]) {
       var daysAgo = Math.floor((Date.now() - new Date(stale.updated_at).getTime()) / (24 * 3600 * 1000));
-      var staleCatEsc = String(staleCat).replace(/'/g, "\\'");
+      var staleCatEsc = jsStrAttr(staleCat);
       nudges.push('<div class="card no-hover" style="background:#FFF8F4;border:1px solid #F5B091;border-left:7px solid #D85A30;border-radius:3px;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
         + '<div style="font-size:22px">' + renderCatEmoji(stale.emoji || getCatEmoji(staleCat), 22) + '</div>'
         + '<div style="flex:1;font-size:12px;color:#2C2C2A">Your Top 10 ' + escapeHtml(staleCat) + ' hasn\'t been updated in ' + daysAgo + ' days. Still your picks?</div>'
@@ -9772,7 +9772,7 @@ function renderProfileNudges() {
     var nudgeKey = 'incomplete_' + targetCat;
     if (!dismissed[nudgeKey]) {
       var count = (target.items || []).length;
-      var catEsc = String(targetCat).replace(/'/g, "\\'");
+      var catEsc = jsStrAttr(targetCat);
       nudges.push('<div class="card no-hover" style="background:#FFF8F4;border:1px solid #F5B091;border-left:7px solid #D85A30;border-radius:3px;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
         + '<div style="font-size:22px">' + renderCatEmoji(target.emoji || getCatEmoji(targetCat), 22) + '</div>'
         + '<div style="flex:1;font-size:12px;color:#2C2C2A">Finish your Top 10 ' + escapeHtml(targetCat) + ' — you have ' + count + '.</div>'
@@ -10051,7 +10051,7 @@ function renderNotifications() {
     : '<div class="sec-label" style="margin-top:' + (pendingFriends.length > 0 ? '18px' : '0') + '">List Invites (' + MY_LIST_SHARE_INVITES.length + ')</div>'
     + MY_LIST_SHARE_INVITES.map(function(inv) {
       var name = inv.profile.display_name || (inv.profile.handle ? '@' + inv.profile.handle : 'A friend');
-      var catEsc = inv.category.replace(/'/g,"\\'");
+      var catEsc = jsStrAttr(inv.category);
       var filled = MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === inv.category; });
       var unreadDot = inv.read_at ? '' : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#D85A30;margin-left:6px;vertical-align:middle"></span>';
       var actions = filled
@@ -10093,8 +10093,8 @@ async function renderNotifActivity(el) {
       var name = p.display_name || (p.handle ? '@' + p.handle : 'A friend');
       var isUnread = new Date(c.created_at).getTime() > sinceMs;
       var dotStyle = isUnread ? 'width:8px;height:8px;border-radius:50%;background:#D85A30;flex-shrink:0;margin-right:6px' : 'width:8px;flex-shrink:0';
-      var catEsc = String(c.category).replace(/'/g, "\\'");
-      var itemEsc = String(c.item_name).replace(/'/g, "\\'");
+      var catEsc = jsStrAttr(c.category);
+      var itemEsc = jsStrAttr(c.item_name);
       return '<div class="share-pick" style="cursor:pointer;align-items:flex-start;margin-bottom:6px" onclick="openItemCommentsFromNotif(\'' + catEsc + '\',\'' + itemEsc + '\')">'
         + '<span style="' + dotStyle + '"></span>'
         + friendAvatarHtml(p, 32)
@@ -10131,9 +10131,9 @@ async function renderNotifActivity(el) {
       var ownerName = op.display_name || (op.handle ? '@' + op.handle : 'someone');
       var isUnread = new Date(c.created_at).getTime() > sinceMs;
       var dotStyle = isUnread ? 'width:8px;height:8px;border-radius:50%;background:#D85A30;flex-shrink:0;margin-right:6px' : 'width:8px;flex-shrink:0';
-      var catEsc = String(c.category).replace(/'/g, "\\'");
-      var itemEsc = String(c.item_name).replace(/'/g, "\\'");
-      var ownerEsc = String(c.list_owner_id).replace(/'/g, "\\'");
+      var catEsc = jsStrAttr(c.category);
+      var itemEsc = jsStrAttr(c.item_name);
+      var ownerEsc = jsStrAttr(c.list_owner_id);
       return '<div class="share-pick" style="cursor:pointer;align-items:flex-start;margin-bottom:6px" onclick="openItemCommentsFromNotifOnFriend(\'' + ownerEsc + '\',\'' + catEsc + '\',\'' + itemEsc + '\')">'
         + '<span style="' + dotStyle + '"></span>'
         + friendAvatarHtml(p, 32)
@@ -10871,7 +10871,7 @@ function renderPool() {
   who.innerHTML = coralRuleHeader('WHO HAS THIS LIST · ' + _poolRows.length)
     + _poolRows.map(function(row) {
         var nm = row.profile.display_name || (row.profile.handle ? '@' + row.profile.handle : 'Friend');
-        return '<div class="member-row" style="margin-bottom:6px;cursor:pointer" onclick="openFriendListByCat(\'' + row.friend.friendId + '\',\'' + String(cat).replace(/'/g, "\\'") + '\',\'s-pool\')">'
+        return '<div class="member-row" style="margin-bottom:6px;cursor:pointer" onclick="openFriendListByCat(\'' + row.friend.friendId + '\',\'' + jsStrAttr(cat) + '\',\'s-pool\')">'
           + '<div style="margin-right:8px">' + friendAvatarHtml(row.profile, 32) + '</div>'
           + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(nm) + '</div>'
           + '<div style="font-size:11px;color:#888780">' + row.items.length + ' item' + (row.items.length === 1 ? '' : 's') + '</div></div>'
@@ -10890,7 +10890,7 @@ function renderPool() {
         var box = already
           ? '<div style="width:20px;height:20px;border-radius:3px;border:1.5px solid #D3D1C7;background:#F1EFE8;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:#888780">✓</div>'
           : '<div style="width:20px;height:20px;border-radius:3px;border:1.5px solid ' + (on ? accent : '#D3D1C7') + ';background:' + (on ? accent : '#FFFFFF') + ';color:#FFF;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:800">' + (on ? '✓' : '') + '</div>';
-        var itemEsc = String(it.display).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        var itemEsc = jsStrAttr(it.display);
         return '<div class="rank-item" style="margin-bottom:6px;' + (already ? 'opacity:0.55;cursor:default' : 'cursor:pointer') + '"'
           + (already ? '' : ' onclick="togglePoolItem(\'' + itemEsc + '\')"') + '>'
           + box
@@ -11069,7 +11069,7 @@ function openFriendList(listData, origin) {
       + '<div style="font-size:32px;margin-bottom:10px">🔒</div>'
       + '<div style="font-size:13px;font-weight:600;color:#2C2C2A;margin-bottom:6px">' + escapeHtml(friendName) + ' has blind fill on</div>'
       + '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:14px">Fill out your own list first to unlock their picks.</div>'
-      + '<button class="btn-primary" style="margin-bottom:0" onclick="selCat=\'' + cat.replace(/'/g,"\\'") + '\';selCatEmoji=\'' + emoji.replace(/'/g,"\\'") + '\';editingListIdx=-1;items=[];isRanked=true;listOrigin=\'s-friend-list\';renderCatGrid();renderItems();updateProg();go(\'s-create2\')">Fill it out now →</button>'
+      + '<button class="btn-primary" style="margin-bottom:0" onclick="selCat=\'' + jsStrAttr(cat) + '\';selCatEmoji=\'' + jsStrAttr(emoji) + '\';editingListIdx=-1;items=[];isRanked=true;listOrigin=\'s-friend-list\';renderCatGrid();renderItems();updateProg();go(\'s-create2\')">Fill it out now →</button>'
       + '</div>';
   } else if (items.length === 0) {
     el.innerHTML = '<div style="font-size:12px;color:#888780;text-align:center;padding:20px">No items yet.</div>';
@@ -11083,7 +11083,7 @@ function openFriendList(listData, origin) {
       el.innerHTML = items.map(function(item, i) {
         var already = _mineLower.indexOf(String(item).toLowerCase()) >= 0;
         var on = _pickSelected.indexOf(item) >= 0;
-        var itemEsc = item.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+        var itemEsc = jsStrAttr(item);
         return '<div class="rank-item" data-pick-name="' + escapeHtml(item) + '" style="margin-bottom:6px;'
           + (already ? 'opacity:0.5;cursor:default' : 'cursor:pointer') + '"'
           + (already ? '' : ' onclick="togglePickItem(\'' + itemEsc + '\')"') + '>'
@@ -11096,8 +11096,8 @@ function openFriendList(listData, origin) {
       }).join('');
     } else {
       el.innerHTML = items.map(function(item, i) {
-        var itemEsc = item.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-        return '<div class="rank-item" data-item-name="' + escapeHtml(item) + '" style="margin-bottom:6px;cursor:pointer" onclick="openItemComments(\'' + escapeHtml(_ownerId || '') + '\',\'' + escapeHtml(_cat) + '\',\'' + itemEsc + '\')">'
+        var itemEsc = jsStrAttr(item);
+        return '<div class="rank-item" data-item-name="' + escapeHtml(item) + '" style="margin-bottom:6px;cursor:pointer" onclick="openItemComments(\'' + jsStrAttr(_ownerId || '') + '\',\'' + jsStrAttr(_cat) + '\',\'' + itemEsc + '\')">'
           + (listData.is_ranked !== false ? '<div class="rank-badge">' + (i+1) + '</div>' : '<div class="rank-dot"></div>')
           + '<span style="flex:1;font-size:13.5px;color:#2C2C2A;min-width:0;overflow-wrap:break-word">' + escapeHtml(item) + '</span>'
           + '<span class="item-reactions-inline" style="display:flex;gap:3px;margin-left:6px;flex-shrink:0"></span>'
@@ -11125,19 +11125,19 @@ function openFriendList(listData, origin) {
     iHaveIt = MY_LISTS.some(function(l){ return (l.category || l.n.replace('Top 10 ','')) === cat; });
     if (iHaveIt) {
       ctaEl.innerHTML = '<button class="btn-secondary" onclick="(function(){'
-        + 'selCat=\'' + cat.replace(/'/g,"\\'") + '\';'
-        + 'selCatEmoji=\'' + emoji.replace(/'/g,"\\'") + '\';'
+        + 'selCat=\'' + jsStrAttr(cat) + '\';'
+        + 'selCatEmoji=\'' + jsStrAttr(emoji) + '\';'
         + 'editingListIdx=MY_LISTS.findIndex(function(l){return (l.category||l.n.replace(\'Top 10 \',\'\'))===selCat;});'
         + 'items=(editingListIdx>=0?MY_LISTS[editingListIdx].items.slice():[]);'
         + 'isRanked=(editingListIdx>=0?MY_LISTS[editingListIdx].ranked!==false:true);'
         + 'listOrigin=\'s-friend-list\';renderCatGrid();renderItems();updateProg();go(\'s-create2\');'
         + '})()">Edit your list</button>';
-      ctaEl.innerHTML += '<button class="btn-primary" style="margin-top:6px;margin-bottom:0" onclick="openMatchWithFriend(\'' + selFriendId + '\',\'s-friend-list\',\'' + cat.replace(/'/g,"\\'") + '\')">📊 Compare with ' + escapeHtml(friendName.split(' ')[0]) + ' →</button>';
+      ctaEl.innerHTML += '<button class="btn-primary" style="margin-top:6px;margin-bottom:0" onclick="openMatchWithFriend(\'' + selFriendId + '\',\'s-friend-list\',\'' + jsStrAttr(cat) + '\')">📊 Compare with ' + escapeHtml(friendName.split(' ')[0]) + ' →</button>';
       if (_pickMode) ctaEl.innerHTML = '';
     } else {
       ctaEl.innerHTML = '<button class="btn-primary" onclick="'
-        + 'selCat=\'' + cat.replace(/'/g,"\\'") + '\';'
-        + 'selCatEmoji=\'' + emoji.replace(/'/g,"\\'") + '\';'
+        + 'selCat=\'' + jsStrAttr(cat) + '\';'
+        + 'selCatEmoji=\'' + jsStrAttr(emoji) + '\';'
         + 'editingListIdx=-1;items=[];isRanked=true;'
         + 'listOrigin=\'s-friend-list\';renderCatGrid();renderItems();updateProg();go(\'s-create2\')'
         + '">Fill out your own ' + escapeHtml(listData.name || ('Top 10 ' + cat)) + '</button>';
@@ -11171,6 +11171,30 @@ function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, function(c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
+}
+
+// Escapes a value for use inside a JS STRING LITERAL that itself lives inside
+// an HTML attribute — i.e. onclick="fn('<here>')".
+//
+// escapeHtml() is the wrong tool there and silently produces broken code: it
+// turns ' into &#39;, the HTML parser decodes that back to a bare ' before the
+// JS parser ever runs, and the argument list ends early. A real category
+// called "Best Purchases I've Ever Made" took out the reaction buttons for
+// everyone who opened that list. The reverse mistake is just as easy —
+// escaping only ' leaves a " free to terminate the attribute, which is live
+// for any list item containing a quoted phrase.
+//
+// Order matters: JS escapes first, so the backslashes we add are not then
+// HTML-encoded; then HTML encoding for whatever could end the attribute.
+function jsStrAttr(s) {
+  return String(s == null ? '' : s)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/[\r\n]+/g, ' ');
 }
 
 var _singularMap = {
@@ -11246,7 +11270,7 @@ function openMutualFriendsModal(theirName, mutuals) {
     // No tap-to-enlarge here: in a list of tappable rows a separate hit target
     // on the avatar just competes with opening the person.
     var handleLine = m.handle ? '<div style="font-size:11px;color:#888780;margin-top:1px">@' + escapeHtml(m.handle) + '</div>' : '';
-    return '<div class="card" onclick="openMutualFriend(\'' + String(m.id).replace(/'/g, "\\'") + '\')" '
+    return '<div class="card" onclick="openMutualFriend(\'' + jsStrAttr(m.id) + '\')" '
       + 'style="display:flex;align-items:center;gap:12px;margin-bottom:6px">'
       + friendAvatarHtml({ display_name: m.name, handle: m.handle, photo: m.photo }, 40)
       + '<div style="flex:1;min-width:0">'
@@ -11438,7 +11462,7 @@ function renderFdetailActionBanner(f, newestPublicList) {
     var dismissKey = new Date(newestPublicList.updated_at).getTime();
     if (!isFdetailBannerDismissed('newlist', fid, dismissKey)) {
       var emoji = newestPublicList.emoji || getCatEmoji(cat) || '📋';
-      var catEsc = String(cat).replace(/'/g, "\\'");
+      var catEsc = jsStrAttr(cat);
       el.style.display = 'block';
       el.innerHTML = '<div onclick="openFriendListByCat(\'' + fid + '\',\'' + catEsc + '\',\'s-fdetail\')" style="background:linear-gradient(135deg,#FFF5EE 0%,#FDE6D9 100%);border:1.5px solid #F5B091;border-radius:16px;padding:14px 14px;display:flex;align-items:center;gap:12px;cursor:pointer">'
         + '<div style="font-size:28px;line-height:1;flex-shrink:0">' + renderCatEmoji(emoji, 28) + '</div>'
@@ -11593,7 +11617,7 @@ async function renderFriendDetail() {
   } else if (isSentOutbound) {
     actionHtml = '<div style="font-size:11px;color:#888780;text-align:center;margin-top:16px;padding:10px;background:#F1EFE8;border-radius:8px">Request sent — waiting for them to accept.</div>';
   } else {
-    actionHtml = '<button class="btn-secondary" style="margin-top:16px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmUnfriend(\'' + f.id + '\',\'' + name.replace(/'/g,"\\'") + '\')">Remove friend</button>';
+    actionHtml = '<button class="btn-secondary" style="margin-top:16px;color:#A32D2D;border-color:#F09595;font-size:12px" onclick="confirmUnfriend(\'' + f.id + '\',\'' + jsStrAttr(name) + '\')">Remove friend</button>';
   }
 
   el.innerHTML = actionBannerHtml + hero + noteHtml + matchCardHtml + statsBarHtml + alikeDiffHtml + nudgeHtml + activityHtml + listsHtml + commentsHtml + timelineHtml + actionHtml;
@@ -11701,8 +11725,8 @@ async function renderFriendDetail() {
           adEl.style.display = 'block';
           var mostPicks = most.shared === 1 ? 'pick' : 'picks';
           var leastPicks = least.shared === 1 ? 'pick' : 'picks';
-          var mostCatEsc = most.cat.replace(/'/g, "\\'");
-          var leastCatEsc = least.cat.replace(/'/g, "\\'");
+          var mostCatEsc = jsStrAttr(most.cat);
+          var leastCatEsc = jsStrAttr(least.cat);
           adEl.innerHTML = '<div class="sec-label" style="margin-top:0">Your matchup</div>'
             + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
             +   '<div onclick="openMatchWithFriend(\'' + fid + '\',\'s-fdetail\',\'' + mostCatEsc + '\')" style="cursor:pointer;background:' + mostPal.bg + 'AA;border:1.5px solid #2C2C2A;border-radius:16px;padding:14px">'
@@ -11749,8 +11773,8 @@ async function renderFriendDetail() {
             var pickCat = l.category || l.n.replace('Top 10 ', '');
             var pickPal = getCategoryColor(pickCat);
             var pickEmoji = l.emoji || getCatEmoji(pickCat);
-            var safeCat = pickCat.replace(/'/g,"\\'");
-            var safeName = name.replace(/'/g,"\\'");
+            var safeCat = jsStrAttr(pickCat);
+            var safeName = jsStrAttr(name);
             return '<button type="button" onclick="nudgeFriend(\'' + safeName + '\',\'' + safeCat + '\')" '
               + 'style="background:' + pickPal.bg + 'AA;border:1.5px solid #2C2C2A;color:#2C2C2A;font-family:inherit;font-size:11.5px;font-weight:700;padding:6px 11px;border-radius:99px;cursor:pointer;display:inline-flex;align-items:center;gap:5px">'
               + '<span style="font-size:14px">' + renderCatEmoji(pickEmoji, 14) + '</span>'
@@ -11842,8 +11866,8 @@ async function renderFriendDetail() {
         cEl.style.display = 'block';
         cEl.innerHTML = '<div class="sec-label">They said</div>'
           + comments.map(function(c) {
-              var catEsc = String(c.category).replace(/'/g, "\\'");
-              var itemEsc = String(c.item_name).replace(/'/g, "\\'");
+              var catEsc = jsStrAttr(c.category);
+              var itemEsc = jsStrAttr(c.item_name);
               return '<div class="card" style="margin-bottom:6px;cursor:pointer" onclick="openItemCommentsFromNotif(\'' + catEsc + '\',\'' + itemEsc + '\')">'
                 + '<div style="display:flex;align-items:center;gap:8px">'
                 +   '<div style="flex:1;min-width:0">'
@@ -12966,7 +12990,7 @@ async function renderMatch() {
       // #1 gets a gradient hero card (marquee stat). Rest use standard row.
       var renderHeroEntry = function(entry) {
         var fname = (entry.friend.profile && entry.friend.profile.display_name) || (entry.friend.profile && entry.friend.profile.handle ? '@'+entry.friend.profile.handle : 'Friend');
-        var encoded = encodeURIComponent(JSON.stringify(entry.friend.profile || {}));
+        var encoded = jsStrAttr(encodeURIComponent(JSON.stringify(entry.friend.profile || {})));
         var fid = entry.friend.friendId || '';
         var isNew = isMatchNew(fid, 'Overall', entry.avg);
         var scoreDisplay = isNew
@@ -12988,7 +13012,7 @@ async function renderMatch() {
         var medals = ['🥇','🥈','🥉'];
         var medal = medals[rank] || matchRankBadge('#' + (rank + 1));
         var detail = entry.cats.length + ' LIST' + (entry.cats.length!==1?'S':'');
-        var encoded = encodeURIComponent(JSON.stringify(entry.friend.profile || {}));
+        var encoded = jsStrAttr(encodeURIComponent(JSON.stringify(entry.friend.profile || {})));
         var fid = entry.friend.friendId || '';
         var isNew = isMatchNew(fid, 'Overall', entry.avg);
         var scoreDisplay = isNew
@@ -13067,7 +13091,7 @@ async function renderMatch() {
         + (isActive
             ? 'background:#D85A30;color:#FFFFFF;border:1.5px solid #D85A30;'
             : 'background:#FFFFFF;color:#D85A30;border:1.5px solid #D85A30;');
-      return '<button class="list-sel-btn' + (isActive ? ' active' : '') + '" data-match-tab="1" onclick="showMatchTab(this,\'' + cat.replace(/'/g,"\\'") + '\')" style="' + baseStyle + (extraStyle || '') + '"><span style="margin-right:5px">' + catEmoji + '</span>' + escapeHtml(cat) + '</button>';
+      return '<button class="list-sel-btn' + (isActive ? ' active' : '') + '" data-match-tab="1" onclick="showMatchTab(this,\'' + jsStrAttr(cat) + '\')" style="' + baseStyle + (extraStyle || '') + '"><span style="margin-right:5px">' + catEmoji + '</span>' + escapeHtml(cat) + '</button>';
     };
     var tabsHtml;
     if (cats.length <= TAB_PREVIEW) {
@@ -13094,8 +13118,8 @@ async function renderMatch() {
         var theirItems = c.friendList.items.map(function(x){return x.toLowerCase().trim();});
         var shared = myItems.filter(function(x){return theirItems.indexOf(x)!==-1;});
         var detail = shared.length + '/' + Math.max(myItems.length, theirItems.length) + ' same picks';
-        var encoded = encodeURIComponent(JSON.stringify(c.friend.profile || {}));
-        var catLabel = encodeURIComponent(c.category || '');
+        var encoded = jsStrAttr(encodeURIComponent(JSON.stringify(c.friend.profile || {})));
+        var catLabel = jsStrAttr(encodeURIComponent(c.category || ''));
         var fid = c.friend.friendId || '';
         var isNew = isMatchNew(fid, c.category, c.score);
         var scoreDisplay = isNew
@@ -13168,7 +13192,7 @@ async function renderMatch() {
       // Cell click → open the same item-comments modal used on friend list views.
       // Comments are stored per (list_owner_id, category, item_name) so replies here
       // land in the same thread as the friend-list page.
-      function _mcEsc(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+      function _mcEsc(s) { return jsStrAttr(s); }
       function commentOnCell(ownerId, item) {
         return "event.stopPropagation();openItemComments('" + ownerId + "','" + _mcEsc(cat) + "','" + _mcEsc(item) + "')";
       }
@@ -13364,7 +13388,7 @@ async function renderMatch() {
         +   '<div style="font-size:9.5px;color:' + accent + ';opacity:0.85;margin-top:3px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">' + comps.length + ' FRIEND' + (comps.length>1?'S':'') + '</div></div>'
         + '</div>'
         + coralRuleHeader('MATCH SCORES · ' + comps.length) + scoresHtml
-        + '<button class="btn-secondary" style="margin-top:8px;margin-bottom:4px" onclick="openFriendPicksPool(\'' + String(cat).replace(/'/g, "\\'") + '\',\'s-match\')">👀 See everyone\'s ' + escapeHtml(cat) + ' picks</button>'
+        + '<button class="btn-secondary" style="margin-top:8px;margin-bottom:4px" onclick="openFriendPicksPool(\'' + jsStrAttr(cat) + '\',\'s-match\')">👀 See everyone\'s ' + escapeHtml(cat) + ' picks</button>'
         + coralRuleHeader(sideLabel.toUpperCase())
         + sideBodyHtml
         + (agreePills ? coralRuleHeader('EVERYONE AGREES ON') + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + agreePills + '</div>' : '')
@@ -13789,7 +13813,7 @@ async function renderAdminReports(el) {
         else if (r.kind === 'group') { deleteLabel = 'Delete group'; deletePayload = "{kind:'group', group_id:'" + r.target_id + "'}"; }
         else if (r.kind === 'list_item' && ctx.list_owner_id && ctx.category && ctx.item_name) {
           deleteLabel = 'Delete item';
-          deletePayload = "{kind:'list_item', owner:'" + ctx.list_owner_id + "', category:'" + String(ctx.category).replace(/'/g,"\\'") + "', item:'" + String(ctx.item_name).replace(/'/g,"\\'") + "'}";
+          deletePayload = "{kind:'list_item', owner:'" + ctx.list_owner_id + "', category:'" + jsStrAttr(ctx.category) + "', item:'" + jsStrAttr(ctx.item_name) + "'}";
         }
         else if (r.kind === 'user' && r.target_owner) {
           deleteLabel = 'Ban user';
@@ -15213,8 +15237,8 @@ async function renderAdminCats(el) {
       +   '<div style="font-size:10px;color:#888780;margin-top:3px">Created ' + fmtDate(c.created_at) + '</div></div></div>'
       +   '<div style="flex-shrink:0;display:flex;flex-direction:column;gap:4px;align-items:stretch;margin-left:8px">'
       +     '<button class="back-btn" style="white-space:nowrap;padding:4px 10px;font-size:11px" onclick="editAdminCat(\'' + c.id + '\')">Edit</button>'
-      +     '<button class="back-btn" style="white-space:nowrap;padding:4px 10px;font-size:11px" onclick="retireAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')">Retire</button>'
-      +     '<button class="back-btn" style="white-space:nowrap;padding:4px 10px;font-size:11px;color:#A32D2D;border-color:#F09595" onclick="deleteAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')">Delete</button>'
+      +     '<button class="back-btn" style="white-space:nowrap;padding:4px 10px;font-size:11px" onclick="retireAdminCat(\'' + c.id + '\',\'' + jsStrAttr(escapeHtml(c.name)) + '\')">Retire</button>'
+      +     '<button class="back-btn" style="white-space:nowrap;padding:4px 10px;font-size:11px;color:#A32D2D;border-color:#F09595" onclick="deleteAdminCat(\'' + c.id + '\',\'' + jsStrAttr(escapeHtml(c.name)) + '\')">Delete</button>'
       +   '</div>'
       + '</div>'
       + analyticsStatsBar(c.name, analytics)
@@ -15228,7 +15252,7 @@ async function renderAdminCats(el) {
       + '<div style="display:flex;justify-content:space-between;align-items:center">'
       +   '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0"><span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' + renderCatEmoji(c.emoji, 22) + '</span><div style="min-width:0"><strong style="font-size:13px;color:#5F5E5A">' + escapeHtml(c.name) + '</strong><span style="font-size:9px;background:#F1EFE8;color:#5F5E5A;padding:2px 6px;border-radius:99px;white-space:nowrap;display:inline-block">Retired</span><div style="font-size:10px;color:#888780">Created ' + fmtDate(c.created_at) + ' · Retired ' + fmtDate(c.retired_at) + '</div></div></div>'
       +   '<div style="flex-shrink:0"><button class="back-btn" onclick="restoreAdminCat(\'' + c.id + '\')" style="margin-right:4px">Restore</button>'
-      +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminCat(\'' + c.id + '\',\'' + escapeHtml(c.name).replace(/'/g,"\\'") + '\')">Delete</button></div>'
+      +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminCat(\'' + c.id + '\',\'' + jsStrAttr(escapeHtml(c.name)) + '\')">Delete</button></div>'
       + '</div>'
       + '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">'
       +   '<span style="background:#F1EFE8;color:#5F5E5A;font-size:10px;padding:3px 8px;border-radius:99px;font-weight:600">👥 ' + stats.users + ' users ever</span>'
@@ -16987,7 +17011,7 @@ async function renderGifts() {
       ? getCategoryColor(visibleLists.slice().sort(function(a,b){ return (b.items||[]).length - (a.items||[]).length; })[0].category)
       : getCategoryColor(name);
     var ctaLabel, listSummary, cardClick;
-    var safeName = String(name).replace(/'/g, "\\'");
+    var safeName = jsStrAttr(name);
     if (visibleLists.length === 0) {
       ctaLabel = 'Ask for a list →';
       cardClick = 'onclick="askFriendForLists(\'' + safeName + '\')" style="cursor:pointer"';
@@ -17131,7 +17155,7 @@ function renderGiftTileHtml(l, i) {
   var count = Math.min(5, (l.items || []).length);
   var isOpen = !!_giftTilesOpen[l.category];
   var span = isOpen ? 'grid-column: 1 / -1;' : '';
-  var safeCat = String(l.category).replace(/'/g,"\\'");
+  var safeCat = jsStrAttr(l.category);
   var subtitle = 'Top ' + count + ' pick' + (count === 1 ? '' : 's') + ' · ' + (isOpen ? 'tap to close ↑' : 'tap to shop ↓');
   // Single medium-tone fill, black border, no emoji chip
   var _tileAccent = pal.accent || pal.fg || '#D85A30';
@@ -17144,8 +17168,8 @@ function renderGiftTileHtml(l, i) {
     html += '<div style="margin-top:14px;background:#FFFFFF;border-radius:14px;padding:6px" onclick="event.stopPropagation()">';
     items.forEach(function(item, idx) {
       var url = amazonSearchUrl(item, l.category);
-      var itemEsc = String(item).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-      var catEsc = String(l.category || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      var itemEsc = jsStrAttr(item);
+      var catEsc = jsStrAttr(l.category || '');
       html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 8px;' + (idx < items.length - 1 ? 'border-bottom:1px solid #F1EFE8;' : '') + '">'
         +   '<div style="width:22px;height:22px;border-radius:999px;background:' + pal.bg + '66;color:' + pal.accent + ';font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + (idx+1) + '</div>'
         +   '<div style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#2C2C2A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(item) + '</div>'
@@ -18097,7 +18121,7 @@ async function loadOwnListReactions(listOwnerId, category, containerEl) {
     window._reactionsByEmoji = whoByEmoji;
     var pills = Object.keys(counts).map(function(e) {
       var who = (whoByEmoji[e] || []).join(', ');
-      var eEsc = e.replace(/'/g, "\\'");
+      var eEsc = jsStrAttr(e);
       return '<div onclick="showReactionAudience(\'' + eEsc + '\')" title="' + escapeHtml(who) + '" style="background:#F5F3EE;border:1px solid #E8E6DF;border-radius:20px;padding:4px 10px;font-size:13px;cursor:pointer">' + e + ' ' + counts[e] + '</div>';
     }).join('');
     var label = containerEl.querySelector('div');
@@ -18117,7 +18141,7 @@ async function loadAndRenderReactions(listOwnerId, category, containerEl) {
     reactions.forEach(function(r){ counts[r.emoji] = (counts[r.emoji] || 0) + 1; if (r.from_user_id === userId) myReactions.add(r.emoji); });
     containerEl.innerHTML = REACTION_EMOJIS.map(function(e) {
       var n = counts[e] || 0, active = myReactions.has(e);
-      return '<button onclick="toggleReaction(\'' + listOwnerId + '\',\'' + escapeHtml(category) + '\',\'' + e + '\',this)" style="background:' + (active?'#FAECE7':'#F5F3EE') + ';border:1px solid ' + (active?'#D4622A':'#E8E6DF') + ';border-radius:20px;padding:4px 10px;font-size:13px;cursor:pointer;margin:2px">' + e + (n?' '+n:'') + '</button>';
+      return '<button onclick="toggleReaction(\'' + listOwnerId + '\',\'' + jsStrAttr(category) + '\',\'' + e + '\',this)" style="background:' + (active?'#FAECE7':'#F5F3EE') + ';border:1px solid ' + (active?'#D4622A':'#E8E6DF') + ';border-radius:20px;padding:4px 10px;font-size:13px;cursor:pointer;margin:2px">' + e + (n?' '+n:'') + '</button>';
     }).join('');
   } catch(e) { console.warn('loadReactions', e); }
 }
@@ -18228,8 +18252,8 @@ async function loadItemReactions(listOwnerId, category, itemName, containerEl) {
     var pills = REACTION_EMOJIS.map(function(e) {
       var n = counts[e] || 0;
       var active = !!mineByEmoji[e];
-      var itemEsc = String(itemName).replace(/'/g,"\\'");
-      var catEsc = String(category).replace(/'/g,"\\'");
+      var itemEsc = jsStrAttr(itemName);
+      var catEsc = jsStrAttr(category);
       return '<button onclick="toggleReaction(\'' + listOwnerId + '\',\'' + catEsc + '\',\'' + e + '\',this,\'' + itemEsc + '\')" style="background:' + (active?'#FAECE7':'#F5F3EE') + ';border:1px solid ' + (active?'#D4622A':'#E8E6DF') + ';border-radius:20px;padding:4px 10px;font-size:13px;cursor:pointer;margin:2px">' + e + (n?' '+n:'') + '</button>';
     }).join('');
     // Always-visible "who reacted" line below the pills — no click needed.
@@ -18490,9 +18514,9 @@ async function loadItemComments(listOwnerId, category, itemName) {
       var when = '<span style="font-size:10px;color:#888780;font-weight:400;margin-left:6px">' + timeAgo(c.created_at) + '</span>';
       // Reply affordance for OTHERS' comments — focuses the input at the bottom and
       // prepends '@Name ' so it clearly reads as a reply. Edit/Delete for MY comments.
-      var safeName = String(name).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      var safeName = jsStrAttr(name);
       // WhatsApp/iMessage-style `…` overflow menu for own comments, Reply link for others.
-      var safeBody = String(c.comment || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ');
+      var safeBody = jsStrAttr(c.comment || '');
       var actions = isMine
         ? '<div style="position:absolute;top:8px;right:0">'
           +   '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\')" style="background:none;border:none;color:#888780;font-size:16px;padding:0 6px;cursor:pointer;font-family:inherit;line-height:1" title="More">⋯</button>'
