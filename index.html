@@ -13895,8 +13895,12 @@ async function sendBanNotificationEmail(uid, reason) {
   try {
     var res = await sbClient.from('profiles').select('display_name').eq('id', uid).maybeSingle();
     sbCheck(res, 'sendBanNotificationEmail');
-    if (!res.data || !res.data.email) return;
-    sendAppEmail('account_suspended', res.data.email, { name: res.data.display_name || 'there', reason: reason || null });
+    // This used to guard on res.data.email, which the select does not fetch
+    // and the client may no longer read — so the guard always tripped and the
+    // suspension notice was never sent. Address it by user id and let the
+    // edge function resolve the address with the service role.
+    if (!res.data) return;
+    sendAppEmailToUser('account_suspended', uid, { name: res.data.display_name || 'there', reason: reason || null });
   } catch(e) { console.warn('ban email skipped', e); }
 }
 
@@ -14121,6 +14125,13 @@ async function openAdminGroupDetail(gid) {
     var profRes = uids.length ? await sbClient.from('profiles').select('id, display_name, handle').in('id', uids) : { data: [] };
     sbCheck(profRes, 'openAdminGroupDetail:profiles');
     var byId = {}; (profRes.data || []).forEach(function(p){ byId[p.id] = p; });
+    // Labels below fall back to email for members with no name or handle.
+    if (uids.length) {
+      var acg = await sbClient.rpc('admin_profile_contacts', { p_ids: uids });
+      if (sbCheck(acg, 'openAdminGroupDetail:contacts')) {
+        (acg.data || []).forEach(function(c){ if (byId[c.id]) byId[c.id].email = c.email; });
+      }
+    }
     _adminGroupCache = { group: g, members: members, sharedLists: slists, byId: byId };
 
     var creator = byId[creatorId] || {};
@@ -14836,7 +14847,13 @@ async function openAdminUserDetail(uid) {
     if (inviterRes.data && inviterRes.data.invited_by) {
       var ip = await sbClient.from('profiles').select('id, display_name, handle').eq('id', inviterRes.data.invited_by).maybeSingle();
       sbCheck(ip, 'openAdminUserDetail');
-      if (ip.data) inviterProfile = ip.data;
+      if (ip.data) {
+        inviterProfile = ip.data;
+        var aci = await sbClient.rpc('admin_profile_contacts', { p_ids: [ip.data.id] });
+        if (sbCheck(aci, 'openAdminUserDetail:inviterContact') && aci.data && aci.data[0]) {
+          inviterProfile.email = aci.data[0].email;
+        }
+      }
     }
     var counts = {
       lists: listsC.count || 0,
@@ -14984,6 +15001,12 @@ async function toggleAdminUserSection(key, uid) {
         var pr = await sbClient.from('profiles').select('id, display_name, handle').in('id', otherIds);
         sbCheck(pr, 'toggleAdminUserSection');
         var byId = {}; (pr.data || []).forEach(function(p) { byId[p.id] = p; });
+        if (otherIds.length) {
+          var acf = await sbClient.rpc('admin_profile_contacts', { p_ids: otherIds });
+          if (sbCheck(acf, 'openAdminUserDetail:friendContacts')) {
+            (acf.data || []).forEach(function(c){ if (byId[c.id]) byId[c.id].email = c.email; });
+          }
+        }
         // Sort accepted first, then pending; within each group, most recent first
         rowsData.sort(function(a, b) {
           if (a.status !== b.status) return a.status === 'accepted' ? -1 : 1;
@@ -15074,6 +15097,16 @@ async function renderAdminLists(el) {
     var pr = await sbClient.from('profiles').select('id, display_name, handle').in('id', userIds);
     sbCheck(pr, 'renderAdminLists');
     (pr.data || []).forEach(function(p) { profilesMap[p.id] = p; });
+    // Owner email is both displayed and searched below; it is not readable
+    // off profiles any more, so pull it through the admin-gated RPC the way
+    // the Users screen does. Without this the search silently matched nothing
+    // and every nameless owner rendered as "unknown".
+    var ac = await sbClient.rpc('admin_profile_contacts', { p_ids: userIds });
+    if (sbCheck(ac, 'renderAdminLists:contacts')) {
+      (ac.data || []).forEach(function(c) {
+        if (profilesMap[c.id]) { profilesMap[c.id].email = c.email; profilesMap[c.id].phone = c.phone; }
+      });
+    }
   }
   var term = (_adminListSearch || '').toLowerCase();
   var filtered = term ? lists.filter(function(l) {
@@ -15135,6 +15168,11 @@ async function openAdminListDetail(listId, origin, originUid) {
     if (l.user_id) {
       try {
         var pr = await sbClient.from('profiles').select('id, display_name, handle, photo').eq('id', l.user_id).maybeSingle();
+        if (pr.data) {
+          // Owner email is shown twice below; it is not readable off profiles.
+          var aco = await sbClient.rpc('admin_profile_contacts', { p_ids: [l.user_id] });
+          if (sbCheck(aco, 'openAdminListDetail:contact') && aco.data && aco.data[0]) pr.data.email = aco.data[0].email;
+        }
         sbCheck(pr, 'openAdminListDetail');
         owner = pr.data || null;
       } catch(e) {}
@@ -17547,16 +17585,19 @@ function notifyFriendsOfUpdate(name, category) {
       sbCheck(sameCatRes, 'notifyFriendsOfUpdate');
       var interested = (sameCatRes.data || []).map(function(r){ return r.user_id; });
       if (!interested.length) return;
-      var profRes = await sbClient.from('profiles').select('id').in('id', interested);
-      sbCheck(profRes, 'notifyFriendsOfUpdate');
-      var profiles = (profRes.data || []).filter(function(p){ return !!p.email; });
+      // There used to be a profiles round-trip here whose only job was to drop
+      // anyone without an email. Once the contact columns were locked down it
+      // selected a column it could no longer read, so the filter matched
+      // nobody and this fanout silently stopped notifying anyone. Nothing here
+      // needs an address: notification_queue is keyed on recipient_user_id and
+      // the cron resolves the address server-side, and sendAppPush takes a uuid.
       // Batch-insert queue rows for all interested friends
-      if (profiles.length) {
+      if (interested.length) {
         sbClient.from('notification_queue').insert(
-          profiles.map(function(p){ return { recipient_user_id: p.id, from_user_id: userId, event_type: 'friend_update', event_data: { category: category, friend_name: name } }; })
+          interested.map(function(id){ return { recipient_user_id: id, from_user_id: userId, event_type: 'friend_update', event_data: { category: category, friend_name: name } }; })
         ).then(function(r){ if (r && r.error) console.warn('notification_queue insert failed', r.error); });
         // Fire immediate push in parallel (push is not batched — brief transient signal)
-        profiles.forEach(function(p) { sendAppPush(p.id, 'Tenner', name + ' updated their ' + (category || 'top 10'), '/#circle'); });
+        interested.forEach(function(id) { sendAppPush(id, 'Tenner', name + ' updated their ' + (category || 'top 10'), '/#circle'); });
       }
     } catch(e) { console.warn('friend_update fanout failed', e); }
   })();
