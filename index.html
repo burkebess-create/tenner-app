@@ -15209,6 +15209,7 @@ async function renderAdminCats(el) {
   el.innerHTML = '<div style="padding:12px">'
     + '<div style="font-size:10px;color:#888780;margin-bottom:6px">Popularity based on ' + analytics.totalUsers + ' total Tenner users.</div>'
     + '<button class="btn-primary" onclick="editAdminCat(null)" style="margin-bottom:12px">+ New category</button>'
+    + '<div id="admin-rename-coverage"></div>'
     + (active.length
         ? '<div style="font-size:10.5px;color:#5F5E5A;line-height:1.45;background:#FAF8F2;border:1px solid #E8E6DF;border-left:5px solid #D85A30;border-radius:3px;padding:8px 10px;margin-bottom:10px">'
           + '<strong style="color:#2C2C2A">Press and drag to reorder.</strong> The top ' + CAT_GRID_SLOTS + ' are the first page of the Create screen on most phones (4 on short screens). The rest follow on later pages, and everything moves up as users fill out the ones above.</div>'
@@ -15222,6 +15223,9 @@ async function renderAdminCats(el) {
     + (showRetired ? '<div style="margin-top:10px">' + retiredRows + '</div>' : '')
     + '</div>';
 
+  // Fills in asynchronously so a schema check never delays the category list.
+  renderCategoryRenameCoverage();
+
   // Press-and-drag reordering, same physics as the list editor.
   _adminCatOrder = active.slice();
   var dragHost = el.querySelector('#admin-cat-list');
@@ -15234,6 +15238,83 @@ async function renderAdminCats(el) {
       });
     });
   }
+}
+
+// Renaming a category rewrites the name in every table that stores one —
+// there is no id or foreign key behind it, so the rename function has to
+// update all of them by hand. A table added later with a category column and
+// no UPDATE would keep the old name forever and quietly detach from its list.
+// The database refuses a rename when that happens; this is where you find out
+// why, and which table to fix.
+var _renameCoverageOpen = false;
+async function renderCategoryRenameCoverage() {
+  var host = document.getElementById('admin-rename-coverage');
+  if (!host || !sbClient) return;
+  host.innerHTML = '<div style="font-size:10px;color:#888780;margin-bottom:10px">Checking rename coverage…</div>';
+
+  var res = await sbClient.rpc('admin_category_rename_coverage');
+  if (!sbCheck(res, 'renderCategoryRenameCoverage')) {
+    host.innerHTML = '<div style="font-size:10.5px;color:#B57F0F;background:#FBF0D8;border:1px solid #B57F0F33;'
+      + 'border-left:5px solid #B57F0F;border-radius:3px;padding:8px 10px;margin-bottom:10px">'
+      + 'Could not check rename coverage. '
+      + '<span style="font-weight:700;cursor:pointer;text-decoration:underline" onclick="renderCategoryRenameCoverage()">Retry</span></div>';
+    return;
+  }
+
+  var rows = res.data || [];
+  // Zero rows is not a clean bill of health — lists alone should always come
+  // back. Treat it as "could not check" rather than reporting "OK, 0 tables".
+  if (!rows.length) {
+    host.innerHTML = '<div style="font-size:10.5px;color:#B57F0F;background:#FBF0D8;border:1px solid #B57F0F33;'
+      + 'border-left:5px solid #B57F0F;border-radius:3px;padding:8px 10px;margin-bottom:10px">'
+      + 'Rename coverage check returned nothing — that should not happen. '
+      + '<span style="font-weight:700;cursor:pointer;text-decoration:underline" onclick="renderCategoryRenameCoverage()">Retry</span></div>';
+    return;
+  }
+  var gaps    = rows.filter(function(r){ return !r.covered && !r.exempt; });
+  var covered = rows.filter(function(r){ return r.covered; });
+  var exempt  = rows.filter(function(r){ return r.exempt; });
+
+  var ok = gaps.length === 0;
+  var ac = ok ? '#2F6B52' : '#A32D2D';
+  var bg = ok ? '#EAF3EE' : '#FBE6DE';
+
+  var headline = ok
+    ? 'Rename coverage OK — ' + covered.length + ' table' + (covered.length === 1 ? '' : 's') + ' kept in sync'
+    : gaps.length + ' table' + (gaps.length === 1 ? '' : 's') + ' would be missed by a rename';
+
+  function chips(list, fg, chipBg) {
+    return '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">'
+      + list.map(function(r) {
+          return '<span title="' + escapeHtml(r.reason || '') + '" style="background:' + chipBg + ';color:' + fg
+            + ';font-size:10px;padding:3px 8px;border-radius:99px;font-weight:600">' + escapeHtml(r.table_name) + '</span>';
+        }).join('')
+      + '</div>';
+  }
+
+  host.innerHTML = '<div style="background:' + bg + ';border:1px solid ' + ac + '33;border-left:7px solid ' + ac
+    +   ';border-radius:3px;padding:10px 12px;margin-bottom:10px">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'
+    +   '<div style="font-size:11.5px;font-weight:800;color:' + ac + '">' + (ok ? '✓ ' : '⚠️ ') + escapeHtml(headline) + '</div>'
+    +   '<span style="font-size:10px;font-weight:700;color:' + ac + ';cursor:pointer;white-space:nowrap;text-decoration:underline"'
+    +     ' onclick="_renameCoverageOpen=!_renameCoverageOpen;renderCategoryRenameCoverage()">'
+    +     (_renameCoverageOpen ? 'Hide' : 'Details') + '</span>'
+    + '</div>'
+    + (ok
+        ? ''
+        : '<div style="font-size:10.5px;color:#2C2C2A;line-height:1.45;margin-top:6px">Renaming a category is blocked until each one either gets an UPDATE in <code>rename_category_everywhere()</code> or is listed in <code>category_rename_exempt_tables</code>.</div>'
+          + chips(gaps, '#A32D2D', '#F7D4CA'))
+    + (_renameCoverageOpen
+        ? '<div style="margin-top:8px;border-top:1px solid ' + ac + '22;padding-top:8px">'
+          + '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#5F5E5A">Updated on rename</div>'
+          + chips(covered, '#2F6B52', '#DCEBE2')
+          + (exempt.length
+              ? '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#5F5E5A;margin-top:8px">Exempt — not a list category</div>'
+                + chips(exempt, '#5F5E5A', '#F1EFE8')
+              : '')
+          + '</div>'
+        : '')
+    + '</div>';
 }
 
 var _adminCatOrder = [];

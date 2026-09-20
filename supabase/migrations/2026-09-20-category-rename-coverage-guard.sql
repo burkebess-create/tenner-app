@@ -85,3 +85,18 @@ on conflict (table_name) do nothing;
 
 alter table public.category_rename_exempt_tables enable row level security;
 -- No policy: only the service role and SECURITY DEFINER functions read it.
+
+-- ── Admin UI, 2026-09-20 ──────────────────────────────────────────────
+-- admin_category_rename_coverage() is now surfaced in the app, at the top of
+-- Admin → Categories: a one-line status strip directly above the category
+-- list, which is where renames are actually performed. Green when every
+-- table is covered, red and naming the offenders when not, with a Details
+-- toggle listing the covered and exempt tables as chips.
+--
+-- It renders after the category list rather than blocking on it, so a schema
+-- check never slows the tab down.
+--
+-- Render states verified against the live RPC shape: healthy, healthy with
+-- details expanded, a synthetic gap, an RPC error (retry offered), and zero
+-- rows — the last treated as "could not check" rather than "OK, 0 tables",
+-- since lists alone should always come back.
