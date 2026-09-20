@@ -2390,6 +2390,7 @@ async function loadFriendViews() {
   if (!sbClient || !userId) return;
   try {
     var r = await sbClient.from('friend_views').select('friend_id, last_seen_at').eq('viewer_id', userId);
+    sbCheck(r, 'loadFriendViews');
     if (r && r.data) {
       var m = {};
       r.data.forEach(function(v){ m[v.friend_id] = v.last_seen_at; });
@@ -5271,12 +5272,14 @@ async function openShareListModal(cat) {
   if (sbClient && userId) {
     try {
       var fr = await sbClient.from('list_share_invites').select('id, to_user_id, created_at, dismissed_at, read_at').eq('from_user_id', userId).eq('category', cat);
+      sbCheck(fr, 'openShareListModal');
       (fr.data || []).forEach(function(r){ friendInvites[r.to_user_id] = r; });
     } catch(e) { console.warn('Invite lookup failed', e); }
     var gids = MY_GROUPS.map(function(g){ return g.id; }).filter(Boolean);
     if (gids.length) {
       try {
         var gr = await sbClient.from('group_lists').select('group_id, created_at').in('group_id', gids).eq('category', cat);
+        sbCheck(gr, 'openShareListModal');
         (gr.data || []).forEach(function(r){ groupShares[r.group_id] = r.created_at; });
       } catch(e) { console.warn('Group share lookup failed', e); }
     }
@@ -5490,6 +5493,7 @@ async function renderActivityFeed() {
   var friendIds = accepted.map(function(f){ return f.friendId; });
   try {
     var res = await sbClient.from('lists').select('user_id, name, category, emoji, items, updated_at, is_ranked').in('user_id', friendIds).order('updated_at', { ascending: false }).limit(20);
+    sbCheck(res, 'renderActivityFeed');
     var recentLists = res.data || [];
     var _myCats = MY_LISTS.map(function(l){ return l.category || l.n.replace('Top 10 ',''); });
     recentLists = recentLists.filter(function(l){
@@ -5827,6 +5831,7 @@ async function tryTodaySlot(kind) {
     try {
       var friendIds = accepted.map(function(f){ return f.friendId; });
       var res = await sbClient.from('lists').select('user_id, category, emoji, updated_at').in('user_id', friendIds).eq('is_public', true).order('updated_at', { ascending: false }).limit(1);
+      sbCheck(res, 'tryTodaySlot');
       var row = (res.data || [])[0];
       if (!row) return null;
       var ageHours = (Date.now() - new Date(row.updated_at).getTime()) / (1000*60*60);
@@ -5850,6 +5855,7 @@ async function tryTodaySlot(kind) {
     try {
       var friendIds2 = acc.map(function(f){ return f.friendId; });
       var lres = await sbClient.from('lists').select('user_id, category, items').in('user_id', friendIds2).in('category', cats).eq('is_public', true).limit(120);
+      sbCheck(lres, 'tryTodaySlot');
       var best = null;
       (lres.data || []).forEach(function(row) {
         var mine = myByCat[row.category];
@@ -5907,6 +5913,7 @@ async function renderCircleStories() {
       .in('user_id', friendIds)
       .order('updated_at', { ascending: false })
       .limit(60);
+    sbCheck(lr, 'renderCircleStories');
     (lr.data || []).forEach(function(l) {
       if (!l.is_public) return;
       var days = (Date.now() - new Date(l.updated_at).getTime()) / (1000*60*60*24);
@@ -6094,6 +6101,7 @@ async function renderMatchJumps() {
       .eq('is_public', true)
       .order('updated_at', { ascending: false })
       .limit(60);
+    sbCheck(res, 'renderMatchJumps');
     var rows = res.data || [];
     if (!rows.length) return;
     var jumps = [];
@@ -6157,6 +6165,7 @@ async function openFriendListByCat(friendUserId, category, origin) {
   selFriendId = friendUserId;
   try {
     var r = await sbClient.from('lists').select('*').eq('user_id', friendUserId).eq('category', category).maybeSingle();
+    sbCheck(r, 'openFriendListByCat');
     if (!r.data) { showToast('That list isn\'t available anymore.'); return; }
     var listData = { user_id: friendUserId, name: r.data.name, category: r.data.category, emoji: r.data.emoji, items: r.data.items, ranked: r.data.is_ranked, profile: friend.profile };
     // Fall back to whichever screen is currently active if origin not provided
@@ -6196,8 +6205,10 @@ async function openFillGroupList(cat) {
     if (sbClient && groupId) {
       try {
         var glRes = await sbClient.from('group_lists').select('shared_by').eq('group_id', groupId).eq('category', cat).maybeSingle();
+        sbCheck(glRes, 'openFillGroupList');
         if (glRes.data && glRes.data.shared_by) {
           var sharerList = await sbClient.from('lists').select('emoji').eq('user_id', glRes.data.shared_by).eq('category', cat).maybeSingle();
+          sbCheck(sharerList, 'openFillGroupList');
           if (sharerList.data && sharerList.data.emoji) selCatEmoji = sharerList.data.emoji;
         }
       } catch(e) {}
@@ -6340,6 +6351,7 @@ async function renderGroupListDetail() {
   if (nonFriendMemberIds.length > 0 && sbClient) {
     try {
       var pfRes2 = await sbClient.from('profiles').select('id, display_name, handle, photo').in('id', nonFriendMemberIds);
+      sbCheck(pfRes2, 'renderGroupListDetail');
       (pfRes2.data || []).forEach(function(p){ groupMemberProfiles[p.id] = p; });
     } catch(e) { console.warn('Load group member profiles failed', e); }
   }
@@ -6348,6 +6360,7 @@ async function renderGroupListDetail() {
   var listsByUser = {};
   try {
     var lRes = await sbClient.from('lists').select('user_id, items, emoji').in('user_id', allMemberIds).eq('category', cat);
+    sbCheck(lRes, 'renderGroupListDetail');
     (lRes.data || []).forEach(function(r){ listsByUser[r.user_id] = r; });
   } catch(e) { console.warn('renderGroupListDetail fetch failed', e); var errEl = document.getElementById('group-list-members'); if (errEl) errEl.innerHTML = '<div style="font-size:12px;color:#A32D2D;padding:12px 0">Could not load list data. Please try again.</div>'; return; }
 
@@ -6459,6 +6472,7 @@ async function renderGroupDetail() {
   if (sbClient && g.id) {
     try {
       var mRes = await sbClient.from('group_members').select('user_id, status').eq('group_id', g.id);
+      sbCheck(mRes, 'renderGroupDetail');
       if (mRes.data) {
         g.memberIds = [];
         mRes.data.forEach(function(r) {
@@ -6481,6 +6495,7 @@ async function renderGroupDetail() {
   if (nonFriendIds.length > 0 && sbClient) {
     try {
       var pfRes = await sbClient.from('profiles').select('id, display_name, handle, photo').in('id', nonFriendIds);
+      sbCheck(pfRes, 'renderGroupDetail');
       (pfRes.data || []).forEach(function(p) { memberProfiles[p.id] = p; });
     } catch(e) { console.warn('Load non-friend profiles failed', e); }
   }
@@ -7218,6 +7233,7 @@ async function renderGroupSettings() {
     if (members.length === 0) { membersEl.innerHTML = '<div style="font-size:11px;color:#888780;padding:8px 0">No other members yet.</div>'; return; }
     var pids = members.map(function(r){ return r.user_id; });
     var pRes = await sbClient.from('profiles').select('id, display_name, handle').in('id', pids);
+    sbCheck(pRes, 'renderGroupSettings');
     var profileMap = {};
     (pRes.data || []).forEach(function(p){ profileMap[p.id] = p; });
     membersEl.innerHTML = members.map(function(r) {
@@ -8014,11 +8030,15 @@ async function applyPendingGroupJoin() {
   try {
     var existing = await sbClient.from('group_members').select('user_id')
       .eq('group_id', gid).eq('user_id', userId).maybeSingle();
+    // Fail closed: the group_members pkey (group_id, user_id) would reject a
+    // duplicate, but a failed read shouldn't surface as a failed join.
+    if (!sbCheck(existing, 'applyPendingGroupJoin')) return;
     if (existing.data) return;   // already in it
     var ins = await sbClient.from('group_members')
       .insert({ group_id: gid, user_id: userId, status: 'accepted', role: 'member' }).select();
     if (ins.error) { console.warn('Group join failed', ins.error); return; }
     var g = await sbClient.from('groups').select('name').eq('id', gid).maybeSingle();
+    sbCheck(g, 'applyPendingGroupJoin');
     showToast('You joined ' + ((g.data && g.data.name) ? g.data.name : 'the group') + '.');
     if (typeof loadState === 'function') loadState().then(function(){ renderCircleGroups(); }).catch(function(){});
   } catch (e) { console.warn('Group join failed', e); }
@@ -8262,6 +8282,7 @@ async function sendWelcomeEmailIfNeeded() {
     // cancelled timer, because the timer can already be mid-flight when the
     // ban check completes.
     var banChk = await sbClient.from('profiles').select('is_banned').eq('id', userId).maybeSingle();
+    sbCheck(banChk, 'sendWelcomeEmailIfNeeded');
     if (banChk.data && banChk.data.is_banned) return;
     // Dedupe: check email_log
     var chk = await sbClient.from('email_log')
@@ -8269,6 +8290,9 @@ async function sendWelcomeEmailIfNeeded() {
       .eq('user_id', userId)
       .eq('email_type', 'welcome')
       .maybeSingle();
+    // Fail closed: if the dedupe lookup errored we cannot tell whether the
+    // welcome already went out, and sending twice is worse than not sending.
+    if (!sbCheck(chk, 'sendWelcomeEmailIfNeeded')) return;
     if (chk.data) return; // already sent
     // Send + record
     sendAppEmail('welcome', currentUserEmail, { name: (myProfile && myProfile.display_name) || currentUserEmail.split('@')[0] });
@@ -8390,6 +8414,7 @@ async function loadProfile() {
     var res = await sbClient.from('profiles')
       .select('id, display_name, handle, photo, bio, birthday, created_at, invited_by, is_internal, is_system, is_banned, banned_at, banned_reason, gift_visible_categories, allow_comments_on_my_lists, last_alerts_seen_at')
       .eq('id', userId).maybeSingle();
+    sbCheck(res, 'loadProfile');
     try {
       var mc = await sbClient.rpc('get_my_contact');
       if (!mc.error && mc.data && mc.data[0] && res.data) {
@@ -8408,6 +8433,7 @@ async function loadProfile() {
   if (myProfile && !myProfile.gift_share_token) {
     try {
       var g = await sbClient.rpc('regenerate_my_gift_share_token');
+      sbCheck(g, 'regenerateGiftShareToken');
       if (g && g.data) myProfile.gift_share_token = g.data;
     } catch(e) { /* silent — column or function may not exist yet */ }
   }
@@ -8746,6 +8772,7 @@ async function loadFriends() {
       var profileMap = {};
       try {
         var pRes = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').in('id', friendIds);
+        sbCheck(pRes, 'loadFriends');
         // gift_share_token is no longer readable straight off profiles — it is
         // the secret behind /g?t=..., and a blanket read let anyone open any
         // stranger's gift guide. This returns it for accepted friends only.
@@ -8806,10 +8833,13 @@ async function findProfileByHandle(handle) {
   var norm = handle.replace(/^@/, '').toLowerCase();
   try {
     var direct = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('handle', norm).neq('id', userId).eq('is_system', false).maybeSingle();
+    sbCheck(direct, 'findProfileByHandle');
     if (direct.data) return direct.data;
     var alias = await sbClient.from('handle_aliases').select('user_id').eq('handle', norm).maybeSingle();
+    sbCheck(alias, 'findProfileByHandle');
     if (alias && alias.data && alias.data.user_id && alias.data.user_id !== userId) {
       var re = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').eq('id', alias.data.user_id).maybeSingle();
+      sbCheck(re, 'findProfileByHandle');
       return re.data || null;
     }
     return null;
@@ -8987,6 +9017,7 @@ async function loadMutualFriendSuggestions() {
     if (candidates.length === 0) { wrap.style.display = 'none'; return; }
     var candIds = candidates.map(function(c){ return c.id; });
     var pRes = await sbClient.from('profiles').select('id, display_name, handle, photo').in('id', candIds);
+    sbCheck(pRes, 'loadMutualFriendSuggestions');
     var profileById = {}; (pRes.data || []).forEach(function(p){ profileById[p.id] = p; });
     // Friend-name lookup (from already-loaded myFriends)
     var friendNameById = {};
@@ -9134,6 +9165,9 @@ async function notifyAddresseeOfFriendRequest(addresseeId, message) {
     // Rate-limit to one email per (addressee, requester) — no repeats if the
     // user withdraws + re-sends. `ref_key` = the requester's userId.
     var chk = await sbClient.from('email_log').select('id').eq('user_id', addresseeId).eq('email_type', 'friend_request').eq('ref_key', userId).maybeSingle();
+    // Fail closed — a failed dedupe read must not turn into a repeat email
+    // every time the requester withdraws and re-sends.
+    if (!sbCheck(chk, 'notifyAddresseeOfFriendRequest')) return;
     if (chk.data) return;
     var requesterName = (myProfile && myProfile.display_name) || (myProfile && myProfile.handle ? '@' + myProfile.handle : 'Someone');
     sendAppEmailToUser('friend_request', addresseeId, {
@@ -9514,12 +9548,15 @@ async function maybeShowInviterMutualsStep() {
     if (!fromId || fromId === userId || !sbClient) return false;
     // Look up inviter profile + their accepted friends' ids (excluding me)
     var invRes = await sbClient.from('profiles').select('id, display_name, handle, photo').eq('id', fromId).maybeSingle();
+    sbCheck(invRes, 'maybeShowInviterMutualsStep');
     var inviter = invRes && invRes.data;
     if (!inviter) return false;
     var frRes = await sbClient.from('friendships').select('requester_id, addressee_id, status').or('requester_id.eq.' + fromId + ',addressee_id.eq.' + fromId).eq('status', 'accepted');
+    sbCheck(frRes, 'maybeShowInviterMutualsStep');
     var mutualIds = ((frRes && frRes.data) || []).map(function(f) { return f.requester_id === fromId ? f.addressee_id : f.requester_id; }).filter(function(id) { return id && id !== userId && id !== fromId; });
     if (mutualIds.length === 0) return false;
     var profRes = await sbClient.from('profiles').select('id, display_name, handle, photo').in('id', mutualIds).limit(20);
+    sbCheck(profRes, 'maybeShowInviterMutualsStep');
     var candidates = (profRes && profRes.data) || [];
     if (candidates.length === 0) return false;
     // Cache so renderOnbStep6 can read without re-querying
@@ -9776,6 +9813,7 @@ async function loadLastAlertsSeenAt() {
   if (!sbClient || !userId) return;
   try {
     var r = await sbClient.from('profiles').select('last_alerts_seen_at').eq('id', userId).maybeSingle();
+    sbCheck(r, 'loadLastAlertsSeenAt');
     if (r.data) _lastAlertsSeenAt = r.data.last_alerts_seen_at || null;
   } catch(e) { /* column may not exist yet; silent */ }
 }
@@ -9793,12 +9831,14 @@ async function loadCommentsOnMe() {
       .gte('created_at', since)
       .order('created_at', { ascending: false })
       .limit(50);
+    sbCheck(res, 'loadCommentsOnMe');
     if (!res.data || res.data.length === 0) return;
     var fromIds = [];
     res.data.forEach(function(c) { if (fromIds.indexOf(c.from_user_id) === -1) fromIds.push(c.from_user_id); });
     var profileMap = {};
     try {
       var pr = await sbClient.from('profiles').select('id, display_name, handle, photo').in('id', fromIds);
+      sbCheck(pr, 'loadCommentsOnMe');
       (pr.data || []).forEach(function(p){ profileMap[p.id] = p; });
     } catch(e) {}
     MY_COMMENTS_ON_ME = res.data.map(function(c) {
@@ -9822,6 +9862,7 @@ async function loadThreadReplies() {
       .gte('created_at', since)
       .order('created_at', { ascending: false })
       .limit(50);
+    sbCheck(res, 'loadThreadReplies');
     if (!res.data || res.data.length === 0) return;
     // Profile lookups (commenters + list owners so we can display context)
     var ids = [];
@@ -9832,6 +9873,7 @@ async function loadThreadReplies() {
     var profileMap = {};
     try {
       var pr = await sbClient.from('profiles').select('id, display_name, handle, photo').in('id', ids);
+      sbCheck(pr, 'loadThreadReplies');
       (pr.data || []).forEach(function(p){ profileMap[p.id] = p; });
     } catch(e) {}
     MY_THREAD_REPLIES = res.data.map(function(c) {
@@ -9851,12 +9893,14 @@ async function loadListShareInvites() {
   if (!(await awaitSessionReady())) return;
   try {
     var res = await sbClient.from('list_share_invites').select('*').eq('to_user_id', userId).is('dismissed_at', null);
+    sbCheck(res, 'loadListShareInvites');
     var invites = res.data || [];
     if (invites.length === 0) return;
     var fromIds = invites.map(function(r){ return r.from_user_id; });
     var profileMap = {};
     try {
       var pRes = await sbClient.from('profiles').select('id, display_name, handle, birthday, photo, created_at, bio').in('id', fromIds);
+      sbCheck(pRes, 'loadListShareInvites');
       (pRes.data || []).forEach(function(p){ profileMap[p.id] = p; });
     } catch(e) {}
     MY_LIST_SHARE_INVITES = invites.map(function(r) {
@@ -9873,14 +9917,14 @@ async function markNotificationsRead() {
   if (unread.length) {
     unread.forEach(function(i){ i.read_at = now; });
     if (sbClient && userId) {
-      try { await sbClient.from('list_share_invites').update({ read_at: now }).eq('to_user_id', userId).is('read_at', null).is('dismissed_at', null); }
+      try { await sbClient.from('list_share_invites').update({ read_at: now }).eq('to_user_id', userId).is('read_at', null).is('dismissed_at', null).throwOnError(); }
       catch(e) { console.warn('Mark invites read failed', e); }
     }
   }
   _lastAlertsSeenAt = now;
   if (sbClient && userId) {
-    try { await sbClient.from('profiles').update({ last_alerts_seen_at: now }).eq('id', userId); }
-    catch(e) { /* column may not exist yet; silent */ }
+    try { await sbClient.from('profiles').update({ last_alerts_seen_at: now }).eq('id', userId).throwOnError(); }
+    catch(e) { console.warn('Mark alerts seen failed — badge will not clear', e); }
   }
 }
 
@@ -10072,6 +10116,7 @@ async function renderNotifActivity(el) {
     // (Blind-fill lists are still filtered further below — only shown if you
     // have your own list in the same category.)
     var res = await sbClient.from('lists').select('user_id, name, category, emoji, items, updated_at, blind_fill').in('user_id', friendIds).eq('is_public', true).order('updated_at', { ascending: false }).limit(30);
+    sbCheck(res, 'renderNotifActivity');
     var recentLists = res.data || [];
     var _myCats = MY_LISTS.map(function(l){ return l.category || l.n.replace('Top 10 ',''); });
     recentLists = recentLists.filter(function(l){
@@ -10181,7 +10226,7 @@ async function snoozeListInvite(inviteId) {
   showToast(toastMsg);
   renderCircleListInvites();
   if (sbClient) {
-    try { await sbClient.from('list_share_invites').update({ snooze_count: newCount, snoozed_until: until }).eq('id', inviteId); }
+    try { await sbClient.from('list_share_invites').update({ snooze_count: newCount, snoozed_until: until }).eq('id', inviteId).throwOnError(); }
     catch(e) { console.warn('Snooze failed', e); }
   }
 }
@@ -10192,7 +10237,7 @@ async function acceptListInvite(inviteId, cat, origin) {
   var inv = MY_LIST_SHARE_INVITES.find(function(i){ return i.id === inviteId; });
   if (inv && !inv.read_at) {
     inv.read_at = new Date().toISOString();
-    if (sbClient) { try { await sbClient.from('list_share_invites').update({ read_at: inv.read_at }).eq('id', inviteId); } catch(e) {} }
+    if (sbClient) { try { await sbClient.from('list_share_invites').update({ read_at: inv.read_at }).eq('id', inviteId).throwOnError(); } catch(e) { console.warn('Mark invite read failed', e); } }
     updateNotificationBadge();
   }
   selCat = cat;
@@ -10208,6 +10253,7 @@ async function acceptListInvite(inviteId, cat, origin) {
     if (sbClient && inv && inv.fromId) {
       try {
         var senderList = await sbClient.from('lists').select('emoji').eq('user_id', inv.fromId).eq('category', cat).maybeSingle();
+        sbCheck(senderList, 'acceptListInvite');
         if (senderList.data && senderList.data.emoji) selCatEmoji = senderList.data.emoji;
       } catch(e) {}
     }
@@ -10227,7 +10273,7 @@ function openFilledListFromNotif(cat) {
 // reminder window; removed from the active notification view.
 async function declineListInvite(inviteId) {
   var now = new Date().toISOString();
-  if (sbClient) { try { await sbClient.from('list_share_invites').update({ dismissed_at: now, read_at: now }).eq('id', inviteId); } catch(e) { console.warn('Dismiss invite failed', e); } }
+  if (sbClient) { try { await sbClient.from('list_share_invites').update({ dismissed_at: now, read_at: now }).eq('id', inviteId).throwOnError(); } catch(e) { console.warn('Dismiss invite failed', e); } }
   MY_LIST_SHARE_INVITES = MY_LIST_SHARE_INVITES.filter(function(i){ return i.id !== inviteId; });
   renderNotifications();
 }
@@ -10243,7 +10289,9 @@ async function updateGroupMetaCounts() {
   try {
     // Batch all three queries instead of looping per-group
     var membersRes = await sbClient.from('group_members').select('group_id, user_id').in('group_id', gids);
+    sbCheck(membersRes, 'updateGroupMetaCounts');
     var sharedRes  = await sbClient.from('group_lists').select('group_id, category').in('group_id', gids);
+    sbCheck(sharedRes, 'updateGroupMetaCounts');
     var memberRows  = membersRes.data || [];
     var sharedRows  = sharedRes.data || [];
 
@@ -10253,6 +10301,7 @@ async function updateGroupMetaCounts() {
     if (sharedRows.length > 0 && allMemberIds.length > 0) {
       var sharedCatSet = Array.from(new Set(sharedRows.map(function(r){ return r.category; })));
       var listsRes = await sbClient.from('lists').select('user_id, category').in('user_id', allMemberIds).in('category', sharedCatSet);
+      sbCheck(listsRes, 'updateGroupMetaCounts');
       (listsRes.data || []).forEach(function(r) {
         var key = r.category + '|' + (memberRows.find(function(mr){ return mr.user_id === r.user_id; }) || {}).group_id;
         // Build per-group-category fills map
@@ -11533,6 +11582,8 @@ async function renderFriendDetail() {
       sbClient.from('friendships').select('id', { count: 'exact', head: true }).or('requester_id.eq.' + fid + ',addressee_id.eq.' + fid).eq('status', 'accepted')
     ]);
     if (selFriendId !== fid) return;
+    sbCheck(results[0], 'renderFriendDetail:lists');
+    sbCheck(results[1], 'renderFriendDetail:friendCount');
 
     var theirLists = (results[0].data || []);
     var friendCount = results[1].count || 0;
@@ -11742,6 +11793,7 @@ async function renderFriendDetail() {
           .eq('list_owner_id', userId)
           .order('created_at', { ascending: false })
           .limit(3);
+        sbCheck(commentsRes, 'renderFriendDetail');
         if (selFriendId !== fid) return;
         var comments = commentsRes.data || [];
         if (!comments.length) return;
@@ -12211,6 +12263,7 @@ async function renderGiftReminders() {
   if (sbClient && upcomingIds.length) {
     try {
       var listsRes = await sbClient.from('lists').select('user_id, name, category, items, is_ranked, emoji, is_public').in('user_id', upcomingIds);
+      sbCheck(listsRes, 'renderGiftReminders');
       (listsRes.data || []).forEach(function(l) {
         if (!friendListMap[l.user_id]) friendListMap[l.user_id] = [];
         friendListMap[l.user_id].push(l);
@@ -12439,6 +12492,7 @@ async function loadCategoriesFromDb() {
     // any existing entries under the same category name (dedupes case-insensitive).
     try {
       var wRes = await sbClient.from('weekly_list_items').select('item_text, weekly_lists!inner(category)');
+      sbCheck(wRes, 'loadCategoriesFromDb');
       if (wRes.data && wRes.data.length) {
         var byCat = {};
         wRes.data.forEach(function(r) {
@@ -12484,6 +12538,7 @@ async function checkAdminStatus() {
   if (!(await awaitSessionReady())) { IS_ADMIN = false; return; }
   try {
     var res = await sbClient.from('admins').select('user_id').eq('user_id', userId).maybeSingle();
+    sbCheck(res, 'checkAdminStatus');
     IS_ADMIN = !!(res.data);
   } catch (e) { IS_ADMIN = false; }
 }
@@ -12492,6 +12547,7 @@ async function checkIfBanned() {
   if (!sbClient || !userId) return false;
   try {
     var res = await sbClient.from('profiles').select('is_banned, banned_reason, banned_at').eq('id', userId).maybeSingle();
+    sbCheck(res, 'checkIfBanned');
     if (res.data && res.data.is_banned) {
       // Cancel any queued welcome email before it fires.
       if (_welcomeEmailTimer) { clearTimeout(_welcomeEmailTimer); _welcomeEmailTimer = null; }
@@ -12590,6 +12646,7 @@ async function loadState() {
       if (gids.length > 0) {
         console.time('loadState:groups');
         var gRes = await sbClient.from('groups').select('id, name, emoji, created_by, created_at').in('id', gids);
+        sbCheck(gRes, 'loadState');
         console.timeEnd('loadState:groups');
         var groupsById = {};
         (gRes.data || []).forEach(function(g){ groupsById[g.id] = g; });
@@ -12610,6 +12667,7 @@ async function loadState() {
         // before the first render and the emoji never flashes.
         try {
           var hasPhotoRes = await sbClient.from('groups').select('id').not('photo', 'is', null).in('id', gids);
+          sbCheck(hasPhotoRes, 'loadState');
           (hasPhotoRes.data || []).forEach(function(row) {
             MY_GROUPS.concat(MY_PENDING_GROUP_INVITES).forEach(function(g) {
               if (g.id === row.id && !g.photo) g.photoPending = true;
@@ -12633,6 +12691,7 @@ async function loadGroupPhotos(gids) {
   try {
     console.time('loadState:groupPhotos');
     var res = await sbClient.from('groups').select('id, photo').in('id', gids);
+    sbCheck(res, 'loadGroupPhotos');
     console.timeEnd('loadState:groupPhotos');
     var changed = false;
     (res.data || []).forEach(function(row) {
@@ -13763,6 +13822,7 @@ async function _reportAction(reportId, payload) {
 async function sendBanNotificationEmail(uid, reason) {
   try {
     var res = await sbClient.from('profiles').select('display_name').eq('id', uid).maybeSingle();
+    sbCheck(res, 'sendBanNotificationEmail');
     if (!res.data || !res.data.email) return;
     sendAppEmail('account_suspended', res.data.email, { name: res.data.display_name || 'there', reason: reason || null });
   } catch(e) { console.warn('ban email skipped', e); }
@@ -13942,6 +14002,8 @@ async function renderAdminGroups(el) {
       sbClient.from('group_members').select('group_id').in('group_id', gids),
       creatorIds.length ? sbClient.from('profiles').select('id, display_name, handle').in('id', creatorIds) : Promise.resolve({ data: [] })
     ]);
+    sbCheck(memRes, 'renderAdminGroups');
+    sbCheck(creatorRes, 'renderAdminGroups');
     var memberCounts = {};
     (memRes.data || []).forEach(function(m){ memberCounts[m.group_id] = (memberCounts[m.group_id] || 0) + 1; });
     var creatorById = {};
@@ -13974,6 +14036,9 @@ async function openAdminGroupDetail(gid) {
       sbClient.from('group_members').select('user_id, role, joined_at, status').eq('group_id', gid),
       sbClient.from('group_lists').select('category, shared_by, created_at').eq('group_id', gid)
     ]);
+    sbCheck(gr, 'openAdminGroupDetail');
+    sbCheck(mems, 'openAdminGroupDetail');
+    sbCheck(sharedLists, 'openAdminGroupDetail');
     if (!gr.data) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">Group not found.</div>'; return; }
     var g = gr.data;
     var members = mems.data || [];
@@ -13982,6 +14047,7 @@ async function openAdminGroupDetail(gid) {
     var creatorId = g.created_by;
     if (creatorId && uids.indexOf(creatorId) === -1) uids.push(creatorId);
     var profRes = uids.length ? await sbClient.from('profiles').select('id, display_name, handle').in('id', uids) : { data: [] };
+    sbCheck(profRes, 'openAdminGroupDetail:profiles');
     var byId = {}; (profRes.data || []).forEach(function(p){ byId[p.id] = p; });
     _adminGroupCache = { group: g, members: members, sharedLists: slists, byId: byId };
 
@@ -14146,6 +14212,8 @@ async function renderAdminInsights(el) {
       sbClient.from('categories').select('name'),
       sbClient.from('weekly_lists').select('category')
     ]);
+    sbCheck(catsRes, 'renderAdminInsights');
+    sbCheck(weeklyRes, 'renderAdminInsights');
     var standardNames = new Set();
     (catsRes.data || []).forEach(function(c){ if (c.name) standardNames.add(c.name.toLowerCase()); });
     (weeklyRes.data || []).forEach(function(w){ if (w.category) standardNames.add(w.category.toLowerCase()); });
@@ -14211,7 +14279,9 @@ async function getListAnalytics() {
     return _adminAnalyticsCache;
   }
   var listsRes = await sbClient.from('lists').select('user_id, category, items').limit(20000);
+  sbCheck(listsRes, 'getListAnalytics');
   var usersRes = await sbClient.from('profiles').select('id', { count: 'exact', head: true });
+  sbCheck(usersRes, 'getListAnalytics');
   var lists = listsRes.data || [];
   var totalUsers = usersRes.count || 0;
   var byCategory = {};
@@ -14364,6 +14434,7 @@ async function promoteWeeklyToCategory(weeklyId) {
     try {
       // 1. Check if category with same name already exists (case-insensitive)
       var existingRes = await sbClient.from('categories').select('id, name').ilike('name', w.category);
+      sbCheck(existingRes, 'promoteWeeklyToCategory');
       var existingCat = (existingRes.data || []).find(function(c){ return c.name.toLowerCase() === w.category.toLowerCase(); });
       var catId;
       if (existingCat) {
@@ -14371,6 +14442,7 @@ async function promoteWeeklyToCategory(weeklyId) {
       } else {
         // 2. Insert new category. Pick next sort_order.
         var soRes = await sbClient.from('categories').select('sort_order').order('sort_order', { ascending: false }).limit(1);
+        sbCheck(soRes, 'promoteWeeklyToCategory');
         var nextSort = ((soRes.data && soRes.data[0] && soRes.data[0].sort_order) || 0) + 1;
         var insRes = await sbClient.from('categories').insert({ name: w.category, emoji: w.emoji || '📋', sort_order: nextSort }).select().maybeSingle();
         if (insRes.error) throw insRes.error;
@@ -14378,9 +14450,11 @@ async function promoteWeeklyToCategory(weeklyId) {
       }
       // 3. Copy weekly_list_items → category_items (dedupe against existing)
       var wItemsRes = await sbClient.from('weekly_list_items').select('item_text, sort_order').eq('weekly_list_id', weeklyId).order('sort_order');
+      sbCheck(wItemsRes, 'promoteWeeklyToCategory');
       var wItems = wItemsRes.data || [];
       if (wItems.length) {
         var existingItemsRes = await sbClient.from('category_items').select('item_text, sort_order').eq('category_id', catId);
+        sbCheck(existingItemsRes, 'promoteWeeklyToCategory');
         var existingLower = {};
         (existingItemsRes.data || []).forEach(function(x){ existingLower[x.item_text.toLowerCase()] = true; });
         var maxSort = 0;
@@ -14631,6 +14705,7 @@ async function openAdminUserDetail(uid) {
     var pr = await sbClient.from('profiles')
       .select('id, display_name, handle, photo, bio, birthday, created_at, invited_by, is_internal, is_system, is_banned, banned_at, banned_reason')
       .eq('id', uid).maybeSingle();
+    sbCheck(pr, 'openAdminUserDetail');
     try {
       var ac = await sbClient.rpc('admin_profile_contacts', { p_ids: [uid] });
       if (!ac.error && ac.data && ac.data[0] && pr.data) { pr.data.email = ac.data[0].email; pr.data.phone = ac.data[0].phone; }
@@ -14649,11 +14724,14 @@ async function openAdminUserDetail(uid) {
       // Resolve who invited this user, if anyone
       sbClient.from('profiles').select('invited_by').eq('id', uid).maybeSingle()
     ]);
+    [listsC, friendsC, friendsPendingC, groupsC, feedbackC, emailC, adminChk, inviteCountsRes, inviterRes]
+      .forEach(function(r) { sbCheck(r, 'openAdminUserDetail'); });
     var invRow = (inviteCountsRes && inviteCountsRes.data && inviteCountsRes.data[0]) || { direct_count: 0, indirect_count: 0 };
     // Resolve inviter profile if present
     var inviterProfile = null;
     if (inviterRes.data && inviterRes.data.invited_by) {
       var ip = await sbClient.from('profiles').select('id, display_name, handle').eq('id', inviterRes.data.invited_by).maybeSingle();
+      sbCheck(ip, 'openAdminUserDetail');
       if (ip.data) inviterProfile = ip.data;
     }
     var counts = {
@@ -14781,6 +14859,7 @@ async function toggleAdminUserSection(key, uid) {
     try {
       if (key === 'lists') {
         var r = await sbClient.from('lists').select('id, name, category, emoji, items, updated_at').eq('user_id', uid).order('updated_at', {ascending:false});
+        sbCheck(r, 'toggleAdminUserSection');
         var rows = (r.data || []).map(function(l) {
           var count = (l.items || []).length;
           return '<div class="card" onclick="openAdminListDetail(\'' + l.id + '\',\'user\',\'' + uid + '\')" style="margin-bottom:4px;padding:8px 10px;cursor:pointer"><div style="display:flex;align-items:center;gap:8px">'
@@ -14794,10 +14873,12 @@ async function toggleAdminUserSection(key, uid) {
         // Include pending rows too so the admin can see stalled friendship
         // requests (e.g. someone accepted request never sent back).
         var f = await sbClient.from('friendships').select('requester_id, addressee_id, status, created_at').or('requester_id.eq.' + uid + ',addressee_id.eq.' + uid).in('status', ['accepted', 'pending']);
+        sbCheck(f, 'toggleAdminUserSection');
         var rowsData = f.data || [];
         if (!rowsData.length) { bodyEl.innerHTML = '<div style="font-size:11px;color:#888;padding:6px">No friends or pending requests.</div>'; return; }
         var otherIds = rowsData.map(function(x){ return x.requester_id === uid ? x.addressee_id : x.requester_id; }).filter(Boolean);
         var pr = await sbClient.from('profiles').select('id, display_name, handle').in('id', otherIds);
+        sbCheck(pr, 'toggleAdminUserSection');
         var byId = {}; (pr.data || []).forEach(function(p) { byId[p.id] = p; });
         // Sort accepted first, then pending; within each group, most recent first
         rowsData.sort(function(a, b) {
@@ -14846,6 +14927,7 @@ async function toggleAdminUserSection(key, uid) {
         bodyEl.innerHTML = rows4 || '<div style="font-size:11px;color:#888;padding:6px">No feedback submitted.</div>';
       } else if (key === 'invitees') {
         var invRes = await sbClient.rpc('admin_list_invitees', { p_user_id: uid });
+    sbCheck(invRes, 'openAdminUserDetail:invitees');
         var invitees = invRes.data || [];
         if (!invitees.length) { bodyEl.innerHTML = '<div style="font-size:11px;color:#888;padding:6px">No direct invitees yet.</div>'; return; }
         var invRows = invitees.map(function(inv) {
@@ -14886,6 +14968,7 @@ async function renderAdminLists(el) {
   var profilesMap = {};
   if (userIds.length) {
     var pr = await sbClient.from('profiles').select('id, display_name, handle').in('id', userIds);
+    sbCheck(pr, 'renderAdminLists');
     (pr.data || []).forEach(function(p) { profilesMap[p.id] = p; });
   }
   var term = (_adminListSearch || '').toLowerCase();
@@ -14948,6 +15031,7 @@ async function openAdminListDetail(listId, origin, originUid) {
     if (l.user_id) {
       try {
         var pr = await sbClient.from('profiles').select('id, display_name, handle, photo').eq('id', l.user_id).maybeSingle();
+        sbCheck(pr, 'openAdminListDetail');
         owner = pr.data || null;
       } catch(e) {}
     }
@@ -15889,6 +15973,7 @@ async function loadWeeklyParticipation(weeklyList) {
   if (!weeklyList || !sbClient) return 0;
   try {
     var res = await sbClient.from('lists').select('user_id', { count: 'exact', head: true }).eq('category', weeklyList.category);
+    sbCheck(res, 'loadWeeklyParticipation');
     var n = res.count || 0;
     WEEKLY_PARTICIPATION[weeklyList.id] = n;
     return n;
@@ -16694,11 +16779,13 @@ async function renderGifts() {
     return;
   }
   var pr = await sbClient.from('profiles').select('id, display_name, handle, photo, birthday, gift_visible_categories').in('id', friendIds);
+  sbCheck(pr, 'renderGifts');
   var byId = {};
   (pr.data || []).forEach(function(p) { byId[p.id] = p; });
 
   // Also fetch their lists so we can preview them
   var listRes = await sbClient.from('lists').select('user_id, category, emoji, items').in('user_id', friendIds);
+  sbCheck(listRes, 'renderGifts');
   var listsByUser = {};
   (listRes.data || []).forEach(function(l) {
     (listsByUser[l.user_id] = listsByUser[l.user_id] || []).push(l);
@@ -16980,9 +17067,11 @@ async function _openGiftGuide_deprecated_inapp(friendUserId) {
   var titleEl = document.getElementById('gift-guide-title');
   if (el) el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading…</div>';
   var pr = await sbClient.from('profiles').select('id, display_name, handle, photo, birthday, gift_visible_categories').eq('id', friendUserId).maybeSingle();
+  sbCheck(pr, '_openGiftGuide_deprecated_inapp');
   if (!pr.data) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">Could not load friend.</div>'; return; }
   var profile = pr.data;
   var lr = await sbClient.from('lists').select('user_id, category, emoji, items, is_ranked').eq('user_id', friendUserId);
+  sbCheck(lr, '_openGiftGuide_deprecated_inapp');
   var lists = lr.data || [];
   var visibleCats = Array.isArray(profile.gift_visible_categories) && profile.gift_visible_categories.length
     ? profile.gift_visible_categories
@@ -17270,9 +17359,11 @@ function notifyFriendsOfUpdate(name, category) {
         .map(function(f){ return f.friendId; });
       if (!acceptedFriendIds.length) return;
       var sameCatRes = await sbClient.from('lists').select('user_id').in('user_id', acceptedFriendIds).eq('category', category);
+      sbCheck(sameCatRes, 'notifyFriendsOfUpdate');
       var interested = (sameCatRes.data || []).map(function(r){ return r.user_id; });
       if (!interested.length) return;
       var profRes = await sbClient.from('profiles').select('id').in('id', interested);
+      sbCheck(profRes, 'notifyFriendsOfUpdate');
       var profiles = (profRes.data || []).filter(function(p){ return !!p.email; });
       // Batch-insert queue rows for all interested friends
       if (profiles.length) {
@@ -17489,6 +17580,7 @@ function setupRealtimeNotifications() {
               if (slug) {
                 var chProf = await sbClient.from('profiles')
                   .select('id').eq('handle', slug).eq('is_system', true).maybeSingle();
+                sbCheck(chProf, 'handleSession');
                 if (chProf.data && chProf.data.id) fromId = chProf.data.id;
               }
               try { localStorage.removeItem('tenner_pending_channel'); } catch(e) {}
@@ -17500,9 +17592,11 @@ function setupRealtimeNotifications() {
           // credit in the leaderboard but must never become a friend or
           // receive a "your invite converted" push.
           var inviterProf = await sbClient.from('profiles').select('is_system').eq('id', fromId).maybeSingle();
+          sbCheck(inviterProf, 'handleSession');
           var inviterIsSystem = !!(inviterProf.data && inviterProf.data.is_system);
           // Check current invited_by — only write if unset
           var cur = await sbClient.from('profiles').select('invited_by').eq('id', userId).maybeSingle();
+          sbCheck(cur, 'handleSession');
           var isFreshAttribution = !(cur.data && cur.data.invited_by);
           if (isFreshAttribution) {
             await sbClient.from('profiles').update({
@@ -17563,6 +17657,11 @@ function setupRealtimeNotifications() {
             .select('id')
             .or('and(requester_id.eq.' + userId + ',addressee_id.eq.' + fromId + '),and(requester_id.eq.' + fromId + ',addressee_id.eq.' + userId + ')')
             .then(function(existing) {
+              // Fail closed: if the lookup errored we can't tell whether they
+              // are already linked. The unique (requester_id, addressee_id)
+              // index would reject the duplicate anyway — this just avoids
+              // turning one failed read into a second, noisier failure.
+              if (!sbCheck(existing, 'handleSession:autoFriend')) return;
               var alreadyLinked = existing.data && existing.data.length > 0;
               if (!alreadyLinked) {
                 sbClient.from('friendships').insert({ requester_id: userId, addressee_id: fromId, status: 'accepted' })
@@ -17851,6 +17950,7 @@ async function loadAndRenderReactions(listOwnerId, category, containerEl) {
   if (!sbClient || !containerEl) return;
   try {
     var res = await sbClient.from('list_reactions').select('from_user_id, emoji').eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', '');
+    sbCheck(res, 'loadAndRenderReactions');
     var reactions = res.data || [];
     var counts = {}, myReactions = new Set();
     reactions.forEach(function(r){ counts[r.emoji] = (counts[r.emoji] || 0) + 1; if (r.from_user_id === userId) myReactions.add(r.emoji); });
@@ -17880,6 +17980,10 @@ async function toggleReaction(listOwnerId, category, emoji, btn, itemName) {
   }
   try {
     var existing = await sbClient.from('list_reactions').select('id').eq('from_user_id', userId).eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', item).eq('emoji', emoji).maybeSingle();
+    // Fail closed. The unique index on (from_user_id, list_owner_id, category,
+    // item_name, emoji) would reject the duplicate insert, but the user would
+    // see a dead tap with no explanation — so stop here and say so.
+    if (!sbCheck(existing, 'toggleReaction')) { showToast('Could not save that reaction — please try again.'); return; }
     if (existing.data) { await sbClient.from('list_reactions').delete().eq('id', existing.data.id).throwOnError(); }
     else { await sbClient.from('list_reactions').insert({ from_user_id: userId, list_owner_id: listOwnerId, category: category, item_name: item, emoji: emoji }).throwOnError(); }
     if (item) loadItemReactions(listOwnerId, category, item, btn.parentElement);
@@ -17912,6 +18016,7 @@ async function decorateItemsWithReactions(listOwnerId, category, scopeSel) {
       .eq('list_owner_id', listOwnerId)
       .eq('category', category)
       .neq('item_name', '');
+    sbCheck(res, 'decorateItemsWithReactions');
     var rows = res.data || [];
     if (!rows.length) return;
     var byItem = {};
@@ -17941,6 +18046,7 @@ async function loadItemReactions(listOwnerId, category, itemName, containerEl) {
   if (!sbClient || !containerEl) return;
   try {
     var res = await sbClient.from('list_reactions').select('from_user_id, emoji').eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', itemName);
+    sbCheck(res, 'loadItemReactions');
     var reactions = res.data || [];
     var counts = {}; var mineByEmoji = {}; var whoByEmoji = {};
     reactions.forEach(function(r){
@@ -18147,6 +18253,7 @@ async function loadItemComments(listOwnerId, category, itemName) {
   await updateCommentInputVisibility(listOwnerId);
   try {
     var res = await sbClient.from('list_item_comments').select('id, from_user_id, comment, created_at, edited_at').eq('list_owner_id', listOwnerId).eq('category', category).eq('item_name', itemName).order('created_at', { ascending: true });
+    sbCheck(res, 'loadItemComments');
     var comments = res.data || [];
     // Apply viewer's comment-visibility preference (only when viewing a friend's list)
     if (!isMyList) {
@@ -18184,6 +18291,7 @@ async function loadItemComments(listOwnerId, category, itemName) {
         .eq('list_owner_id', listOwnerId)
         .eq('category', category)
         .eq('item_name', itemName);
+      sbCheck(readsRes, 'loadItemComments');
       var lastMs = new Date(lastComment.created_at).getTime();
       var seenIds = (readsRes.data || [])
         .filter(function(r){ return r.user_id !== userId && new Date(r.last_read_at).getTime() >= lastMs; })
@@ -18357,6 +18465,7 @@ async function updateCommentInputVisibility(listOwnerId) {
   if (listOwnerId === userId) { if (wrap) wrap.style.display = ''; return; }
   try {
     var pr = await sbClient.from('profiles').select('allow_comments_on_my_lists, display_name').eq('id', listOwnerId).maybeSingle();
+    sbCheck(pr, 'updateCommentInputVisibility');
     var allowed = !(pr && pr.data && pr.data.allow_comments_on_my_lists === false);
     var ownerName = (pr && pr.data && pr.data.display_name) || 'This user';
     if (wrap) {

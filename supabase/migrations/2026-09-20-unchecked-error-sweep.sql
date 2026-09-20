@@ -21,3 +21,26 @@
 --     where handle is not null and btrim(handle) <> '';
 --
 -- isHandleTaken() now also fails closed when the lookup errors.
+
+-- ── Second pass (reads), 2026-09-20 ────────────────────────────────────
+-- Covered the remaining 96 unchecked reads. 110 sbCheck() call sites and 21
+-- .throwOnError() chains now. No schema change was required, but two checks
+-- were made against the database first, and both mattered:
+--
+--   * friendships has a unique (requester_id, addressee_id) index,
+--     group_members is keyed on (group_id, user_id), and list_reactions has a
+--     unique index on (from_user_id, list_owner_id, category, item_name,
+--     emoji). So the "already exists?" reads in front of those inserts are
+--     backed by the database — a failed read cannot actually duplicate a row.
+--     They were still made to fail closed so a failed read surfaces as a
+--     message rather than a constraint violation.
+--
+--   * profiles.handle was the one case with NO backing constraint; fixed in
+--     migration unique_profile_handle_ci (see above).
+--
+-- OPEN ITEM (not addressed here): actor_not_banned() gates only 6 policies
+-- across 4 tables — friendships INSERT, groups INSERT, lists INSERT/UPDATE
+-- and list_item_comments INSERT/UPDATE. A banned user can still insert
+-- list_reactions, list_share_invites, group_members and feedback. The client
+-- checkIfBanned() does not close this: it fails open on a read error, and the
+-- frontend is untrusted regardless.
