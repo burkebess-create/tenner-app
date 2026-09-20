@@ -6095,7 +6095,7 @@ async function renderHomeFeed() {
     var when = timeAgo(it.at).toUpperCase();
     var pal = getCategoryColor(it.category);
     var accent = pal.accent || pal.fg || '#2C2C2A';
-    var safeCat = (it.category||'').replace(/\'/g,"\\'");
+    var safeCat = jsStrAttr((it.category||''));
     var num = String(idx + 1).padStart(2, '0');
     // Match the friend/group index-card treatment: tinted bg, 7px accent bar
     // on the left. Big accent-colored index number sits inline with the copy.
@@ -9750,6 +9750,7 @@ function renderProfileNudges() {
     var stale = staleCandidates[0];
     var staleCat = stale.category || (stale.n || '').replace('Top 10 ', '');
     var staleKey = 'stale_' + staleCat;
+    var staleKeyAttr = jsStrAttr(staleKey);
     if (!dismissed[staleKey]) {
       var daysAgo = Math.floor((Date.now() - new Date(stale.updated_at).getTime()) / (24 * 3600 * 1000));
       var staleCatEsc = jsStrAttr(staleCat);
@@ -9757,7 +9758,7 @@ function renderProfileNudges() {
         + '<div style="font-size:22px">' + renderCatEmoji(stale.emoji || getCatEmoji(staleCat), 22) + '</div>'
         + '<div style="flex:1;font-size:12px;color:#2C2C2A">Your Top 10 ' + escapeHtml(staleCat) + ' hasn\'t been updated in ' + daysAgo + ' days. Still your picks?</div>'
         + '<button class="back-btn" onclick="var l=MY_LISTS.find(function(x){return (x.category||x.n.replace(\'Top 10 \',\'\'))===\'' + staleCatEsc + '\';}); if(l) showListDetail(l,\'s-circle\');" style="padding:5px 10px;font-size:11px">Refresh</button>'
-        + '<button onclick="dismissNudge(\'' + staleKey + '\')" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
+        + '<button onclick="dismissNudge(\'' + staleKeyAttr + '\')" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
         + '</div>');
     }
   }
@@ -9770,6 +9771,7 @@ function renderProfileNudges() {
     var target = incomplete[0];
     var targetCat = target.category || (target.n || '').replace('Top 10 ', '');
     var nudgeKey = 'incomplete_' + targetCat;
+    var nudgeKeyAttr = jsStrAttr(nudgeKey);
     if (!dismissed[nudgeKey]) {
       var count = (target.items || []).length;
       var catEsc = jsStrAttr(targetCat);
@@ -9777,7 +9779,7 @@ function renderProfileNudges() {
         + '<div style="font-size:22px">' + renderCatEmoji(target.emoji || getCatEmoji(targetCat), 22) + '</div>'
         + '<div style="flex:1;font-size:12px;color:#2C2C2A">Finish your Top 10 ' + escapeHtml(targetCat) + ' — you have ' + count + '.</div>'
         + '<button class="back-btn" onclick="var l=MY_LISTS.find(function(x){return (x.category||x.n.replace(\'Top 10 \',\'\'))===\'' + catEsc + '\';}); if(l) showListDetail(l,\'s-circle\');" style="padding:5px 10px;font-size:11px">Finish</button>'
-        + '<button onclick="dismissNudge(\'' + nudgeKey + '\')" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
+        + '<button onclick="dismissNudge(\'' + nudgeKeyAttr + '\')" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px">×</button>'
         + '</div>');
     }
   }
@@ -11836,7 +11838,7 @@ async function renderFriendDetail() {
           aEl.innerHTML = '<div class="sec-label" style="margin-top:0">Recent activity</div>'
             + recent.map(function(l) {
                 var cat = l.category || (l.name || '').replace('Top 10 ', '');
-                var safeCat = cat.replace(/\'/g,"\\'");
+                var safeCat = jsStrAttr(cat);
                 return '<div class="card" onclick="openFriendListByCat(\'' + fid + '\',\'' + safeCat + '\',\'s-fdetail\')" style="cursor:pointer;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
                   + '<div style="font-size:20px">' + renderCatEmoji(l.emoji || getCatEmoji(cat), 20) + '</div>'
                   + '<div style="flex:1;font-size:12px;color:#2C2C2A">Updated <strong>Top 10 ' + escapeHtml(cat) + '</strong></div>'
@@ -14004,7 +14006,10 @@ function renderErrorCards(rows, idPrefix) {
       var sevLabel  = { high: 'Frequent', medium: 'Occasional', low: 'One-off' };
       var accent = r._isResolved ? '#6B8E4E' : sevColors[severity];
       var detailId = 'err-detail-' + idPrefix + i;
-      var msgAttr = encodeURIComponent(r.message);
+      // encodeURIComponent does NOT escape apostrophes, so an error message
+      // containing one broke this very button — which is how a SyntaxError
+      // about an unescaped apostrophe became impossible to mark resolved.
+      var msgAttr = jsStrAttr(encodeURIComponent(r.message));
       var statusChip = r._isResolved
         ? '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#6B8E4E">✓ Resolved ' + relTime(r.resolved_at) + '</div>'
         : (r._regressed
@@ -14157,7 +14162,7 @@ async function openAdminGroupDetail(gid) {
           +   '<div style="font-size:10px;color:#888780;margin-top:1px">' + rolePill + statusPill + '</div>'
           + '</div>'
           + '<button class="back-btn" style="font-size:10px;padding:5px 8px" onclick="setGroupMemberRole(\'' + gid + '\',\'' + m.user_id + '\',\'' + toggleRole + '\')">' + toggleLabel + '</button>'
-          + '<button class="back-btn" style="font-size:10px;padding:5px 8px;color:#A32D2D;border-color:#F09595" onclick="removeGroupMember(\'' + gid + '\',\'' + m.user_id + '\',\'' + escapeHtml(mname).replace(/\'/g,"\\'") + '\')">Kick</button>'
+          + '<button class="back-btn" style="font-size:10px;padding:5px 8px;color:#A32D2D;border-color:#F09595" onclick="removeGroupMember(\'' + gid + '\',\'' + m.user_id + '\',\'' + jsStrAttr(mname) + '\')">Kick</button>'
           + '</div></div>';
       }).join('');
 
@@ -14185,8 +14190,8 @@ async function openAdminGroupDetail(gid) {
       + '</div>'
       + '<div class="sec-label">Actions</div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">'
-      +   '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px" onclick="renameAdminGroup(\'' + gid + '\',\'' + escapeHtml(g.name || '').replace(/\'/g,"\\'") + '\')">Rename</button>'
-      +   '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px;color:#FFFFFF;background:#A32D2D;border-color:#A32D2D" onclick="deleteAdminGroupFull(\'' + gid + '\',\'' + escapeHtml(g.name || '').replace(/\'/g,"\\'") + '\')">Delete group</button>'
+      +   '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px" onclick="renameAdminGroup(\'' + gid + '\',\'' + jsStrAttr(g.name || '') + '\')">Rename</button>'
+      +   '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px;color:#FFFFFF;background:#A32D2D;border-color:#A32D2D" onclick="deleteAdminGroupFull(\'' + gid + '\',\'' + jsStrAttr(g.name || '') + '\')">Delete group</button>'
       + '</div>'
       + '<div class="sec-label">Members (' + members.length + ')</div>'
       + membersHtml
@@ -14940,9 +14945,9 @@ function renderAdminUserDetail(p, counts, isAdminUser) {
     + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">'
     +   (p.is_banned
         ? '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px" onclick="unbanUser(\'' + p.id + '\');setTimeout(function(){openAdminUserDetail(\'' + p.id + '\')},300)">Unban user</button>'
-        : '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px;color:#A32D2D;border-color:#F09595" onclick="banUser(\'' + p.id + '\',\'' + escapeHtml(name).replace(/\'/g,"\\'") + '\');setTimeout(function(){openAdminUserDetail(\'' + p.id + '\')},500)">Ban user</button>')
-    +   '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px" onclick="sendUserPasswordReset(\'' + escapeHtml(p.email||'').replace(/\'/g,"\\'") + '\')">Send password reset</button>'
-    +   '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px;color:#FFFFFF;background:#A32D2D;border-color:#A32D2D" onclick="deleteUser(\'' + p.id + '\',\'' + escapeHtml(name).replace(/\'/g,"\\'") + '\',\'' + escapeHtml(p.handle||'').replace(/\'/g,"\\'") + '\',\'' + escapeHtml(p.email||'').replace(/\'/g,"\\'") + '\')">Delete permanently</button>'
+        : '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px;color:#A32D2D;border-color:#F09595" onclick="banUser(\'' + p.id + '\',\'' + jsStrAttr(name) + '\');setTimeout(function(){openAdminUserDetail(\'' + p.id + '\')},500)">Ban user</button>')
+    +   '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px" onclick="sendUserPasswordReset(\'' + jsStrAttr(p.email||'') + '\')">Send password reset</button>'
+    +   '<button class="btn-secondary" style="width:auto;padding:8px 14px;margin:0;font-size:12px;color:#FFFFFF;background:#A32D2D;border-color:#A32D2D" onclick="deleteUser(\'' + p.id + '\',\'' + jsStrAttr(name) + '\',\'' + jsStrAttr(p.handle||'') + '\',\'' + jsStrAttr(p.email||'') + '\')">Delete permanently</button>'
     + '</div>'
     // Expandable sections
     + adminUserSection('lists',    'Lists (' + counts.lists + ')',    counts.lists    > 0, p.id)
@@ -15130,7 +15135,7 @@ async function renderAdminLists(el) {
       + '</div>'
       + '<div style="display:flex;gap:4px;margin-top:8px">'
       +   '<button class="back-btn" onclick="openAdminListDetail(\'' + l.id + '\',\'admin\')">View all items</button>'
-      +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminList(\'' + l.id + '\',\'' + escapeHtml(l.name||'').replace(/\'/g,"\\'") + '\')">Delete</button>'
+      +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminList(\'' + l.id + '\',\'' + jsStrAttr(l.name||'') + '\')">Delete</button>'
       + '</div>'
       + '</div>';
   }).join('');
@@ -15213,7 +15218,7 @@ async function openAdminListDetail(listId, origin, originUid) {
       + '<div class="sec-label">Items (' + (l.items || []).length + ')</div>'
       + itemsHtml
       + '<div class="sec-label" style="margin-top:14px">Danger zone</div>'
-      + '<button class="btn-secondary" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminList(\'' + l.id + '\',\'' + escapeHtml(l.name||'').replace(/\'/g,"\\'") + '\')">Delete this list</button>'
+      + '<button class="btn-secondary" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminList(\'' + l.id + '\',\'' + jsStrAttr(l.name||'') + '\')">Delete this list</button>'
       + '</div>';
   } catch(e) {
     el.innerHTML = '<div style="padding:20px;color:#A32D2D">Error: ' + escapeHtml(e.message || String(e)) + '</div>';
@@ -16324,10 +16329,10 @@ async function renderWeeklyHeroCard() {
         + '</div>';
   } else if (hasIt) {
     stateLine = '<div style="font-size:12px;color:' + fg + ';opacity:' + subOpacity + '">✓ You\'re in · Reveals ' + revealFmt + '</div>';
-    cta = '<div style="margin-top:12px"><button onclick="openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:' + ghostBg + ';color:' + fg + ';border:1px solid ' + ghostBorder + ';border-radius:99px;padding:8px 16px;font-weight:600;font-size:12px;cursor:pointer">Review or update →</button></div>';
+    cta = '<div style="margin-top:12px"><button onclick="openWeeklyListFlow(\'' + jsStrAttr(wk.category) + '\',\'' + jsStrAttr((wk.emoji||'📋')) + '\')" style="background:' + ghostBg + ';color:' + fg + ';border:1px solid ' + ghostBorder + ';border-radius:99px;padding:8px 16px;font-weight:600;font-size:12px;cursor:pointer">Review or update →</button></div>';
   } else {
     stateLine = '<div style="font-size:12px;color:' + fg + ';opacity:' + subOpacity + '">Reveals ' + revealFmt + '</div>';
-    cta = '<div style="margin-top:12px"><button onclick="openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:' + btnBg + ';color:' + btnFg + ';border:none;border-radius:99px;padding:9px 18px;font-weight:700;font-size:13px;cursor:pointer">Make my Top 10 →</button></div>';
+    cta = '<div style="margin-top:12px"><button onclick="openWeeklyListFlow(\'' + jsStrAttr(wk.category) + '\',\'' + jsStrAttr((wk.emoji||'📋')) + '\')" style="background:' + btnBg + ';color:' + btnFg + ';border:none;border-radius:99px;padding:9px 18px;font-weight:700;font-size:13px;cursor:pointer">Make my Top 10 →</button></div>';
   }
   el.innerHTML = '<div style="background:' + bg + ';border-radius:16px;padding:16px 18px;margin-bottom:16px;color:' + fg + '">'
     + '<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:' + fg + ';opacity:' + subOpacity + ';margin-bottom:4px">This week on Tenner</div>'
@@ -16367,7 +16372,7 @@ function showRevealCelebration(wk) {
   var cta = hasIt
     ? '<button onclick="document.getElementById(\'weekly-reveal-modal\').remove();openAllOfTenner(\'' + wk.id + '\')" class="btn-primary" style="margin-bottom:8px">🌎 See all of Tenner</button>'
       + '<button onclick="document.getElementById(\'weekly-reveal-modal\').remove();matchGroupCtx=-1;matchFriendCtx=null;matchOrigin=null;go(\'s-match\')" class="btn-secondary" style="margin-bottom:0">Compare with friends</button>'
-    : '<button onclick="document.getElementById(\'weekly-reveal-modal\').remove();openWeeklyListFlow(\'' + wk.category.replace(/\'/g,"\\'") + '\',\'' + (wk.emoji||'📋').replace(/\'/g,"\\'") + '\')" class="btn-primary" style="margin-bottom:8px">Make my Top 10 →</button>'
+    : '<button onclick="document.getElementById(\'weekly-reveal-modal\').remove();openWeeklyListFlow(\'' + jsStrAttr(wk.category) + '\',\'' + jsStrAttr((wk.emoji||'📋')) + '\')" class="btn-primary" style="margin-bottom:8px">Make my Top 10 →</button>'
       + '<button onclick="document.getElementById(\'weekly-reveal-modal\').remove();openAllOfTenner(\'' + wk.id + '\')" class="btn-secondary" style="margin-bottom:0">🌎 See all of Tenner</button>';
   overlay.innerHTML = ''
     + '<div class="pop-in" style="background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:320px;text-align:center">'
@@ -16517,8 +16522,8 @@ function renderCreateCurrentWeekly() {
   else if (revealed)           stateLine = '🎊 Reveal is live — fill it out to compare';
   else                         stateLine = 'Reveals ' + reveal.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
   var ctaLabel = hasIt ? 'Review or update →' : 'Make your Top 10 →';
-  var safeCat = wk.category.replace(/\'/g,"\\'");
-  var safeEmoji = (wk.emoji || '📋').replace(/\'/g,"\\'");
+  var safeCat = jsStrAttr(wk.category);
+  var safeEmoji = jsStrAttr((wk.emoji || '📋'));
   var accent = pal.accent || pal.fg || '#2C2C2A';
   el.innerHTML = '<div style="position:relative;background:' + pal.bg + '55;border:1px solid ' + accent + '55;border-left:7px solid ' + accent + ';border-radius:3px;padding:16px;cursor:pointer" onclick="openWeeklyListFlow(\'' + safeCat + '\',\'' + safeEmoji + '\')">'
     + '<div style="display:inline-block;background:#D85A30;color:#FFFFFF;font-size:9.5px;font-weight:800;padding:4px 10px;border-radius:3px;letter-spacing:0.14em;margin-bottom:12px;text-transform:uppercase">This week on Tenner</div>'
@@ -16549,7 +16554,7 @@ function renderCreatePastWeekly() {
     var label = hasIt ? 'View →' : 'Fill it out →';
     var wpal = getCategoryColor(w.category, { id: w.id });
     var wacc = wpal.accent || wpal.fg || '#2C2C2A';
-    return '<div onclick="openWeeklyListFlow(\'' + w.category.replace(/\'/g,"\\'") + '\',\'' + (w.emoji||'📋').replace(/\'/g,"\\'") + '\')" style="background:' + wpal.bg + '33;border:1px solid ' + wacc + '33;border-left:7px solid ' + wacc + ';border-radius:3px;padding:10px 12px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px">'
+    return '<div onclick="openWeeklyListFlow(\'' + jsStrAttr(w.category) + '\',\'' + jsStrAttr((w.emoji||'📋')) + '\')" style="background:' + wpal.bg + '33;border:1px solid ' + wacc + '33;border-left:7px solid ' + wacc + ';border-radius:3px;padding:10px 12px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px">'
       +   '<div style="font-size:22px;line-height:1;flex-shrink:0">' + renderCatEmoji(w.emoji || '📋', 22) + '</div>'
       +   '<div style="flex:1;min-width:0">'
       +     '<div style="font-size:14px;font-weight:800;letter-spacing:-0.005em;color:#2C2C2A;line-height:1.1">Top 10 ' + escapeHtml(w.category) + '</div>'
@@ -18571,7 +18576,7 @@ async function loadItemComments(listOwnerId, category, itemName) {
           +   '<div id="cmenu-' + c.id + '" style="display:none;position:absolute;right:0;top:22px;background:#FFFFFF;border:1px solid #D3D1C7;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.12);z-index:20;min-width:130px;overflow:hidden">'
           +     '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\');replyToItemComment(\'' + safeName + '\')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#2C2C2A;font-size:12px;padding:10px 14px;cursor:pointer;font-family:inherit">↩ Reply</button>'
           +     '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\');copyToClipboard(\'' + safeBody + '\')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#2C2C2A;font-size:12px;padding:10px 14px;cursor:pointer;font-family:inherit;border-top:1px solid #F1EFE8">Copy text</button>'
-          +     '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\');openReportModal({kind:\'comment\',targetId:\'' + c.id + '\',targetOwner:\'' + c.from_user_id + '\',context:{list_owner_id:\'' + listOwnerId + '\',category:\'' + String(category).replace(/\'/g,"\\'") + '\',item_name:\'' + String(itemName).replace(/\'/g,"\\'") + '\',preview:\'' + safeBody.slice(0,140) + '\'}})" style="display:block;width:100%;text-align:left;background:none;border:none;color:#A32D2D;font-size:12px;padding:10px 14px;cursor:pointer;font-family:inherit;border-top:1px solid #F1EFE8">Report</button>'
+          +     '<button type="button" onclick="toggleCommentMenu(\'' + c.id + '\');openReportModal({kind:\'comment\',targetId:\'' + c.id + '\',targetOwner:\'' + c.from_user_id + '\',context:{list_owner_id:\'' + listOwnerId + '\',category:\'' + jsStrAttr(category) + '\',item_name:\'' + jsStrAttr(itemName) + '\',preview:\'' + safeBody.slice(0,140) + '\'}})" style="display:block;width:100%;text-align:left;background:none;border:none;color:#A32D2D;font-size:12px;padding:10px 14px;cursor:pointer;font-family:inherit;border-top:1px solid #F1EFE8">Report</button>'
           +   '</div>'
           + '</div>';
       return '<div data-comment-id="' + c.id + '" style="position:relative;padding:10px 0;border-bottom:1px solid #F5F3EE;' + indentStyle + '">'
