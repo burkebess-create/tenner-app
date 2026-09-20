@@ -1270,7 +1270,7 @@
           <div id="profile-folio" style="font-size:9.5px;letter-spacing:0.22em;color:#2C2C2A;opacity:0.55;font-weight:700;text-transform:uppercase;text-align:center;padding:2px 0 14px"></div>
           <!-- Big header card: photo + name + handle + stats -->
           <div style="text-align:center;padding:4px 0 20px">
-            <div id="profile-avatar" style="width:88px;height:88px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:30px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 12px">?</div>
+            <div id="profile-avatar" onclick="profileAvatarTap()" role="button" tabindex="0" aria-label="Reposition your photo" title="Tap to reposition" style="width:88px;height:88px;border-radius:50%;background:#FAECE7;color:#993C1D;font-size:30px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 12px;cursor:pointer">?</div>
             <div id="profile-display-name" style="font-size:22px;font-weight:800;letter-spacing:-0.01em;color:#2C2C2A;line-height:1.1">—</div>
             <div id="profile-handle-display" style="font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;opacity:0.85;margin-top:6px">@—</div>
             <div id="profile-on-tenner" style="font-size:10px;color:#888780;margin-top:4px;display:none"></div>
@@ -8500,6 +8500,22 @@ async function loadProfile() {
 
 // Re-frame the photo you already have, without hunting for the original file
 // again. Crops the stored image rather than asking for a new upload.
+// Tapping your own avatar on the Profile hub goes straight into reposition
+// mode — the same cropper the "Reposition photo" button opens on the edit
+// screen, without the detour through it.
+//
+// With no photo yet there is nothing to reposition, so the tap opens the
+// picker on the edit screen instead of dead-ending on a toast. The file input
+// lives inside a <label> there, and a click has to be user-initiated to open
+// the picker, so this forwards the original gesture to it rather than firing
+// on a timer.
+function profileAvatarTap() {
+  if (myProfile && myProfile.photo) { adjustProfilePhoto(); return; }
+  go('s-profile-edit');
+  var input = document.querySelector('#s-profile-edit input[type="file"]');
+  if (input) input.click();
+}
+
 async function adjustProfilePhoto() {
   var current = myProfile && myProfile.photo;
   if (!current) { showToast('Add a photo first.'); return; }
