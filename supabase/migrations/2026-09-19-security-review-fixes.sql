@@ -41,3 +41,15 @@
 --  contact_access_helpers, group_photo_requires_membership,
 --  friend_gift_tokens_rpc, find_user_by_phone_rpc,
 --  lock_down_profile_contact_columns)
+
+-- ── 2026-09-20 CORRECTION ──────────────────────────────────────────────
+-- FINDING 2 above was wrong and has been reverted (migration
+-- restore_are_friends_execute_grant). are_friends() DOES have a caller: the
+-- lists_select RLS policy. Policy predicates are evaluated as the querying
+-- role, so revoking EXECUTE from authenticated made every read of another
+-- user's list fail outright with "permission denied for function are_friends",
+-- emptying the Circle "Recent updates" feed and any other friend-list read.
+--   grant execute on function public.are_friends(uuid, uuid) to anon, authenticated;
+-- The enumeration concern was overstated: the function is SECURITY DEFINER and
+-- returns a single boolean about a pair of opaque UUIDs, which a caller can
+-- only obtain by already being able to see those users.

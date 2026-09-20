@@ -6012,6 +6012,14 @@ async function renderHomeFeed() {
       .in('user_id', friendIds)
       .order('updated_at', { ascending: false })
       .limit(20);
+    // supabase-js returns errors in the result rather than throwing, so an
+    // empty feed and a failed query look identical unless we check for it.
+    // A permission error here once made this section silently blank.
+    if (listRes.error) {
+      console.error('renderHomeFeed: lists query failed', listRes.error);
+      el.innerHTML = '<div class="card no-hover" style="text-align:center;padding:20px;color:#5F5E5A;font-size:12px">Couldn\'t load your circle\'s activity. <span style="color:#D85A30;font-weight:700;cursor:pointer" onclick="renderHomeFeed()">Try again</span></div>';
+      return;
+    }
     (listRes.data || []).forEach(function(l) {
       if (!l.is_public) return;
       items.push({ type: 'list', at: l.updated_at, user_id: l.user_id, category: l.category, emoji: l.emoji });
