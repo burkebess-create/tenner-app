@@ -14623,6 +14623,23 @@ async function renderAdminUsers(el) {
   var res = await q;
   if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(res.error.message) + '</div>'; return; }
   var all = res.data || [];
+  // email and phone are no longer readable straight off profiles — the column
+  // grants were locked down, and this screen kept rendering u.email into an
+  // empty string, so anyone without a display name showed as a bare "—".
+  // The admin-gated RPC is the supported way in; the detail screen already
+  // used it. Same pattern here, in bulk.
+  var _contactsFailed = false;
+  var ac = await sbClient.rpc('admin_profile_contacts', { p_ids: all.map(function(u){ return u.id; }) });
+  if (!sbCheck(ac, 'renderAdminUsers:contacts')) {
+    _contactsFailed = true;
+  } else {
+    var contactById = {};
+    (ac.data || []).forEach(function(c){ contactById[c.id] = c; });
+    all.forEach(function(u) {
+      var c = contactById[u.id];
+      if (c) { u.email = c.email; u.phone = c.phone; }
+    });
+  }
   var realCount     = all.filter(function(u){ return !u.is_internal && !u.is_system; }).length;
   var internalCount = all.filter(function(u){ return !!u.is_internal; }).length;
   var channelCount  = all.filter(function(u){ return !!u.is_system; }).length;
@@ -14642,12 +14659,23 @@ async function renderAdminUsers(el) {
     var bannedTag = u.is_banned ? '<span style="font-size:9px;background:#F5C4B3;color:#712B13;padding:2px 6px;border-radius:99px;white-space:nowrap;display:inline-block">Banned</span>' : '';
     if (u.is_internal) bannedTag += '<span style="font-size:8.5px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;background:#3E6FA0;color:#FFF;padding:2px 6px;border-radius:3px;margin-left:6px">Working</span>';
     if (u.is_system)   bannedTag += '<span style="font-size:8.5px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;background:#D85A30;color:#FFF;padding:2px 6px;border-radius:3px;margin-left:6px">Channel</span>';
+    var handleStr = u.handle ? '@' + u.handle : '';
+    var primary = u.display_name || handleStr || u.email || '—';
+    var showEmail = !!u.email && primary !== u.email;
+    var metaParts = [];
+    if (handleStr && primary !== handleStr) metaParts.push(escapeHtml(handleStr));
+    if (u.phone) metaParts.push(escapeHtml(u.phone));
+    var metaLine = metaParts.join(' · ');
     return '<div class="card" onclick="openAdminUserDetail(\'' + u.id + '\')" style="margin-bottom:8px;cursor:pointer' + (u.is_internal || u.is_system ? ';opacity:0.72' : '') + '">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
       +   '<div style="flex:1;min-width:0">'
-      +     '<div style="font-size:12px;font-weight:600;color:#2C2C2A;word-wrap:break-word">' + escapeHtml(u.display_name || '—') + bannedTag + '</div>'
-      +     '<div style="font-size:13.5px;color:#5F5E5A;word-wrap:break-word">' + escapeHtml(u.email || '') + '</div>'
-      +     '<div style="font-size:10px;color:#888780;margin-top:2px">' + (u.handle ? '@' + escapeHtml(u.handle) : '') + (u.handle && u.phone ? ' · ' : '') + escapeHtml(u.phone || '') + '</div>'
+      // Accounts with no display name are common (they signed up and stopped),
+      // so fall through name -> @handle -> email rather than printing a bare
+      // dash. Whichever one is used as the headline is then skipped below so
+      // the same string is not stacked on itself.
+      +     '<div style="font-size:12px;font-weight:600;color:#2C2C2A;word-wrap:break-word">' + escapeHtml(primary) + bannedTag + '</div>'
+      +     (showEmail ? '<div style="font-size:13.5px;color:#5F5E5A;word-wrap:break-word">' + escapeHtml(u.email) + '</div>' : '')
+      +     (metaLine ? '<div style="font-size:10px;color:#888780;margin-top:2px">' + metaLine + '</div>' : '')
       +   '</div>'
       +   '<span style="font-size:18px;color:#D3D1C7">›</span>'
       + '</div></div>';
@@ -14662,7 +14690,11 @@ async function renderAdminUsers(el) {
   }).join('');
   el.innerHTML = '<div style="padding:12px">'
     + '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">' + filterPills + '</div>'
-    + '<input type="text" placeholder="Search by name, email, or handle" value="' + escapeHtml(_adminUserSearch) + '" oninput="_adminUserSearch=this.value;renderAdmin()" style="margin-bottom:10px;font-size:12px;padding:6px 8px">'
+    + '<input type="text" placeholder="' + (_contactsFailed ? 'Search by name or handle' : 'Search by name, email, or handle') + '" value="' + escapeHtml(_adminUserSearch) + '" oninput="_adminUserSearch=this.value;renderAdmin()" style="margin-bottom:10px;font-size:12px;padding:6px 8px">'
+    // Say so rather than letting an email search quietly return nothing.
+    + (_contactsFailed
+        ? '<div style="font-size:10.5px;color:#B57F0F;background:#FBF0D8;border:1px solid #B57F0F33;border-left:5px solid #B57F0F;border-radius:3px;padding:8px 10px;margin-bottom:8px">Could not load email addresses, so rows may show a handle or a dash instead, and searching by email will not match. <span style="font-weight:700;cursor:pointer;text-decoration:underline" onclick="renderAdmin()">Retry</span></div>'
+        : '')
     + '<div style="font-size:10px;color:#888780;margin-bottom:8px">Showing ' + users.length + ' of ' + scoped.length + '</div>'
     + (rows || '<div style="color:#888;font-size:12px;text-align:center;padding:20px">No users match.</div>')
     + '</div>';
