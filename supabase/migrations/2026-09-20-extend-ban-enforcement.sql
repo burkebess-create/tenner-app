@@ -99,8 +99,51 @@ alter policy groups_update on public.groups
   with check ((public.is_group_admin(id) or (created_by = (select auth.uid())))
               and public.actor_not_banned());
 
--- NOT GATED, deliberately: feedback_replies_insert. A suspended user can
--- still reply inside an existing feedback thread of their own. That is the
--- one in-app channel where they can answer a question you asked them about
--- their own report, and it cannot be used to reach anyone but an admin.
--- Gate it too if you would rather all appeal traffic go through email.
+-- ── feedback_replies, added 2026-09-20 ────────────────────────────────
+-- (migration extend_ban_check_to_feedback_replies)
+--
+-- The last user-writable gap. A suspended user could still post into an
+-- existing feedback thread of their own and mark replies read. All appeal
+-- traffic now goes through contact@mytenner.com instead.
+--
+-- feedback_replies_update also had WITH CHECK = null, so Postgres was reusing
+-- USING for the write check; spelling it out is what lets the ban condition
+-- apply to writes only.
+--
+-- VERIFIED (same aborted-transaction method; zero residue afterwards, with
+-- is_banned back to 0 users):
+--   not banned: insert OK,      update OK
+--   banned:     insert BLOCKED, update BLOCKED, and can still READ the
+--               thread (2 rows returned) - the intended asymmetry.
+
+alter policy feedback_replies_insert on public.feedback_replies
+  with check ((author_id = (select auth.uid()))
+              and (
+                ((is_admin = false) and exists (
+                  select 1 from public.feedback f
+                  where f.id = feedback_replies.feedback_id
+                    and f.user_id = (select auth.uid())))
+                or
+                ((is_admin = true) and exists (
+                  select 1 from public.admins a
+                  where a.user_id = (select auth.uid())))
+              )
+              and public.actor_not_banned());
+
+alter policy feedback_replies_update on public.feedback_replies
+  using (exists (select 1 from public.feedback f
+                 where f.id = feedback_replies.feedback_id
+                   and f.user_id = (select auth.uid()))
+         or exists (select 1 from public.admins a
+                    where a.user_id = (select auth.uid())))
+  with check ((exists (select 1 from public.feedback f
+                       where f.id = feedback_replies.feedback_id
+                         and f.user_id = (select auth.uid()))
+               or exists (select 1 from public.admins a
+                          where a.user_id = (select auth.uid())))
+              and public.actor_not_banned());
+
+-- TESTING NOTE: is_banned is itself protected by the guard_moderation_columns
+-- trigger (admin-only). `reset role` does NOT clear request.jwt.claims, so a
+-- test that switches to `authenticated` and back must clear the claim before
+-- setting is_banned, or the trigger rejects it as a non-admin write.
