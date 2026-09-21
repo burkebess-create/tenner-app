@@ -18732,6 +18732,15 @@ async function loadItemComments(listOwnerId, category, itemName) {
     var _myFriendIdSet = {};
     (myFriends || []).forEach(function(x) { if (x.status === 'accepted') _myFriendIdSet[x.friendId] = true; });
     var _ownerName = listOwnerId === userId ? 'you' : _displayName(listOwnerId);
+    // A non-friend commenting on YOUR list is almost always a group co-member:
+    // RLS blocks anyone who cannot see the list, and group membership is the
+    // main way a non-friend can. Verified — a true stranger's insert is
+    // refused, a groupmate's succeeds. So name the group rather than implying
+    // they wandered in.
+    var _coMembers = {};
+    if (listOwnerId === userId) {
+      try { _coMembers = await getGroupCoMemberIds(); } catch (e) { _coMembers = {}; }
+    }
 
     el.innerHTML = comments.map(function(c) {
       var isMine = c.from_user_id === userId;
@@ -18742,7 +18751,9 @@ async function loadItemComments(listOwnerId, category, itemName) {
       // is revealed that the Alerts screen wasn't already showing.
       var relTag = '';
       if (!isMine && !_myFriendIdSet[c.from_user_id] && c.from_user_id !== listOwnerId) {
-        var via = listOwnerId === userId ? 'not in your circle' : 'friend of ' + _ownerName;
+        var via = listOwnerId !== userId
+          ? 'friend of ' + _ownerName
+          : (_coMembers[c.from_user_id] ? 'in your group' : 'not a friend yet');
         relTag = '<span style="font-size:9.5px;font-weight:700;letter-spacing:0.06em;color:#888780;background:#F1EFE8;border-radius:99px;padding:2px 7px;margin-left:6px;white-space:nowrap">' + escapeHtml(via) + '</span>';
       }
       // A comment starting with '@' is treated as a reply — indent + connector
