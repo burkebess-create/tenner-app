@@ -18707,15 +18707,44 @@ async function loadItemComments(listOwnerId, category, itemName) {
         seenByHtml = '<div style="font-size:10px;color:#888780;padding:6px 0 2px;font-style:italic">👁 Seen by ' + escapeHtml(displayed) + extra + '</div>';
       }
     } catch(e) { /* silent — read receipts are optional */ }
+
+    // Names used to be resolved ONLY from myFriends, so anyone who wasn't your
+    // own friend fell through to the literal string "A friend" — which read
+    // like a deliberate privacy rule but was just a missing lookup. The Alerts
+    // list has always fetched these profiles and shown the real name, so the
+    // two screens disagreed about the same comment. Fetch the strangers here
+    // too, and label the relationship instead of hiding the person.
+    var _profById = {};
+    (myFriends || []).forEach(function(x) { if (x.profile) _profById[x.friendId] = x.profile; });
+    var _needIds = comments.map(function(c) { return c.from_user_id; })
+      .concat([listOwnerId])
+      .filter(function(id, i, arr) { return id && id !== userId && !_profById[id] && arr.indexOf(id) === i; });
+    if (_needIds.length) {
+      var _pr = await sbClient.from('profiles').select('id, display_name, handle').in('id', _needIds);
+      if (sbCheck(_pr, 'loadItemComments:profiles')) {
+        (_pr.data || []).forEach(function(p) { _profById[p.id] = p; });
+      }
+    }
+    function _displayName(id) {
+      var p = _profById[id] || {};
+      return p.display_name || (p.handle ? '@' + p.handle : 'Someone');
+    }
+    var _myFriendIdSet = {};
+    (myFriends || []).forEach(function(x) { if (x.status === 'accepted') _myFriendIdSet[x.friendId] = true; });
+    var _ownerName = listOwnerId === userId ? 'you' : _displayName(listOwnerId);
+
     el.innerHTML = comments.map(function(c) {
       var isMine = c.from_user_id === userId;
-      var f = myFriends.find(function(x){ return x.friendId === c.from_user_id; });
       // Always "You" for the viewer's own comments — their friends still see the
       // display_name since isMine is evaluated per-viewer
-      var _cf = (f && f.profile) || {};
-      var name = isMine
-        ? 'You'
-        : (_cf.display_name || (_cf.handle ? '@' + _cf.handle : 'A friend'));
+      var name = isMine ? 'You' : _displayName(c.from_user_id);
+      // Say how you know them, rather than making everyone anonymous. Nothing
+      // is revealed that the Alerts screen wasn't already showing.
+      var relTag = '';
+      if (!isMine && !_myFriendIdSet[c.from_user_id] && c.from_user_id !== listOwnerId) {
+        var via = listOwnerId === userId ? 'not in your circle' : 'friend of ' + _ownerName;
+        relTag = '<span style="font-size:9.5px;font-weight:700;letter-spacing:0.06em;color:#888780;background:#F1EFE8;border-radius:99px;padding:2px 7px;margin-left:6px;white-space:nowrap">' + escapeHtml(via) + '</span>';
+      }
       // A comment starting with '@' is treated as a reply — indent + connector
       var isReply = /^@[^\s]+/.test(c.comment);
       var indentStyle = isReply
@@ -18745,7 +18774,7 @@ async function loadItemComments(listOwnerId, category, itemName) {
           +   '</div>'
           + '</div>';
       return '<div data-comment-id="' + c.id + '" style="position:relative;padding:10px 0;border-bottom:1px solid #F5F3EE;' + indentStyle + '">'
-        + '<div style="font-size:11px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + editedTag + when + '</div>'
+        + '<div style="font-size:11px;font-weight:600;color:#2C2C2A">' + escapeHtml(name) + relTag + editedTag + when + '</div>'
         + '<div class="comment-body" style="font-size:13px;color:#444;margin-top:3px">' + renderCommentBody(c.comment) + '</div>'
         + actions
         + '</div>';
