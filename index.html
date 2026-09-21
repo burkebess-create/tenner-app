@@ -3461,18 +3461,22 @@ function onCatType(val) {
   // Detect and softly nudge users who type redundant prefix words
   var hintEl = document.getElementById('cat-inp-hint');
   if (hintEl) {
-    // Match against the raw value, not the lowercased copy, so the suggestion
-    // keeps the user's own capitalisation — it used to offer "engines" for
-    // "Top 10 Engines", which is not something anyone wants to accept.
-    var redundantMatch = val.trim().match(/^(top\s*10|top\s*ten|top|best|greatest|favou?rite|my\s+favou?rite)\s+(.+)/i);
-    if (redundantMatch) {
-      _catHintSuggestion = redundantMatch[2].trim();
-      // This was text only, with nothing to tap and nothing stopping Continue,
-      // so a list called "Top 10 Top 10 Engines" sailed straight past it.
+    var red = redundantTopInfo(val);
+    if (red && red.remainder) {
+      // Matched against the raw value so the suggestion keeps the user's own
+      // capitalisation — it used to offer "engines" for "Top 10 Engines".
+      _catHintSuggestion = red.remainder;
       hintEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px">'
         + '<div style="flex:1;min-width:0">💡 We already add "Top 10" for you — try just "' + escapeHtml(_catHintSuggestion) + '"</div>'
-        + '<button type="button" onclick="useCatHint()" style="flex-shrink:0;background:#B57F0F;border:none;color:#FFF;border-radius:3px;padding:6px 10px;font-family:inherit;font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer">Use it</button>'
+        + '<button type="button" onclick="useCatHint()" style="flex-shrink:0;background:#B57F0F;border:none;color:#FFF;border-radius:3px;padding:7px 11px;font-family:inherit;font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;white-space:nowrap">Use it</button>'
         + '</div>';
+      hintEl.style.display = 'block';
+    } else if (red) {
+      // They have typed the prefix and nothing else. There is no suggestion to
+      // offer, so say what to do instead of inventing one — this used to read
+      // 'try just "10"', which is not a list anybody wants.
+      _catHintSuggestion = '';
+      hintEl.innerHTML = '💡 No need to type "Top 10" — we add that bit. Just type what the list is about.';
       hintEl.style.display = 'block';
     } else {
       _catHintSuggestion = '';
@@ -3544,22 +3548,44 @@ function useCatHint() {
   if (inp) inp.focus();
 }
 
-// "Top 10 " is printed by the app either side of the category, so a category
-// that already starts with it always renders twice — there is no reading of
-// "Top 10 Top 10 Engines" that the user meant. Strip it, repeatedly, in case
-// it was pasted more than once.
+// The app prints "Top 10" itself, immediately to the left of this field, so a
+// category that ALSO starts with "Top 10" always renders twice. That is the
+// only prefix worth acting on, and it has to be matched narrowly:
 //
-// Only this prefix. "Best"/"Greatest"/"Favourite" stay advisory, because
-// "Best Picture Winners" is a real list name and auto-trimming it to
-// "Picture Winners" would be wrong.
-function stripRedundantTopPrefix(name) {
-  var out = String(name == null ? '' : name).trim();
-  for (var i = 0; i < 5; i++) {
-    var next = out.replace(/^top\s*(?:10|ten)\s+/i, '').trim();
-    if (next === out || !next) break;
-    out = next;
+//   "Top 10 Pants"   redundant       -> remainder "Pants"
+//   "Top 10"         redundant, but nothing left to suggest
+//   "Top 100 Songs"  NOT redundant   -> no space after "10"
+//   "Top Gun Quotes" NOT redundant   -> "Top" alone is part of the name
+//   "Best Picture Winners"  NOT redundant
+//
+// The old pattern also accepted a bare top/best/greatest/favourite, which is
+// how "Top 10" came to suggest "10" and how "Top Gun" would have been
+// trimmed to "Gun".
+var _TOP_PREFIX_RE = /^top\s*(?:10|ten)\b[\s:,\-–—]*/i;
+
+function redundantTopInfo(name) {
+  var raw = String(name == null ? '' : name).trim();
+  if (!raw) return null;
+  var m = _TOP_PREFIX_RE.exec(raw);
+  if (!m) return null;
+  var rest = raw.slice(m[0].length).trim();
+  // "Top 100" — the digits kept going, so this was never the prefix.
+  if (m[0].length < raw.length && !/[\s:,\-–—]$/.test(m[0]) && /^\d/.test(rest)) return null;
+  // Peel repeats: "Top 10 Top 10 Engines".
+  for (var i = 0; i < 5 && rest; i++) {
+    var inner = redundantTopInfo(rest);
+    if (!inner) break;
+    rest = inner.remainder;
   }
-  return out || String(name == null ? '' : name).trim();
+  // A remainder of digits only ("Top 10 10") is not a list name either.
+  if (rest && !/[A-Za-z]/.test(rest)) rest = '';
+  return { remainder: rest };
+}
+
+function stripRedundantTopPrefix(name) {
+  var info = redundantTopInfo(name);
+  if (!info || !info.remainder) return String(name == null ? '' : name).trim();
+  return info.remainder;
 }
 
 function useCatWarn() {
@@ -17509,7 +17535,24 @@ function goToCreateStep2() {
   // Last line of defence for the doubled prefix. The typing hint is advisory
   // and Continue never blocked on it, which is how "Top 10 Top 10 Engines"
   // got saved.
-  if (inp && inp.value.trim()) selCat = stripRedundantTopPrefix(inp.value);
+  if (inp && inp.value.trim()) {
+    var typed = inp.value.trim();
+    var red = redundantTopInfo(typed);
+    if (red && !red.remainder) {
+      // They typed only "Top 10". Continuing would make "Top 10 Top 10".
+      showToast('Just type what the list is about — we add "Top 10" for you.');
+      inp.focus();
+      return;
+    }
+    var cleaned = stripRedundantTopPrefix(typed);
+    if (cleaned !== typed) {
+      // Say so. Silently renaming what they typed is how this went unnoticed.
+      inp.value = cleaned;
+      onCatType(cleaned);
+      showToast('Saved as "Top 10 ' + cleaned + '" — no need to type "Top 10".');
+    }
+    selCat = cleaned;
+  }
   var catMatch = CATS.find(function(c) { return c.n.toLowerCase() === selCat.toLowerCase(); });
   if (catMatch) selCatEmoji = catMatch.e;
   // Prevent silently overwriting an existing list of the same category.
