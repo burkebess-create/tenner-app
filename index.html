@@ -10970,12 +10970,20 @@ function commitPoolPicks() {
     var top = it.pickers.slice().sort(function(a, b){ return a.rank - b.rank; })[0];
     if (top) byItem[it.display] = top.name;
   });
+  // When the pool was opened from the editor, the list being built exists
+  // ONLY in the live globals — MY_LISTS still holds the last saved copy, or
+  // nothing at all for a brand-new list. commitPickedItems() rebases on
+  // MY_LISTS, so without this everything typed since the last save was
+  // discarded the moment a friend's pick was added.
+  var fromEditor = (_poolOrigin === 's-create2' && selCat === _poolCat);
   _pickCtx = {
     cat: _poolCat,
-    emoji: getCatEmoji(_poolCat),
-    ranked: true,
+    emoji: fromEditor ? (selCatEmoji || getCatEmoji(_poolCat)) : getCatEmoji(_poolCat),
+    ranked: fromEditor ? (isRanked !== false) : true,
     friendName: 'friends',
     provenanceByItem: byItem,
+    liveDraft: fromEditor ? items.slice() : null,
+    liveNotes: fromEditor ? Object.assign({}, itemNotes || {}) : null,
     listData: null
   };
   _pickSelected = _poolSelected.slice();
@@ -10991,7 +10999,12 @@ function commitPickedItems() {
   var picked = _pickSelected.slice();
 
   var idx = MY_LISTS.findIndex(function(l) { return (l.category || l.n.replace('Top 10 ', '')) === cat; });
-  var base = idx >= 0 ? (MY_LISTS[idx].items || []).slice() : [];
+  // Build on the live draft when the editor is mid-list, and on the saved
+  // copy otherwise. The saved copy is one or more entries behind whatever is
+  // on screen, so using it here threw away unsaved work.
+  var draft = _pickCtx.liveDraft;
+  var base = draft ? draft.slice()
+           : (idx >= 0 ? (MY_LISTS[idx].items || []).slice() : []);
   var baseLower = base.map(function(x) { return String(x).toLowerCase(); });
 
   // Defensive dedupe — the picker greys these out, but guard anyway.
@@ -11000,9 +11013,11 @@ function commitPickedItems() {
   editingListIdx = idx;
   selCat = cat;
   selCatEmoji = emoji || getCatEmoji(cat);
-  isRanked = idx >= 0 ? (MY_LISTS[idx].ranked !== false) : (_pickCtx.ranked !== false);
+  isRanked = draft ? (_pickCtx.ranked !== false)
+           : (idx >= 0 ? (MY_LISTS[idx].ranked !== false) : (_pickCtx.ranked !== false));
   items = base.concat(added);
-  itemNotes = Object.assign({}, (idx >= 0 && MY_LISTS[idx].item_notes) || {});
+  itemNotes = draft ? Object.assign({}, _pickCtx.liveNotes || {})
+            : Object.assign({}, (idx >= 0 && MY_LISTS[idx].item_notes) || {});
   _openNoteIdx = -1;
 
   // From the pool each item can come from a different person, so credit them
