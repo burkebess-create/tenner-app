@@ -1721,7 +1721,7 @@
             <div style="flex:1 1 auto;min-width:0">
               <textarea id="item-comment-input" placeholder="Leave a quote or comment…" maxlength="280" rows="1" style="display:block;width:100%;box-sizing:border-box;border:1px solid #E8E6DF;border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;margin-bottom:0;resize:none;overflow-y:auto;max-height:120px;line-height:1.4" oninput="autoGrowCommentInput(this);clearCommentModError()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitItemComment();}"></textarea>
             </div>
-            <button onclick="submitItemComment()" style="background:#D4622A;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap">Post</button>
+            <button id="item-comment-post" onclick="submitItemComment()" style="background:#D4622A;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap">Post</button>
           </div>
         </div>
       </div>
@@ -13698,10 +13698,12 @@ function renderCatEmoji(val, sizePx) {
 }
 
 async function submitFeedback() {
+  if (_busySubmits.feedback) return;
   if (!sbClient || !userId) { showToast('You must be signed in.'); return; }
   var msg = (document.getElementById('feedback-message').value || '').trim();
   var cat = document.getElementById('feedback-category').value || 'other';
   if (!msg) { showToast('Please enter a message.'); return; }
+  _busySubmits.feedback = true;
   try {
     var email = (myProfile && myProfile.email) || '';
     if (!email) {
@@ -13716,7 +13718,7 @@ async function submitFeedback() {
   } catch (e) {
     console.warn(e);
     showToast('Could not send feedback. Try again.');
-  }
+  } finally { delete _busySubmits.feedback; }
 }
 
 function switchAdminTab(tab) {
@@ -16218,10 +16220,15 @@ async function renderMyFeedback() {
 }
 
 async function submitMyFeedbackReply(feedbackId) {
+  // Same double-submit shape as item comments: an awaited moderation call
+  // before the insert, with nothing disabled and the field still full.
+  if (_busySubmits['fbreply:' + feedbackId]) return;
   var el = document.getElementById('myfb-reply-' + feedbackId);
   if (!el) return;
   var body = String(el.value || '').trim().slice(0, 4000);
   if (!body) { showToast('Write something first.'); el.focus(); return; }
+  _busySubmits['fbreply:' + feedbackId] = true;
+  try {
   // Same moderation as comments — this text is read by a human on our side.
   try {
     var mod = await moderateTextRemote(body);
@@ -16237,6 +16244,7 @@ async function submitMyFeedbackReply(feedbackId) {
   el.value = '';
   showToast('✓ Reply sent — thank you.');
   renderMyFeedback();
+  } finally { delete _busySubmits['fbreply:' + feedbackId]; }
 }
 
 function confirmDeleteFeedback(id) {
@@ -18901,10 +18909,38 @@ function autoGrowCommentInput(el) {
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
 }
 
+// Guards against the same comment being posted twice. The old flow awaited a
+// moderation round-trip BEFORE clearing the field or disabling anything, so a
+// second tap (or a second Enter) during that window read the same text and
+// inserted it again — six real duplicates, 0.3s to 3.1s apart.
+var _postingComment = false;
+// Re-entrancy flags for the other submit buttons that share this shape.
+var _busySubmits = {};
+function _setCommentPosting(on) {
+  _postingComment = on;
+  var btn = document.getElementById('item-comment-post');
+  if (btn) {
+    btn.disabled = on;
+    btn.textContent = on ? 'Posting…' : 'Post';
+    btn.style.opacity = on ? '0.6' : '';
+    btn.style.cursor = on ? 'default' : 'pointer';
+  }
+}
+
 async function submitItemComment() {
+  if (_postingComment) return;
   var inp = document.getElementById('item-comment-input');
   if (!inp || !inp.value.trim() || !sbClient) return;
   var text = inp.value.trim().slice(0, 280);
+  // Clear the field up front, so even a tap that beats the disabled flag has
+  // nothing left to send. Restored below if anything fails.
+  _setCommentPosting(true);
+  inp.value = '';
+  autoGrowCommentInput(inp);
+  function restore() {
+    if (!inp.value.trim()) { inp.value = text; autoGrowCommentInput(inp); }
+  }
+  try {
   // Pre-submit text moderation — falls open if the edge function is
   // misconfigured or unreachable, so an outage never blocks legit comments.
   try {
@@ -18913,6 +18949,7 @@ async function submitItemComment() {
       var lbl = mod.primary_label || 'content that violates our guidelines';
       showCommentModError('This comment looks like it contains ' + lbl + '. Please rephrase before posting.');
       trackEvent('moderation_blocked', { surface: 'comment', category: mod.primary || 'unknown' });
+      restore();
       return;
     }
   } catch(e) { /* fall open */ }
@@ -18920,14 +18957,17 @@ async function submitItemComment() {
   try {
     var res = await sbClient.from('list_item_comments').insert({ from_user_id: userId, list_owner_id: activeCommentListOwner, category: activeCommentCategory, item_name: activeCommentItem, comment: text }).select('id').maybeSingle();
     if (res.error) throw res.error;
-    inp.value = '';
-    autoGrowCommentInput(inp);
     loadItemComments(activeCommentListOwner, activeCommentCategory, activeCommentItem);
-    // Enqueue email + fire push (skip if commenting on own list).
-    if (activeCommentListOwner && activeCommentListOwner !== userId) {
-      notifyListOwnerOfComment(activeCommentListOwner, activeCommentCategory, activeCommentItem, text, res.data && res.data.id);
+    // Enqueue email + fire push (skip if commenting on own list). A null row
+    // means the database dropped it as a duplicate of one just posted, so
+    // there is nothing new to notify anyone about.
+    if (res.data && res.data.id && activeCommentListOwner && activeCommentListOwner !== userId) {
+      notifyListOwnerOfComment(activeCommentListOwner, activeCommentCategory, activeCommentItem, text, res.data.id);
     }
-  } catch(e) { showToast('Could not post comment. Try again.'); }
+  } catch(e) { restore(); showToast('Could not post comment. Try again.'); }
+  } finally {
+    _setCommentPosting(false);
+  }
 }
 
 async function notifyListOwnerOfComment(ownerId, category, itemName, commentText, commentId) {
