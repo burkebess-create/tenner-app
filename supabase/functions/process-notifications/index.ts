@@ -16,6 +16,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const APP_URL = "https://mytenner.com/";
 const SAFETY_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+// How long a queued notification waits for a missing email address before we
+// give up on it. Long enough that a sync lag or a late signup still gets
+// through; short enough that the queue cannot grow without bound.
+const NO_EMAIL_RETRY_DAYS = 7;
+const NO_EMAIL_RETRY_MS = NO_EMAIL_RETRY_DAYS * 24 * 60 * 60 * 1000;
 
 // Finding 7: a wildcard let any website invoke this from a visitor's
 // browser. Impact was limited (no cookie credentials, and each type is
@@ -191,14 +196,28 @@ async function processQueue(supabase: any, options: { forceMode?: string } = {})
 
   let sent = 0;
   let dropped = 0;
+  let waitingOnEmail = 0;
 
   for (const recipientId of recipientIds) {
     const email = emailByUser[recipientId];
     if (!email) {
-      // Drop notifications for users with no email on file
-      const ids = byRecipient[recipientId].map((r: any) => r.id);
-      await supabase.from("notification_queue").update({ dropped_at: now.toISOString(), drop_reason: "no_email" }).in("id", ids);
-      dropped += ids.length;
+      // No address on file *right now*. This used to drop every queued row on
+      // the spot, which is terminal — nothing ever reconsiders a dropped row.
+      // A profile whose email had not synced yet therefore lost its
+      // notifications permanently: 30 were discarded that way on 13-14 Sept
+      // 2026, and every one of those recipients has an address today.
+      //
+      // So: leave them pending and try again next run. Only give up once a row
+      // is older than NO_EMAIL_RETRY_DAYS, which bounds the queue without
+      // punishing a transient gap.
+      const expiredIds = byRecipient[recipientId]
+        .filter((r: any) => new Date(r.created_at).getTime() < now.getTime() - NO_EMAIL_RETRY_MS)
+        .map((r: any) => r.id);
+      if (expiredIds.length) {
+        await supabase.from("notification_queue").update({ dropped_at: now.toISOString(), drop_reason: "no_email_expired" }).in("id", expiredIds);
+        dropped += expiredIds.length;
+      }
+      waitingOnEmail += byRecipient[recipientId].length - expiredIds.length;
       continue;
     }
     const prefRow = prefByUser[recipientId] || {};
@@ -318,7 +337,7 @@ async function processQueue(supabase: any, options: { forceMode?: string } = {})
     }
   }
 
-  return { processed: pendingRows.length, sent, dropped };
+  return { processed: pendingRows.length, sent, dropped, waitingOnEmail };
 }
 
 Deno.serve(async (req) => {
