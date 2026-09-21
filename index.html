@@ -3461,12 +3461,21 @@ function onCatType(val) {
   // Detect and softly nudge users who type redundant prefix words
   var hintEl = document.getElementById('cat-inp-hint');
   if (hintEl) {
-    var redundantMatch = lv.match(/^(top\s*10|top\s*ten|top|best|greatest|favou?rite|my\s+favou?rite)\s+(.+)/i);
+    // Match against the raw value, not the lowercased copy, so the suggestion
+    // keeps the user's own capitalisation — it used to offer "engines" for
+    // "Top 10 Engines", which is not something anyone wants to accept.
+    var redundantMatch = val.trim().match(/^(top\s*10|top\s*ten|top|best|greatest|favou?rite|my\s+favou?rite)\s+(.+)/i);
     if (redundantMatch) {
-      var cleaned = redundantMatch[2];
-      hintEl.textContent = '💡 We already add "Top 10" for you — try just "' + cleaned + '"';
+      _catHintSuggestion = redundantMatch[2].trim();
+      // This was text only, with nothing to tap and nothing stopping Continue,
+      // so a list called "Top 10 Top 10 Engines" sailed straight past it.
+      hintEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px">'
+        + '<div style="flex:1;min-width:0">💡 We already add "Top 10" for you — try just "' + escapeHtml(_catHintSuggestion) + '"</div>'
+        + '<button type="button" onclick="useCatHint()" style="flex-shrink:0;background:#B57F0F;border:none;color:#FFF;border-radius:3px;padding:6px 10px;font-family:inherit;font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer">Use it</button>'
+        + '</div>';
       hintEl.style.display = 'block';
     } else {
+      _catHintSuggestion = '';
       hintEl.style.display = 'none';
     }
   }
@@ -3518,6 +3527,39 @@ function onCatType(val) {
     selCat = val.trim();
     renderCatEmojiPicker();
   }
+}
+
+// Accepts the redundant-prefix suggestion. Kept in a variable rather than
+// interpolated into the button's onclick, so no escaping is involved.
+var _catHintSuggestion = '';
+function useCatHint() {
+  if (!_catHintSuggestion) return;
+  // Peel every "Top 10" at once. Accepting the suggestion for
+  // "Top 10 Top 10 Engines" one layer at a time would leave the same hint
+  // still showing, which reads as the button not having worked.
+  var next = stripRedundantTopPrefix(_catHintSuggestion);
+  var inp = document.getElementById('cat-inp');
+  if (inp) inp.value = next;
+  onCatType(next);
+  if (inp) inp.focus();
+}
+
+// "Top 10 " is printed by the app either side of the category, so a category
+// that already starts with it always renders twice — there is no reading of
+// "Top 10 Top 10 Engines" that the user meant. Strip it, repeatedly, in case
+// it was pasted more than once.
+//
+// Only this prefix. "Best"/"Greatest"/"Favourite" stay advisory, because
+// "Best Picture Winners" is a real list name and auto-trimming it to
+// "Picture Winners" would be wrong.
+function stripRedundantTopPrefix(name) {
+  var out = String(name == null ? '' : name).trim();
+  for (var i = 0; i < 5; i++) {
+    var next = out.replace(/^top\s*(?:10|ten)\s+/i, '').trim();
+    if (next === out || !next) break;
+    out = next;
+  }
+  return out || String(name == null ? '' : name).trim();
 }
 
 function useCatWarn() {
@@ -17449,7 +17491,10 @@ function getCatEmoji(cat) {
 
 function goToCreateStep2() {
   var inp = document.getElementById('cat-inp');
-  if (inp && inp.value.trim()) selCat = inp.value.trim();
+  // Last line of defence for the doubled prefix. The typing hint is advisory
+  // and Continue never blocked on it, which is how "Top 10 Top 10 Engines"
+  // got saved.
+  if (inp && inp.value.trim()) selCat = stripRedundantTopPrefix(inp.value);
   var catMatch = CATS.find(function(c) { return c.n.toLowerCase() === selCat.toLowerCase(); });
   if (catMatch) selCatEmoji = catMatch.e;
   // Prevent silently overwriting an existing list of the same category.
