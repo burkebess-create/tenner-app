@@ -52,7 +52,10 @@ if (existsSync('/opt/pw-browsers/chromium')) {
   launchOpts.executablePath = '/opt/pw-browsers/chromium';
 }
 
-const flowFiles = ['auth', 'lists', 'profile', 'gift-page', 'comments'];
+// 'handlers' and 'schema' run first: they are the cheap, broad sweeps that
+// catch whole classes (uncompilable inline handlers, and reads broken by a
+// grant or column change), so a failure there explains the rest.
+const flowFiles = ['auth', 'schema', 'handlers', 'lists', 'profile', 'gift-page', 'comments'];
 const flows = [];
 for (const name of flowFiles) {
   const mod = await import(`./flows/${name}.mjs`);

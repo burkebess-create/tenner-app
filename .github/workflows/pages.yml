@@ -25,6 +25,24 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
+      # The service worker cache key has been bumped by hand 180 times. A
+      # forgotten bump means returning users keep running the old build, which
+      # is indistinguishable from "the fix didn't work" — it has already cost a
+      # round of confused bug reports. Stamp it from the commit instead, so it
+      # is impossible to forget and impossible to duplicate.
+      - name: Stamp service worker cache version
+        run: |
+          set -euo pipefail
+          STAMP="tenner-${GITHUB_SHA::7}"
+          if ! grep -q "^const CACHE_VERSION" service-worker.js; then
+            echo "::error::CACHE_VERSION line not found in service-worker.js"
+            exit 1
+          fi
+          sed -i "s|^const CACHE_VERSION = .*|const CACHE_VERSION = '${STAMP}';|" service-worker.js
+          grep "^const CACHE_VERSION" service-worker.js
+          echo "::notice::Service worker cache version stamped as ${STAMP}"
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

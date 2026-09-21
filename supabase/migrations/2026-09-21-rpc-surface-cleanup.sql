@@ -1,0 +1,55 @@
+-- Trim the published RPC surface (2026-09-21)
+--
+-- Applied as:
+--   revoke_rpc_on_trigger_functions
+--   restore_policy_helper_execute
+--
+-- PostgREST publishes every function in `public` that the caller's role can
+-- execute, so trigger functions were reachable at /rest/v1/rpc/<name>. Calling
+-- one by hand errors rather than doing damage — they need a trigger's NEW/OLD
+-- context — but there is no reason to publish them, and 45 spurious entries in
+-- the security advisor is enough noise to hide a real finding.
+--
+-- Revoked from public, anon and authenticated (trigger functions only; the
+-- database still calls them normally, since a trigger runs as the table owner
+-- and does not consult these grants):
+--
+--   log_list_change, guard_moderation_columns, guard_emoji_value,
+--   guard_weekly_emoji_glyph_only, check_handle_not_retired,
+--   retire_old_handle, enforce_insert_rate_limit, rls_auto_enable,
+--   sync_profile_email, _sync_profile_email_from_auth,
+--   _create_email_prefs_for_new_user, categories_rename_trigger,
+--   drop_double_posted_comment, feedback_replies_guard
+--
+-- Revoked from anon only (signed-in features with no anonymous use):
+--   accept_invite_friendship, regenerate_my_gift_share_token,
+--   get_my_invitees, mutual_friends, email_pref_allows,
+--   user_in_comment_thread, _is_thread_participant
+--
+-- NOT revoked: every admin_* function. All 25 check
+-- `exists (select 1 from admins where user_id = auth.uid())` internally —
+-- confirmed by calling them as anon, which returns all-zero counts from
+-- admin_user_counts, no rows from admin_get_reports, and a raise from
+-- admin_ban_user. Revoking would be tidier but changes nothing about access.
+--
+-- ── A revoke that had to be undone ────────────────────────────────────
+-- _is_thread_participant() is named in comment_thread_reads_select, a
+-- {public} policy, so it applies to anon too. Anon reads still returned 0
+-- rows rather than erroring, but only because the planner short-circuited the
+-- OR before reaching the call — an optimiser decision, not a guarantee. A
+-- different plan turns that into "permission denied for function", which is
+-- precisely how revoking are_friends() emptied the Circle feed. EXECUTE was
+-- granted straight back.
+--
+-- RULE, stated once so it stops being relearned: a function named in an RLS
+-- policy must be EXECUTE-able by every role that policy applies to. Policy
+-- predicates are evaluated as the querying role, regardless of how the
+-- function itself is defined.
+--
+-- VERIFIED after the revokes, as an ordinary authenticated user (inside a
+-- deliberately aborted transaction):
+--   list insert      OK   (fires log_list_change, guard_emoji_value, rate limit)
+--   list update      OK   (change event logged: 1)
+--   comment insert   OK   (fires drop_double_posted_comment)
+--   profile update   OK   (fires retire_old_handle, guard_moderation_columns)
+--   reading comments / thread reads as authenticated: 54 and 167 rows
