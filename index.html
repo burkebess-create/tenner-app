@@ -10573,9 +10573,13 @@ function renderCircleAnchorChips() {
 // Outbound friend requests you've sent but they haven't accepted yet.
 // Rendered as real rows (muted, dashed, PENDING badge) rather than a bare
 // count, so it's obvious who you're waiting on.
+// Requests you have sent that the other person hasn't accepted. Collapsed the
+// same way as the accepted list above it — a long tail of these pushed Groups
+// off the bottom of the screen.
+var PENDING_PREVIEW = 2;
 function renderSentPendingRows(sent) {
   if (!sent || !sent.length) return '';
-  return sent.map(function(f) {
+  var rows = sent.map(function(f) {
     var p = f.profile || {};
     var name = p.display_name || p.handle || 'Unknown';
     var handle = p.handle ? '@' + p.handle.toUpperCase() : '';
@@ -10590,7 +10594,15 @@ function renderSentPendingRows(sent) {
       +     (handle ? handle + '  ·  ' : '') + 'WAITING TO ACCEPT'
       +   '</div>'
       + '</div></div>';
-  }).join('');
+  });
+  if (rows.length <= PENDING_PREVIEW) return rows.join('');
+  // Muted rather than coral: this belongs to the greyed pending block and
+  // shouldn't compete with "Show all N friends" directly above it.
+  return rows.slice(0, PENDING_PREVIEW).join('')
+    + '<div id="circle-pending-extra" style="display:none">' + rows.slice(PENDING_PREVIEW).join('') + '</div>'
+    + '<button onclick="toggleCircleSection(\'pending\')" id="circle-pending-toggle"'
+    +   ' style="width:100%;padding:9px;background:#FAF8F5;border:1.5px dashed #C8C6BE;border-radius:3px;font-size:10.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#5F5E5A;cursor:pointer;margin-bottom:4px">'
+    +   '▼ Show all ' + rows.length + ' pending</button>';
 }
 
 function renderCircleFriends() {
@@ -12131,6 +12143,9 @@ function toggleCircleSection(section) {
   if (section === 'friends') {
     var accepted = myFriends.filter(function(f) { return f.status === 'accepted'; });
     btn.textContent = expanded ? '▼ Show all ' + accepted.length + ' friends' : '▲ Show fewer friends';
+  } else if (section === 'pending') {
+    var sent = myFriends.filter(function(f) { return f.status === 'pending' && f.isRequester; });
+    btn.textContent = expanded ? '▼ Show all ' + sent.length + ' pending' : '▲ Show fewer pending';
   } else if (section === 'groups') {
     btn.textContent = expanded ? '▼ Show all ' + MY_GROUPS.length + ' groups' : '▲ Show fewer groups';
   } else if (section === 'gifts') {
