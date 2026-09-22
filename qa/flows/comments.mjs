@@ -16,8 +16,18 @@ async function commentCount(page) {
   return await page.evaluate(() => {
     const el = document.getElementById('item-comments-list');
     if (!el) return -1;
-    // Comment rows carry the ⋯ menu button; the empty state does not.
-    return el.querySelectorAll('[onclick*="toggleCommentMenu"]').length;
+    // Comment rows carry the ⋯ menu button; the empty state does not. Count
+    // DISTINCT comment ids, not matching elements: the ⋯ button and every
+    // entry in the menu it opens (Edit/Delete on your own, Reply/Copy/Report
+    // on someone else's) all call toggleCommentMenu, so a raw element count
+    // reads three to four times the real number — which is how one comment
+    // posted once failed as "3 → 6".
+    const ids = new Set();
+    el.querySelectorAll('[onclick*="toggleCommentMenu"]').forEach(b => {
+      const m = (b.getAttribute('onclick') || '').match(/toggleCommentMenu\('([^']+)'\)/);
+      if (m) ids.add(m[1]);
+    });
+    return ids.size;
   });
 }
 
@@ -76,8 +86,13 @@ export default {
 
     await assert(before >= 0, `comment thread rendered (${before} existing comment(s))`);
 
+    // Cleanup runs in a finally: the first two CI runs failed on an assertion
+    // before reaching it and left their comments on a real list.
+    const posted = [];
+    try {
     // ── single post ────────────────────────────────────────────────────
     const mark1 = MARK();
+    posted.push(mark1);
     await page.fill('#item-comment-input', mark1);
     await page.click('#item-comment-post');
     await page.waitForFunction((m) => (document.getElementById('item-comments-list')?.innerText || '').includes(m),
@@ -92,6 +107,7 @@ export default {
     // The real bug: the Post button stayed live during the moderation
     // round-trip, so a second tap sent the same text again.
     const mark2 = MARK();
+    posted.push(mark2);
     await page.fill('#item-comment-input', mark2);
     await page.click('#item-comment-post', { force: true });
     await page.waitForTimeout(120);
@@ -109,10 +125,11 @@ export default {
     await assert(afterTwo === before + 2,
       `two posts produced two comments, not three (${before} → ${afterTwo})`);
 
+    } finally {
     // ── cleanup ────────────────────────────────────────────────────────
     // Best-effort: leaving a QA comment behind is untidy but not a failure,
     // and the markers are unique so a leftover cannot skew the next run.
-    for (const mark of [mark1, mark2]) {
+    for (const mark of posted) {
       try {
         // deleteItemComment() opens the shared confirm modal rather than
         // deleting outright, so the confirm has to be clicked as well.
@@ -138,5 +155,6 @@ export default {
     }
     await page.waitForTimeout(400);
     await shot('03-cleaned-up');
+    }
   },
 };
