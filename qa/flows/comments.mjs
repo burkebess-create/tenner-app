@@ -89,6 +89,7 @@ export default {
     // Cleanup runs in a finally: the first two CI runs failed on an assertion
     // before reaching it and left their comments on a real list.
     const posted = [];
+    let primary = null;
     try {
     // ── single post ────────────────────────────────────────────────────
     const mark1 = MARK();
@@ -125,18 +126,34 @@ export default {
     await assert(afterTwo === before + 2,
       `two posts produced two comments, not three (${before} → ${afterTwo})`);
 
+    } catch (e) {
+      // Held, not rethrown yet: the comments have to come off the list first,
+      // and an assert inside a finally would replace this error with its own.
+      primary = e;
     } finally {
     // ── cleanup ────────────────────────────────────────────────────────
-    // Best-effort: leaving a QA comment behind is untidy but not a failure,
-    // and the markers are unique so a leftover cannot skew the next run.
+    // The markers are unique, so a leftover cannot skew the next run — but it
+    // is a QA string sitting on a real list, so this ends with a direct
+    // delete for anything the UI path missed, and the count is checked.
     for (const mark of posted) {
       try {
         // deleteItemComment() opens the shared confirm modal rather than
         // deleting outright, so the confirm has to be clicked as well.
         const opened = await page.evaluate((m) => {
           const el = document.getElementById('item-comments-list');
+          // The ⋯ button's immediate parent is the row's header, which holds
+          // the author and time but not the body — closest('div') never
+          // matched and every comment was silently "left in place". Walk up
+          // until an ancestor actually contains the text.
           const btn = [...el.querySelectorAll('[onclick*="toggleCommentMenu"]')]
-            .find(b => { const d = b.closest('div'); return d && d.innerText.includes(m); });
+            .find(b => {
+              let n = b;
+              for (let i = 0; i < 6 && n && n !== el; i++) {
+                if ((n.innerText || '').includes(m)) return true;
+                n = n.parentElement;
+              }
+              return false;
+            });
           if (!btn) return false;
           const id = (btn.getAttribute('onclick').match(/toggleCommentMenu\('([^']+)'\)/) || [])[1];
           if (!id || typeof window.deleteItemComment !== 'function') return false;
@@ -155,6 +172,29 @@ export default {
     }
     await page.waitForTimeout(400);
     await shot('03-cleaned-up');
+
+    // Backstop: whatever the UI path could not remove goes directly. Then
+    // assert nothing is left, so a cleanup that quietly stops working shows
+    // up as a failure instead of accumulating on someone's list.
+    if (posted.length) {
+      const left = await page.evaluate(async (marks) => {
+        const res = await window.sbClient.from('list_item_comments')
+          .select('id, comment').eq('from_user_id', window.userId).in('comment', marks);
+        if (res.error) return { error: res.error.message };
+        const ids = (res.data || []).map(r => r.id);
+        if (!ids.length) return { removed: 0, remaining: 0 };
+        const del = await window.sbClient.from('list_item_comments')
+          .delete().in('id', ids).eq('from_user_id', window.userId);
+        return { error: del.error ? del.error.message : null,
+                 removed: ids.length, remaining: del.error ? ids.length : 0 };
+      }, posted);
+      log('cleanup backstop', JSON.stringify(left));
+      if (primary) throw primary;
+      await assert(!left.error && left.remaining === 0,
+        `no QA comment left behind (${left.error || left.removed + ' swept directly'})`);
+    } else if (primary) {
+      throw primary;
+    }
     }
   },
 };
