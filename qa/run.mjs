@@ -4,6 +4,7 @@ import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { login } from './lib/login.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -39,6 +40,10 @@ const CFG = {
   headed: !!process.env.HEADED,
   slowMo: process.env.SLOWMO ? Number(process.env.SLOWMO) : 0,
   only: (process.env.FLOWS || '').split(',').map(s => s.trim()).filter(Boolean),
+  // Optional second account. Flows that need two users skip themselves when
+  // it is absent, so the suite still runs for anyone without the secret.
+  email2: process.env.QA_EMAIL_2,
+  password2: process.env.QA_PASSWORD_2,
 };
 
 if (!CFG.email || !CFG.password) {
@@ -55,7 +60,7 @@ if (existsSync('/opt/pw-browsers/chromium')) {
 // 'handlers' and 'schema' run first: they are the cheap, broad sweeps that
 // catch whole classes (uncompilable inline handlers, and reads broken by a
 // grant or column change), so a failure there explains the rest.
-const flowFiles = ['auth', 'schema', 'handlers', 'lists', 'profile', 'gift-page', 'comments'];
+const flowFiles = ['auth', 'schema', 'handlers', 'lists', 'profile', 'gift-page', 'comments', 'social'];
 const flows = [];
 for (const name of flowFiles) {
   const mod = await import(`./flows/${name}.mjs`);
@@ -66,10 +71,27 @@ const runList = CFG.only.length ? flows.filter(f => CFG.only.includes(f.name)) :
 const events = []; // { flow, step, status, note?, shot? }
 function nowMs() { return Date.now(); }
 
+let secondCtx = null;   // browser context for the optional second account
+let secondPg = null;
+
 async function main() {
   const browser = await chromium.launch(launchOpts);
   const context = await browser.newContext({ viewport: { width: 430, height: 900 } });
   const page = await context.newPage();
+
+  // Lazily open and log in a second account, in its own context so the two
+  // sessions never share storage. Returns null when the secret is absent, and
+  // the flows that need it skip rather than fail.
+  async function openSecondAccount(flowLog) {
+    if (!CFG.email2 || !CFG.password2) return null;
+    if (secondPg) return secondPg;
+    secondCtx = await browser.newContext({ viewport: { width: 430, height: 900 } });
+    secondPg = await secondCtx.newPage();
+    secondPg.on('pageerror', e => events.push({ flow: '(page2)', step: 'JS error', status: 'warn', note: String(e.message || e) }));
+    await login(secondPg, CFG.url, CFG.email2, CFG.password2, flowLog);
+    return secondPg;
+  }
+  globalThis.__openSecondAccount = openSecondAccount;
   page.on('pageerror', e => events.push({ flow: '(page)', step: 'JS error', status: 'warn', note: String(e.message || e) }));
   page.on('console', m => {
     if (m.type() === 'error') events.push({ flow: '(console)', step: 'error', status: 'warn', note: m.text().slice(0, 300) });
@@ -87,7 +109,7 @@ async function main() {
     const ctx = makeCtx(page, flow.name);
     events.push({ flow: flow.name, step: '▶ start', status: 'info' });
     try {
-      await flow.run({ ...ctx, cfg: CFG });
+      await flow.run({ ...ctx, cfg: CFG, openSecondAccount: (l) => openSecondAccount(l || ctx.log) });
       events.push({ flow: flow.name, step: '✓ done', status: 'pass', note: `${nowMs() - flowStart}ms` });
     } catch (e) {
       const shot = await safeShot(page, `${flow.name}-FAILED`);
@@ -95,6 +117,7 @@ async function main() {
     }
   }
   const dur = nowMs() - startedAt;
+  if (secondCtx) await secondCtx.close().catch(() => {});
   await browser.close();
   writeReport(dur);
   const failed = events.filter(e => e.status === 'fail').length;

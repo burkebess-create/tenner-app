@@ -34,6 +34,10 @@ jobs:
           TENNER_URL: https://mytenner.com
           QA_EMAIL: ${{ secrets.QA_EMAIL }}
           QA_PASSWORD: ${{ secrets.QA_PASSWORD }}
+          # Second account. The social flow skips itself when these are unset,
+          # so the suite still runs if the secrets are ever removed.
+          QA_EMAIL_2: ${{ secrets.QA_EMAIL_2 }}
+          QA_PASSWORD_2: ${{ secrets.QA_PASSWORD_2 }}
         run: npm run qa
 
       # Always upload — even on failure — so we can see what broke
