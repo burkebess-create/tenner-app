@@ -2934,6 +2934,7 @@ function restoreAfterUpdate() {
   if (st.ts && Date.now() - st.ts > 5 * 60 * 1000) return;
   if (location.hash || /[?&](from|fill|joingroup)=/.test(location.search)) return;
   if (hasPendingDeepLink()) return;   // an email link outranks restoring the last screen
+  if (_onboardingActive()) return;    // …and onboarding outranks everything
 
   try {
     if (typeof selFriendId !== 'undefined' && st.friendId) selFriendId = st.friendId;
@@ -18114,6 +18115,17 @@ function setupRealtimeNotifications() {
     var _pProfile = loadProfile().then(function() {
       renderTopbarAvatars(); // populate wherever it's mounted (all tabs)
       if (isCircleActive()) { renderTodayPill(); renderProfileNudges(); }
+      // A RETURNING session never reached startOnboardingIfNeeded(): it runs
+      // only on the fresh-sign-in branch above, when the auth screen is the
+      // active one. So the accounts that escaped onboarding through the
+      // bottom nav stayed nameless no matter how many times they reopened
+      // the app — one of them has been posting lists for an hour and shows
+      // to her whole circle as "A friend". Ask again on every load until the
+      // profile is actually complete. `_onbDecided` is already set on the
+      // sign-in path, so this cannot double-fire.
+      if (_onbDecided === null && isOnboardingIncomplete()) {
+        _onbDecided = startOnboardingIfNeeded();
+      }
     }).catch(console.warn);
     var _pFriends = loadFriends().then(function() {
       if (isCircleActive()) { renderCircleStories(); renderHomeFeed(); renderCircleScreen(); renderTodayPill(); renderCircleListInvites(); }
