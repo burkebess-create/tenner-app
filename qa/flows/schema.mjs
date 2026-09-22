@@ -10,43 +10,51 @@
 // This flow runs the reads the app depends on and asserts that each one comes
 // back WITHOUT an error — the distinction the UI cannot make on its own.
 // It reads only; nothing here writes.
+//
+// The checks are DATA, not source strings. The first version built each query
+// with `new Function(...)` inside the page, which works against a local
+// python http.server (no CSP header) and fails against every one of the nine
+// checks in production, where the CSP has no 'unsafe-eval'. A green local run
+// and eight identical CSP errors in CI. Anything evaluated in the page has to
+// survive the real CSP, so the query is described here and assembled from
+// plain method calls on the other side.
 
 const CHECKS = [
   {
     name: 'own lists',
-    run: `sb.from('lists').select('id, category, items').eq('user_id', uid).limit(5)`,
+    table: 'lists', select: 'id, category, items', eq: ['user_id', '@uid'], limit: 5,
   },
   {
     name: "friends' lists (exercises are_friends in the lists policy)",
-    run: `sb.from('lists').select('user_id, category, updated_at').neq('user_id', uid).limit(5)`,
+    table: 'lists', select: 'user_id, category, updated_at', neq: ['user_id', '@uid'], limit: 5,
   },
   {
     name: 'profiles — columns the UI reads',
-    run: `sb.from('profiles').select('id, display_name, handle, photo, bio, birthday, created_at').limit(5)`,
+    table: 'profiles', select: 'id, display_name, handle, photo, bio, birthday, created_at', limit: 5,
   },
   {
     name: 'friendships',
-    run: `sb.from('friendships').select('id, requester_id, addressee_id, status').limit(5)`,
+    table: 'friendships', select: 'id, requester_id, addressee_id, status', limit: 5,
   },
   {
     name: 'item comments',
-    run: `sb.from('list_item_comments').select('id, from_user_id, comment').limit(5)`,
+    table: 'list_item_comments', select: 'id, from_user_id, comment', limit: 5,
   },
   {
     name: 'list reactions',
-    run: `sb.from('list_reactions').select('id, emoji, item_name').limit(5)`,
+    table: 'list_reactions', select: 'id, emoji, item_name', limit: 5,
   },
   {
     name: 'groups + membership',
-    run: `sb.from('group_members').select('group_id, status, role').eq('user_id', uid).limit(5)`,
+    table: 'group_members', select: 'group_id, status, role', eq: ['user_id', '@uid'], limit: 5,
   },
   {
     name: 'categories catalogue',
-    run: `sb.from('categories').select('id, name, emoji, sort_order').limit(5)`,
+    table: 'categories', select: 'id, name, emoji, sort_order', limit: 5,
   },
   {
     name: 'own contact details (get_my_contact RPC)',
-    run: `sb.rpc('get_my_contact')`,
+    rpc: 'get_my_contact',
   },
 ];
 
@@ -57,12 +65,21 @@ export default {
       const sb = window.sbClient;
       const uid = window.userId;
       if (!sb || !uid) return [{ name: '(setup)', error: 'no sbClient/userId — not signed in' }];
+      // '@uid' is the one placeholder; everything else is a literal.
+      const val = (v) => (v === '@uid' ? uid : v);
       const out = [];
       for (const c of checks) {
         try {
-          // eslint-disable-next-line no-new-func
-          const fn = new Function('sb', 'uid', `return ${c.run};`);
-          const res = await fn(sb, uid);
+          let q;
+          if (c.rpc) {
+            q = sb.rpc(c.rpc, c.args || undefined);
+          } else {
+            q = sb.from(c.table).select(c.select);
+            if (c.eq) q = q.eq(c.eq[0], val(c.eq[1]));
+            if (c.neq) q = q.neq(c.neq[0], val(c.neq[1]));
+            if (c.limit) q = q.limit(c.limit);
+          }
+          const res = await q;
           out.push({
             name: c.name,
             error: res && res.error ? (res.error.message || String(res.error)) : null,

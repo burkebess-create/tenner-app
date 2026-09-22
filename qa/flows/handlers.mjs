@@ -58,28 +58,37 @@ export default {
       await page.waitForTimeout(350);   // let async renderers fill in
       visited.push(id);
 
-      const bad = await page.evaluate((sid) => {
+      // The attributes are collected in the page and compiled HERE. The
+      // production CSP has no 'unsafe-eval', so new Function() inside the page
+      // throws a CSP error for every handler and reports the whole app as
+      // broken — which is exactly what happened in CI, while a local run
+      // against python http.server (no CSP header) stayed green. Node runs the
+      // same V8 parser with nothing stopping it.
+      const attrs = await page.evaluate((sid) => {
         const out = [];
         document.querySelectorAll('*').forEach(el => {
           for (const a of el.attributes) {
             if (!/^on[a-z]+$/i.test(a.name)) continue;
-            try {
-              // Same compile the browser does when the event fires.
-              new Function(a.value);
-            } catch (err) {
-              out.push({
-                screen: sid,
-                attr: a.name,
-                tag: el.tagName.toLowerCase(),
-                text: (el.textContent || '').trim().slice(0, 40),
-                value: a.value.slice(0, 160),
-                err: String(err.message || err),
-              });
-            }
+            out.push({
+              screen: sid,
+              attr: a.name,
+              tag: el.tagName.toLowerCase(),
+              text: (el.textContent || '').trim().slice(0, 40),
+              value: a.value,
+            });
           }
         });
         return out;
       }, id);
+
+      const bad = [];
+      for (const a of attrs) {
+        // Same compile the browser does when the event fires.
+        try { new Function(a.value); }
+        catch (err) {
+          bad.push({ ...a, value: a.value.slice(0, 160), err: String(err.message || err) });
+        }
+      }
 
       if (bad.length) {
         broken.push(...bad);
@@ -142,16 +151,21 @@ export default {
         const host = document.createElement('div');
         host.innerHTML = '<button onclick="fn(\'' + window.jsStrAttr(v) + '\')">x</button>';
         const attr = host.firstChild && host.firstChild.getAttribute('onclick');
-        let err = null;
-        try { new Function(attr || 'throw new Error("attribute destroyed")'); }
-        catch (e) { err = String(e.message || e); }
-        out.push({ value: v, attr: (attr || '').slice(0, 120), err });
+        out.push({ value: v, attr: attr });
       }
       return { results: out };
     }, HOSTILE);
 
     if (esc.missing) {
       throw new Error('jsStrAttr() is missing — inline handler values are not being escaped for JS');
+    }
+    // The round-trip through innerHTML has to happen in the browser — that is
+    // the HTML parser being tested. The compile does not, and must not: see
+    // the CSP note above.
+    for (const r of esc.results) {
+      try { new Function(r.attr || 'throw new Error("attribute destroyed")'); r.err = null; }
+      catch (e) { r.err = String(e.message || e); }
+      r.attr = (r.attr || '').slice(0, 120);
     }
     const escBad = esc.results.filter(r => r.err);
     for (const r of escBad) log('✗ escaping', `${JSON.stringify(r.value)} → ${r.err}`);

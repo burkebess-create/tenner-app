@@ -21,6 +21,26 @@ async function commentCount(page) {
   });
 }
 
+// loadItemComments() paints "Loading…" and fills in asynchronously. A fixed
+// 400ms wait was long enough on a local server and not on production, so the
+// baseline was taken as 0 against a thread that already had two comments and
+// the run failed with "0 → 3". Wait for the placeholder to clear, then for the
+// row count to stop moving.
+async function waitForThread(page) {
+  await page.waitForFunction(() => {
+    const el = document.getElementById('item-comments-list');
+    return !!el && !/Loading…/.test(el.innerText || '');
+  }, { timeout: 15000 });
+  let prev = -1;
+  for (let i = 0; i < 10; i++) {
+    const n = await commentCount(page);
+    if (n === prev) return n;
+    prev = n;
+    await page.waitForTimeout(300);
+  }
+  return prev;
+}
+
 async function textCount(page, needle) {
   return await page.evaluate((n) => {
     const el = document.getElementById('item-comments-list');
@@ -51,10 +71,9 @@ export default {
     if (!nRows) { log('SKIP: list has no items'); return; }
     await rows.first().click();
     await page.waitForSelector('#item-comment-input', { timeout: 8000 });
-    await page.waitForTimeout(400);
+    const before = await waitForThread(page);
     await shot('01-thread-open');
 
-    const before = await commentCount(page);
     await assert(before >= 0, `comment thread rendered (${before} existing comment(s))`);
 
     // ── single post ────────────────────────────────────────────────────
