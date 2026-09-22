@@ -57,7 +57,11 @@
     // never overwrite it, so someone who clicks an Instagram link, browses,
     // leaves, then returns directly is still credited to Instagram when they
     // eventually sign up.
-    var TRACK_KEYS = ['src','ref','utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+    // 'ch' is in here as well as driving channel credit below. Without it, a
+    // ?ch=instagram visit stored no attribution at all and stayed invisible
+    // until (and unless) the visitor signed up — so a post that drew a
+    // hundred clicks and no signups looked identical to one nobody saw.
+    var TRACK_KEYS = ['ch','src','ref','utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
     var found = {};
     TRACK_KEYS.forEach(function(k) {
       var v = qs.get(k);
@@ -14412,17 +14416,71 @@ function setGroupMemberRole(gid, uid, newRole) {
 }
 
 // --- Invite leaderboard tab: top recruiters by direct + indirect invites ---
+// The exact URL to post for each marketing channel, with what it has earned.
+//
+// The channel accounts sat at zero signups for two weeks. Nothing was broken:
+// credit requires ?ch=<handle>, and that URL existed nowhere in the product —
+// only as a hint on a leaderboard row that never rendered, because the
+// leaderboard lists accounts WITH invites. A plain mytenner.com link, or one
+// tagged ?src=ig, can never credit the channel however well the post does.
+//
+// So the link is built here, next to its own numbers, ready to copy.
+async function renderAdminChannelLinks() {
+  var res = await sbClient.from('profiles')
+    .select('id, display_name, handle').eq('is_system', true).order('handle');
+  if (!sbCheck(res, 'renderAdminChannelLinks') || !(res.data || []).length) return '';
+
+  var origin = (location.origin && location.origin.indexOf('http') === 0)
+    ? location.origin : 'https://mytenner.com';
+
+  var cards = await Promise.all((res.data || []).map(async function(c) {
+    var url = origin + '/?ch=' + encodeURIComponent(c.handle || '');
+    // Signups credited to this channel, and — since ?ch= now lands in the
+    // attribution blob — landing-page hits that carried it.
+    var signups = await sbClient.from('profiles')
+      .select('id', { count: 'exact', head: true }).eq('invited_by', c.id);
+    var clicks = await sbClient.from('analytics_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('event', 'welcome_view').eq('meta->>ch', c.handle || '');
+    sbCheck(signups, 'renderAdminChannelLinks:signups');
+    sbCheck(clicks, 'renderAdminChannelLinks:clicks');
+    var nSign = signups.count == null ? '—' : signups.count;
+    var nClick = clicks.count == null ? '—' : clicks.count;
+    return '<div class="card no-hover" style="margin-bottom:6px;padding:10px 12px">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+      +   '<div style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#2C2C2A">'
+      +     escapeHtml(c.display_name || ('@' + (c.handle || ''))) + '</div>'
+      +   '<span style="font-size:10px;background:#F1EFE8;color:#5F5E5A;padding:3px 8px;border-radius:99px;font-weight:600" title="welcome_view hits carrying this channel">' + nClick + ' clicks</span>'
+      +   '<span style="font-size:10px;background:#2C2C2A;color:#FFFFFF;padding:3px 8px;border-radius:99px;font-weight:700" title="Accounts credited to this channel">' + nSign + ' signups</span>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px">'
+      +   '<code style="flex:1;min-width:0;font-size:11px;color:#5F5E5A;background:#FDFCF8;border:1px solid #E8E5DC;border-radius:3px;padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(url) + '</code>'
+      +   '<button type="button" onclick="copyToClipboard(\'' + jsStrAttr(url) + '\')" style="flex-shrink:0;background:#D85A30;color:#FFF;border:none;border-radius:3px;font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;padding:7px 12px;cursor:pointer;font-family:inherit">Copy</button>'
+      + '</div></div>';
+  }));
+
+  return '<div style="padding:12px 12px 0">'
+    + '<div class="sec-label" style="margin-bottom:8px">Channel links</div>'
+    + '<div style="font-size:11px;color:#888780;margin-bottom:10px;line-height:1.5">'
+    +   'Post <strong>these exact URLs</strong>. A plain mytenner.com link cannot be credited to a channel — '
+    +   'only <code>?ch=</code> sets it.</div>'
+    + cards.join('')
+    + '</div>';
+}
+
 async function renderAdminInvites(el) {
   el.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:12px">Loading leaderboard…</div>';
   try {
+    var channels = '';
+    try { channels = await renderAdminChannelLinks(); } catch(e) { console.warn(e); }
     var res = await sbClient.rpc('admin_invite_leaderboard', { p_limit: 50 });
     if (res.error) throw res.error;
     var rows = res.data || [];
     if (!rows.length) {
-      el.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#888780"><div style="font-size:36px;margin-bottom:10px">🎯</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No invites yet</div><div style="font-size:12px;line-height:1.5">When users sign up via someone\'s invite link, they\'ll show up here.</div></div>';
+      el.innerHTML = channels + '<div style="padding:40px 20px;text-align:center;color:#888780"><div style="font-size:36px;margin-bottom:10px">🎯</div><div style="font-size:14px;font-weight:600;color:#2C2C2A;margin-bottom:6px">No invites yet</div><div style="font-size:12px;line-height:1.5">When users sign up via someone\'s invite link, they\'ll show up here.</div></div>';
       return;
     }
-    var html = '<div style="padding:12px">'
+    var html = channels + '<div style="padding:12px">'
       + '<div style="font-size:11px;color:#888780;margin-bottom:10px">Top recruiters ranked by combined direct + indirect invites (recursive). Click a name to jump to their admin detail.</div>';
     rows.forEach(function(r, i) {
       var name = r.display_name || (r.handle ? '@' + r.handle : (r.email || '—'));
@@ -17043,7 +17101,8 @@ function trackEvent(name, meta) {
     var merged = meta || null;
     if (attr) {
       merged = merged || {};
-      merged.src         = attr.src || attr.utm_source || null;
+      merged.src         = attr.src || attr.utm_source || attr.ch || null;
+      merged.ch          = attr.ch || null;
       merged.utm_medium  = attr.utm_medium || null;
       merged.utm_campaign= attr.utm_campaign || null;
     }

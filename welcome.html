@@ -536,7 +536,7 @@
     // gate on /) still gets their source recorded, and we never overwrite an
     // earlier one so the original channel keeps the credit through signup.
     var qs = new URLSearchParams(location.search);
-    var TRACK_KEYS = ['src','ref','utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+    var TRACK_KEYS = ['ch','src','ref','utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
     var found = {};
     TRACK_KEYS.forEach(function(k){ var v = qs.get(k); if (v) found[k] = String(v).slice(0,64); });
     var attr = null;
@@ -557,7 +557,8 @@
       event: 'welcome_view',
       meta: {
         pathname: location.pathname,
-        src: (attr && (attr.src || attr.utm_source)) || null,
+        src: (attr && (attr.src || attr.utm_source || attr.ch)) || null,
+        ch: (attr && attr.ch) || null,
         utm_medium: (attr && attr.utm_medium) || null,
         utm_campaign: (attr && attr.utm_campaign) || null
       },
