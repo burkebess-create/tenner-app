@@ -2166,6 +2166,12 @@ window.addEventListener('popstate', function(e) {
     try { history.pushState(history.state || {}, ''); } catch (err) {}
     return;
   }
+  // Same reasoning as the bottom nav: a back gesture must not abandon
+  // onboarding half-finished. Swallow it and restore the entry.
+  if (_onboardingActive()) {
+    try { history.pushState(history.state || {}, ''); } catch (err) {}
+    return;
+  }
   var st = e.state;
   if (st && st.tennerScreen && document.getElementById(st.tennerScreen)) {
     _navPopping = true;
@@ -2184,7 +2190,12 @@ function go(id) {
   });
   var bnav = document.getElementById('global-bnav');
   if (bnav) {
-    bnav.style.display = (id === 's-auth') ? 'none' : 'flex';
+    // Onboarding is a gate, not a screen you browse away from. The bottom
+    // nav used to stay visible on it, so one tap on any tab dropped you
+    // into the app with no name and no handle — and nothing ever asked
+    // again. Ten accounts got stranded that way, several still using the
+    // app, showing to everyone else as "Unknown".
+    bnav.style.display = (id === 's-auth' || id === 's-onboarding') ? 'none' : 'flex';
     ['nav-home','nav-create','nav-circle','nav-match','nav-gifts'].forEach(function(nid) {
       document.getElementById(nid) && document.getElementById(nid).classList.remove('active');
     });
@@ -8571,6 +8582,20 @@ async function loadProfile() {
     // so the "Joined" pill can render on the own profile screen (finding #10).
     if (myProfile && !myProfile.created_at && authUser && authUser.created_at) {
       myProfile.created_at = authUser.created_at;
+    }
+    // Google sign-ups arrive with their real name in the OAuth payload, but
+    // nothing ever copied it across, so anyone who slipped past onboarding
+    // showed to everyone else as "Unknown" while their name sat unused in
+    // user_metadata. Adopt it once, the first time we notice it missing.
+    if (myProfile && myProfile.id && !String(myProfile.display_name || '').trim()) {
+      var meta = (authUser && authUser.user_metadata) || {};
+      var oauthName = String(meta.full_name || meta.name || '').trim().slice(0, 60);
+      if (oauthName) {
+        var adopt = await sbClient.from('profiles')
+          .update({ display_name: oauthName }).eq('id', myProfile.id);
+        sbCheck(adopt, 'adoptOAuthName');
+        if (!adopt.error) myProfile.display_name = oauthName;
+      }
     }
     var pwStatus = document.getElementById('profile-pw-status');
     if (pwStatus) pwStatus.textContent = hasPassword ? '••••••••' : (isGoogle ? 'Signed in with Google' : 'Not set — magic link only');
