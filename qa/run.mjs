@@ -120,9 +120,24 @@ async function main() {
   if (secondCtx) await secondCtx.close().catch(() => {});
   await browser.close();
   writeReport(dur);
-  const failed = events.filter(e => e.status === 'fail').length;
-  console.log(`\nQA run ${RUN_ID}: ${events.length} events, ${failed} failed. Report: ${REPORT_PATH}`);
-  process.exit(failed ? 1 : 0);
+  const failures = events.filter(e => e.status === 'fail');
+  console.log(`\nQA run ${RUN_ID}: ${events.length} events, ${failures.length} failed. Report: ${REPORT_PATH}`);
+  // Print the failures to stdout. Without this the run says only "3 failed"
+  // and the reason is locked inside the uploaded artifact, which means
+  // downloading a zip to find out what broke.
+  if (failures.length) {
+    console.log('\n─── failures ───');
+    for (const f of failures) console.log(`✗ [${f.flow}] ${f.step}${f.note ? ' — ' + f.note : ''}`);
+  }
+  // Warnings are where page errors and failing HTTP requests land; they do not
+  // fail the run but they are usually the explanation for one that did.
+  const warns = events.filter(e => e.status === 'warn');
+  if (warns.length) {
+    console.log(`\n─── warnings (${warns.length}) ───`);
+    for (const w of warns.slice(0, 15)) console.log(`⚠ [${w.flow}] ${w.step}${w.note ? ' — ' + w.note : ''}`);
+    if (warns.length > 15) console.log(`  …and ${warns.length - 15} more (see the report)`);
+  }
+  process.exit(failures.length ? 1 : 0);
 }
 
 function makeCtx(page, flowName) {
