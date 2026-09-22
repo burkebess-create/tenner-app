@@ -15670,6 +15670,7 @@ async function renderAdminCustomCats(el) {
     return;
   }
   _customCatsCache = res.data || [];
+  _customCatOwners = {};   // re-rendering the tab means the counts were refetched; the names should be too
   if (!_customCatsCache.length) {
     el.innerHTML = '<div style="padding:12px"><div style="background:#E8F0E4;border:1px solid #6B8E4E33;border-left:7px solid #6B8E4E;border-radius:3px;padding:16px 18px;text-align:center">'
       + '<div style="font-size:28px;margin-bottom:8px">🌱</div>'
@@ -15682,21 +15683,79 @@ async function renderAdminCustomCats(el) {
     var accent = strong ? '#2F6B52' : (Number(c.people) === 2 ? '#B08A22' : '#888780');
     var sample = (c.sample_items || []).slice(0, 4).map(function(x){ return escapeHtml(x); }).join(' · ');
     return '<div class="card no-hover" style="margin-bottom:6px;border-left:5px solid ' + accent + '">'
-      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+      + '<div onclick="toggleCustomCatOwners(' + i + ')" style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;cursor:pointer">'
       +   '<div style="flex:1;min-width:0">'
-      +     '<div style="font-size:13px;font-weight:800;color:#2C2C2A">' + escapeHtml(c.category) + '</div>'
+      +     '<div style="font-size:13px;font-weight:800;color:#2C2C2A">'
+      +       '<span id="cc-caret-' + i + '" style="display:inline-block;color:' + accent + ';font-size:10px;margin-right:5px">▸</span>'
+      +       escapeHtml(c.category) + '</div>'
       +     '<div style="font-size:9.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:' + accent + ';margin-top:3px">'
       +       Number(c.people) + ' ' + (Number(c.people) === 1 ? 'person' : 'people') + ' · ' + Number(c.total_items) + ' picks'
       +       (strong ? ' · worth promoting' : '') + '</div>'
       +     (sample ? '<div style="font-size:10.5px;color:#888780;margin-top:4px;overflow-wrap:break-word">' + sample + '</div>' : '')
       +   '</div>'
-      +   '<button class="btn-primary" style="width:auto;padding:7px 12px;margin-bottom:0;font-size:10px;white-space:nowrap;flex-shrink:0" onclick="promoteCustomCat(' + i + ')">Promote</button>'
-      + '</div></div>';
+      +   '<button class="btn-primary" style="width:auto;padding:7px 12px;margin-bottom:0;font-size:10px;white-space:nowrap;flex-shrink:0" onclick="event.stopPropagation();promoteCustomCat(' + i + ')">Promote</button>'
+      + '</div>'
+      + '<div id="cc-owners-' + i + '" style="display:none;margin-top:10px;border-top:1px solid #E8E6DF;padding-top:8px"></div>'
+      + '</div>';
   }).join('');
   el.innerHTML = '<div style="padding:12px">'
     + '<div style="font-size:10.5px;color:#5F5E5A;line-height:1.45;background:#FAF8F2;border:1px solid #E8E6DF;border-left:5px solid #2F6B52;border-radius:3px;padding:8px 10px;margin-bottom:10px">'
     +   '<strong style="color:#2C2C2A">Categories your users invented.</strong> Promoting one makes it standard, renames everyone\'s existing list to match, and seeds autofill from what they already picked. Green = made by 3+ people.</div>'
     + rows + '</div>';
+}
+
+// Tap a custom-category tile to see WHICH people have it.
+//
+// The count on the tile was a dead end: answering "who?" meant switching to
+// the Lists tab and retyping the category, where the match is a substring
+// over the 300 most recently updated lists. admin_custom_category_owners()
+// matches exactly and has no cap, so the names here always add up to the
+// number on the tile.
+var _customCatOwners = {};
+async function toggleCustomCatOwners(i) {
+  var c = _customCatsCache[i];
+  var box = document.getElementById('cc-owners-' + i);
+  var caret = document.getElementById('cc-caret-' + i);
+  if (!c || !box) return;
+
+  if (box.style.display !== 'none') {
+    box.style.display = 'none';
+    if (caret) caret.textContent = '▸';
+    return;
+  }
+  box.style.display = 'block';
+  if (caret) caret.textContent = '▾';
+
+  if (_customCatOwners[c.category]) { box.innerHTML = _customCatOwners[c.category]; return; }
+  box.innerHTML = '<div style="font-size:11px;color:#888780">Loading…</div>';
+
+  var res = await sbClient.rpc('admin_custom_category_owners', { p_category: c.category });
+  if (!sbCheck(res, 'toggleCustomCatOwners')) {
+    box.innerHTML = '<div style="font-size:11px;color:#A32D2D">Couldn\'t load: '
+      + escapeHtml((res.error && res.error.message) || 'unknown') + '</div>';
+    return;
+  }
+  var rows = res.data || [];
+  if (!rows.length) {
+    box.innerHTML = '<div style="font-size:11px;color:#888780">No lists found.</div>';
+    return;
+  }
+  var html = rows.map(function(r) {
+    // Several accounts still have no display_name and no handle, so the email
+    // is the only thing that identifies them on a screen that exists to say
+    // who someone is.
+    var who = r.display_name || (r.handle ? '@' + r.handle : '') || r.email || 'unknown';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0">'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:12px;font-weight:600;color:#2C2C2A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(who) + '</div>'
+      +   '<div style="font-size:9.5px;color:#888780;margin-top:1px">' + (r.item_count || 0) + ' items'
+      +     (r.is_public ? ' · public' : ' · private') + ' · ' + timeAgo(r.updated_at) + '</div>'
+      + '</div>'
+      + '<button class="back-btn" style="flex-shrink:0;font-size:10px;padding:4px 8px" onclick="event.stopPropagation();openAdminListDetail(\'' + r.list_id + '\',\'admin\')">Items</button>'
+      + '</div>';
+  }).join('');
+  _customCatOwners[c.category] = html;
+  box.innerHTML = html;
 }
 
 function promoteCustomCat(i) {
