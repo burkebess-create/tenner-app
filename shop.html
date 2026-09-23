@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- Every node below is built with createElement + textContent, never
+     innerHTML, so item text arriving from the query string cannot become
+     markup. That is the control; the CSP is the second line. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://img.mytenner.com https://bbjpvlmkhvggtwyvpzrq.supabase.co; connect-src 'self' https://bbjpvlmkhvggtwyvpzrq.supabase.co; form-action 'self'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Where to get these — Tenner</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+<meta name="description" content="Where to find the things people rank on Tenner.">
+<!-- The URL carries someone's picks. De-identified, but still theirs, and a
+     search engine has no business indexing every permutation of it. -->
+<meta name="robots" content="noindex, nofollow">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; color: #2C2C2A; background: #FDFCF8; line-height: 1.55; }
+
+  header { background: #FDFCF8; border-bottom: 1px solid #EAE3DC; padding: 14px 20px; position: sticky; top: 0; z-index: 10; }
+  header .wrap { max-width: 640px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+  header img { height: 28px; object-fit: contain; }
+  header .cta { background: #D85A30; color: #fff; text-decoration: none; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; padding: 9px 14px; border-radius: 3px; }
+
+  .page { max-width: 640px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  .hero { background: #FFFFFF; border: 1px solid #E8E6DF; border-left: 7px solid #D85A30; border-radius: 3px; padding: 24px 20px 20px; text-align: center; margin-bottom: 14px; }
+  .hero .emoji { font-size: 34px; line-height: 1; margin-bottom: 10px; }
+  .hero .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; color: #D85A30; text-transform: uppercase; margin-bottom: 6px; }
+  .hero h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.015em; margin: 0; line-height: 1.1; color: #2C2C2A; }
+  .hero .sub { font-size: 12px; color: #5F5E5A; margin: 10px 0 0; }
+
+  .disclosure { background: #FFFFFF; border: 1px solid #E8E6DF; border-radius: 3px; padding: 10px 12px; margin-bottom: 14px; font-size: 11.5px; color: #5F5E5A; line-height: 1.5; text-align: center; }
+
+  .picks { background: #FFFFFF; border: 1px solid #E8E6DF; border-radius: 3px; padding: 4px 8px; }
+  .pick { display: flex; align-items: flex-start; gap: 12px; padding: 14px 6px; }
+  .pick + .pick { border-top: 1px solid #F1EFE8; }
+  .pick .rank { min-width: 26px; height: 22px; border-radius: 2px; font-size: 10.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #FFFFFF; background: #2C2C2A; margin-top: 2px; }
+  .pick .body { flex: 1; min-width: 0; }
+  .pick .name { font-size: 14.5px; font-weight: 700; color: #2C2C2A; overflow-wrap: break-word; line-height: 1.3; }
+  /* The aggregate line is the original content that has to sit beside a link
+     to a search-results page. It is also the only genuinely interesting thing
+     we can say about an item without naming anybody. */
+  .pick .meta { margin-top: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #888780; }
+  .shops { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+  .shops a { background: #FFFFFF; border: 1.5px solid #D85A30; color: #D85A30; text-decoration: none; font-size: 9.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 9px; border-radius: 3px; }
+
+  .footer-block { background: #FFFFFF; border: 1px solid #E8E6DF; border-left: 7px solid #D85A30; border-radius: 3px; padding: 22px 20px; margin-top: 24px; text-align: center; }
+  .footer-block h2 { font-size: 20px; font-weight: 800; margin: 0 0 8px; color: #2C2C2A; }
+  .footer-block p { font-size: 13.5px; color: #5F5E5A; margin: 0 0 14px; }
+  .footer-block .btn { display: inline-block; background: #D85A30; color: #fff; text-decoration: none; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; padding: 12px 20px; border-radius: 3px; }
+
+  footer { text-align: center; padding: 30px 20px; color: #888780; font-size: 12px; }
+  footer a { color: #888780; margin: 0 8px; }
+  .loading, .empty { text-align: center; padding: 60px 20px; color: #888780; }
+  .empty h2 { color: #2C2C2A; font-size: 18px; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="/"><img src="/logo-horizontal.png" alt="Tenner"></a>
+    <a class="cta" href="/?skipIntro=1">Back to Tenner →</a>
+  </div>
+</header>
+
+<div class="page" id="page-root"><div class="loading">Loading…</div></div>
+
+<footer>
+  <a href="/">Home</a> · <a href="/gifts/">Gift categories</a> · <a href="/about.html">About</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a>
+  <div style="margin-top:12px;font-size:11px">As an Amazon Associate, Tenner earns from qualifying purchases.</div>
+</footer>
+
+<script>
+(function () {
+  var SUPABASE_URL = 'https://bbjpvlmkhvggtwyvpzrq.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_jeeTdNoqIJXBtx_1W1TscQ_cnRAcwHx';
+  var root = document.getElementById('page-root');
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  var sb = null;
+  function client() {
+    if (sb) return sb;
+    try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) {}
+    return sb;
+  }
+
+  // Straight <a> to the retailer, tracked by a delegated listener that never
+  // blocks navigation. Not a redirector: Participation Requirements 6(v)
+  // forbids obscuring the URL of the page holding a Special Link, and
+  // Commission Income 2(e) disqualifies a purchase reached through an
+  // intermediate page the customer took no action on.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[data-shop]');
+    if (!a) return;
+    try {
+      var c = client();
+      if (!c) return;
+      c.from('shop_clicks').insert({
+        user_id: null, from_user_id: null,
+        category: a.getAttribute('data-category') || null,
+        query: a.getAttribute('data-query') || null,
+        item: a.getAttribute('data-item') || null,
+        url: a.getAttribute('href') || null,
+        retailer: a.getAttribute('data-shop') || null,
+        source: 'shop-page',
+        referer: document.referrer || null,
+        user_agent: navigator.userAgent || null
+      }).then(function () {}, function () {});
+    } catch (err) {}
+  });
+
+  function shopUrl(template, item, suffix) {
+    var q = String(item || '').trim();
+    if (suffix) q += ' ' + suffix;
+    return template.replace('{q}', encodeURIComponent(q).replace(/%20/g, '+'));
+  }
+
+  function notFound(msg) {
+    root.innerHTML = '';
+    var box = el('div', 'empty');
+    box.appendChild(el('h2', null, 'Nothing to show'));
+    box.appendChild(el('p', null, msg || 'This link is missing the list it was meant to open.'));
+    root.appendChild(box);
+  }
+
+  function render(data, items) {
+    var cat = (data && data.category) || 'These picks';
+    document.title = 'Where to get these — ' + cat + ' — Tenner';
+    root.innerHTML = '';
+
+    var hero = el('div', 'hero');
+    if (data && data.emoji) hero.appendChild(el('div', 'emoji', data.emoji));
+    hero.appendChild(el('div', 'eyebrow', 'Where to get these'));
+    hero.appendChild(el('h1', null, cat));
+    hero.appendChild(el('div', 'sub',
+      'Picks from a Top 10 on Tenner. Each button runs a search so you choose the actual product.'));
+    root.appendChild(hero);
+
+    var enabled = !!(data && data.enabled);
+    var retailers = (data && data.retailers) || [];
+    var canShop = enabled && retailers.length;
+
+    // Section 5: the disclosure appears exactly where the links do.
+    if (canShop) {
+      root.appendChild(el('div', 'disclosure',
+        'Shop links are affiliate links. As an Amazon Associate, Tenner earns from qualifying purchases at no extra cost to you.'));
+    }
+
+    // Server-side rows carry the counts; fall back to the raw query-string
+    // items so the page still lists the picks for a category with no shopping.
+    var rows = (data && Array.isArray(data.items) && data.items.length)
+      ? data.items
+      : items.map(function (i) { return { item: i, count: null }; });
+
+    var wrap = el('div', 'picks');
+    rows.forEach(function (row, i) {
+      var pick = el('div', 'pick');
+      pick.appendChild(el('div', 'rank', String(i + 1).padStart(2, '0')));
+      var body = el('div', 'body');
+      body.appendChild(el('div', 'name', row.item));
+      if (row.count > 1) {
+        body.appendChild(el('div', 'meta',
+          row.count + ' people on Tenner rank this in ' + cat));
+      }
+      if (canShop) {
+        var shops = el('div', 'shops');
+        retailers.forEach(function (r) {
+          var a = el('a', null, r.label);
+          a.href = shopUrl(r.url_template, row.item, data.query_suffix);
+          a.target = '_blank';
+          a.rel = 'noopener sponsored nofollow';
+          a.setAttribute('data-shop', r.slug);
+          a.setAttribute('data-item', row.item);
+          a.setAttribute('data-category', cat);
+          a.setAttribute('data-query', String(row.item || '') + (data.query_suffix ? ' ' + data.query_suffix : ''));
+          shops.appendChild(a);
+        });
+        body.appendChild(shops);
+      }
+      pick.appendChild(body);
+      wrap.appendChild(pick);
+    });
+    root.appendChild(wrap);
+
+    if (!canShop) {
+      root.appendChild(el('div', 'disclosure',
+        'Shopping isn’t turned on for this category yet.'));
+    }
+
+    var fb = el('div', 'footer-block');
+    fb.appendChild(el('h2', null, 'Make your own Top 10'));
+    fb.appendChild(el('p', null, 'Rank what you love and see where your taste overlaps with people you know.'));
+    var btn = el('a', 'btn', 'Start your list →');
+    btn.href = '/';
+    fb.appendChild(btn);
+    root.appendChild(fb);
+  }
+
+  (function load() {
+    var q = new URLSearchParams(location.search);
+    var cat = q.get('cat');
+    // Repeated ?i= params rather than one delimited value: item names contain
+    // commas, pipes and quotes, and splitting on any of them corrupts them.
+    var items = q.getAll('i').map(function (s) { return String(s || '').trim(); })
+                 .filter(Boolean).slice(0, 25);
+    if (!cat || !items.length) { notFound(); return; }
+    var c = client();
+    if (!c) { render(null, items); return; }
+    c.rpc('get_public_shop_page', { p_category: cat, p_items: items }).then(function (res) {
+      // A failed lookup still shows the picks, just without links.
+      render(res.error ? null : res.data, items);
+    }, function () { render(null, items); });
+  })();
+})();
+</script>
+</body>
+</html>

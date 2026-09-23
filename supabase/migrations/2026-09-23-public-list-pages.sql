@@ -116,3 +116,31 @@ alter table public.shop_clicks add column if not exists retailer text;
 --   Things Everyone Should Own     -> (none)
 --   Best Purchases I've Ever Made  -> (none)
 --   Things I Want But Haven't Bought -> (none)
+
+-- ── Addendum: the viewer-facing shop page (2026-09-23) ────────────────
+--
+-- Applied as: public_shop_page_rpc
+--
+-- The migration above built the PUBLISHING half — an owner shares their own
+-- list. It left the actual use case unbuilt: you are looking at a FRIEND'S
+-- list in the app and want the thing they picked. There was no path to the
+-- shop links at all, and as built it would have depended on other people
+-- publishing their lists first, which almost nobody does.
+--
+-- get_public_shop_page(category, items[]) serves a page about the ITEMS only
+-- — no owner, no name, no notes — so it needs no token and works for any list
+-- the viewer can already see.
+--
+-- It exists instead of get_top_items_for_category because that function's
+-- min_lists default is 30 and the largest shop-enabled category has 18 public
+-- lists today, so it returns items:NULL for every one of them.
+--
+-- The per-item count is the "additional original content" 2(b) requires
+-- beside a link to a search-results page. Counts are suppressed below 3
+-- public lists in the category, and the page does not render a count of 1.
+--
+-- VERIFIED as anon:
+--   Movies + 3 items      -> enabled, suffix 'movie', 18 lists,
+--                            counts 1 / 2 / 0 (unknown item)
+--   Pet peeves            -> {"enabled": false} — no links, no disclosure
+--   Favorite travel gear  -> count null (1 public list, below the floor)

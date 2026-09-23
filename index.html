@@ -1274,6 +1274,7 @@
           <div id="friend-list-items"></div>
           <div id="friend-list-pick-footer" style="display:none;position:sticky;bottom:0;padding:10px 0 4px;background:linear-gradient(to top, #FDFCF8 70%, rgba(253,252,248,0))"></div>
           <button id="friend-list-comment-btn" style="display:none;width:100%;margin-top:10px;background:#FFFFFF;border:1.5px solid #D85A30;border-radius:3px;padding:12px 14px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#D85A30;cursor:pointer;align-items:center;justify-content:center;gap:8px">💬 Comment on this list</button>
+          <div id="friend-list-shop" style="display:none;margin-top:10px"></div>
           <div id="friend-list-cta" style="margin-top:16px"></div>
         </div>
       </div>
@@ -10966,6 +10967,61 @@ function clearOverflowDraft(cat) {
 
 // Items already on my list for this category (lowercased) — used to grey out
 // picks you've already got.
+// "Where to get these" — the viewer-facing half of the shop work.
+//
+// This is the path someone actually takes: you are looking at a FRIEND'S list
+// and want the thing they picked. It opens a public page on our own domain,
+// externally, and the Amazon links live there.
+//
+// Why not just put the links on this screen: Participation Requirements 5
+// bars Special Links on an "application executable or installable by an end
+// user", manifest.json declares display:standalone, and the Mobile
+// Application Policy then wants an app-store listing a PWA cannot have. And
+// 2(b) needs original content beside a link to a search-results page, which a
+// bare item row has none of. The public page has both the ranking and the
+// aggregate count.
+//
+// The URL carries no owner: no id, no name, no handle, no notes. Just the
+// category and the picks, which this viewer can already see.
+function _shopConfigForCategory(cat) {
+  var row = (typeof CATS_FULL !== 'undefined' && CATS_FULL || []).find(function(c) {
+    return c && c.name === cat;
+  });
+  return (row && row.shop_enabled) ? row : null;
+}
+
+function friendListShopUrl(cat, items) {
+  var origin = (location.origin && location.origin.indexOf('http') === 0)
+    ? location.origin : 'https://mytenner.com';
+  var qs = new URLSearchParams();
+  qs.set('cat', cat);
+  // Repeated ?i= rather than one delimited value: item names contain commas,
+  // pipes and quotes, and splitting on any of them corrupts the name.
+  (items || []).slice(0, 25).forEach(function(it) {
+    if (it != null && String(it).trim()) qs.append('i', String(it).trim());
+  });
+  return origin + '/shop.html?' + qs.toString();
+}
+
+function renderFriendListShopCta(cat, items) {
+  var box = document.getElementById('friend-list-shop');
+  if (!box) return;
+  var cfg = (!_pickMode && items && items.length) ? _shopConfigForCategory(cat) : null;
+  if (!cfg) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  var url = friendListShopUrl(cat, items);
+  box.style.display = 'block';
+  // A real anchor with target=_blank, not a scripted navigation: the hand-off
+  // has to leave the app rather than open inside a WebView, because 6(n) bars
+  // rendering an Amazon page in an embedded browser and the next tap on that
+  // page goes to Amazon.
+  box.innerHTML = '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" '
+    + 'style="display:flex;width:100%;background:#D85A30;border:1.5px solid #D85A30;border-radius:3px;padding:12px 14px;'
+    + 'font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#FFFFFF;text-decoration:none;'
+    + 'align-items:center;justify-content:center;gap:8px">🛒 Where to get these →</a>'
+    + '<div style="font-size:10px;color:#888780;text-align:center;margin-top:6px;line-height:1.4">'
+    + 'Opens a Tenner page with shopping links. Affiliate links — Tenner may earn a commission.</div>';
+}
+
 function _myItemsForCat(cat) {
   var mine = MY_LISTS.find(function(l) { return (l.category || l.n.replace('Top 10 ', '')) === cat; });
   return (mine && Array.isArray(mine.items) ? mine.items : []).map(function(x) { return String(x).toLowerCase(); });
@@ -11371,6 +11427,7 @@ function openFriendList(listData, origin) {
       lcBtn.style.display = _pickMode ? 'none' : 'flex';
       lcBtn.onclick = function() { openItemComments(_ownerId, _cat, '__list__'); };
     }
+    renderFriendListShopCta(_cat, items);
   }
 
   // CTA: show "Fill out yours" only if user doesn't already have this list
