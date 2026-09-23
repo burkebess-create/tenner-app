@@ -11025,13 +11025,25 @@ async function restoreShopReturn() {
   var raw = null;
   try { raw = localStorage.getItem(SHOP_RETURN_KEY); } catch (e) { return false; }
   if (!raw) return false;
-  try { localStorage.removeItem(SHOP_RETURN_KEY); } catch (e) {}
   var st = null;
   try { st = JSON.parse(raw); } catch (e) { return false; }
   if (!st || !st.friendId || !st.cat) return false;
   // Shopping takes a while; an hour is generous but still clearly "this trip".
-  if (st.ts && Date.now() - st.ts > 60 * 60 * 1000) return false;
+  if (st.ts && Date.now() - st.ts > 60 * 60 * 1000) {
+    try { localStorage.removeItem(SHOP_RETURN_KEY); } catch (e) {}
+    return false;
+  }
   if (typeof openFriendListByCat !== 'function') return false;
+  // Deliberately NOT consumed on use. One trip out to a retailer and back is
+  // rarely one hop: you check a price, go back to the shop page, come back to
+  // Tenner, go out again. Deleting the note on the first return made every
+  // trip after that land on Circle. The ?back=shop marker is what gates this,
+  // and only the shop page ever sets it, so keeping the note costs nothing.
+  // Refresh the timestamp so a long shopping session does not age out mid-way.
+  try {
+    st.ts = Date.now();
+    localStorage.setItem(SHOP_RETURN_KEY, JSON.stringify(st));
+  } catch (e) {}
   try {
     // Walk the trail rather than jumping to the end of it.
     //
