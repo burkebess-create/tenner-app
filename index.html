@@ -725,6 +725,21 @@
               </span>
             </label>
           </div>
+          <div style="margin-top:10px;background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div style="font-size:13px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em">Public link</div>
+                <div style="font-size:11px;color:#5F5E5A;margin-top:3px;line-height:1.4">Anyone with the link can see this list — no Tenner account needed</div>
+              </div>
+              <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;margin-left:12px">
+                <input type="checkbox" id="list-detail-share-toggle" onchange="toggleListPublicLink(this.checked)" style="opacity:0;width:0;height:0;position:absolute">
+                <span id="list-detail-share-track" style="position:absolute;inset:0;border-radius:99px;background:#D3D1C7;cursor:pointer;transition:background .2s">
+                  <span id="list-detail-share-thumb" style="position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s"></span>
+                </span>
+              </label>
+            </div>
+            <div id="list-detail-share-url" style="display:none;margin-top:10px"></div>
+          </div>
           <div style="margin-top:10px;background:#FFFFFF;border:1px solid #E8E6DF;border-left:7px solid #D85A30;border-radius:3px;padding:14px;display:flex;align-items:center;justify-content:space-between">
             <div>
               <div style="font-size:13px;font-weight:800;color:#2C2C2A;letter-spacing:-0.005em">Blind fill</div>
@@ -5232,6 +5247,78 @@ function setPublicToggleUI(checked) {
   if (thumb) thumb.style.transform = checked ? 'translateX(18px)' : 'translateX(0)';
 }
 
+// ── Public link ───────────────────────────────────────────────────────
+// A separate, opt-in decision from "Visible to friends". That toggle says
+// friends; this one says the open web, so it gets its own switch and its own
+// wording rather than inheriting consent from a promise about your circle.
+//
+// The link is also where the Amazon links live. Nothing in the signed-in app
+// ever carries an affiliate link, which keeps Special Links off an installable
+// application entirely (Participation Requirements 5) and puts them on a page
+// where the ranking and the owner's notes supply the original content that
+// section 2(b) requires next to a search link.
+function listPublicUrl(token) {
+  var origin = (location.origin && location.origin.indexOf('http') === 0)
+    ? location.origin : 'https://mytenner.com';
+  return origin + '/l.html?t=' + encodeURIComponent(token);
+}
+
+function setListShareUI(list) {
+  var tog = document.getElementById('list-detail-share-toggle');
+  var track = document.getElementById('list-detail-share-track');
+  var thumb = document.getElementById('list-detail-share-thumb');
+  var box = document.getElementById('list-detail-share-url');
+  if (!tog) return;
+  var on = !!(list && list.share_token);
+  tog.checked = on;
+  if (track) track.style.background = on ? '#D85A30' : '#D3D1C7';
+  if (thumb) thumb.style.transform = on ? 'translateX(18px)' : 'translateX(0)';
+  if (!box) return;
+  if (!on) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  var url = listPublicUrl(list.share_token);
+  box.style.display = 'block';
+  box.innerHTML = '<div style="display:flex;align-items:center;gap:8px">'
+    + '<code style="flex:1;min-width:0;font-size:11px;color:#5F5E5A;background:#FDFCF8;border:1px solid #E8E5DC;border-radius:3px;padding:7px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+    +   escapeHtml(url) + '</code>'
+    + '<button type="button" onclick="copyToClipboard(\'' + jsStrAttr(url) + '\')" style="flex-shrink:0;background:#D85A30;color:#FFF;border:none;border-radius:3px;font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;padding:8px 12px;cursor:pointer;font-family:inherit">Copy</button>'
+    + '</div>';
+}
+
+async function toggleListPublicLink(checked) {
+  var l = MY_LISTS.find(function(x){ return (x.category || x.n.replace('Top 10 ','')) === _currentListCategory; });
+  if (!l || !l.id) { showToast('Save this list first.'); setListShareUI(l); return; }
+
+  if (!checked) {
+    // Turning it off is destructive in the sense that matters: a link already
+    // texted to someone stops working. Say so before doing it.
+    showConfirm('Turn off the public link?',
+      'Anyone you already sent it to will stop being able to open it. Turning it back on later creates a new link.',
+      'Turn off', 'primary',
+      function() {
+        sbClient.rpc('unpublish_my_list', { p_list_id: l.id }).then(function(r) {
+          if (r.error) { showToast('Couldn\'t turn it off: ' + (r.error.message || 'unknown')); setListShareUI(l); return; }
+          l.share_token = null;
+          setListShareUI(l);
+          showToast('Public link turned off');
+        });
+      },
+      function() { setListShareUI(l); }   // cancelled — put the switch back
+    );
+    return;
+  }
+
+  setListShareUI({ share_token: null });   // optimistic: stay off until it lands
+  var res = await sbClient.rpc('publish_my_list', { p_list_id: l.id });
+  if (!sbCheck(res, 'toggleListPublicLink') || !res.data) {
+    showToast('Couldn\'t create the link.');
+    setListShareUI(l);
+    return;
+  }
+  l.share_token = res.data;
+  setListShareUI(l);
+  showToast('Public link ready — copy it below');
+}
+
 var _currentListCategory = null;
 
 async function toggleListPublic(checked) {
@@ -5314,6 +5401,7 @@ function showListDetail(l, origin) {
   document.getElementById('list-detail-meta').textContent = l.m;
   setPublicToggleUI(!!l.is_public);
   setBlindToggleUI(!!l.blind_fill);
+  setListShareUI(l);
   // Prominent Share CTA — only show if the list has actual items to share
   var cta = document.getElementById('list-detail-share-cta');
   if (cta) {
@@ -12863,7 +12951,10 @@ async function loadState() {
 
       if (listsRes.data && listsRes.data.length > 0) {
         MY_LISTS = listsRes.data.map(function(l) {
-          return { n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category, emoji: l.emoji || getCatEmoji(l.category), is_public: !!l.is_public, blind_fill: !!l.blind_fill, item_notes: (l.item_notes && typeof l.item_notes === 'object') ? l.item_notes : {}, updated_at: l.updated_at, created_at: l.created_at };
+          // id and share_token carry the public-link state. share_token is
+          // null until the owner explicitly publishes; it is NOT derived from
+          // is_public, which only ever promised "visible to friends".
+          return { id: l.id, share_token: l.share_token || null, n: l.name, m: (l.is_ranked ? 'Ranked' : 'Unranked') + ' · ' + l.items.length + ' items', items: l.items, ranked: l.is_ranked, category: l.category, emoji: l.emoji || getCatEmoji(l.category), is_public: !!l.is_public, blind_fill: !!l.blind_fill, item_notes: (l.item_notes && typeof l.item_notes === 'object') ? l.item_notes : {}, updated_at: l.updated_at, created_at: l.created_at };
         });
         _usingCachedLists = false;
       } else if (listsRes.error) {

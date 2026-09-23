@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- Same CSP as g.html. This page renders user-written item names and notes,
+     so escaping is the real control: everything below is built with
+     createElement + textContent rather than innerHTML string concatenation,
+     which removes the injection class entirely rather than escaping past it. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://img.mytenner.com https://bbjpvlmkhvggtwyvpzrq.supabase.co; connect-src 'self' https://bbjpvlmkhvggtwyvpzrq.supabase.co; form-action 'self'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Top 10 — Tenner</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+<meta name="description" content="Someone's Top 10 list, shared from Tenner.">
+<!-- noindex matches the gift page. The owner pressed Share to send a link to
+     specific people; that is not the same as asking to rank on Google under
+     their own name. Flipping this to "index" is a one-word change if and when
+     that becomes an explicit opt-in. -->
+<meta name="robots" content="noindex, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="A Top 10 — Tenner">
+<meta property="og:description" content="Someone's Top 10 list, shared from Tenner.">
+<meta property="og:image" content="https://mytenner.com/og-image.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; color: #2C2C2A; background: #FDFCF8; line-height: 1.55; }
+
+  header { background: #FDFCF8; border-bottom: 1px solid #EAE3DC; padding: 14px 20px; position: sticky; top: 0; z-index: 10; }
+  header .wrap { max-width: 640px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+  header img { height: 28px; object-fit: contain; }
+  header .cta { background: #D85A30; color: #fff; text-decoration: none; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; padding: 9px 14px; border-radius: 3px; }
+
+  .page { max-width: 640px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  .hero { background: #FFFFFF; border: 1px solid #E8E6DF; border-left: 7px solid #D85A30; border-radius: 3px; padding: 26px 20px 22px; text-align: center; margin-bottom: 14px; }
+  .avatar-ring { display: inline-block; padding: 4px; background: #FFFFFF; border: 1.5px solid #2C2C2A; border-radius: 999px; }
+  .avatar { width: 76px; height: 76px; border-radius: 999px; background: #EAE3DC; color: #5F5E5A; font-size: 28px; font-weight: 800; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .hero .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; color: #D85A30; text-transform: uppercase; margin: 14px 0 6px; }
+  .hero h1 { font-size: 27px; font-weight: 800; letter-spacing: -0.015em; margin: 0; line-height: 1.08; color: #2C2C2A; }
+  .hero .emoji { font-size: 34px; line-height: 1; margin-bottom: 10px; }
+  .hero .sub { font-size: 11px; color: #888780; margin: 10px 0 0; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; }
+
+  .disclosure { background: #FFFFFF; border: 1px solid #E8E6DF; border-radius: 3px; padding: 10px 12px; margin-bottom: 14px; font-size: 11.5px; color: #5F5E5A; line-height: 1.5; text-align: center; }
+
+  .picks { background: #FFFFFF; border: 1px solid #E8E6DF; border-radius: 3px; padding: 4px 8px; }
+  .pick { display: flex; align-items: flex-start; gap: 12px; padding: 14px 6px; }
+  .pick + .pick { border-top: 1px solid #F1EFE8; }
+  .pick .rank { min-width: 26px; height: 22px; border-radius: 2px; font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #FFFFFF; background: #2C2C2A; margin-top: 2px; }
+  .pick .body { flex: 1; min-width: 0; }
+  .pick .name { font-size: 14.5px; font-weight: 700; color: #2C2C2A; overflow-wrap: break-word; line-height: 1.3; }
+  /* The owner's own sentence about a pick — the thing no one else on the
+     internet has written, and what makes this page worth linking from. */
+  .pick .note { margin-top: 6px; font-size: 12.5px; line-height: 1.45; color: #4A4945; border-left: 2px solid #D85A30; padding-left: 9px; font-style: italic; }
+  .shops { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+  .shops a { background: #FFFFFF; border: 1.5px solid #D85A30; color: #D85A30; text-decoration: none; font-size: 9.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 9px; border-radius: 3px; }
+
+  .footer-block { background: #FFFFFF; border: 1px solid #E8E6DF; border-left: 7px solid #D85A30; border-radius: 3px; padding: 22px 20px; margin-top: 24px; text-align: center; }
+  .footer-block h2 { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 8px; color: #2C2C2A; }
+  .footer-block p { font-size: 13.5px; color: #5F5E5A; margin: 0 0 14px; }
+  .footer-block .btn { display: inline-block; background: #D85A30; color: #fff; text-decoration: none; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; padding: 12px 20px; border-radius: 3px; }
+
+  footer { text-align: center; padding: 30px 20px; color: #888780; font-size: 12px; }
+  footer a { color: #888780; margin: 0 8px; }
+
+  .loading, .empty { text-align: center; padding: 60px 20px; color: #888780; }
+  .empty h2 { color: #2C2C2A; font-size: 18px; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="/"><img src="/logo-horizontal.png" alt="Tenner"></a>
+    <a class="cta" href="/?skipIntro=1">Launch Tenner →</a>
+  </div>
+</header>
+
+<div class="page" id="page-root">
+  <div class="loading">Loading…</div>
+</div>
+
+<footer>
+  <a href="/">Home</a> · <a href="/gifts/">Gift categories</a> · <a href="/about.html">About</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a>
+  <div style="margin-top:12px;font-size:11px">As an Amazon Associate, Tenner earns from qualifying purchases.</div>
+</footer>
+
+<script>
+(function () {
+  var SUPABASE_URL = 'https://bbjpvlmkhvggtwyvpzrq.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_jeeTdNoqIJXBtx_1W1TscQ_cnRAcwHx';
+  var root = document.getElementById('page-root');
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;   // never innerHTML for user content
+    return n;
+  }
+
+  var sb = null;
+  function client() {
+    if (sb) return sb;
+    try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) {}
+    return sb;
+  }
+
+  // ── Shop-click tracking ─────────────────────────────────────────────
+  // Delegated and fire-and-forget so navigation is never blocked or delayed.
+  // Deliberately NOT a redirector: Participation Requirements 6(v) forbids
+  // obscuring the URL of the page containing a Special Link, and Commission
+  // Income 2(e) disqualifies a purchase reached via an intermediate page the
+  // customer took no action on. The anchor points straight at the retailer.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[data-shop]');
+    if (!a) return;
+    try {
+      var c = client();
+      if (!c) return;
+      c.from('shop_clicks').insert({
+        user_id: null,
+        from_user_id: null,
+        category: a.getAttribute('data-category') || null,
+        query: a.getAttribute('data-query') || null,
+        item: a.getAttribute('data-item') || null,
+        url: a.getAttribute('href') || null,
+        retailer: a.getAttribute('data-shop') || null,
+        source: 'list-share',
+        referer: document.referrer || null,
+        user_agent: navigator.userAgent || null
+      }).then(function () {}, function () {});
+    } catch (err) {}
+  });
+
+  function initials(name) {
+    var parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+  }
+
+  function shopUrl(template, item, suffix) {
+    var q = String(item || '').trim();
+    if (suffix) q += ' ' + suffix;
+    // '+' rather than %20 matches the format already used on /gifts/.
+    return template.replace('{q}', encodeURIComponent(q).replace(/%20/g, '+'));
+  }
+
+  function notFound(msg) {
+    root.innerHTML = '';
+    var box = el('div', 'empty');
+    box.appendChild(el('h2', null, 'This list isn’t available'));
+    box.appendChild(el('p', null, msg || 'The link may have been turned off by whoever shared it.'));
+    var a = el('a', 'btn', 'Go to Tenner →');
+    a.href = '/'; a.style.color = '#D85A30'; a.style.fontWeight = '800';
+    box.appendChild(a);
+    root.appendChild(box);
+  }
+
+  function render(data) {
+    var owner = data.owner || {};
+    var list = data.list || {};
+    var shop = data.shop || {};
+    var items = Array.isArray(list.items) ? list.items : [];
+    var notes = list.item_notes || {};
+    var name = owner.display_name || (owner.handle ? '@' + owner.handle : 'Someone');
+    var cat = list.category || 'Top 10';
+
+    document.title = name + '’s Top 10 ' + cat + ' — Tenner';
+
+    root.innerHTML = '';
+
+    // ── hero ──────────────────────────────────────────────────────────
+    var hero = el('div', 'hero');
+    var ring = el('div', 'avatar-ring');
+    var av = el('div', 'avatar');
+    if (owner.photo) {
+      var img = document.createElement('img');
+      img.src = owner.photo; img.alt = '';
+      av.appendChild(img);
+    } else {
+      av.textContent = initials(name);
+    }
+    ring.appendChild(av);
+    hero.appendChild(ring);
+    hero.appendChild(el('div', 'eyebrow', name + '’s Top 10'));
+    if (list.emoji) hero.appendChild(el('div', 'emoji', list.emoji));
+    hero.appendChild(el('h1', null, cat));
+    if (list.updated_at) {
+      var d = new Date(list.updated_at);
+      hero.appendChild(el('div', 'sub', 'Updated ' + d.toLocaleDateString(undefined,
+        { month: 'short', day: 'numeric', year: 'numeric' })));
+    }
+    root.appendChild(hero);
+
+    // Section 5 of the Operating Agreement: the disclosure has to be clear and
+    // prominent wherever Special Links appear, and only where they appear.
+    var canShop = !!shop.enabled && Array.isArray(shop.retailers) && shop.retailers.length;
+    if (canShop) {
+      root.appendChild(el('div', 'disclosure',
+        'Shop links are affiliate links. As an Amazon Associate, Tenner earns from qualifying purchases at no extra cost to you.'));
+    }
+
+    // ── picks ─────────────────────────────────────────────────────────
+    if (!items.length) {
+      root.appendChild(el('div', 'empty', 'This list is empty so far.'));
+    } else {
+      var wrap = el('div', 'picks');
+      items.forEach(function (item, i) {
+        var row = el('div', 'pick');
+        row.appendChild(el('div', 'rank', String(i + 1).padStart(2, '0')));
+        var body = el('div', 'body');
+        body.appendChild(el('div', 'name', item));
+
+        var note = notes && notes[item];
+        if (note) body.appendChild(el('div', 'note', '“' + note + '”'));
+
+        // Participation Requirements 2(b): a search-results link needs
+        // additional original content relevant to it. The ranking and the
+        // owner's own note are that content, which is why the buttons render
+        // here and not against a bare item name in the app.
+        if (canShop) {
+          var shops = el('div', 'shops');
+          shop.retailers.forEach(function (r) {
+            var url = shopUrl(r.url_template, item, shop.query_suffix);
+            var a = el('a', null, r.label);
+            a.href = url;
+            a.target = '_blank';
+            // 'sponsored nofollow' is the FTC/Google convention; noopener
+            // keeps the new tab from reaching back into this one.
+            a.rel = 'noopener sponsored nofollow';
+            a.setAttribute('data-shop', r.slug);
+            a.setAttribute('data-item', item);
+            a.setAttribute('data-category', cat);
+            a.setAttribute('data-query', String(item || '') + (shop.query_suffix ? ' ' + shop.query_suffix : ''));
+            shops.appendChild(a);
+          });
+          body.appendChild(shops);
+        }
+        row.appendChild(body);
+        wrap.appendChild(row);
+      });
+      root.appendChild(wrap);
+    }
+
+    // ── CTA ───────────────────────────────────────────────────────────
+    var fb = el('div', 'footer-block');
+    fb.appendChild(el('h2', null, 'Make your own Top 10'));
+    fb.appendChild(el('p', null,
+      'Rank what you love, compare with people you know, and see where your taste overlaps.'));
+    var btn = el('a', 'btn', 'Start your list →');
+    btn.href = '/';
+    fb.appendChild(btn);
+    root.appendChild(fb);
+  }
+
+  (function load() {
+    var q = new URLSearchParams(location.search);
+    var token = q.get('t') || (location.pathname.split('/l/')[1] || '').replace(/\/$/, '');
+    if (!token) { notFound('No list was specified.'); return; }
+    var c = client();
+    if (!c) { notFound('Could not connect.'); return; }
+    c.rpc('get_public_list_data', { share_token: token }).then(function (res) {
+      if (res.error || !res.data) { notFound(); return; }
+      try { render(res.data); } catch (e) { notFound('Something went wrong rendering this list.'); }
+    }, function () { notFound('Could not load this list.'); });
+  })();
+})();
+</script>
+</body>
+</html>
