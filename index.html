@@ -15697,6 +15697,13 @@ async function renderAdminCats(el) {
       : (n > 0
           ? '<span style="font-size:9px;background:#EAF3EE;color:#2F6B52;padding:2px 6px;border-radius:99px;white-space:nowrap;display:inline-block" title="' + n + ' autofill suggestion' + (n === 1 ? '' : 's') + '">✓ ' + n + ' item' + (n === 1 ? '' : 's') + '</span>'
           : '<span style="font-size:9px;background:#FBF0D8;color:#B57F0F;padding:2px 6px;border-radius:99px;white-space:nowrap;display:inline-block" title="No autofill suggestions — people get a blank field">No autofill</span>');
+    // So you can see at a glance which categories carry shopping links,
+    // without opening each one. Shows the search wording too, since a wrong
+    // suffix is the difference between finding the game and finding nothing.
+    var shopBadge = c.shop_enabled
+      ? '<span style="font-size:9px;background:#FAECE7;color:#993C1D;padding:2px 6px;border-radius:99px;white-space:nowrap;display:inline-block" title="Lists in this category show &quot;Where to get these&quot;">🛒 Shop'
+        + (c.shop_query_suffix ? ' · ' + escapeHtml(c.shop_query_suffix) : '') + '</span>'
+      : '';
     var slotBadge = i < CAT_GRID_SLOTS
       ? '<span style="font-size:9px;background:#EAF3EE;color:#2F6B52;padding:2px 6px;border-radius:99px;white-space:nowrap;display:inline-block">Page 1 · slot ' + (i + 1) + '</span>'
       : '<span style="font-size:9px;background:#F1EFE8;color:#5F5E5A;padding:2px 6px;border-radius:99px;white-space:nowrap;display:inline-block">Page ' + (Math.floor(i / CAT_GRID_SLOTS) + 1) + ' · slot ' + ((i % CAT_GRID_SLOTS) + 1) + '</span>';
@@ -15709,7 +15716,7 @@ async function renderAdminCats(el) {
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start">'
       +   handle
       +   '<div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0"><span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' + renderCatEmoji(c.emoji, 22) + '</span><div style="min-width:0"><strong style="font-size:13px;overflow-wrap:break-word">' + escapeHtml(c.name) + '</strong>'
-      +   '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">' + slotBadge + itemsBadge + seasonBadge + '</div>'
+      +   '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">' + slotBadge + itemsBadge + shopBadge + seasonBadge + '</div>'
       +   '<div style="font-size:10px;color:#888780;margin-top:3px">Created ' + fmtDate(c.created_at) + '</div></div></div>'
       +   '<div style="flex-shrink:0;display:flex;flex-direction:column;gap:4px;align-items:stretch;margin-left:8px">'
       +     '<button class="back-btn" style="white-space:nowrap;padding:4px 10px;font-size:11px" onclick="editAdminCat(\'' + c.id + '\')">Edit</button>'
@@ -16026,7 +16033,11 @@ function editAdminCat(id) {
   // A new category starts OUT of gift guides — most new categories aren't
   // gift-relevant, and opting in deliberately is safer than opting out by
   // accident. Existing categories keep whatever they already have.
-  _adminEditingCat = existing ? Object.assign({}, existing) : { name:'', emoji:'📋', is_seasonal:false, active_from:'', active_to:'', gift_default:false };
+  // shop_enabled defaults OFF for the same reason gift_default does: most
+  // categories are not things you buy, and "Worst Smells" becoming an Amazon
+  // search carrying our affiliate tag is the brand adjacency Amazon can
+  // terminate over. Opting in deliberately beats opting out by accident.
+  _adminEditingCat = existing ? Object.assign({}, existing) : { name:'', emoji:'📋', is_seasonal:false, active_from:'', active_to:'', gift_default:false, shop_enabled:false, shop_query_suffix:'' };
   _adminEmojiPreview = _adminEditingCat.emoji || '📋';
   var frame = document.querySelector('.frame') || document.body;
   var existingModal = document.getElementById('admin-cat-modal');
@@ -16052,6 +16063,15 @@ function editAdminCat(id) {
     +     '<input type="checkbox" id="ac-gift-default" ' + (_adminEditingCat.gift_default ? 'checked' : '') + ' style="margin-top:3px">'
     +     '<span>Suggest for gift guides<br><span style="font-size:11px;color:#5F5E5A">Pre-ticked in each user\'s gift-guide picker. Leave off for categories that aren\'t gift ideas. Users can always change their own.</span></span>'
     +   '</label>'
+    +   '<label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;font-size:13.5px;color:#2C2C2A">'
+    +     '<input type="checkbox" id="ac-shop-enabled" ' + (_adminEditingCat.shop_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'ac-shop-suffix-wrap\').style.display=this.checked?\'block\':\'none\'" style="margin-top:3px">'
+    +     '<span>Show &ldquo;Where to get these&rdquo;<br><span style="font-size:11px;color:#5F5E5A">Adds a button on this category’s lists that opens a public page with shopping links. Leave off for anything you would not want beside an affiliate link.</span></span>'
+    +   '</label>'
+    +   '<div id="ac-shop-suffix-wrap" style="display:' + (_adminEditingCat.shop_enabled ? 'block' : 'none') + ';margin-bottom:12px;padding-left:24px">'
+    +     '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Search wording</div>'
+    +     '<input type="text" id="ac-shop-suffix" value="' + escapeHtml(_adminEditingCat.shop_query_suffix || '') + '" placeholder="board game" style="margin-bottom:4px;font-size:13px">'
+    +     '<div style="font-size:10px;color:#888780;line-height:1.45">Added after the item name in the search. &ldquo;Catan&rdquo; + &ldquo;board game&rdquo; finds the game; &ldquo;Catan&rdquo; alone finds anything. Leave blank when the item name is already specific.</div>'
+    +   '</div>'
     +   '<label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13.5px;color:#2C2C2A">'
     +     '<input type="checkbox" id="ac-seasonal" ' + (_adminEditingCat.is_seasonal ? 'checked' : '') + ' onchange="document.getElementById(\'ac-season-range\').style.display=this.checked?\'block\':\'none\'"> Seasonal (only shows during a date range)'
     +   '</label>'
@@ -16138,10 +16158,17 @@ function saveAdminCat() {
       showToast('Dates must be MM-DD (e.g. 10-31).'); return;
     }
   }
+  var shopOn = !!(document.getElementById('ac-shop-enabled') || {}).checked;
+  var shopSuffix = ((document.getElementById('ac-shop-suffix') || {}).value || '').trim();
   var payload = {
     name: name,
     emoji: _adminEmojiPreview || '📋',
     gift_default: !!(document.getElementById('ac-gift-default') || {}).checked,
+    shop_enabled: shopOn,
+    // Blank means "the item name alone is specific enough", which is a real
+    // choice — store null rather than an empty string so the page does not
+    // append a stray space to every search.
+    shop_query_suffix: (shopOn && shopSuffix) ? shopSuffix : null,
     is_seasonal: seasonal,
     active_from: active_from,
     active_to: active_to
