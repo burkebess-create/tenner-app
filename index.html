@@ -9597,6 +9597,11 @@ function onbStep1Next() {
   if (!v) { err.textContent = 'Please enter your name.'; err.style.display = 'block'; return; }
   if (!myProfile) myProfile = { id: userId };
   myProfile.display_name = v;
+  // Persist as soon as it is entered. Onboarding used to write NOTHING to the
+  // database until step 5 (birthday), so anyone who closed the app at the
+  // phone or photo step lost their name and handle entirely — which is how
+  // every account created since Sept 14 ended up with no handle.
+  saveOnboardingProfile();
   _onbStep = 2;
   renderOnbStep();
 }
@@ -9650,6 +9655,10 @@ async function onbStep2Next() {
     if (taken2) { err.textContent = '@' + v + ' is taken. Please try another.'; err.style.display = 'block'; return; }
   } catch(e) {}
   myProfile.handle = v;
+  // The handle is the field that was going missing. Save it here, not four
+  // steps later. Awaited so a handle that fails to store surfaces before the
+  // user walks away believing they have one.
+  await saveOnboardingProfile();
   _onbStep = 3;
   renderOnbStep();
 }
@@ -9676,11 +9685,13 @@ function onbStep3Next() {
     return;
   }
   myProfile.phone = raw;
+  saveOnboardingProfile();   // every step persists; see onbStep1Next
   _onbStep = 4;
   renderOnbStep();
 }
 function onbStep3Skip() {
   myProfile.phone = null;
+  saveOnboardingProfile();
   _onbStep = 4;
   renderOnbStep();
 }
@@ -9708,6 +9719,7 @@ function onbStep4Next() {
   var err = document.getElementById('onb-error');
   if ((m && !d) || (!m && d)) { err.textContent = 'Please pick both month and day, or skip.'; err.style.display = 'block'; return; }
   if (m && d) myProfile.birthday = '2000-' + m + '-' + d;
+  saveOnboardingProfile();
   _onbStep = 5;
   renderOnbStep();
 }
