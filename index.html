@@ -11003,11 +11003,45 @@ function friendListShopUrl(cat, items) {
   return origin + '/shop.html?' + qs.toString();
 }
 
+// Where the shop page's "Back to Tenner" should land.
+//
+// It cannot travel in the shop URL: that URL is deliberately free of any
+// owner identity, and a friend id in it would undo exactly what makes the
+// page shareable without consent. It goes in localStorage instead — same
+// origin, so the new tab can read it, and it never leaves the device.
+var SHOP_RETURN_KEY = 'tenner_shop_return';
+
+function captureShopReturn(ownerId, cat) {
+  try {
+    localStorage.setItem(SHOP_RETURN_KEY, JSON.stringify({
+      friendId: ownerId || null, cat: cat || null, ts: Date.now()
+    }));
+  } catch (e) { /* best effort — worst case they land on Circle, as before */ }
+}
+
+// Only ever called when the URL says we came back from the shop page, so a
+// normal app open never teleports you into a list you looked at yesterday.
+async function restoreShopReturn() {
+  var raw = null;
+  try { raw = localStorage.getItem(SHOP_RETURN_KEY); } catch (e) { return false; }
+  if (!raw) return false;
+  try { localStorage.removeItem(SHOP_RETURN_KEY); } catch (e) {}
+  var st = null;
+  try { st = JSON.parse(raw); } catch (e) { return false; }
+  if (!st || !st.friendId || !st.cat) return false;
+  // Shopping takes a while; an hour is generous but still clearly "this trip".
+  if (st.ts && Date.now() - st.ts > 60 * 60 * 1000) return false;
+  if (typeof openFriendListByCat !== 'function') return false;
+  try { await openFriendListByCat(st.friendId, st.cat); return true; }
+  catch (e) { return false; }
+}
+
 function renderFriendListShopCta(cat, items) {
   var box = document.getElementById('friend-list-shop');
   if (!box) return;
   var cfg = (!_pickMode && items && items.length) ? _shopConfigForCategory(cat) : null;
   if (!cfg) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  var ownerId = (typeof selFriendId !== 'undefined') ? selFriendId : null;
   var url = friendListShopUrl(cat, items);
   box.style.display = 'block';
   // A real anchor with target=_blank, not a scripted navigation: the hand-off
@@ -11015,6 +11049,7 @@ function renderFriendListShopCta(cat, items) {
   // rendering an Amazon page in an embedded browser and the next tap on that
   // page goes to Amazon.
   box.innerHTML = '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" '
+    + 'onclick="captureShopReturn(\'' + jsStrAttr(ownerId || '') + '\',\'' + jsStrAttr(cat) + '\')" '
     + 'style="display:flex;width:100%;background:#D85A30;border:1.5px solid #D85A30;border-radius:3px;padding:12px 14px;'
     + 'font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#FFFFFF;text-decoration:none;'
     + 'align-items:center;justify-content:center;gap:8px">🛒 Where to get these →</a>'
@@ -18395,10 +18430,20 @@ function setupRealtimeNotifications() {
     }).catch(console.warn);
     var _pFriends = loadFriends().then(function() {
       if (isCircleActive()) { renderCircleStories(); renderHomeFeed(); renderCircleScreen(); renderTodayPill(); renderCircleListInvites(); }
-      // After an update reload, put the user back where they were. Runs here
-      // because friends/groups/lists must exist before we can reopen a friend,
-      // group or list screen.
-      if (typeof restoreAfterUpdate === 'function') restoreAfterUpdate();
+      // Coming back from the shop page outranks the update-restore: it is the
+      // more recent, more deliberate intent. Runs here for the same reason —
+      // myFriends has to exist before a friend's list can be reopened.
+      var _backFromShop = false;
+      try { _backFromShop = /[?&]back=shop\b/.test(location.search); } catch (e) {}
+      if (_backFromShop && typeof restoreShopReturn === 'function') {
+        restoreShopReturn().then(function(done) {
+          // Drop ?back=shop so a refresh does not try to restore twice.
+          try { history.replaceState(history.state || {}, '', location.pathname); } catch (e) {}
+          if (!done && typeof restoreAfterUpdate === 'function') restoreAfterUpdate();
+        });
+      } else if (typeof restoreAfterUpdate === 'function') {
+        restoreAfterUpdate();
+      }
     }).catch(console.warn);
 
     // An email deep link is the user's most recent explicit intent, so it is

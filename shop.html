@@ -65,7 +65,11 @@
 <header>
   <div class="wrap">
     <a href="/"><img src="/logo-horizontal.png" alt="Tenner"></a>
-    <a class="cta" href="/?skipIntro=1">Back to Tenner →</a>
+    <!-- back=shop tells the app to reopen the list this page was launched
+         from, rather than dumping the user on Circle. The list itself is
+         identified by a localStorage note the app left before opening this
+         tab, not by anything in this URL. -->
+    <a class="cta" href="/?skipIntro=1&amp;back=shop">Back to Tenner →</a>
   </div>
 </header>
 
