@@ -11032,7 +11032,12 @@ async function restoreShopReturn() {
   // Shopping takes a while; an hour is generous but still clearly "this trip".
   if (st.ts && Date.now() - st.ts > 60 * 60 * 1000) return false;
   if (typeof openFriendListByCat !== 'function') return false;
-  try { await openFriendListByCat(st.friendId, st.cat); return true; }
+  // Pass the origin explicitly. Without it openFriendListByCat falls back to
+  // "whichever screen is currently active", and on a fresh load that is
+  // Circle — so Back from the restored list skipped the friend's page and
+  // jumped straight out to Circle. You reached this list from their page, so
+  // that is where Back belongs.
+  try { await openFriendListByCat(st.friendId, st.cat, 's-fdetail'); return true; }
   catch (e) { return false; }
 }
 
