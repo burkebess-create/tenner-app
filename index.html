@@ -11032,13 +11032,23 @@ async function restoreShopReturn() {
   // Shopping takes a while; an hour is generous but still clearly "this trip".
   if (st.ts && Date.now() - st.ts > 60 * 60 * 1000) return false;
   if (typeof openFriendListByCat !== 'function') return false;
-  // Pass the origin explicitly. Without it openFriendListByCat falls back to
-  // "whichever screen is currently active", and on a fresh load that is
-  // Circle — so Back from the restored list skipped the friend's page and
-  // jumped straight out to Circle. You reached this list from their page, so
-  // that is where Back belongs.
-  try { await openFriendListByCat(st.friendId, st.cat, 's-fdetail'); return true; }
-  catch (e) { return false; }
+  try {
+    // Walk the trail rather than jumping to the end of it.
+    //
+    // There are TWO ways back off this screen and they use different
+    // machinery: the in-app "← Back" button reads friendListOrigin, while the
+    // device back gesture pops the history stack. Setting the origin alone
+    // fixed the button and left the gesture landing on Circle, because a
+    // fresh page load had only pushed Circle before the list.
+    //
+    // Visiting the friend's page first puts it in the history stack, so both
+    // routes now agree on where "back" is. selFriendId has to be set before
+    // the hop, since s-fdetail renders from it.
+    if (typeof selFriendId !== 'undefined') selFriendId = st.friendId;
+    if (typeof go === 'function') go('s-fdetail');
+    await openFriendListByCat(st.friendId, st.cat, 's-fdetail');
+    return true;
+  } catch (e) { return false; }
 }
 
 function renderFriendListShopCta(cat, items) {
