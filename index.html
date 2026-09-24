@@ -12819,18 +12819,52 @@ async function saveListToDb(listObj) {
     var cat = listObj.category || listObj.n.replace('Top 10 ', '');
     cat = canonicalCategoryName(cat);
 
-    var res = await sbClient.from('lists').upsert({
-      user_id: userId,
-      name: listObj.n,
-      category: cat,
-      items: listObj.items,
-      is_ranked: listObj.ranked !== false,
-      emoji: listObj.emoji || '📋',
-      is_public: !!listObj.is_public,
-      blind_fill: !!listObj.blind_fill,
-      item_notes: listObj.item_notes || {},
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id,category' });
+    function payloadFor(c) {
+      return {
+        user_id: userId,
+        name: listObj.n,
+        category: c,
+        items: listObj.items,
+        is_ranked: listObj.ranked !== false,
+        emoji: listObj.emoji || '📋',
+        is_public: !!listObj.is_public,
+        blind_fill: !!listObj.blind_fill,
+        item_notes: listObj.item_notes || {},
+        updated_at: new Date().toISOString()
+      };
+    }
+
+    var res = await sbClient.from('lists')
+      .upsert(payloadFor(cat), { onConflict: 'user_id,category' });
+
+    // The upsert conflicts on (user_id, category) — the EXACT-case index. A
+    // second unique index on (user_id, lower(category)) was added later, so a
+    // save whose capitalisation differs from the stored row misses the
+    // conflict target, proceeds as an insert, and dies on the lower() index
+    // with 23505. canonicalCategoryName() is supposed to prevent that by
+    // adopting the existing spelling, but it only sees MY_LISTS and the
+    // FILTERED catalogue, so it misses a retired or out-of-season category,
+    // and misses everything when MY_LISTS came from the localStorage cache.
+    // Reproduced in SQL: same category, different case -> 23505.
+    //
+    // Recover rather than fail: ask the database what spelling this user
+    // actually has and save against that. One retry, never a loop.
+    if (res && res.error && res.error.code === '23505'
+        && /lower/i.test(res.error.message || '')) {
+      var found = await sbClient.from('lists')
+        .select('category').eq('user_id', userId).ilike('category', cat).maybeSingle();
+      if (found && found.data && found.data.category) {
+        res = await sbClient.from('lists')
+          .upsert(payloadFor(found.data.category), { onConflict: 'user_id,category' });
+        if (!(res && res.error)) {
+          trackEvent('list_save_case_recovered', { from: cat, to: found.data.category });
+        }
+      }
+    }
+
+    // Save failures had NO telemetry: both callers turned the error into a
+    // toast and dropped it, so "my list wouldn't save" was undiagnosable.
+    if (res && res.error) sbCheck(res, 'saveListToDb');
     if (res && res.error) throw res.error;
     // Milestone: user has now saved at least one list.
     trackOnce('first_list_created', { category: listObj.category || null, items: (listObj.items || []).length });
@@ -17987,7 +18021,17 @@ async function saveListDataOnly() {
   try {
     await saveListToDb(listObj);
   } catch(e) {
-    showToast('Could not save. Try again.');
+    // Queue it like the main save path does, so the work is not lost just
+    // because this entry point was used. It used to be dropped on the floor.
+    try { markListDirty(listObj); } catch (_) {}
+    try {
+      trackEvent('js_error', {
+        message: 'list save failed @ saveListDataOnly: ' + ((e && (e.message || e.code)) || 'unknown'),
+        code: (e && e.code) || null,
+        category: selCat || null
+      });
+    } catch (_) {}
+    showToast('Could not save to the cloud — kept on this device, will retry.');
     throw e;
   }
   if (existing >= 0) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
@@ -18071,6 +18115,17 @@ async function saveList() {
   } catch(e) {
     syncedOk = false;
     markListDirty(listObj);
+    // Record WHY, not just that it happened. saveListToDb reports the
+    // supabase error itself; this catches everything else (thrown moderation
+    // failures, network drops) so the admin Errors screen shows a cause.
+    try {
+      trackEvent('js_error', {
+        message: 'list save failed @ saveList: ' + ((e && (e.message || e.code)) || 'unknown'),
+        code: (e && e.code) || null,
+        category: selCat || null,
+        items: (listObj.items || []).length
+      });
+    } catch (_) {}
     showToast('Saved locally — will retry sync automatically.');
   }
   if (isUpdate) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
