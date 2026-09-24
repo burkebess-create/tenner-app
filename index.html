@@ -12862,6 +12862,25 @@ async function saveListToDb(listObj) {
       }
     }
 
+    // A dropped connection is NOT proof the write failed. Safari reports a
+    // cancelled fetch as "TypeError: Load failed" (Chrome: "Failed to
+    // fetch"), and the request can die on the way BACK — after Postgres has
+    // already committed. That is exactly what happened to @teresa: the save
+    // errored on her phone, the row landed anyway, and the app told her it
+    // could not save a list it had just stored.
+    //
+    // So on a network-shaped error (no postgres code), ask the database what
+    // it actually has before calling it a failure.
+    if (res && res.error && !res.error.code) {
+      var check = await sbClient.from('lists')
+        .select('items, updated_at').eq('user_id', userId).eq('category', cat).maybeSingle();
+      if (check && !check.error && check.data
+          && JSON.stringify(check.data.items || []) === JSON.stringify(listObj.items || [])) {
+        trackEvent('list_save_landed_after_network_error', { category: cat });
+        res = { error: null };   // it is in the database; that is what "saved" means
+      }
+    }
+
     // Save failures had NO telemetry: both callers turned the error into a
     // toast and dropped it, so "my list wouldn't save" was undiagnosable.
     if (res && res.error) sbCheck(res, 'saveListToDb');
@@ -18018,9 +18037,11 @@ async function saveListDataOnly() {
   var blindToggle = document.getElementById('create-blind-fill-toggle');
   var prevBlind = blindToggle ? !!blindToggle.checked : (existing >= 0 ? !!(MY_LISTS[existing] && MY_LISTS[existing].blind_fill) : false);
   var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic, blind_fill: prevBlind, item_notes: pruneItemNotes() };
+  var saved = true;
   try {
     await saveListToDb(listObj);
   } catch(e) {
+    saved = false;
     // Queue it like the main save path does, so the work is not lost just
     // because this entry point was used. It used to be dropped on the floor.
     try { markListDirty(listObj); } catch (_) {}
@@ -18031,10 +18052,14 @@ async function saveListDataOnly() {
         category: selCat || null
       });
     } catch (_) {}
-    showToast('Could not save to the cloud — kept on this device, will retry.');
-    throw e;
+    showToast('Saved on this device — will retry syncing.');
   }
+  // MY_LISTS is updated whether or not the cloud write landed. It used to be
+  // skipped on failure, so @teresa's list vanished from her own app even
+  // though the row was in the database: the throw jumped over this line.
   if (existing >= 0) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
+  try { saveState(); } catch (_) {}
+  if (!saved) throw new Error('list queued for retry');
 }
 
 // Gift notes are public on the share page, so they go through the same
