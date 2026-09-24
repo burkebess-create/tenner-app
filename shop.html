@@ -30,7 +30,6 @@
 
   .hero { background: #FFFFFF; border: 1px solid #E8E6DF; border-left: 7px solid #D85A30; border-radius: 3px; padding: 24px 20px 20px; text-align: center; margin-bottom: 14px; }
   .hero .emoji { font-size: 34px; line-height: 1; margin-bottom: 10px; }
-  .hero .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; color: #D85A30; text-transform: uppercase; margin-bottom: 6px; }
   .hero h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.015em; margin: 0; line-height: 1.1; color: #2C2C2A; }
   .hero .sub { font-size: 12px; color: #5F5E5A; margin: 10px 0 0; }
 
@@ -39,9 +38,9 @@
   .picks { background: #FFFFFF; border: 1px solid #E8E6DF; border-radius: 3px; padding: 4px 8px; }
   .pick { display: flex; align-items: flex-start; gap: 12px; padding: 14px 6px; }
   .pick + .pick { border-top: 1px solid #F1EFE8; }
-  .pick .rank { min-width: 26px; height: 22px; border-radius: 2px; font-size: 10.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #FFFFFF; background: #2C2C2A; margin-top: 2px; }
+  .pick .rank { min-width: 28px; height: 24px; border-radius: 2px; font-size: 10.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #FFFFFF; background: #2C2C2A; margin-top: 2px; }
   .pick .body { flex: 1; min-width: 0; }
-  .pick .name { font-size: 14.5px; font-weight: 700; color: #2C2C2A; overflow-wrap: break-word; line-height: 1.3; }
+  .pick .name { font-size: 18px; font-weight: 800; color: #2C2C2A; overflow-wrap: break-word; line-height: 1.2; letter-spacing: -0.015em; }
   /* The aggregate line is the original content that has to sit beside a link
      to a search-results page. It is also the only genuinely interesting thing
      we can say about an item without naming anybody. */
@@ -49,8 +48,8 @@
   /* Stacked, not inline: the label is a sentence now rather than a word, and
      with more than one retailer these need to sit under each other. */
   .shops { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-  .shops a { display: block; background: #D85A30; border: 1.5px solid #D85A30; color: #FFFFFF; text-decoration: none; padding: 10px 12px; border-radius: 3px; text-align: center; }
-  .shops .cta { display: block; font-size: 12.5px; font-weight: 700; letter-spacing: -0.005em; line-height: 1.25; }
+  .shops a { display: block; background: #1F7268; border: 1.5px solid #1F7268; color: #FFFFFF; text-decoration: none; padding: 9px 12px; border-radius: 3px; text-align: center; }
+  .shops .cta { display: block; font-size: 12px; font-weight: 700; letter-spacing: -0.005em; line-height: 1.25; }
   /* Participation Requirements 6(w): a button must not make it unclear that
      it links to an Amazon Site. The retailer stays named on every button. */
   .shops .where { display: block; font-size: 9px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.85; margin-top: 3px; }
@@ -147,12 +146,13 @@
 
   function render(data, items) {
     var cat = (data && data.category) || 'These picks';
-    document.title = 'Where to get these — ' + cat + ' — Tenner';
+    document.title = cat + ' — Tenner';
     root.innerHTML = '';
 
     var hero = el('div', 'hero');
     if (data && data.emoji) hero.appendChild(el('div', 'emoji', data.emoji));
-    hero.appendChild(el('div', 'eyebrow', 'Where to get these'));
+    // No eyebrow: "Where to get these" repeated what the buttons already say
+    // and pushed the category down. The category is the headline.
     hero.appendChild(el('h1', null, cat));
     hero.appendChild(el('div', 'sub',
       'Picks from a Top 10 on Tenner. Each button runs a search so you choose the actual product.'));
