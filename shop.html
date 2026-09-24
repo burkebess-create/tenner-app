@@ -46,8 +46,14 @@
      to a search-results page. It is also the only genuinely interesting thing
      we can say about an item without naming anybody. */
   .pick .meta { margin-top: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #888780; }
-  .shops { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
-  .shops a { background: #FFFFFF; border: 1.5px solid #D85A30; color: #D85A30; text-decoration: none; font-size: 9.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 9px; border-radius: 3px; }
+  /* Stacked, not inline: the label is a sentence now rather than a word, and
+     with more than one retailer these need to sit under each other. */
+  .shops { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .shops a { display: block; background: #D85A30; border: 1.5px solid #D85A30; color: #FFFFFF; text-decoration: none; padding: 10px 12px; border-radius: 3px; text-align: center; }
+  .shops .cta { display: block; font-size: 12.5px; font-weight: 700; letter-spacing: -0.005em; line-height: 1.25; }
+  /* Participation Requirements 6(w): a button must not make it unclear that
+     it links to an Amazon Site. The retailer stays named on every button. */
+  .shops .where { display: block; font-size: 9px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.85; margin-top: 3px; }
 
   .footer-block { background: #FFFFFF; border: 1px solid #E8E6DF; border-left: 7px solid #D85A30; border-radius: 3px; padding: 22px 20px; margin-top: 24px; text-align: center; }
   .footer-block h2 { font-size: 20px; font-weight: 800; margin: 0 0 8px; color: #2C2C2A; }
@@ -181,7 +187,11 @@
       if (canShop) {
         var shops = el('div', 'shops');
         retailers.forEach(function (r) {
-          var a = el('a', null, r.label);
+          var a = el('a', null, null);
+          // The action, then where it goes. "Amazon" alone described the
+          // destination but never said what the button was for.
+          a.appendChild(el('span', 'cta', 'Purchase one for yourself or a friend'));
+          a.appendChild(el('span', 'where', 'on ' + r.label + ' →'));
           a.href = shopUrl(r.url_template, row.item, data.query_suffix);
           a.target = '_blank';
           a.rel = 'noopener sponsored nofollow';
