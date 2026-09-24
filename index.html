@@ -11082,6 +11082,22 @@ function renderFriendListShopCta(cat, items) {
   if (!cfg) { box.style.display = 'none'; box.innerHTML = ''; return; }
   var ownerId = (typeof selFriendId !== 'undefined') ? selFriendId : null;
   var url = friendListShopUrl(cat, items);
+
+  // Name the person whose picks these are. "Where to get these" described the
+  // page; this describes the reason you'd tap it — their taste is the pitch,
+  // not the shopping. Falls back to a name-free version rather than printing
+  // a possessive with nothing in front of it.
+  var owner = (myFriends || []).find(function(f) { return f.friendId === ownerId; });
+  var ownerName = (owner && owner.profile && owner.profile.display_name) || '';
+  var firstName = String(ownerName).trim().split(/\s+/)[0] || '';
+  // "Chris'" rather than "Chris's" — the only case worth special-handling.
+  var possessive = firstName
+    ? firstName + (/s$/i.test(firstName) ? '’' : '’s')
+    : '';
+  var label = possessive
+    ? 'Try out ' + possessive + ' top picks for yourself'
+    : 'Try these out for yourself';
+
   box.style.display = 'block';
   // A real anchor with target=_blank, not a scripted navigation: the hand-off
   // has to leave the app rather than open inside a WebView, because 6(n) bars
@@ -11089,9 +11105,17 @@ function renderFriendListShopCta(cat, items) {
   // page goes to Amazon.
   box.innerHTML = '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" '
     + 'onclick="captureShopReturn(\'' + jsStrAttr(ownerId || '') + '\',\'' + jsStrAttr(cat) + '\')" '
-    + 'style="display:flex;width:100%;background:#D85A30;border:1.5px solid #D85A30;border-radius:3px;padding:12px 14px;'
-    + 'font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#FFFFFF;text-decoration:none;'
-    + 'align-items:center;justify-content:center;gap:8px">🛒 Where to get these →</a>'
+    // Teal (--t-teal in the shared palette) rather than coral. Coral is the
+    // app's primary action and was already spoken for by "Comment on this
+    // list" directly above, so two coral bars stacked read as one control.
+    //
+    // Sentence case, not the usual tracked caps: seven words at 0.14em
+    // tracking wrapped badly and shouted. The tracked-caps treatment moves to
+    // the small print below it, which is short enough to carry it.
+    + 'style="display:flex;width:100%;background:#1F7268;border:1.5px solid #1F7268;border-radius:3px;padding:13px 14px;'
+    + 'font-size:13px;font-weight:700;letter-spacing:-0.005em;color:#FFFFFF;text-decoration:none;'
+    + 'align-items:center;justify-content:center;gap:8px;text-align:center;line-height:1.25">'
+    + '🛒 ' + escapeHtml(label) + ' →</a>'
     + '<div style="font-size:10px;color:#888780;text-align:center;margin-top:6px;line-height:1.4">'
     + 'Opens a Tenner page with shopping links. Affiliate links — Tenner may earn a commission.</div>';
 }
