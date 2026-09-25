@@ -8772,7 +8772,7 @@ function onProfilePhotoUpload(input) {
 
 async function saveProfilePhoto(dataUrl) {
   try {
-    var res = await sbClient.from('profiles').upsert({ id: userId, photo: dataUrl, updated_at: new Date().toISOString() });
+    var res = await sbClient.from('profiles').update({ photo: dataUrl, updated_at: new Date().toISOString() }).eq('id', userId);
     if (res.error && /photo|column/i.test(res.error.message || '')) {
       console.warn('profiles.photo column missing — run the SQL to enable profile photos.');
     }
@@ -8846,15 +8846,14 @@ async function saveProfile() {
   var saveOk = true;
   if (sbClient && userId) {
     try {
-      var res = await sbClient.from('profiles').upsert(myProfile);
-      if (res && res.error) {
-        console.warn('Profile upsert error (retrying without photo):', res.error);
-        // Fallback: retry without optional columns that may not exist yet (e.g. photo)
-        var safe = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, updated_at: myProfile.updated_at };
-        if (existingPhoto) safe.photo = existingPhoto;
-        var res2 = await sbClient.from('profiles').upsert(safe);
-        if (res2 && res2.error) { console.warn('Profile fallback upsert error:', res2.error); saveOk = false; }
-      }
+      // UPDATE, not upsert — see saveOnboardingProfile. This screen writes
+      // phone, comment_visibility_pref and gift_share_token, none of which
+      // authenticated may SELECT, so every upsert from here died with 42501
+      // and the old fallback retried with phone still in it and died too.
+      var patch = {};
+      Object.keys(myProfile).forEach(function(k) { if (k !== 'id') patch[k] = myProfile[k]; });
+      var res = await sbClient.from('profiles').update(patch).eq('id', userId);
+      if (res && res.error) { sbCheck(res, 'saveProfile'); saveOk = false; }
     } catch(e) { console.warn('Profile save failed:', e); saveOk = false; }
   }
   renderProfileHeader();
@@ -9656,9 +9655,14 @@ async function onbStep2Next() {
   } catch(e) {}
   myProfile.handle = v;
   // The handle is the field that was going missing. Save it here, not four
-  // steps later. Awaited so a handle that fails to store surfaces before the
-  // user walks away believing they have one.
-  await saveOnboardingProfile();
+  // steps later, and do not move on unless it actually stored — otherwise the
+  // user completes onboarding and gets asked again next time they open the app.
+  if (!(await saveOnboardingProfile())) {
+    myProfile.handle = null;
+    err.textContent = 'Could not save your handle. Check your connection and try again.';
+    err.style.display = 'block';
+    return;
+  }
   _onbStep = 3;
   renderOnbStep();
 }
@@ -9795,10 +9799,19 @@ async function onbFinishSkip() {
   if (!shown) finalizeOnboarding();
 }
 
+// UPDATE, never upsert. A profile row is created by a trigger on auth.users,
+// so the client has no business inserting one — and the upsert had been
+// failing outright since lock_down_profile_contact_columns revoked SELECT on
+// profiles.phone. PostgREST's upsert is INSERT ... ON CONFLICT DO UPDATE SET
+// phone = excluded.phone, and reading excluded.phone needs SELECT on that
+// column. Result: 42501 permission denied, swallowed by a console.warn, so
+// onboarding cheerfully advanced without ever storing the handle and asked
+// again on every single login.
+//
+// Returns whether it stored, so callers can stop instead of pretending.
 async function saveOnboardingProfile() {
   try {
     var payload = {
-      id: userId,
       display_name: myProfile.display_name,
       handle: myProfile.handle,
       phone: myProfile.phone || null,
@@ -9806,9 +9819,13 @@ async function saveOnboardingProfile() {
       photo: myProfile.photo || null,
       updated_at: new Date().toISOString()
     };
-    var res = await sbClient.from('profiles').upsert(payload);
-    if (res && res.error) console.warn('Onboarding save failed:', res.error);
-  } catch(e) { console.warn(e); }
+    var res = await sbClient.from('profiles').update(payload).eq('id', userId);
+    if (res && res.error) { sbCheck(res, 'saveOnboardingProfile'); return false; }
+    return true;
+  } catch(e) {
+    try { trackEvent('js_error', { message: 'saveOnboardingProfile threw: ' + ((e && e.message) || 'unknown') }); } catch(_) {}
+    return false;
+  }
 }
 
 // If a fresh signup came in via an invite link, offer a "People you may know"

@@ -1,0 +1,40 @@
+-- Why the client must UPDATE profiles, never upsert (2026-09-25)
+--
+-- No schema change. This records a trap that cost a week of broken onboarding,
+-- so the next person to reach for .upsert() on profiles knows why not.
+--
+-- lock_down_profile_contact_columns (2026-09-19) revoked SELECT on
+-- profiles.phone, email, gift_share_token, comment_visibility_pref,
+-- handle_changed_at and invite_source from `authenticated`. That was correct:
+-- every user could previously read every other user's phone number.
+--
+-- What it also did, invisibly, was break every PostgREST upsert that touches
+-- one of those columns. supabase-js .upsert() compiles to
+--
+--     insert into profiles (...) values (...)
+--     on conflict (id) do update set phone = excluded.phone, ...
+--
+-- and reading `excluded.phone` requires SELECT privilege on profiles.phone.
+-- Without it Postgres raises 42501 "permission denied for table profiles" and
+-- refuses the whole statement — even though the caller only ever meant to
+-- update their own row, and even though UPDATE on that column is granted.
+--
+-- VERIFIED as an ordinary authenticated user, inside aborted transactions:
+--   upsert WITH phone           FAIL[42501] permission denied for table profiles
+--   upsert WITHOUT phone        OK
+--   plain UPDATE WITH phone     OK
+--   full Edit Profile UPDATE    OK   (phone, comment_visibility_pref, bio,
+--                                     gift_visible_categories, photo, ...)
+--
+-- Consequences in the app, both silent because the callers only console.warn'd:
+--   * saveOnboardingProfile() never stored the handle, so onboarding asked
+--     again on every login. Handle-less accounts went 9 -> 13 in two days.
+--   * saveProfile() (Edit Profile) failed the same way, and its fallback
+--     retried with phone still in the payload, so it failed twice.
+--
+-- The fix is in index.html, not here: profiles rows are created by a trigger
+-- on auth.users, so the client has no reason to INSERT one. All four writes
+-- are now .update(...).eq('id', userId).
+--
+-- Do NOT "fix" this by granting SELECT on phone back to authenticated. That
+-- re-opens the original hole. Use UPDATE.
