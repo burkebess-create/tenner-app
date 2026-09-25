@@ -9198,10 +9198,39 @@ async function searchFriend() {
 async function insertFriendship(addresseeId, status, note) {
   var payload = { requester_id: userId, addressee_id: addresseeId, status: status };
   if (note) payload.message = note;
+
+  // Look for a link in EITHER direction first. The caller only checks the
+  // local myFriends cache, which cannot know about a request the other person
+  // sent seconds ago — and that is exactly how this went wrong: Natalie and
+  // Alyssa added each other 2 seconds apart and both rows were stored, so the
+  // app drew the same person twice.
+  var existing = await sbClient.from('friendships')
+    .select('id, requester_id, status')
+    .or('and(requester_id.eq.' + userId + ',addressee_id.eq.' + addresseeId + '),'
+      + 'and(requester_id.eq.' + addresseeId + ',addressee_id.eq.' + userId + ')')
+    .maybeSingle();
+  if (existing && existing.data) {
+    // They already asked us. Their request plus ours is consent both ways, so
+    // accept theirs rather than creating a second row facing the other way.
+    if (existing.data.status === 'pending' && existing.data.requester_id === addresseeId) {
+      var acc = await sbClient.from('friendships')
+        .update({ status: 'accepted' }).eq('id', existing.data.id);
+      if (!acc.error) return { data: null, error: null, _acceptedTheirs: true };
+      return acc;
+    }
+    return { data: null, error: null, _alreadyLinked: true };
+  }
+
   var res = await sbClient.from('friendships').insert(payload);
   if (res.error && note && /message|column/i.test(res.error.message || '')) {
     delete payload.message;
     res = await sbClient.from('friendships').insert(payload);
+  }
+  // friendships_unique_pair closes the race the check above cannot. Losing it
+  // means the other person's row landed first, which is the outcome we wanted
+  // anyway — not an error to show the user.
+  if (res.error && res.error.code === '23505') {
+    return { data: null, error: null, _alreadyLinked: true };
   }
   return res;
 }
