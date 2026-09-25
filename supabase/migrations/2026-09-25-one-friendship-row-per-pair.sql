@@ -59,3 +59,23 @@ delete from public.friendships
 create unique index if not exists friendships_unique_pair
   on public.friendships (least(requester_id, addressee_id),
                          greatest(requester_id, addressee_id));
+
+-- ── Addendum (2026-09-25): the mutual-pending pair was accepted ───────
+--
+-- The migration above deliberately left Natalie Nabrotzky / Keri Perry as a
+-- single pending row rather than deciding on their behalf. Asked, and the
+-- owner said to accept it — both of them had sent a request 11 seconds
+-- apart, which is consent in both directions.
+--
+-- Scoped to that one row by id, and guarded on status still being 'pending'
+-- so re-running cannot revive a friendship either of them later removed.
+--
+-- Checked first that friendships carries NO triggers, so this sends no email
+-- and no push; notification fan-out in this app is client-driven.
+--
+-- After: duplicate pairs 0, accepted 122 -> 123, pending 38 -> 37.
+
+update public.friendships
+   set status = 'accepted'
+ where id = 'ecbd8914-8ffb-4531-958d-1c11f1fe4441'
+   and status = 'pending';
