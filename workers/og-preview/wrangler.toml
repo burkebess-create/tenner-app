@@ -1,0 +1,9 @@
+name = "tenner-og-preview"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# Only the shared-list page. Everything else on the domain is untouched, so a
+# mistake here cannot take down the app.
+[[routes]]
+pattern = "mytenner.com/l.html*"
+zone_name = "mytenner.com"
