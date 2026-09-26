@@ -6,8 +6,15 @@
 // saved a list called "Top 10 Top 10 Engines" while this flow was green,
 // because the hint it would have exercised was never run.
 //
-// Nothing is published: the flow leaves before saving, so no friend is
-// notified and no list is created.
+// The flow now SAVES, because not saving was its blind spot. @teresa's list
+// reported "couldn't save" while the row sat complete in the database, and
+// nothing here would have caught it: every check passed against a list that
+// was abandoned before the save button.
+//
+// It saves via the real "Add more later" path, which calls saveListDataOnly()
+// — the exact function that failed for her. That path does NOT call
+// notifyFriendsOfUpdate (only saveList does, and only on an update), so no
+// friend is notified. The list is created private and deleted afterwards.
 
 const TYPED_CATEGORY = 'QA Smoke Category';
 const ITEMS = ['QA Test Item 1', 'QA Test Item 2', 'QA Test Item 3'];
@@ -15,6 +22,20 @@ const ITEMS = ['QA Test Item 1', 'QA Test Item 2', 'QA Test Item 3'];
 export default {
   name: 'lists',
   async run({ page, log, shot, assert }) {
+    // Clear any leftover from a run that died mid-flight. Without this, a
+    // stale list turns the create path into an EDIT and the flow would be
+    // exercising a different code path than the one it claims to test.
+    const preCleaned = await page.evaluate(async (cat) => {
+      const r = await window.sbClient.from('lists')
+        .delete().eq('user_id', window.userId).eq('category', cat).select('category');
+      if (r.error) return { error: r.error.message };
+      if ((r.data || []).length && Array.isArray(window.MY_LISTS)) {
+        window.MY_LISTS = window.MY_LISTS.filter(l => (l.category || '') !== cat);
+      }
+      return { removed: (r.data || []).length };
+    }, TYPED_CATEGORY);
+    log('pre-clean', JSON.stringify(preCleaned));
+
     // Real tab tap, not go().
     log('tap Create in the nav');
     await page.click('#nav-create');
@@ -79,9 +100,62 @@ export default {
     await assert(rendered >= ITEMS.length,
       `items are actually rendered on screen, not just in state (${rendered} rows)`);
 
-    log('leave without publishing');
+    // ── save it for real, and prove the row landed ──────────────────────
+    // Private, so a QA list never appears in a friend's Circle feed.
+    await page.evaluate(() => {
+      const t = document.getElementById('create-public-toggle');
+      if (t && t.checked) t.click();
+    });
+
+    try {
+      log('Continue → "Add more later" (this is the saveListDataOnly path)');
+      await page.click('#create2-continue-new');
+      await page.waitForSelector('#confirm-modal', { state: 'visible', timeout: 8000 });
+      await page.click('#confirm-modal .btn-secondary');
+      await page.waitForFunction(() => document.querySelector('#s-create3')?.classList.contains('active'), { timeout: 8000 });
+      await page.waitForTimeout(1500);   // let the background save settle
+      await shot('04-saved');
+
+      // The only assertion that would have caught the original bug.
+      const row = await page.evaluate(async (cat) => {
+        const r = await window.sbClient.from('lists')
+          .select('category, items, is_public').eq('user_id', window.userId).eq('category', cat).maybeSingle();
+        return r.error ? { error: r.error.message } : r.data;
+      }, TYPED_CATEGORY);
+
+      await assert(row && !row.error, `read the list back from the database (${(row && row.error) || 'ok'})`);
+      await assert(!!row, 'the saved list EXISTS in the database');
+      await assert(Array.isArray(row.items) && row.items.length >= ITEMS.length,
+        `it carries the items that were typed (${JSON.stringify(row.items)})`);
+      await assert(row.is_public === false,
+        `the QA list is private, so it cannot reach a friend's feed (is_public=${row.is_public})`);
+
+      // The other half of @teresa's report: the row landed but the list had
+      // vanished from her own app, because the throw skipped the line that
+      // adds it to MY_LISTS.
+      const inMemory = await page.evaluate((cat) =>
+        (window.MY_LISTS || []).some(l => (l.category || '') === cat), TYPED_CATEGORY);
+      await assert(inMemory, 'and it is in MY_LISTS, so it shows in the app too');
+    } finally {
+      const cleaned = await page.evaluate(async (cat) => {
+        const r = await window.sbClient.from('lists')
+          .delete().eq('user_id', window.userId).eq('category', cat);
+        return r.error ? r.error.message : null;
+      }, TYPED_CATEGORY);
+      log('cleanup', cleaned ? 'FAILED: ' + cleaned : 'QA list removed');
+    }
+
+    // Confirm the cleanup actually deleted, rather than reporting success.
+    const leftover = await page.evaluate(async (cat) => {
+      const r = await window.sbClient.from('lists')
+        .select('category').eq('user_id', window.userId).eq('category', cat);
+      return (r.data || []).length;
+    }, TYPED_CATEGORY);
+    await assert(leftover === 0, `no QA list left behind (${leftover} remaining)`);
+
+    log('back home');
     await page.click('#nav-home');
     await page.waitForFunction(() => document.querySelector('#s-home')?.classList.contains('active'), { timeout: 8000 });
-    await shot('04-back-home');
+    await shot('05-back-home');
   },
 };
