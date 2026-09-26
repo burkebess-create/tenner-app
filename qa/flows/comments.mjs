@@ -12,6 +12,21 @@
 
 const MARK = () => `qa-${Date.now().toString(36)}`;
 
+// The DOM is not the record. Every assertion in this flow used to read the
+// rendered thread, but the bug it exists to catch produced duplicate ROWS —
+// six of them reached production — and a rendered list can disagree with the
+// table in both directions: an optimistic render that never persisted, or a
+// second row the thread happens to collapse. So the counts that matter are
+// asked of list_item_comments directly.
+async function rowsInDb(page, marker) {
+  return await page.evaluate(async (m) => {
+    const r = await window.sbClient.from('list_item_comments')
+      .select('id, comment').eq('from_user_id', window.userId).eq('comment', m);
+    if (r.error) return { error: r.error.message };
+    return { n: (r.data || []).length, texts: (r.data || []).map(x => x.comment) };
+  }, marker);
+}
+
 async function commentCount(page) {
   return await page.evaluate(() => {
     const el = document.getElementById('item-comments-list');
@@ -104,6 +119,13 @@ export default {
     await assert(afterOne === before + 1,
       `posting once adds exactly one comment (${before} → ${afterOne})`);
 
+    const db1 = await rowsInDb(page, mark1);
+    await assert(!db1.error, `read the comment back from the database (${db1.error || 'ok'})`);
+    await assert(db1.n === 1,
+      `EXACTLY ONE row is in list_item_comments for that post (found ${db1.n})`);
+    await assert(db1.texts[0] === mark1,
+      `and the stored text is what was typed (${JSON.stringify(db1.texts[0])})`);
+
     // ── double tap ─────────────────────────────────────────────────────
     // The real bug: the Post button stayed live during the moderation
     // round-trip, so a second tap sent the same text again.
@@ -125,6 +147,14 @@ export default {
     const afterTwo = await commentCount(page);
     await assert(afterTwo === before + 2,
       `two posts produced two comments, not three (${before} → ${afterTwo})`);
+
+    // This is the assertion the original duplicate bug would have failed.
+    // The DOM check above can only see what the thread chose to draw; this
+    // counts the rows that actually exist.
+    const db2 = await rowsInDb(page, mark2);
+    await assert(!db2.error, `read the double-tapped comment back (${db2.error || 'ok'})`);
+    await assert(db2.n === 1,
+      `a double tap stored ONE row, not two (found ${db2.n} in list_item_comments)`);
 
     } catch (e) {
       // Held, not rethrown yet: the comments have to come off the list first,
