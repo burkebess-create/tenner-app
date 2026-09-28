@@ -9559,10 +9559,61 @@ var _onbStep = 1;
 var _onbTotal = 4;
 
 function isOnboardingIncomplete() {
-  // Required: display_name + handle. Missing either = fire onboarding.
+  // Gate on the DISPLAY NAME only.
+  //
+  // This used to require a handle too, which turned onboarding into a wall
+  // that reappeared on every single login for anyone who did not have one.
+  // A user wrote in: "It keeps sending me to the signup steps." She had
+  // signed up days earlier, had a name, had friends — and every time she
+  // opened Tenner it threw her back to "What should we call you?" with no
+  // way past. She never finished it, so it never stopped. Her profile was
+  // never written once: she was backing out, not failing.
+  //
+  // A name is what other people see; without one you show up as "Unknown",
+  // which is worth blocking on. A handle is a convenience for being searched
+  // for, and nobody should be locked out of the app over one. It is now
+  // generated for them by ensureHandle() below.
   if (!myProfile) return true;
   if (!myProfile.display_name || !myProfile.display_name.trim()) return true;
-  if (!myProfile.handle || !myProfile.handle.trim()) return true;
+  return false;
+}
+
+// Give anyone with a name but no handle one, quietly, instead of demanding
+// they stop and pick it. Runs once per load, after the profile is in hand.
+// Any failure is silent and simply retried next time — this must never be
+// something the user notices, let alone something that blocks them.
+var _handleEnsured = false;
+async function ensureHandle() {
+  if (_handleEnsured) return false;
+  if (!sbClient || !userId || !myProfile) return false;
+  if (myProfile.handle && String(myProfile.handle).trim()) return false;
+  var base = suggestHandleFromName(String(myProfile.display_name || '').trim());
+  if (!base || base.length < 3) return false;
+  _handleEnsured = true;
+
+  // Collisions are likely — two Lisa Mercers, or a name that shortens to
+  // something common — so walk a few suffixes before giving up.
+  var candidates = [base];
+  for (var i = 2; i <= 6; i++) candidates.push((base + i).slice(0, 20));
+  for (var j = 0; j < candidates.length; j++) {
+    var c = candidates[j];
+    try {
+      if (await isHandleTaken(c)) continue;
+      var res = await sbClient.from('profiles')
+        .update({ handle: c, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+      if (res && res.error) {
+        // A unique-index loss just means someone took it between the check
+        // and the write; try the next one rather than failing.
+        if (res.error.code === '23505') continue;
+        sbCheck(res, 'ensureHandle');
+        return false;
+      }
+      myProfile.handle = c;
+      trackEvent('handle_auto_assigned', { handle: c });
+      return true;
+    } catch (e) { return false; }
+  }
   return false;
 }
 
@@ -18492,7 +18543,11 @@ function setupRealtimeNotifications() {
       // onboarding decision instead of racing it.
       _onbDecided = (async function() {
         try { await loadProfile(); } catch(e) {}
-        return await startOnboardingIfNeeded();
+        var started = await startOnboardingIfNeeded();
+        // Not onboarding (they already have a name) but possibly no handle —
+        // assign one quietly rather than stopping them for it.
+        if (!started && typeof ensureHandle === 'function') { try { await ensureHandle(); } catch(e) {} }
+        return started;
       })();
       // Attribute this new signup to whoever's invite link they came from.
       // Runs once per user — only writes when profiles.invited_by is currently
@@ -18642,6 +18697,10 @@ function setupRealtimeNotifications() {
       // sign-in path, so this cannot double-fire.
       if (_onbDecided === null && isOnboardingIncomplete()) {
         _onbDecided = startOnboardingIfNeeded();
+      } else if (typeof ensureHandle === 'function') {
+        // Has a name, may be missing a handle. Fill it in rather than
+        // stopping them for it.
+        ensureHandle();
       }
     }).catch(console.warn);
     var _pFriends = loadFriends().then(function() {

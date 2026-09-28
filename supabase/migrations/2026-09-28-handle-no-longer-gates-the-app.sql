@@ -1,0 +1,41 @@
+-- A missing handle must not lock anyone out (2026-09-28)
+--
+-- Applied as:
+--   backfill_handles_for_gated_accounts
+--   fix_arbitrary_handle_suffixes
+--
+-- A user wrote in: "It keeps sending me to the signup steps." She had signed
+-- up days earlier, had a name, had friends — and every time she opened Tenner
+-- it threw her back to "What should we call you?" with no way past.
+--
+-- The mechanism worked exactly as written. The DESIGN was wrong.
+-- isOnboardingIncomplete() required a handle, so re-checking onboarding on
+-- every load meant anyone without one hit an inescapable wall forever. Her
+-- profile was never written once in six days: she was backing out, not
+-- failing. Someone who pushed through did get a handle, which is why the
+-- earlier fix looked like it worked.
+--
+-- The gate now checks display_name only — without a name you show up to
+-- everyone as "Unknown", which is worth blocking on. A handle is a
+-- convenience for being found in search, and nobody should be locked out of
+-- the app over one; the client assigns it quietly via ensureHandle().
+--
+-- This backfills the accounts already stuck, so they are unblocked without
+-- having to open the app first. 6 accounts: Cleola Bess, Jenna Dilworth,
+-- Julia Bramall, Kolton Baldwin, Lisa Mercer, Mallory Jones.
+--
+-- Two accounts are deliberately NOT backfilled: they have no display_name to
+-- derive from and still need onboarding for the name itself.
+--
+-- ── A mistake worth recording ─────────────────────────────────────────
+-- The first pass built its candidate list with UNION ALL and took LIMIT 1
+-- with no ORDER BY. Set operations have no defined order, so the planner
+-- returned whichever row it liked: Cleola Bess got "cleolabess4" and Kolton
+-- Baldwin "koltonbaldwin7" while the plain form of both was free. Nothing was
+-- broken — every handle was unique and valid — but these are the names people
+-- are searched for by. The second migration re-derived them with an explicit
+-- ORDER BY, giving: cleolabess, jennadilworth, juliabramall, koltonbaldwin,
+-- lisamercer, malloryjones.
+--
+-- (Statements as applied are in the two migrations named above; the corrected
+-- ordering is the one to copy if this is ever needed again.)
