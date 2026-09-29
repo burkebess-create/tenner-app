@@ -7088,6 +7088,16 @@ async function finishGroup(skip) {
     var nameEl = document.getElementById('group-name');
     var groupName = nameEl ? nameEl.value.trim() : 'New Group';
     if (!groupName) groupName = 'New Group';
+    // A group name is shown to everyone invited, including people who are not
+    // yet friends with the person who typed it — so it reaches strangers, and
+    // it reaches them inside an invitation.
+    var _gMod = await screenUserText([{ label: 'group name', text: groupName, was: null }], 'group_create');
+    if (_gMod.blocked) {
+      showTextRejected(_gMod);
+      go('s-cg1');
+      if (nameEl) nameEl.focus();
+      return;
+    }
     var memberIds = Array.from(addedFriends).concat(Object.keys(addedNonFriends));
     var memberCount = memberIds.length + 1;
     var localGroup = {
@@ -7614,7 +7624,13 @@ async function saveGroupSettings() {
   var g = MY_GROUPS[selGroupIdx];
   if (!g) return;
   var nameInput = document.getElementById('gsettings-name');
-  if (nameInput && nameInput.value.trim()) g.n = nameInput.value.trim();
+  var newName = (nameInput && nameInput.value.trim()) || null;
+  if (newName && newName !== g.n) {
+    // Renaming is the way round a screened creation, so it is screened too.
+    var _gMod = await screenUserText([{ label: 'group name', text: newName, was: g.n }], 'group_rename');
+    if (_gMod.blocked) { showTextRejected(_gMod); if (nameInput) nameInput.focus(); return; }
+  }
+  if (newName) g.n = newName;
   var saveBtn = document.querySelector('#s-gsettings .btn-primary');
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
   if (sbClient && g.id) {
@@ -9048,6 +9064,26 @@ async function saveProfile() {
   var commentVis = commentVisRadio ? commentVisRadio.value : 'all';
   var allowComments = (document.getElementById('profile-allow-comments') || {}).checked;
   var existingToken = myProfile && myProfile.gift_share_token;
+
+  // Your display name is the most-read text in the app — it is attached to
+  // every comment you write and every list anyone sees of yours — and your
+  // bio sits on your profile and gift page. Neither was ever screened.
+  // Checked here, after the handle validation and before myProfile is
+  // reassigned, so a refusal leaves the old values intact in memory.
+  var _mod = await screenUserText([
+    { label: 'name', text: name, was: myProfile && myProfile.display_name },
+    { label: 'bio',  text: bio,  was: myProfile && myProfile.bio }
+  ], 'profile');
+  if (_mod.blocked) {
+    // The edit screen has its own inline error strip; use it rather than a
+    // modal over the form the user has to go back and fix.
+    var _msg = 'Your ' + (_mod.label || 'profile text') + ' looks like it contains '
+      + _mod.reason + ', which is not allowed on Tenner. Please reword it.';
+    if (typeof showProfileError === 'function') showProfileError(_msg);
+    else showTextRejected(_mod);
+    return;
+  }
+
   myProfile = { id: userId, display_name: name, handle: handle, birthday: birthday || null, phone: phone || null, bio: bio || null, gift_visible_categories: visibleCats, comment_visibility_pref: commentVis, allow_comments_on_my_lists: !!allowComments, updated_at: new Date().toISOString() };
   if (existingToken) myProfile.gift_share_token = existingToken;
   if (existingPhoto) myProfile.photo = existingPhoto;
@@ -10099,6 +10135,14 @@ async function onbFinishSkip() {
 // Returns whether it stored, so callers can stop instead of pretending.
 async function saveOnboardingProfile() {
   try {
+    // Same field, different screen. Onboarding writes display_name through
+    // its own path, so screening only saveProfile() would leave the very
+    // first name anyone sets unchecked.
+    var _mod = await screenUserText(
+      [{ label: 'name', text: myProfile && myProfile.display_name, was: null }],
+      'onboarding_profile');
+    if (_mod.blocked) { showTextRejected(_mod); return false; }
+
     var payload = {
       display_name: myProfile.display_name,
       handle: myProfile.handle,
@@ -17741,6 +17785,115 @@ async function moderateTextRemote(text) {
     return res.data;
   } catch(e) { return { flagged: false }; }
 }
+// ── the screening gate for user-visible free text ────────────────
+//
+// Moderation used to be bolted onto individual save paths, and it showed:
+// comments, item notes, photos and messages to us were screened, while
+// display names, bios, the list items themselves, custom category names and
+// group names went straight to the database. Those unscreened fields are
+// exactly where a store reviewer types a slur — and a profile name is the
+// most visible text in the whole app, attached to every comment its owner
+// writes.
+//
+// Worse, the notes gate could be walked around: saveList() called it and
+// saveListDataOnly() — the "Add more later" button, same notes — called
+// nothing at all.
+//
+// So there is one gate now, and every write of user-visible free text goes
+// through it. Adding a new text field means adding it to a call here, not
+// writing a fifth variation of this logic.
+//
+// `fields` is [{ label, text, was }]:
+//   label — what to call it if it is refused, in the second person
+//   text  — what is about to be stored
+//   was   — the value already accepted, if any
+//
+// Unchanged text is never re-screened. That is not only about quota: text
+// that was accepted once must not start failing later, or a user gets
+// permanently unable to save a list over a word they typed months ago and
+// cannot find.
+//
+// Falls open on any failure, matching every existing call site. Moderation
+// being down must never cost somebody their list — a missed post can be
+// reported and removed, a lost list cannot be recovered.
+var _screenedOk = Object.create(null);   // text this session has already passed
+async function screenUserText(fields, surface) {
+  var live = (fields || []).filter(function(f) {
+    if (!f) return false;
+    var t = String(f.text == null ? '' : f.text).trim();
+    if (!t) return false;
+    if (f.was != null && String(f.was).trim() === t) return false;  // already stored
+    if (_screenedOk[t]) return false;                               // already passed
+    return true;
+  });
+  if (!live.length || !sbClient) return { blocked: false };
+
+  try {
+    // One call for the batch. A list save can carry ten item names, a
+    // category and ten notes; twenty-one round trips before a save would be
+    // felt. On a hit — rare — each field is re-checked so the user is told
+    // which one, rather than "something in here".
+    var joined = live.map(function(f) { return String(f.text).trim(); }).join('\n');
+    var batch = await moderateTextRemote(joined);
+    if (!batch || !batch.flagged) {
+      // Onboarding re-saves the same display_name at every step, and a list
+      // save re-sends nine unchanged items alongside the one that changed.
+      // Remembering what passed keeps this to one call per new piece of text
+      // per session, without the "was" bookkeeping having to be perfect at
+      // every call site.
+      live.forEach(function(f) { _screenedOk[String(f.text).trim()] = true; });
+      return { blocked: false };
+    }
+
+    for (var i = 0; i < live.length; i++) {
+      var one = await moderateTextRemote(String(live[i].text).trim());
+      if (one && one.flagged) {
+        trackEvent('moderation_blocked', {
+          surface: surface || 'unknown',
+          field: live[i].label || 'text',
+          category: one.primary || 'unknown'
+        });
+        return {
+          blocked: true,
+          label: live[i].label || 'what you wrote',
+          text: String(live[i].text).trim(),
+          reason: one.primary_label || 'content we do not allow'
+        };
+      }
+    }
+    // The batch tripped but no single field does — the combination did, or
+    // the two calls disagreed. Refuse rather than let it through, but do not
+    // accuse a specific field of something it did not do on its own.
+    trackEvent('moderation_blocked', {
+      surface: surface || 'unknown', field: 'combined',
+      category: batch.primary || 'unknown'
+    });
+    return {
+      blocked: true, label: null, text: null,
+      reason: batch.primary_label || 'content we do not allow'
+    };
+  } catch (e) {
+    return { blocked: false };
+  }
+}
+
+// One message, so a refusal reads the same wherever it comes from. Names the
+// field and quotes the text back, because "that contains hate speech" with no
+// indication of WHERE is impossible to act on when you are saving ten items
+// at once.
+function showTextRejected(res) {
+  if (!res || !res.blocked) return;
+  var what = res.label
+    ? ('Your ' + res.label + (res.text ? ' (\u201C' + res.text.slice(0, 60) + (res.text.length > 60 ? '\u2026' : '') + '\u201D)' : ''))
+    : 'Something here';
+  showConfirm(
+    'Please reword this',
+    what + ' looks like it contains ' + res.reason + ', which is not allowed on Tenner. '
+      + 'Change it and try again.',
+    'OK', 'primary', function() {}
+  );
+}
+
 // ── Supabase Storage upload helpers ──────────────────────────────
 // Photos are no longer stored as base64 in the DB. New uploads go to the
 // public `photos` bucket; profiles/groups store just the URL. Old base64
@@ -18436,6 +18589,14 @@ function goToCreateStep2() {
 }
 
 async function saveListDataOnly() {
+  // The same items, the same notes, the same category as saveList() — and
+  // for months this path screened none of it. A gate with a second door is
+  // not a gate. Throws rather than returning false, because every caller
+  // already treats a throw here as "the save did not happen".
+  var _existingForMod = MY_LISTS.findIndex(function(l){ return (l.category || l.n.replace('Top 10 ','')) === selCat; });
+  var _mod = await screenListBeforeSave(_existingForMod >= 0 ? MY_LISTS[_existingForMod] : null);
+  if (_mod.blocked) { showTextRejected(_mod); throw new Error('list refused by moderation'); }
+
   var listName = 'Top 10 ' + selCat;
   var itemCount = items.filter(function(i){ return i.trim(); }).length;
   var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
@@ -18470,27 +18631,47 @@ async function saveListDataOnly() {
   if (!saved) throw new Error('list queued for retry');
 }
 
-// Gift notes are public on the share page, so they go through the same
-// pre-write moderation as comments. Only notes that CHANGED are checked —
-// re-moderating untouched notes on every save would burn quota and could
-// start blocking a save over text that was already accepted. Falls open on
-// an outage, matching submitItemComment, so moderation being down never
-// costs someone their list.
-async function moderateChangedNotes(prevNotes) {
-  var prev = prevNotes || {};
-  var changed = Object.keys(itemNotes).filter(function(k) { return itemNotes[k] !== prev[k]; });
-  for (var i = 0; i < changed.length; i++) {
-    var text = String(itemNotes[changed[i]]).trim();
-    if (!text) continue;
-    try {
-      var mod = await moderateTextRemote(text);
-      if (mod && mod.flagged) {
-        trackEvent('moderation_blocked', { surface: 'gift_note', category: mod.primary || 'unknown' });
-        return { blocked: true, item: changed[i], label: mod.primary_label || 'content that violates our guidelines' };
-      }
-    } catch (e) { /* fall open */ }
+// Everything a list save puts in front of other people: the category the
+// user may have invented, the item names themselves, and the notes. All
+// three were free text; only the notes were ever checked.
+//
+// Item names are the point of the app and appear on the public share and
+// shop pages, so they are the most-read text Tenner stores. A custom
+// category name is worse still: it shows up on friends' screens and in the
+// admin's category leaderboard, where it can be promoted to a suggestion
+// shown to everybody.
+//
+// Only CHANGED text is screened, against the stored list — see
+// screenUserText() for why that matters beyond quota.
+async function screenListBeforeSave(prevList) {
+  var prev = prevList || {};
+  var prevNotes = prev.item_notes || {};
+  var prevItems = prev.items || [];
+  var fields = [];
+
+  // A category that is one of ours needs no screening — we wrote those.
+  var isStandard = (typeof CATS !== 'undefined' && CATS || []).some(function(c) {
+    return c && c.n && selCat && c.n.toLowerCase() === String(selCat).toLowerCase();
+  });
+  if (!isStandard) {
+    fields.push({ label: 'category name', text: selCat, was: prev.category || null });
   }
-  return { blocked: false };
+
+  items.forEach(function(it, i) {
+    var t = String(it == null ? '' : it).trim();
+    if (!t) return;
+    // "was" is the same text anywhere in the stored list, not the same
+    // position: reordering your top 10 is not new content.
+    var seen = prevItems.some(function(p) { return String(p).trim() === t; });
+    fields.push({ label: 'list item \u201C' + t.slice(0, 40) + '\u201D', text: t, was: seen ? t : null });
+  });
+
+  Object.keys(itemNotes || {}).forEach(function(k) {
+    fields.push({ label: 'note on \u201C' + String(k).slice(0, 40) + '\u201D',
+                  text: itemNotes[k], was: prevNotes[k] });
+  });
+
+  return await screenUserText(fields, 'list_save');
 }
 
 async function saveList() {
@@ -18502,11 +18683,8 @@ async function saveList() {
   // Commit a note that's still focused, or it would be lost on save.
   if (_openNoteIdx >= 0) { commitItemNote(_openNoteIdx); _openNoteIdx = -1; }
   var _existingIdx = MY_LISTS.findIndex(function(l) { return (l.category || l.n.replace('Top 10 ', '')) === selCat; });
-  var _modRes = await moderateChangedNotes(_existingIdx >= 0 ? MY_LISTS[_existingIdx].item_notes : {});
-  if (_modRes.blocked) {
-    showConfirm('Check your note', 'Your note on “' + _modRes.item + '” looks like it contains ' + _modRes.label + '. Please rephrase it before saving.', 'OK', 'primary', function(){});
-    return;
-  }
+  var _modRes = await screenListBeforeSave(_existingIdx >= 0 ? MY_LISTS[_existingIdx] : null);
+  if (_modRes.blocked) { showTextRejected(_modRes); return; }
   // Overflow gate: only the top 10 can be saved. Confirm before discarding,
   // and name what's being dropped so it isn't a surprise.
   var liveItems = items.filter(function(i){ return String(i).trim(); });

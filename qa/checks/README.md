@@ -12,3 +12,4 @@ transactions recorded in `qa/baselines/`).
     node qa/checks/blocking.mjs
     node qa/checks/blocking-entry-point.mjs
     node qa/checks/store-readiness.mjs
+    node qa/checks/moderation-gate.mjs
