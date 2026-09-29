@@ -113,15 +113,31 @@ export default {
       await page.waitForSelector('#confirm-modal', { state: 'visible', timeout: 8000 });
       await page.click('#confirm-modal .btn-secondary');
       await page.waitForFunction(() => document.querySelector('#s-create3')?.classList.contains('active'), { timeout: 8000 });
-      await page.waitForTimeout(1500);   // let the background save settle
-      await shot('04-saved');
 
-      // The only assertion that would have caught the original bug.
-      const row = await page.evaluate(async (cat) => {
+      // The save is fire-and-forget: checkListComplete() calls
+      // saveListDataOnly().catch(...) and navigates in the same tick, so
+      // nothing on screen says when the row has landed. This used to sleep a
+      // flat 1500ms and then assert, which is a guess about how long a round
+      // trip takes. It held until pre-write moderation added a second one,
+      // and then the nightly run failed with "read the list back from the
+      // database (ok)" — no error and no row, because the write had not
+      // happened yet. Poll for the outcome instead of guessing at it, and
+      // let the assertions below report a row that never arrives.
+      const readRow = () => page.evaluate(async (cat) => {
         const r = await window.sbClient.from('lists')
           .select('category, items, is_public').eq('user_id', window.userId).eq('category', cat).maybeSingle();
         return r.error ? { error: r.error.message } : r.data;
       }, TYPED_CATEGORY);
+
+      let row = null;
+      const deadline = Date.now() + 25000;
+      do {
+        row = await readRow();
+        if (row) break;
+        await page.waitForTimeout(500);
+      } while (Date.now() < deadline);
+      log('row landed after', row ? `${((25000 - (deadline - Date.now())) / 1000).toFixed(1)}s` : 'never');
+      await shot('04-saved');
 
       await assert(row && !row.error, `read the list back from the database (${(row && row.error) || 'ok'})`);
       await assert(!!row, 'the saved list EXISTS in the database');

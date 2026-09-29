@@ -209,6 +209,74 @@ for (const fn of ['saveList', 'saveListDataOnly']) {
   ok(!L.saved, `${fn}: a flagged NOTE blocks the save — the one case that already worked`);
 }
 
+// ── the work must survive the round trip ────────────────────────────────
+// saveListDataOnly() is called fire-and-forget — checkListComplete() does
+// saveListDataOnly().catch(...) and navigates in the same tick. Screening is
+// a network call. Awaiting it before the local persist opened a multi-second
+// window in which the list existed NOWHERE: not in MY_LISTS, not in
+// localStorage, not in the database. That is the exact failure this path was
+// hardened against after a user lost a list, and it is invisible unless
+// something checks the state DURING the call.
+await reset();
+r = await page.evaluate(async () => {
+  window.MY_LISTS = []; window.selCat = 'Slow Category'; window.selCatEmoji = '🐢';
+  window.items = ['Something worth keeping']; window.itemNotes = {}; window.isRanked = true;
+  window.pruneItemNotes = () => ({});
+  window.saveListToDb = async () => { window.writes.push({ table: 'lists', op: 'save' }); };
+  let duringScreening = null;
+  let savedDuringScreening = null;
+  const realInvoke = window.sbClient.functions.invoke;
+  window.sbClient.functions.invoke = async (n, o) => {
+    // Look at the world from inside the moderation call.
+    duringScreening = (window.MY_LISTS || []).length;
+    savedDuringScreening = window.savedStateCalls || 0;
+    await new Promise(r => setTimeout(r, 400));
+    return realInvoke(n, o);
+  };
+  window.savedStateCalls = 0;
+  window.saveState = () => { window.savedStateCalls++; };
+  await window.saveListDataOnly();
+  return { duringScreening, savedDuringScreening,
+           after: window.MY_LISTS.length, writes: window.writes.length };
+});
+ok(r.duringScreening === 1,
+  `the list is already in MY_LISTS while moderation is still running (${r.duringScreening})`);
+ok(r.savedDuringScreening >= 1,
+  `and already written to local storage (saveState calls: ${r.savedDuringScreening})`);
+ok(r.writes === 1, 'and the cloud write still happens, after screening');
+
+// A refusal has to undo that local copy, or a blocked list sits in their own
+// list view looking saved.
+await reset();
+r = await page.evaluate(async (bad) => {
+  window.MY_LISTS = []; window.selCat = 'Clean Category'; window.selCatEmoji = '🐢';
+  window.items = [bad + ' item']; window.itemNotes = {}; window.isRanked = true;
+  window.pruneItemNotes = () => ({});
+  window.saveListToDb = async () => { window.writes.push({ table: 'lists', op: 'save' }); };
+  let threw = false;
+  try { await window.saveListDataOnly(); } catch (e) { threw = true; }
+  return { threw, stored: window.MY_LISTS.length, writes: window.writes.length };
+}, BAD);
+ok(r.threw, 'a refused list still throws');
+ok(r.stored === 0, `and is taken back out of MY_LISTS (${r.stored})`);
+ok(r.writes === 0, 'and never reaches the cloud');
+
+// The same undo, when it was an EDIT rather than a new list: the previous
+// version has to come back, not disappear.
+await reset();
+r = await page.evaluate(async (bad) => {
+  const prev = { n: 'Top 10 Snacks', category: 'Snacks', items: ['Crisps'], item_notes: {} };
+  window.MY_LISTS = [prev];
+  window.selCat = 'Snacks'; window.selCatEmoji = '🍿';
+  window.items = ['Crisps', bad + ' snack']; window.itemNotes = {}; window.isRanked = true;
+  window.pruneItemNotes = () => ({});
+  window.saveListToDb = async () => { window.writes.push({ table: 'lists', op: 'save' }); };
+  try { await window.saveListDataOnly(); } catch (e) {}
+  return { n: window.MY_LISTS.length, items: window.MY_LISTS[0] && window.MY_LISTS[0].items };
+}, BAD);
+ok(r.n === 1 && JSON.stringify(r.items) === JSON.stringify(['Crisps']),
+  `a refused EDIT leaves the previously saved version intact (${JSON.stringify(r.items)})`);
+
 // A standard category is our own text and must not cost a call.
 await reset();
 r = await page.evaluate(async () => {

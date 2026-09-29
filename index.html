@@ -18782,12 +18782,22 @@ async function saveListDataOnly() {
   // for months this path screened none of it. A gate with a second door is
   // not a gate. Throws rather than returning false, because every caller
   // already treats a throw here as "the save did not happen".
-  var _existingForMod = MY_LISTS.findIndex(function(l){ return (l.category || l.n.replace('Top 10 ','')) === selCat; });
-  var _mod = await screenListBeforeSave(_existingForMod >= 0 ? MY_LISTS[_existingForMod] : null);
-  if (_mod.blocked) { showTextRejected(_mod); throw new Error('list refused by moderation'); }
-
+  //
+  // ORDER MATTERS HERE, and getting it wrong is how this path broke once
+  // already. This function is called fire-and-forget — checkListComplete()
+  // does `saveListDataOnly().catch(...)` and navigates away in the same
+  // tick — so anything awaited before the local persist is a window in
+  // which the user's list exists NOWHERE: not in MY_LISTS, not in
+  // localStorage, not in the database. Screening is a network round trip.
+  // Putting it first opened a multi-second hole in exactly the path that was
+  // hardened after @teresa lost a list.
+  //
+  // So: build it, keep it locally, THEN screen, THEN write to the cloud.
+  // Nothing unscreened is ever published, and nothing is ever lost while we
+  // wait to find out.
   var existing = MY_LISTS.findIndex(function(l){ return (l.category || l.n.replace('Top 10 ','')) === selCat; });
-  var listName = listTitleForSave(selCat, existing >= 0 ? MY_LISTS[existing] : null);
+  var prevForMod = existing >= 0 ? MY_LISTS[existing] : null;
+  var listName = listTitleForSave(selCat, prevForMod);
   var itemCount = items.filter(function(i){ return i.trim(); }).length;
   var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
   var createToggle = document.getElementById('create-public-toggle');
@@ -18795,6 +18805,25 @@ async function saveListDataOnly() {
   var blindToggle = document.getElementById('create-blind-fill-toggle');
   var prevBlind = blindToggle ? !!blindToggle.checked : (existing >= 0 ? !!(MY_LISTS[existing] && MY_LISTS[existing].blind_fill) : false);
   var listObj = { n: listName, m: meta, items: items.filter(function(i){return i.trim();}), ranked: isRanked, category: selCat, emoji: selCatEmoji || '📋', is_public: prevPublic, blind_fill: prevBlind, item_notes: pruneItemNotes() };
+
+  // 1. Local first — synchronous, so the work survives the app closing.
+  if (existing >= 0) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
+  try { saveState(); } catch (_) {}
+
+  // 2. Screen before anything reaches the cloud.
+  var _mod = await screenListBeforeSave(prevForMod);
+  if (_mod.blocked) {
+    // Put the local state back: a refused list must not sit in their own
+    // list view looking saved. The create screen still holds `items`, so
+    // nothing they typed is lost — they are being asked to reword it.
+    if (existing >= 0) { MY_LISTS[existing] = prevForMod; }
+    else { MY_LISTS = MY_LISTS.filter(function(l) { return l !== listObj; }); }
+    try { saveState(); } catch (_) {}
+    showTextRejected(_mod);
+    throw new Error('list refused by moderation');
+  }
+
+  // 3. Cloud.
   var saved = true;
   try {
     await saveListToDb(listObj);
@@ -18812,11 +18841,6 @@ async function saveListDataOnly() {
     } catch (_) {}
     showToast('Saved on this device — will retry syncing.');
   }
-  // MY_LISTS is updated whether or not the cloud write landed. It used to be
-  // skipped on failure, so @teresa's list vanished from her own app even
-  // though the row was in the database: the throw jumped over this line.
-  if (existing >= 0) { MY_LISTS[existing] = listObj; } else { MY_LISTS.push(listObj); }
-  try { saveState(); } catch (_) {}
   if (!saved) throw new Error('list queued for retry');
 }
 
