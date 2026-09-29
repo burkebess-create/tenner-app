@@ -6151,7 +6151,7 @@ async function tryTodaySlot(kind) {
     if (!accepted.length) return null;
     try {
       var friendIds = accepted.map(function(f){ return f.friendId; });
-      var res = await sbClient.from('lists').select('user_id, category, emoji, updated_at').in('user_id', friendIds).eq('is_public', true).order('updated_at', { ascending: false }).limit(1);
+      var res = await sbClient.from('lists').select('user_id, name, category, emoji, updated_at').in('user_id', friendIds).eq('is_public', true).order('updated_at', { ascending: false }).limit(1);
       sbCheck(res, 'tryTodaySlot');
       var row = (res.data || [])[0];
       if (!row) return null;
@@ -6160,7 +6160,7 @@ async function tryTodaySlot(kind) {
       var f = accepted.find(function(x){ return x.friendId === row.user_id; });
       var name = (f && f.profile && (f.profile.display_name || (f.profile.handle ? '@' + f.profile.handle : null))) || 'A friend';
       var safeCat = jsStrAttr(row.category);
-      return todayCard(row.emoji || getCatEmoji(row.category) || '📋', 'Fresh from ' + escapeHtml(name), 'Top 10 ' + escapeHtml(row.category) + ' · Updated ' + timeAgo(row.updated_at), "openFriendListByCat('" + row.user_id + "','" + safeCat + "')");
+      return todayCard(row.emoji || getCatEmoji(row.category) || '📋', 'Fresh from ' + escapeHtml(name), escapeHtml(listTitleFor(row, row.category)) + ' · Updated ' + timeAgo(row.updated_at), "openFriendListByCat('" + row.user_id + "','" + safeCat + "')");
     } catch(e) { return null; }
   }
   if (kind === 'match') {
@@ -6359,7 +6359,7 @@ async function renderHomeFeed() {
     }
     (listRes.data || []).forEach(function(l) {
       if (!l.is_public) return;
-      items.push({ type: 'list', at: l.updated_at, user_id: l.user_id, category: l.category, emoji: l.emoji });
+      items.push({ type: 'list', at: l.updated_at, user_id: l.user_id, category: l.category, emoji: l.emoji, name: l.name });
     });
   } catch(e) {}
   items.sort(function(a,b){ return (b.at||'').localeCompare(a.at||''); });
@@ -6385,7 +6385,7 @@ async function renderHomeFeed() {
       +   '<div style="font-size:22px;font-weight:900;color:' + accent + ';line-height:1;letter-spacing:-0.02em;width:32px;flex-shrink:0">' + num + '</div>'
       +   '<div style="flex:1;min-width:0">'
       +     '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.14em;color:' + accent + ';opacity:0.75;text-transform:uppercase;margin-bottom:2px">Updated ' + when + '</div>'
-      +     '<div style="font-size:15px;font-weight:700;color:#2C2C2A;line-height:1.2;letter-spacing:-0.005em"><span style="font-weight:800;color:' + accent + '">' + escapeHtml(name) + '</span> updated Top 10 ' + escapeHtml(it.category || '') + '</div>'
+      +     '<div style="font-size:15px;font-weight:700;color:#2C2C2A;line-height:1.2;letter-spacing:-0.005em"><span style="font-weight:800;color:' + accent + '">' + escapeHtml(name) + '</span> updated ' + escapeHtml(listTitleFor(it, it.category)) + '</div>'
       +   '</div>'
       +   '<div style="font-size:24px;line-height:1;flex-shrink:0">' + renderCatEmoji(it.emoji || getCatEmoji(it.category), 24) + '</div>'
       + '</div>';
@@ -10689,7 +10689,7 @@ async function renderNotifActivity(el) {
         + '<span style="' + dotStyle + '"></span>'
         + friendAvatarHtml(p, 32)
         + '<div style="flex:1;min-width:0">'
-        +   '<div style="font-size:12px;color:#2C2C2A;line-height:1.4"><strong>' + escapeHtml(name) + '</strong> commented on your <strong>Top 10 ' + escapeHtml(c.category) + '</strong> pick <strong>' + escapeHtml(c.item_name) + '</strong></div>'
+        +   '<div style="font-size:12px;color:#2C2C2A;line-height:1.4"><strong>' + escapeHtml(name) + '</strong> commented on your <strong>' + escapeHtml(myListTitleFor(c.category)) + '</strong> pick <strong>' + escapeHtml(c.item_name) + '</strong></div>'
         +   '<div style="font-size:12.5px;color:#5F5E5A;margin-top:3px;font-style:italic">"' + escapeHtml(c.comment) + '"</div>'
         +   '<div style="font-size:10px;color:#888780;margin-top:3px">' + timeAgo(c.created_at) + '</div>'
         + '</div>'
@@ -12226,7 +12226,7 @@ function renderFdetailActionBanner(f, newestPublicList) {
       el.innerHTML = '<div onclick="openFriendListByCat(\'' + fid + '\',\'' + catEsc + '\',\'s-fdetail\')" style="background:linear-gradient(135deg,#FFF5EE 0%,#FDE6D9 100%);border:1.5px solid #F5B091;border-radius:16px;padding:14px 14px;display:flex;align-items:center;gap:12px;cursor:pointer">'
         + '<div style="font-size:28px;line-height:1;flex-shrink:0">' + renderCatEmoji(emoji, 28) + '</div>'
         + '<div style="flex:1;min-width:0">'
-        +   '<div style="font-size:12.5px;color:#2C2C2A;line-height:1.3"><strong>' + escapeHtml(firstName) + '</strong> updated their <strong>Top 10 ' + escapeHtml(cat) + '</strong> · ' + timeAgo(newestPublicList.updated_at) + '</div>'
+        +   '<div style="font-size:12.5px;color:#2C2C2A;line-height:1.3"><strong>' + escapeHtml(firstName) + '</strong> updated their <strong>' + escapeHtml(listTitleFor(newestPublicList, cat)) + '</strong> · ' + timeAgo(newestPublicList.updated_at) + '</div>'
         +   '<div style="font-size:11px;color:#D85A30;font-weight:700;margin-top:3px">Tap to open →</div>'
         + '</div>'
         + '<button onclick="event.stopPropagation();dismissFdetailBanner(\'newlist\',\'' + fid + '\',\'' + dismissKey + '\')" style="background:none;border:none;color:#2C2C2A;opacity:0.5;font-size:20px;cursor:pointer;padding:4px 8px;align-self:flex-start">×</button>'
@@ -12578,7 +12578,7 @@ async function renderFriendDetail() {
             + unreadDot
             + badge
             + '<div style="font-size:36px;line-height:1;margin-bottom:10px">' + renderCatEmoji(lEmoji, 36) + '</div>'
-            + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:16px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A;margin-bottom:4px">' + escapeHtml(cat) + '</div>'
+            + '<div style="font-family:\'DM Serif Display\',Georgia,serif;font-size:16px;letter-spacing:-0.01em;line-height:1.1;color:#2C2C2A;margin-bottom:4px">' + escapeHtml(listShortTitleFor(l, cat)) + '</div>'
             + '<div style="font-size:10px;color:#2C2C2A;opacity:0.7;font-weight:600">' + lCount + ' pick' + (lCount !== 1 ? 's' : '') + '</div>'
             + '</div>';
         });
@@ -12602,7 +12602,7 @@ async function renderFriendDetail() {
                 var safeCat = jsStrAttr(cat);
                 return '<div class="card" onclick="openFriendListByCat(\'' + fid + '\',\'' + safeCat + '\',\'s-fdetail\')" style="cursor:pointer;margin-bottom:6px;display:flex;align-items:center;gap:10px">'
                   + '<div style="font-size:20px">' + renderCatEmoji(l.emoji || getCatEmoji(cat), 20) + '</div>'
-                  + '<div style="flex:1;font-size:12px;color:#2C2C2A">Updated <strong>Top 10 ' + escapeHtml(cat) + '</strong></div>'
+                  + '<div style="flex:1;font-size:12px;color:#2C2C2A">Updated <strong>' + escapeHtml(listTitleFor(l, cat)) + '</strong></div>'
                   + '<div style="font-size:10px;color:#888780;margin-right:6px">' + timeAgo(l.updated_at) + '</div>'
                   + '<span style="font-size:16px;color:#D3D1C7">›</span>'
                   + '</div>';
@@ -18300,7 +18300,7 @@ async function renderGifts() {
   (pr.data || []).forEach(function(p) { byId[p.id] = p; });
 
   // Also fetch their lists so we can preview them
-  var listRes = await sbClient.from('lists').select('user_id, category, emoji, items').in('user_id', friendIds);
+  var listRes = await sbClient.from('lists').select('user_id, name, category, emoji, items').in('user_id', friendIds);
   sbCheck(listRes, 'renderGifts');
   var listsByUser = {};
   (listRes.data || []).forEach(function(l) {
@@ -18492,7 +18492,7 @@ function renderGiftTileHtml(l, i) {
   var _tileAccent = pal.accent || pal.fg || '#D85A30';
   var html = '<div data-gift-tile-idx="' + i + '" style="' + span + 'background:' + pal.bg + '33;border:1px solid ' + _tileAccent + '33;border-left:7px solid ' + _tileAccent + ';border-radius:3px;padding:14px;position:relative;overflow:hidden;cursor:pointer" onclick="toggleGiftTile(\'' + safeCat + '\')">'
     +   '<div style="font-size:32px;line-height:1;margin-bottom:10px">' + renderCatEmoji(emoji, 32) + '</div>'
-    +   '<div style="font-size:18px;font-weight:800;letter-spacing:-0.005em;line-height:1.1;color:#2C2C2A;margin-bottom:6px">' + escapeHtml(l.category) + '</div>'
+    +   '<div style="font-size:18px;font-weight:800;letter-spacing:-0.005em;line-height:1.1;color:#2C2C2A;margin-bottom:6px">' + escapeHtml(listShortTitleFor(l, l.category)) + '</div>'
     +   '<div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:' + _tileAccent + ';opacity:0.85">' + subtitle + '</div>';
   if (isOpen) {
     var items = (l.items || []).slice(0, 5);
@@ -18586,7 +18586,7 @@ async function _openGiftGuide_deprecated_inapp(friendUserId) {
   sbCheck(pr, '_openGiftGuide_deprecated_inapp');
   if (!pr.data) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">Could not load friend.</div>'; return; }
   var profile = pr.data;
-  var lr = await sbClient.from('lists').select('user_id, category, emoji, items, is_ranked').eq('user_id', friendUserId);
+  var lr = await sbClient.from('lists').select('user_id, name, category, emoji, items, is_ranked').eq('user_id', friendUserId);
   sbCheck(lr, '_openGiftGuide_deprecated_inapp');
   var lists = lr.data || [];
   var visibleCats = Array.isArray(profile.gift_visible_categories) && profile.gift_visible_categories.length
@@ -18674,6 +18674,42 @@ function editListByIdx(idx) {
   renderItems();
   updateProg();
   go('s-create2');
+}
+
+// ── how a specific person's list is named on screen ───────────────────
+//
+// A list has BOTH a stored title and a category, and they can disagree: an
+// admin can retitle a list from the Lists tab, and the category stays put
+// because it is the join key. Most screens were written before that was
+// possible and rebuild the title as 'Top 10 ' + category, so a retitled list
+// kept showing its old name in the Circle feed, on the friend's page, in the
+// activity rows and on the gift tiles — while the new emoji, which those
+// screens DO read off the row, came through. Half-applied, which is worse
+// than not applied.
+//
+// The distinction to keep in mind when adding a new screen:
+//   a SPECIFIC person's list  -> listTitleFor(), it has a title of its own
+//   a category as a shared idea (match tabs, "nobody has a Top 10 X yet",
+//   the picks pool, gift-visibility checkboxes) -> the category
+function listTitleFor(row, cat) {
+  var stored = row && (row.name || row.n);
+  var c = cat || (row && row.category) || '';
+  return (stored && String(stored).trim()) || ('Top 10 ' + c);
+}
+
+// Same thing without the "Top 10 " prefix, for tiles that print the bare
+// subject under an emoji.
+function listShortTitleFor(row, cat) {
+  return listTitleFor(row, cat).replace(/^Top 10 /, '');
+}
+
+// When a screen knows only the category — a comment alert, say — the title
+// can still be recovered for MY OWN lists, which are already in memory.
+function myListTitleFor(cat) {
+  var l = (typeof MY_LISTS !== 'undefined' ? MY_LISTS : [] || []).find(function(x) {
+    return x && ((x.category || String(x.n || '').replace('Top 10 ', '')) === cat);
+  });
+  return listTitleFor(l, cat);
 }
 
 // The title a list is saved under. Normally it is derived from the category,

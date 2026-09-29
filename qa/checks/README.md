@@ -14,3 +14,4 @@ transactions recorded in `qa/baselines/`).
     node qa/checks/store-readiness.mjs
     node qa/checks/moderation-gate.mjs
     node qa/checks/admin-list-edit.mjs
+    node qa/checks/list-title.mjs
