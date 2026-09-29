@@ -1363,6 +1363,11 @@
               <div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#2C2C2A;opacity:0.6;margin-top:6px">End session</div>
             </div>
           </div>
+          <!-- Deliberately plain text, well below everything else, and not a
+               tile: deleting your account should be findable, not invitable. -->
+          <div style="margin-top:26px;text-align:center">
+            <button type="button" onclick="openDeleteAccount()" style="background:none;border:none;color:#A32D2D;font-size:12px;font-family:inherit;text-decoration:underline;cursor:pointer;padding:8px">Delete my account</button>
+          </div>
         </div>
       </div>
 
@@ -8203,6 +8208,121 @@ function togglePw(id, el) {
   if (!inp) return;
   if (inp.type === 'password') { inp.type = 'text'; el.textContent = 'Hide'; }
   else { inp.type = 'password'; el.textContent = 'Show'; }
+}
+
+// ── Account deletion ─────────────────────────────────────────────────
+// App Store 5.1.1(v) requires this to exist in-app, but the reason to build
+// it properly is that it is irreversible. Two things make it honest: showing
+// people what they are actually about to destroy, counted from their real
+// data, and asking them to type the word rather than tap once.
+async function openDeleteAccount() {
+  if (!sbClient || !userId) return;
+  var frame = document.querySelector('.frame') || document.body;
+  var old = document.getElementById('delete-account-modal');
+  if (old) old.remove();
+
+  var ov = document.createElement('div');
+  ov.id = 'delete-account-modal';
+  ov.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px';
+  ov.innerHTML = '<div style="background:#fff;border-radius:3px;border-left:7px solid #A32D2D;padding:18px;width:100%;max-width:360px;max-height:90%;overflow-y:auto">'
+    + '<div style="font-size:17px;font-weight:800;color:#2C2C2A;margin-bottom:8px">Delete your account</div>'
+    + '<div id="del-summary" style="font-size:13px;color:#5F5E5A;line-height:1.5">Checking what this would remove…</div>'
+    + '<div id="del-confirm-wrap" style="display:none;margin-top:14px">'
+    +   '<div style="font-size:12px;color:#5F5E5A;margin-bottom:5px">Type <strong>DELETE</strong> to confirm</div>'
+    +   '<input type="text" id="del-confirm-input" autocomplete="off" autocapitalize="characters" oninput="onDeleteConfirmInput()" style="margin-bottom:4px;font-size:14px;text-align:center;letter-spacing:0.1em">'
+    +   '<div id="del-error" style="display:none;background:#F5C4B3;color:#712B13;font-size:12px;padding:8px 10px;border-radius:3px;margin-bottom:6px"></div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:14px">'
+    +   '<button class="btn-secondary" onclick="closeDeleteAccount()" style="margin-bottom:0">Cancel</button>'
+    +   '<button id="del-go" disabled onclick="confirmDeleteAccount()" style="flex:1;margin-bottom:0;background:#A32D2D;color:#fff;border:none;border-radius:3px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;font-size:11px;padding:13px;cursor:pointer;opacity:0.45">Delete forever</button>'
+    + '</div></div>';
+  frame.appendChild(ov);
+
+  var sum = await sbClient.rpc('my_account_summary');
+  var box = document.getElementById('del-summary');
+  if (!box) return;
+  if (!sbCheck(sum, 'my_account_summary') || !sum.data) {
+    box.textContent = 'Could not load your account details. Please try again.';
+    return;
+  }
+  var d = sum.data;
+  function line(n, one, many) {
+    return '<li style="margin-bottom:3px"><strong>' + n + '</strong> ' + (n === 1 ? one : many) + '</li>';
+  }
+  var handed = Number(d.groups_handed_on) || 0;
+  box.innerHTML = 'This permanently deletes:'
+    + '<ul style="margin:8px 0 0;padding-left:18px">'
+    +   line(Number(d.lists) || 0, 'list', 'lists')
+    +   line(Number(d.comments) || 0, 'comment', 'comments')
+    +   line(Number(d.friends) || 0, 'friend connection', 'friend connections')
+    + '</ul>'
+    // Say plainly what happens to other people's groups. Someone deciding
+    // this deserves to know their group is not going with them.
+    + (handed > 0
+        ? '<div style="margin-top:10px;font-size:12.5px;color:#4A4945">'
+          + (handed === 1 ? 'A group you created will be handed to another member'
+                          : handed + ' groups you created will be handed to another member')
+          + ' so it stays alive for them.</div>'
+        : '')
+    + '<div style="margin-top:10px;font-size:12.5px;color:#A32D2D;font-weight:600">This cannot be undone.</div>';
+  var wrap = document.getElementById('del-confirm-wrap');
+  if (wrap) wrap.style.display = 'block';
+}
+
+function onDeleteConfirmInput() {
+  var v = ((document.getElementById('del-confirm-input') || {}).value || '').trim().toUpperCase();
+  var btn = document.getElementById('del-go');
+  if (!btn) return;
+  var ok = v === 'DELETE';
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '0.45';
+  btn.style.cursor = ok ? 'pointer' : 'default';
+}
+
+function closeDeleteAccount() {
+  var m = document.getElementById('delete-account-modal');
+  if (m) m.remove();
+}
+
+async function confirmDeleteAccount() {
+  var btn = document.getElementById('del-go');
+  var err = document.getElementById('del-error');
+  var v = ((document.getElementById('del-confirm-input') || {}).value || '').trim().toUpperCase();
+  if (v !== 'DELETE') return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; btn.style.opacity = '0.6'; }
+
+  // The photo has to go through the Storage API — Supabase refuses a direct
+  // delete of storage rows, and removing the row without the bytes would
+  // orphan the file where nothing can ever reclaim it. Best effort: an
+  // orphaned image is a much smaller problem than an account you cannot
+  // leave, so a failure here does not stop the deletion.
+  try {
+    var photo = myProfile && myProfile.photo;
+    if (photo && photo.indexOf('/photos/') !== -1) {
+      var path = photo.split('/photos/')[1].split('?')[0];
+      if (path) await sbClient.storage.from('photos').remove([decodeURIComponent(path)]);
+    }
+  } catch (e) { /* best effort */ }
+
+  var res = await sbClient.rpc('delete_my_account');
+  if (res && res.error) {
+    if (err) {
+      err.textContent = /only admin/i.test(res.error.message || '')
+        ? 'This is the only admin account, so it cannot be deleted.'
+        : 'Could not delete your account: ' + (res.error.message || 'unknown error');
+      err.style.display = 'block';
+    }
+    sbCheck(res, 'delete_my_account');
+    if (btn) { btn.disabled = false; btn.textContent = 'Delete forever'; btn.style.opacity = '1'; }
+    return;
+  }
+
+  // The rows are gone; the session token is now attached to nothing. Clear
+  // local state too, or a cached MY_LISTS would render for a dead account.
+  closeDeleteAccount();
+  try { await sbClient.auth.signOut(); } catch (e) {}
+  try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+  location.replace('/?deleted=1');
 }
 
 async function signOut() {

@@ -1,0 +1,62 @@
+-- In-app account deletion (2026-09-29)
+--
+-- Applied as:
+--   account_deletion_summary_and_delete
+--   account_deletion_leave_storage_to_the_api
+--
+-- App Store guideline 5.1.1(v): an app that lets you create an account must
+-- let you delete it from inside the app. A support email does not satisfy it
+-- and it is an automatic rejection. It is also a GDPR/CCPA obligation Tenner
+-- already had without a way to honour it.
+--
+-- Most tables CASCADE from auth.users, so deleting the auth row does the bulk
+-- of the work. Two things had to be handled first.
+--
+-- ── groups.created_by CASCADEs, which is the dangerous one ────────────
+-- Deleting the creator of a group would delete THE GROUP, taking every other
+-- member's shared lists with it. Four groups currently have more than one
+-- member. Ownership is now transferred before the delete: to another admin if
+-- there is one, otherwise the longest-standing remaining member is promoted.
+-- A group is destroyed only when the leaver is the last member, which is the
+-- one case where nobody else loses anything.
+--
+-- ── four NO ACTION keys that would simply block the delete ────────────
+--   group_lists.shared_by        NOT NULL -> rows deleted
+--   list_share_invites.from/to   NOT NULL -> rows deleted (ephemeral)
+--   weekly_lists.created_by      nullable -> set NULL; weekly lists are
+--                                community content and outlive their author
+--
+-- ── deliberately NOT deleted ──────────────────────────────────────────
+-- The SET NULL keys do their job: analytics_events, feedback, shop_clicks and
+-- profiles.invited_by null out and keep their rows. That de-identifies the
+-- person while preserving aggregate history and, importantly, not breaking
+-- the invite tree of whoever recruited them.
+--
+-- ── storage ───────────────────────────────────────────────────────────
+-- The first version also deleted the user's storage.objects rows. Supabase
+-- refuses that with a protect_delete() trigger — "Direct deletion from
+-- storage tables is not allowed. Use the Storage API instead" — and the guard
+-- is right: removing the row leaves the bytes in S3 where nothing can reclaim
+-- them. The client now removes the photo through the Storage API before
+-- calling this, best-effort. An orphaned image is a far smaller problem than
+-- an account someone cannot leave, so a failure there does not block
+-- deletion.
+--
+-- ── guard ─────────────────────────────────────────────────────────────
+-- The last remaining admin is refused, so nobody can delete themselves out of
+-- their own product. There is currently exactly one admin.
+--
+-- VERIFIED as the real user, inside deliberately aborted transactions:
+--   multi-member group owner   3 groups transferred, 0 removed; the group
+--                              survived, went to another member, who was
+--                              promoted to admin
+--   their own data             auth row, profile, lists, comments and
+--                              friendships all gone
+--   everyone else              other people's lists 213 -> 213, unrelated
+--                              comments untouched
+--   solo group (constructed)   groups_removed = 1, group gone, user gone
+--   the only admin             refused: "the only admin cannot delete their
+--                              account"
+--   anon                       blocked
+
+-- (bodies as applied; see the two migrations named above)
