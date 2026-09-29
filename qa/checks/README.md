@@ -11,3 +11,4 @@ transactions recorded in `qa/baselines/`).
     cd /path/to/tenner-app && python3 -m http.server 8899 &
     node qa/checks/blocking.mjs
     node qa/checks/blocking-entry-point.mjs
+    node qa/checks/store-readiness.mjs

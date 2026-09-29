@@ -105,6 +105,20 @@
     if (qs.get('create') || qs.get('invite') || qs.get('share') || qs.get('profile') || qs.get('openPrefs') || qs.get('feedback')) return; // email CTAs — these go to existing users, never the marketing page
     if (sessionStorage.getItem('tennerLaunch')) return;   // clicked the welcome CTA
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
+    // Same trap as the install prompts, and worse: a fresh install of the
+    // native build matches neither standalone check, so the FIRST thing the
+    // app would do is replace itself with the marketing website. Apple 4.2
+    // reads that as a repackaged web page, and it is the first screen a
+    // reviewer sees. isNativeShell() is defined further down this file, after
+    // this redirect has already had its chance to fire, so the signals are
+    // repeated inline here — keep the two in step.
+    if (window.__tennerNative === true
+        || /TennerApp/i.test(navigator.userAgent || '')
+        || qs.get('native') === '1'
+        || localStorage.getItem('tenner_native_shell') === '1') {
+      try { localStorage.setItem('tenner_native_shell', '1'); } catch (e) {}
+      return;
+    }
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
       if (k && k.indexOf('sb-') === 0 && k.indexOf('-auth-token') > 0) return;
@@ -522,6 +536,37 @@
     });
   }
 
+  // ── are we running inside a native app shell? ────────────────────────
+  // The two "install this as an app" prompts below must never appear inside a
+  // build shipped through the App Store or Play: telling a reviewer to go
+  // install the website instead is a 4.2 / 2.3.1 rejection, and the Install
+  // button sits on the auth screen, which is the first thing they see.
+  //
+  // The usual test — navigator.standalone, or display-mode:standalone —
+  // does NOT work for this. Both are true of an installed PWA and FALSE
+  // inside a WKWebView or an Android WebView, so the checks that suppress
+  // these prompts for a home-screen install let them straight through in the
+  // native build. The shell has to say so itself.
+  //
+  // Three ways to be told, so a shell can use whichever it can reach:
+  //   1. window.__tennerNative = true            (injected script)
+  //   2. a "TennerApp" token in the user agent   (custom UA string)
+  //   3. ?native=1 on the start URL              (last resort)
+  // Once seen, it is remembered: a WebView navigation can drop an injected
+  // global or a query parameter partway through a session.
+  window.isNativeShell = function() {
+    try {
+      if (window.__tennerNative === true) { localStorage.setItem('tenner_native_shell', '1'); return true; }
+      if (/TennerApp/i.test(navigator.userAgent || '')) { localStorage.setItem('tenner_native_shell', '1'); return true; }
+      if (/[?&]native=1(&|$)/.test(location.search)) { localStorage.setItem('tenner_native_shell', '1'); return true; }
+      return localStorage.getItem('tenner_native_shell') === '1';
+    } catch (e) {
+      // A blocked localStorage must not make the prompts reappear; fall back
+      // to the live signals alone.
+      return window.__tennerNative === true || /TennerApp/i.test(navigator.userAgent || '');
+    }
+  };
+
   // Capture the beforeinstallprompt event so the app can show its own
   // "Install Tenner" button when the browser considers the site installable
   // (Chrome, Edge, Android). iOS Safari doesn't fire this — it uses the
@@ -529,6 +574,7 @@
   window.__deferredInstallPrompt = null;
   window.addEventListener('beforeinstallprompt', function(e) {
     e.preventDefault();
+    if (window.isNativeShell && window.isNativeShell()) return;  // already an app
     window.__deferredInstallPrompt = e;
     // Show a subtle install button if the app has already surfaced its UI
     var btn = document.getElementById('pwa-install-btn');
@@ -631,6 +677,19 @@
           </div>
           <div style="text-align:center;margin-top:8px;font-size:11px;color:#888780;line-height:1.55">
             <a href="gifts/" style="color:#5F5E5A;text-decoration:underline">Browse gift ideas</a>
+          </div>
+          <!-- The terms have to be agreed to and the privacy policy has to be
+               reachable from inside the app, not only from the marketing
+               footer on welcome.html. App Store 1.2 expects an agreement for
+               a user-content app, 5.1.1 expects the policy in the app, and
+               Play expects the same. Shown on every auth tab, since a magic
+               link and Google sign-in both create accounts too. -->
+          <div id="auth-legal" style="text-align:center;margin-top:14px;padding-top:12px;border-top:1px solid #F1EFE8;font-size:10.5px;color:#888780;line-height:1.6">
+            By creating an account you agree to our
+            <a href="terms.html" target="_blank" rel="noopener" style="color:#5F5E5A;text-decoration:underline">Terms of Service</a>
+            and
+            <a href="privacy.html" target="_blank" rel="noopener" style="color:#5F5E5A;text-decoration:underline">Privacy Policy</a>.
+            Tenner is for ages 13 and up.
           </div>
           <!-- PWA install button — only shows on browsers that support beforeinstallprompt (Chrome/Edge/Android). Hidden by default; the JS toggles it on. -->
           <div style="text-align:center;margin-top:14px">
@@ -1594,6 +1653,16 @@
           <div style="margin-top:22px;padding-top:16px;border-top:1px solid #E8E6DF;text-align:center">
             <button type="button" id="delete-account-link" onclick="openDeleteAccount()" style="background:none;border:none;color:#A32D2D;font-size:12px;font-family:inherit;text-decoration:underline;cursor:pointer;padding:8px">Delete my account</button>
             <div style="font-size:10.5px;color:#888780;margin-top:2px">Permanently removes your lists, comments and connections.</div>
+          </div>
+          <!-- Reachable at any time after signup, which is what "accessible
+               in the app" means — a link seen once on the auth screen and
+               never again does not satisfy it. -->
+          <div style="text-align:center;margin-top:18px;font-size:11px;color:#888780;line-height:1.7">
+            <a href="terms.html" target="_blank" rel="noopener" style="color:#5F5E5A;text-decoration:underline">Terms of Service</a>
+            &nbsp;·&nbsp;
+            <a href="privacy.html" target="_blank" rel="noopener" style="color:#5F5E5A;text-decoration:underline">Privacy Policy</a>
+            &nbsp;·&nbsp;
+            <a href="mailto:contact@mytenner.com" style="color:#5F5E5A;text-decoration:underline">Contact us</a>
           </div>
           <div id="build-version" style="text-align:center;font-size:10.5px;color:#888780;margin-top:16px;letter-spacing:0.04em"></div>
         </div>
@@ -5835,6 +5904,10 @@ function maybeShowIosInstallPrompt() {
     var isStandalone = (window.navigator.standalone === true) ||
                        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
     if (!isIOS || !isSafari || isStandalone) return;
+    // Inside the App Store build this is the reviewer's first impression of
+    // the app telling them to install the website. isStandalone above does
+    // not catch it — see isNativeShell().
+    if (window.isNativeShell && window.isNativeShell()) return;
     // Require engagement: at least one list saved + second session
     var hasSecondVisit = !!localStorage.getItem('tenner_first_visit_at') && Date.now() - parseInt(localStorage.getItem('tenner_first_visit_at'),10) > 60*60*1000;
     if (!localStorage.getItem('tenner_first_visit_at')) {
