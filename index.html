@@ -2221,6 +2221,7 @@ var _OVERLAY_CLOSERS = [
   { id: 'share-list-modal',         fn: 'closeShareListModal' },
   { id: 'invite-modal',             fn: 'closeInviteModal' },
   { id: 'admin-cat-modal',          fn: 'closeAdminCatModal' },
+  { id: 'admin-list-meta-modal',    fn: 'closeAdminListMeta' },
   { id: 'bulk-add-modal',           fn: 'closeBulkAddModal' },
   { id: 'match-reveal-modal',       fn: 'closeMatchReveal' },
   { id: 'report-modal',             fn: 'closeReportModal' },
@@ -16042,7 +16043,7 @@ async function toggleAdminUserSection(key, uid) {
 // --- Lists tab ---
 var _adminListSearch = '';
 async function renderAdminLists(el) {
-  var res = await sbClient.from('lists').select('id, name, category, items, user_id, is_public, updated_at').order('updated_at', {ascending:false}).limit(300);
+  var res = await sbClient.from('lists').select('id, name, category, emoji, items, user_id, is_public, updated_at').order('updated_at', {ascending:false}).limit(300);
   if (res.error) { el.innerHTML = '<div style="padding:20px;color:#A32D2D">' + escapeHtml(res.error.message) + '</div>'; return; }
   var lists = res.data || [];
   // Enrich with owner names
@@ -16078,13 +16079,21 @@ async function renderAdminLists(el) {
     return '<div class="card no-hover" style="margin-bottom:8px">'
       + '<div style="display:flex;justify-content:space-between;gap:8px">'
       +   '<div style="flex:1;min-width:0">'
-      +     '<div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(l.name || 'Untitled') + '</div>'
+      +     '<div style="font-size:12px;font-weight:600;color:#2C2C2A">' + escapeHtml(l.emoji || '\uD83D\uDCCB') + ' ' + escapeHtml(l.name || 'Untitled') + '</div>'
+      // The title is display text; the category underneath it is the join
+      // key that decides what this list compares against. When an admin has
+      // retitled a list the two no longer agree, and that is worth seeing at
+      // a glance rather than discovering later.
+      +     ((l.name && l.category && l.name !== ('Top 10 ' + l.category))
+              ? '<div style="font-size:10px;color:#B57F0F;margin-top:1px">matches under \u201C' + escapeHtml(l.category) + '\u201D</div>'
+              : '')
       +     '<div style="font-size:13.5px;color:#5F5E5A">by ' + escapeHtml(owner.display_name || owner.email || 'unknown') + ' · ' + (l.items || []).length + ' items' + (l.is_public ? ' · public' : '') + '</div>'
       +     '<div style="font-size:10px;color:#888780;margin-top:2px;word-wrap:break-word">' + itemsPreview + (l.items && l.items.length > 3 ? '…' : '') + '</div>'
       +   '</div>'
       + '</div>'
       + '<div style="display:flex;gap:4px;margin-top:8px">'
       +   '<button class="back-btn" onclick="openAdminListDetail(\'' + l.id + '\',\'admin\')">View all items</button>'
+      +   '<button class="back-btn" onclick="editAdminListMeta(\'' + l.id + '\')">Edit</button>'
       +   '<button class="back-btn" style="color:#A32D2D;border-color:#F09595" onclick="deleteAdminList(\'' + l.id + '\',\'' + jsStrAttr(l.name||'') + '\')">Delete</button>'
       + '</div>'
       + '</div>';
@@ -16543,6 +16552,133 @@ function restoreAdminCat(id) {
     showToast('Category restored');
     loadCategoriesFromDb().then(renderAdmin);
   });
+}
+
+// ── admin: retitle a list, and set its emoji ──────────────────────────
+//
+// Only the TITLE and the EMOJI. The category stays put, and the modal says
+// so, because the category is the join key: eight tables store it as bare
+// text with no foreign key, and rename_category_everywhere() exists because
+// changing it in one place detaches a list from its comments, reactions,
+// shares, group entries and match history. Renaming a category is a
+// different, global job with its own tool on the Custom categories tab.
+//
+// The write goes through admin_update_list_meta(), not a table update:
+// lists_update is USING (user_id = auth.uid()), so an admin PATCH matches
+// zero rows and returns no error — which supabase-js hands back as success.
+var _adminEditingList = null;
+
+function editAdminListMeta(id) {
+  if (!sbClient) return;
+  sbClient.from('lists').select('id, name, emoji, category, user_id, items')
+    .eq('id', id).maybeSingle().then(function(res) {
+      if (!sbCheck(res, 'editAdminListMeta') || !res.data) {
+        showToast('Could not open that list.');
+        return;
+      }
+      _adminEditingList = res.data;
+      _openAdminListMetaModal();
+    });
+}
+
+function _openAdminListMetaModal() {
+  var l = _adminEditingList;
+  if (!l) return;
+  var frame = document.querySelector('.frame') || document.body;
+  var existing = document.getElementById('admin-list-meta-modal');
+  if (existing) existing.remove();
+  var derived = 'Top 10 ' + (l.category || '');
+  var overlay = document.createElement('div');
+  overlay.id = 'admin-list-meta-modal';
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px';
+  overlay.innerHTML = ''
+    + '<div style="background:#fff;border-radius:12px;padding:16px;width:100%;max-width:340px;max-height:90%;overflow-y:auto">'
+    +   '<div style="font-size:15px;font-weight:700;margin-bottom:2px">Edit list</div>'
+    +   '<div style="font-size:11px;color:#888780;margin-bottom:12px">' + (l.items || []).length + ' item'
+    +     (((l.items || []).length === 1) ? '' : 's') + '</div>'
+    +   '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Title</div>'
+    +   '<input type="text" id="alm-name" maxlength="80" value="' + escapeHtml(l.name || '') + '" placeholder="' + escapeHtml(derived) + '" style="margin-bottom:4px">'
+    +   '<div id="alm-name-hint" style="font-size:10px;color:#888780;margin-bottom:10px"></div>'
+    +   '<div style="font-size:13.5px;color:#5F5E5A;margin-bottom:3px">Emoji</div>'
+    +   '<input type="text" id="alm-emoji" maxlength="8" value="' + escapeHtml(l.emoji || '') + '" placeholder="\uD83D\uDCCB" style="margin-bottom:12px;font-size:20px;text-align:center">'
+    +   '<div style="background:#F1EFE8;border-radius:8px;padding:10px;font-size:10.5px;color:#5F5E5A;line-height:1.5;margin-bottom:12px">'
+    +     'Category: <strong>' + escapeHtml(l.category || '\u2014') + '</strong><br>'
+    +     'The title is what people read; the category is what this list is compared and matched under, and it is not changed here. '
+    +     'To rename a category for everyone who has one, use the Custom categories tab.'
+    +   '</div>'
+    +   '<div id="alm-error" style="display:none;font-size:11px;color:#A32D2D;background:#FAECE7;padding:8px;border-radius:6px;margin-bottom:10px"></div>'
+    +   '<div style="display:flex;gap:8px">'
+    +     '<button class="btn-secondary" style="flex:1;margin-bottom:0" onclick="closeAdminListMeta()">Cancel</button>'
+    +     '<button class="btn-primary" id="alm-save" style="flex:1;margin-bottom:0" onclick="saveAdminListMeta()">Save</button>'
+    +   '</div>'
+    + '</div>';
+  overlay.onclick = function(e) { if (e.target === overlay) closeAdminListMeta(); };
+  frame.appendChild(overlay);
+  var nameEl = document.getElementById('alm-name');
+  if (nameEl) {
+    nameEl.oninput = _adminListMetaHint;
+    nameEl.focus();
+  }
+  _adminListMetaHint();
+}
+
+// Say, while they type, whether the title still matches the category. An
+// admin fixing a typo usually wants them to agree; one giving a list a
+// nicer name is choosing to let them differ. Either is fine — being told
+// which one is happening is the point.
+function _adminListMetaHint() {
+  var l = _adminEditingList;
+  var el = document.getElementById('alm-name-hint');
+  var inp = document.getElementById('alm-name');
+  if (!l || !el || !inp) return;
+  var derived = 'Top 10 ' + (l.category || '');
+  var v = String(inp.value || '').trim();
+  if (!v) { el.textContent = ''; return; }
+  if (v === derived) {
+    el.style.color = '#888780';
+    el.textContent = 'Matches the category.';
+  } else {
+    el.style.color = '#B57F0F';
+    el.textContent = 'Differs from the category \u201C' + (l.category || '') + '\u201D \u2014 the list is still compared under that.';
+  }
+}
+
+function closeAdminListMeta() {
+  var el = document.getElementById('admin-list-meta-modal');
+  if (el) el.remove();
+  _adminEditingList = null;
+}
+
+async function saveAdminListMeta() {
+  var l = _adminEditingList;
+  if (!l) return;
+  var btn = document.getElementById('alm-save');
+  var err = document.getElementById('alm-error');
+  var name = String((document.getElementById('alm-name') || {}).value || '').trim();
+  var emoji = String((document.getElementById('alm-emoji') || {}).value || '').trim();
+  function fail(msg) {
+    if (err) { err.textContent = msg; err.style.display = 'block'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+  }
+  if (!name) { fail('A list needs a title.'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+  if (err) err.style.display = 'none';
+
+  var res = await sbClient.rpc('admin_update_list_meta', {
+    p_list_id: l.id, p_name: name, p_emoji: emoji || null
+  });
+  if (!sbCheck(res, 'admin_update_list_meta')) {
+    fail((res.error && res.error.message) || 'Could not save. Try again.');
+    return;
+  }
+  trackEvent('admin_list_meta_edited', {
+    list_id: l.id,
+    retitled: name !== (l.name || ''),
+    differs_from_category: !!(res.data && res.data.differs_from_category)
+  });
+  closeAdminListMeta();
+  showToast('List updated.');
+  renderAdmin();
 }
 
 function editAdminCat(id) {
@@ -18540,6 +18676,23 @@ function editListByIdx(idx) {
   go('s-create2');
 }
 
+// The title a list is saved under. Normally it is derived from the category,
+// but an admin can retitle a list from the Lists tab, and rebuilding the name
+// from the category on every save silently threw that away the next time the
+// owner touched the list. A stored name that is NOT the derived form was
+// chosen deliberately, so it is kept — unless the category itself changed,
+// in which case the old title no longer describes the list.
+function listTitleForSave(cat, existingList) {
+  var derived = 'Top 10 ' + cat;
+  if (!existingList) return derived;
+  var storedName = existingList.n || existingList.name || '';
+  var storedCat = existingList.category || String(storedName).replace('Top 10 ', '');
+  if (!storedName) return derived;
+  if (storedCat !== cat) return derived;              // category changed
+  if (storedName === 'Top 10 ' + storedCat) return derived;  // never customised
+  return storedName;                                   // keep the custom title
+}
+
 function getCatEmoji(cat) {
   var found = CATS.find(function(c) { return c.n === cat; });
   return found ? found.e : '📋';
@@ -18597,10 +18750,10 @@ async function saveListDataOnly() {
   var _mod = await screenListBeforeSave(_existingForMod >= 0 ? MY_LISTS[_existingForMod] : null);
   if (_mod.blocked) { showTextRejected(_mod); throw new Error('list refused by moderation'); }
 
-  var listName = 'Top 10 ' + selCat;
+  var existing = MY_LISTS.findIndex(function(l){ return (l.category || l.n.replace('Top 10 ','')) === selCat; });
+  var listName = listTitleForSave(selCat, existing >= 0 ? MY_LISTS[existing] : null);
   var itemCount = items.filter(function(i){ return i.trim(); }).length;
   var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
-  var existing = MY_LISTS.findIndex(function(l){ return (l.category || l.n.replace('Top 10 ','')) === selCat; });
   var createToggle = document.getElementById('create-public-toggle');
   var prevPublic = createToggle ? !!createToggle.checked : (existing >= 0 ? !!(MY_LISTS[existing] && MY_LISTS[existing].is_public) : true);
   var blindToggle = document.getElementById('create-blind-fill-toggle');
@@ -18707,10 +18860,10 @@ async function saveList() {
     trackEvent('overflow_discarded_on_save', { category: selCat, dropped: dropped.length });
     renderItems();
   }
-  var listName = 'Top 10 ' + selCat;
+  var existing = MY_LISTS.findIndex(function(l) { return (l.category || l.n.replace('Top 10 ', '')) === selCat; });
+  var listName = listTitleForSave(selCat, existing >= 0 ? MY_LISTS[existing] : null);
   var itemCount = items.filter(function(i) { return i.trim(); }).length;
   var meta = (isRanked ? 'Ranked' : 'Unranked') + ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '');
-  var existing = MY_LISTS.findIndex(function(l) { return (l.category || l.n.replace('Top 10 ', '')) === selCat; });
   var isUpdate = existing >= 0;
   var createToggle = document.getElementById('create-public-toggle');
   var prevPublic = createToggle ? !!createToggle.checked : (isUpdate ? !!(MY_LISTS[existing] && MY_LISTS[existing].is_public) : true);
