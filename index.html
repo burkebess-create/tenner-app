@@ -1363,11 +1363,6 @@
               <div style="font-size:9.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#2C2C2A;opacity:0.6;margin-top:6px">End session</div>
             </div>
           </div>
-          <!-- Deliberately plain text, well below everything else, and not a
-               tile: deleting your account should be findable, not invitable. -->
-          <div style="margin-top:26px;text-align:center">
-            <button type="button" onclick="openDeleteAccount()" style="background:none;border:none;color:#A32D2D;font-size:12px;font-family:inherit;text-decoration:underline;cursor:pointer;padding:8px">Delete my account</button>
-          </div>
         </div>
       </div>
 
@@ -1579,6 +1574,16 @@
               </div>
               <button class="back-btn" onclick="openChangeEmail()">Change</button>
             </div>
+          </div>
+          <!-- Plain text, last on the screen, under a rule. App Store
+               5.1.1(v) asks for account deletion to be clear and
+               conspicuous, not prominent; this screen already says
+               "Password, email, and account actions", so it is where a
+               reviewer and a user both look. Burying it behind support or a
+               web page is what fails review, not putting it here. -->
+          <div style="margin-top:22px;padding-top:16px;border-top:1px solid #E8E6DF;text-align:center">
+            <button type="button" id="delete-account-link" onclick="openDeleteAccount()" style="background:none;border:none;color:#A32D2D;font-size:12px;font-family:inherit;text-decoration:underline;cursor:pointer;padding:8px">Delete my account</button>
+            <div style="font-size:10.5px;color:#888780;margin-top:2px">Permanently removes your lists, comments and connections.</div>
           </div>
           <div id="build-version" style="text-align:center;font-size:10.5px;color:#888780;margin-top:16px;letter-spacing:0.04em"></div>
         </div>
